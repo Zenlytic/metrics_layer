@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "granite"
+version = "0.1.0"
+description = "The open source metrics layer."
+authors = ["Paul Blankley <paul@zenlytic.com>"]
+license = "Apache 2.0"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2.5"
+black = "^21.8b0"
+flake8 = "^3.9.2"
+pre-commit = "^2.15.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
