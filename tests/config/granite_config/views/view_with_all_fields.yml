@@ -1,0 +1,57 @@
+version: 1
+type: view
+name: view_name
+
+sql_table_name: "table_name ;;"
+extends: [view_name, view_name]
+extension: required
+required_access_grants: [access_grant_name, access_grant_name]
+
+sets:
+  - name: set_name
+    fields: [field_or_set, field_or_set]
+
+fields:
+  - name: field_name
+    field_type: "dimension"
+    label: "desired label name"
+    view_label: "desired label name"
+    group_label: "label used to group dimensions in the field picker"
+    group_item_label: "label to use for the field under its group label in the field picker"
+    description: "description string"
+    hidden: no
+    alias: [old_field_name, old_field_name]
+    value_format: "excel-style formatting string"
+    value_format_name: format_name
+    sql: "SQL expression to generate the field value ;;"
+    required_fields: [field_name, field_name]
+    drill_fields: [field_or_set, field_or_set]
+    can_filter: yes
+    tags: ["string1", "string2"]
+    type: field_type
+    primary_key: no
+    tiers: [N, N]
+    sql_latitude: "SQL expression to generate a latitude ;;"
+    sql_longitude: "SQL expression to generate a longitude ;;"
+    required_access_grants: [access_grant_name, access_grant_name]
+    order_by_field: dimension_name
+    links:
+      - label: "desired label name;"
+        url: "desired_url"
+        icon_url: "url_of_an_ico_file"
+      - label: "desired label name;"
+        url: "desired_url"
+        icon_url: "url_of_an_ico_file"
+    timeframes: [timeframe, timeframe]
+    convert_tz: no
+    datatype: timestamp
+    intervals: [interval, interval]
+    sql_start: "SQL expression for start time of duration ;;"
+    sql_end: "SQL expression for end time of duration ;;"
+    approximate: no
+    approximate_threshold: N
+    sql_distinct_key: "SQL expression to define repeated entities ;;"
+    percentile: 90
+    filters:
+      - name: dimension_name
+        value: "looker filter expression"
