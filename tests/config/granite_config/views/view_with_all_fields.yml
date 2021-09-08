@@ -3,6 +3,9 @@ type: view
 name: view_name
 
 sql_table_name: "table_name ;;"
+default_date: dimension_group_name
+row_label: row_label
+row_special_code: customers
 extends: [view_name, view_name]
 extension: required
 required_access_grants: [access_grant_name, access_grant_name]
@@ -19,6 +22,13 @@ fields:
     group_label: "label used to group dimensions in the field picker"
     group_item_label: "label to use for the field under its group label in the field picker"
     description: "description string"
+    related_metrics:
+      - name: related_metric_name
+        relationship: positive
+      - name: related_metric_name
+        relationship: negative
+    parent: parent_field
+    child: child_field
     hidden: no
     alias: [old_field_name, old_field_name]
     value_format: "excel-style formatting string"

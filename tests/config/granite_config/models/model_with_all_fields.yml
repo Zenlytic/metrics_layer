@@ -26,9 +26,9 @@ explores:
     view_label: "field picker heading to use for the Explore's fields"
     extends: [explore_name, explore_name]
     extension: required
-    symmetric_aggregates: yes
     hidden: yes
     fields: [field_or_set, field_or_set]
+    join_for_analysis: [join_name, join_name]
     sql_always_where: "SQL WHERE condition ;;"
     required_access_grants:
       - access_grant_name
