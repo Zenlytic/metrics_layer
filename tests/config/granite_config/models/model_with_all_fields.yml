@@ -36,12 +36,12 @@ explores:
 
     always_filter:
       filters:
-        - name: field_name
+        - field: field_name
           value:  "value"
 
     conditionally_filter:
       filters:
-        - name: field_name
+        - field: field_name
           value: "expression"
       unless: [field_or_set, field_or_set]
 

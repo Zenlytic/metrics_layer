@@ -1,8 +1,10 @@
 import yaml
 
+from .github_repo import GithubRepo
+
 
 class GraniteProjectReader:
-    def __init__(self, repo: str):
+    def __init__(self, repo: GithubRepo):
         self.repo = repo
         self._models = []
         self._views = []
@@ -15,7 +17,7 @@ class GraniteProjectReader:
     def load_files(self):
         file_names = self.repo.search(pattern="*.yml") + self.repo.search(pattern="*.yaml")
         for fn in file_names:
-            yaml_dict = self.read_lkml_file(fn)
+            yaml_dict = self.read_yaml_file(fn)
 
             # Handle keyerror
             if "type" not in yaml_dict:
