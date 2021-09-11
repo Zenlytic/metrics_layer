@@ -1,10 +1,10 @@
 import re
 from copy import deepcopy
 
-from .base import GraniteBase
+from .base import GraniteBase, SQLReplacement
 
 
-class Field(GraniteBase):
+class Field(GraniteBase, SQLReplacement):
     def __init__(self, definition: dict = {}, view=None) -> None:
         self.defaults = {"type": "string", "primary_key": "no"}
 
@@ -22,6 +22,40 @@ class Field(GraniteBase):
         self.validate(definition)
         self.view = view
         super().__init__(definition)
+
+    def alias(self):
+        return self.name
+
+    def sql_query(self):
+        if self.field_type == "measure":
+            return self.aggregate_sql_query()
+        return self.raw_sql_query()
+
+    def raw_sql_query(self):
+        return self.get_replaced_sql_query()
+
+    def aggregate_sql_query(self):
+        sql = self.raw_sql_query()
+        type_lookup = {
+            "sum": lambda s: f"SUM({s})",
+            "count_distinct": lambda s: f"COUNT(DISTINCT({s}))",
+            "count": lambda s: f"COUNT({s})",
+            "average": lambda s: f"AVG({s})",
+            "number": self._number_aggregate_sql,
+        }
+        return type_lookup[self.type](sql)
+
+    def _number_aggregate_sql(self, sql: str):
+        print(sql)
+        raise NotImplementedError()
+        if isinstance(sql, list):
+            replaced = deepcopy(self.sql_raw)
+            for f in self.fields_to_replace(self.sql_raw):
+                field = self.table.get_field(f)
+                replaced = replaced.replace("${" + field.name + "}", field.aggregate_sql_query())
+        else:
+            raise ValueError(f"handle case for sql: {sql}")
+        return replaced
 
     def validate(self, definition: dict):
         required_keys = ["name", "field_type", "sql"]
@@ -107,7 +141,7 @@ class Field(GraniteBase):
 
     def replace_fields(self, sql, view_name=None):
         clean_sql = deepcopy(sql)
-        view_name = self.view_name if not view_name else view_name
+        view_name = self.view.name if not view_name else view_name
         fields_to_replace = self.fields_to_replace(sql)
         for to_replace in fields_to_replace:
             if to_replace == "TABLE":

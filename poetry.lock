@@ -349,6 +349,14 @@ optional = false
 python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
 
 [[package]]
+name = "pypika"
+version = "0.48.8"
+description = "A SQL query builder API for Python"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "pytest"
 version = "6.2.5"
 description = "pytest: simple powerful testing with Python"
@@ -508,7 +516,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "7088da4cb1f669df55c2a6c82fb6c1b7422b7289747d2fa0c95e360b0e9d51f8"
+content-hash = "661ea183c2f75a08ec1a40b0becc00fe262080f3d3418ce2bf717833c50fae41"
 
 [metadata.files]
 atomicwrites = [
@@ -638,6 +646,9 @@ pyflakes = [
 pyparsing = [
     {file = "pyparsing-2.4.7-py2.py3-none-any.whl", hash = "sha256:ef9d7589ef3c200abe66653d3f1ab1033c3c419ae9b9bdb1240a85b024efc88b"},
     {file = "pyparsing-2.4.7.tar.gz", hash = "sha256:c203ec8783bf771a155b207279b9bccb8dea02d8f0c9e5f8ead507bc3246ecc1"},
+]
+pypika = [
+    {file = "pypika-0.48.8.tar.gz", hash = "sha256:45af481d8523d60f87e308dee6ff5c454f331c8ce3a675e5398fbea6c20fe1b1"},
 ]
 pytest = [
     {file = "pytest-6.2.5-py3-none-any.whl", hash = "sha256:7310f8d27bc79ced999e760ca304d69f6ba6c6649c0b60fb0e04a4a77cacc134"},

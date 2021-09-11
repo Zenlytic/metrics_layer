@@ -26,8 +26,11 @@ class View(GraniteBase):
                 f"Incorrect table identifiers sql_table_name and derived_table (must have exactly one)"
             )
 
-    def fields(self):
-        return [Field({**f, "view": self}) for f in self.fields]
+    def fields(self, exclude_hidden: bool = False) -> list:
+        all_fields = [Field(f, view=self) for f in self._definition.get("fields", [])]
+        if exclude_hidden:
+            return [field for field in all_fields if field.hidden == "yes"]
+        return all_fields
 
     def resolve_sql_table_name(self, sql_table_name: str, looker_env: str):
         start_cond, end_cond = "-- if", "--"

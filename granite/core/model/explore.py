@@ -18,9 +18,12 @@ class Explore(GraniteBase):
             if k not in definition:
                 raise ValueError(f"Explore missing required key {k}")
 
+    def view_names(self):
+        return [self.from_] + [j.name for j in self.joins()]
+
     def joins(self):
         output = []
-        for j in self.joins:
+        for j in self._definition.get("joins", []):
             join = Join({**j, "explore_from": self.from_})
             if join.is_valid():
                 output.append(join)
