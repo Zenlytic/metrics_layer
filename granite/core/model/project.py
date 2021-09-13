@@ -31,7 +31,7 @@ class Project(GraniteBase):
         return next((m for m in self.models() if m.name == model_name), None)
 
     def explores(self) -> list:
-        return [Explore({**e, "model": m}) for m in self.models() for e in m.explores]
+        return [Explore({**e, "model": m}, project=self) for m in self.models() for e in m.explores]
 
     def get_explore(self, explore_name: str) -> Explore:
         return next((e for e in self.explores() if e.name == explore_name), None)
@@ -42,14 +42,16 @@ class Project(GraniteBase):
         return [v for v in self.views(explore=explore) if v.name in view_names]
 
     def views(self, explore: Explore = None) -> list:
-        return [View({**v, "explore": explore}) for v in self._views]
+        return [View({**v, "explore": explore}, project=self) for v in self._views]
 
-    def get_view(self, view_name: str) -> View:
-        return next((v for v in self.views() if v.name == view_name), None)
+    def get_view(self, view_name: str, explore: Explore = None) -> View:
+        return next((v for v in self.views(explore=explore) if v.name == view_name), None)
 
     def fields(self, explore_name: str = None, view_name: str = None) -> list:
         if explore_name is None and view_name is None:
             return self._all_fields()
+        elif view_name and explore_name:
+            return self._view_fields(view_name, explore=self.get_explore(explore_name))
         elif view_name:
             return self._view_fields(view_name)
         else:
@@ -58,14 +60,12 @@ class Project(GraniteBase):
     def _all_fields(self):
         return [f for v in self.views() for f in v.fields()]
 
-    def _view_fields(self, view_name: str):
-        view = self.get_view(view_name)
+    def _view_fields(self, view_name: str, explore: Explore = None):
+        view = self.get_view(view_name, explore=explore)
         return [field for field in view.fields()]
 
     def _explore_fields(self, explore_name: str):
-        explore = self.get_explore(explore_name)
-        valid_view_names = [explore.from_] + [j.name for j in explore.joins()]
-        valid_views = [v for v in self.views(explore=explore) if v.name in valid_view_names]
+        valid_views = self.views_with_explore(explore_name)
         return [f for v in valid_views for f in v.fields()]
 
     def get_field(self, field_name: str, explore_name: str = None, view_name: str = None) -> Field:

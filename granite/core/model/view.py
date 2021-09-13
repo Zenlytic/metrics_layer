@@ -5,10 +5,11 @@ from .field import Field
 
 
 class View(GraniteBase):
-    def __init__(self, definition: dict = {}) -> None:
+    def __init__(self, definition: dict = {}, project=None) -> None:
         if "sql_table_name" in definition:
             definition["sql_table_name"] = self.resolve_sql_table_name(definition["sql_table_name"], "TODO")
 
+        self.project = project
         self.validate(definition)
         super().__init__(definition)
 

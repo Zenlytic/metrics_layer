@@ -34,11 +34,22 @@ class SQLResolverBase:
         self.dimensions = dimensions
 
         self.where = where
-        self._where_field_names = self.parse_identifiers_from_clause(self.where)
+        if self._is_literal(self.where):
+            self._where_field_names = self.parse_identifiers_from_clause(self.where)
+        else:
+            self._where_field_names = self.parse_identifiers_from_dicts(self.where)
+
         self.having = having
-        self._having_field_names = self.parse_identifiers_from_clause(self.having)
+        if self._is_literal(self.having):
+            self._having_field_names = self.parse_identifiers_from_clause(self.having)
+        else:
+            self._having_field_names = self.parse_identifiers_from_dicts(self.having)
+
         self.order_by = order_by
-        self._order_by_field_names = self.parse_identifiers_from_clause(self.order_by)
+        if self._is_literal(self.order_by):
+            self._order_by_field_names = self.parse_identifiers_from_clause(self.order_by)
+        else:
+            self._order_by_field_names = self.parse_identifiers_from_dicts(self.order_by)
 
         self.explore_name = self.derive_explore(verbose)
         self.explore = self.project.get_explore(self.explore_name)
@@ -98,11 +109,19 @@ class SQLResolverBase:
         return field
 
     @staticmethod
+    def _is_literal(clause):
+        return isinstance(clause, str) or clause is None
+
+    @staticmethod
     def parse_identifiers_from_clause(clause: str):
         if clause is None:
             return []
         generator = sqlparse.parse(clause)[0].flatten()
         return [str(token) for token in generator if token.ttype == Name]
+
+    @staticmethod
+    def parse_identifiers_from_dicts(conditions: list):
+        return [cond["field_name"] for cond in conditions]
 
     def resolve_where_clause(self):
         if self.where is None:

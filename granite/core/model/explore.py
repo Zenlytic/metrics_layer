@@ -3,12 +3,13 @@ from .join import Join
 
 
 class Explore(GraniteBase):
-    def __init__(self, definition: dict = {}) -> None:
+    def __init__(self, definition: dict = {}, project=None) -> None:
         if definition.get("from") is not None:
             definition["from_"] = definition["from"]
         else:
             definition["from_"] = definition["name"]
 
+        self.project = project
         self.validate(definition)
         super().__init__(definition)
 

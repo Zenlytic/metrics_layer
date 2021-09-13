@@ -32,6 +32,8 @@ class Field(GraniteBase, SQLReplacement):
         return self.raw_sql_query()
 
     def raw_sql_query(self):
+        if self.field_type == "measure" and self.type == "number":
+            return self.get_referenced_sql_query()
         return self.get_replaced_sql_query()
 
     def aggregate_sql_query(self):
@@ -46,12 +48,10 @@ class Field(GraniteBase, SQLReplacement):
         return type_lookup[self.type](sql)
 
     def _number_aggregate_sql(self, sql: str):
-        print(sql)
-        raise NotImplementedError()
         if isinstance(sql, list):
-            replaced = deepcopy(self.sql_raw)
-            for f in self.fields_to_replace(self.sql_raw):
-                field = self.table.get_field(f)
+            replaced = deepcopy(self.sql)
+            for field_name in self.fields_to_replace(self.sql):
+                field = self.get_field_with_view_info(field_name)
                 replaced = replaced.replace("${" + field.name + "}", field.aggregate_sql_query())
         else:
             raise ValueError(f"handle case for sql: {sql}")
@@ -126,7 +126,7 @@ class Field(GraniteBase, SQLReplacement):
                 else:
                     reference_fields.append(to_replace)
 
-        return reference_fields
+        return list(set(reference_fields))
 
     def get_replaced_sql_query(self):
         if self.sql is None or "{%" in self.sql or self.sql == "":
@@ -158,8 +158,10 @@ class Field(GraniteBase, SQLReplacement):
         if "." in field:
             view_name, field_name = field.split(".")
         else:
-            view_name, field_name = self.view_name, field
-        return self.project.get_field(field_name, view_name=view_name)
+            view_name, field_name = self.view.name, field
+        if self.view is None:
+            raise AttributeError(f"You must specify which view this field is in '{self.name}'")
+        return self.view.project.get_field(field_name, view_name=view_name)
 
     @staticmethod
     def _derived_value_format_name(value_format: str):
