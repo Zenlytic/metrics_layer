@@ -121,7 +121,7 @@ class SQLResolverBase:
 
     @staticmethod
     def parse_identifiers_from_dicts(conditions: list):
-        return [cond["field_name"] for cond in conditions]
+        return [cond["field"] for cond in conditions]
 
     def resolve_where_clause(self):
         if self.where is None:
@@ -138,7 +138,13 @@ class SQLResolverByQuery(SQLResolverBase):
     def get_query(self):
         self.design = GraniteDesign(query_type=self.query_type, explore=self.explore, project=self.project)
 
-        query_definition = {"metrics": self.metrics, "dimensions": self.dimensions}
+        query_definition = {
+            "metrics": self.metrics,
+            "dimensions": self.dimensions,
+            "where": self.where,
+            "having": self.having,
+            "order_by": self.order_by,
+        }
         query = GraniteByQuery(query_definition, design=self.design).get_query()
 
         return query

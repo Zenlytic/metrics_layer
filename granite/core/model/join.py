@@ -4,16 +4,19 @@ from .base import GraniteBase, SQLReplacement
 
 
 class Join(GraniteBase, SQLReplacement):
-    def __init__(self, definition: dict = {}, view=None, explore=None) -> None:
+    def __init__(self, definition: dict = {}, project=None) -> None:
+        self.project = project
         if definition.get("from") is not None:
             definition["from_"] = definition["from"]
-        if "sql_on" in definition:
-            definition["replaced_sql_on"] = self.get_replaced_sql_on(definition["sql_on"])
 
         self.validate(definition)
-        self.view = view
-        self.explore = explore
         super().__init__(definition)
+
+    @property
+    def replaced_sql_on(self):
+        if self.sql_on:
+            return self.get_replaced_sql_on(self.sql_on)
+        return f"{self.explore_from}.{self.foreign_key}={self.from_}.{self.foreign_key}"
 
     def validate(self, definition: dict):
         required_keys = ["name", "relationship", "type"]
@@ -31,15 +34,17 @@ class Join(GraniteBase, SQLReplacement):
         super().__init__(definition)
 
     def is_valid(self):
-        fields_to_replace = self.fields_to_replace(self.sql_on)
+        if self.sql_on:
+            fields_to_replace = self.fields_to_replace(self.sql_on)
 
-        # The join isn't valid if we can't find an existing view with that name
-        for field in fields_to_replace:
-            view_name, _ = field.split(".")
-            view = self._get_view_internal(view_name)
-            if view is None:
-                return False
-        return True
+            # The join isn't valid if we can't find an existing view with that name
+            for field in fields_to_replace:
+                view_name, _ = field.split(".")
+                view = self._get_view_internal(view_name)
+                if view is None:
+                    return False
+            return True
+        return self.foreign_key is not None
 
     def to_dict(self):
         output = {**self._definition}

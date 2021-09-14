@@ -3,11 +3,14 @@ from copy import deepcopy
 from enum import Enum
 from typing import Dict
 
-# from pypika import functions as fn
+import sqlparse
 from pypika import Criterion, Field
 from pypika.terms import LiteralValue
+from sqlparse.tokens import Name
 
 from granite.core.model.base import GraniteBase
+from granite.core.model.field import Field as GraniteField
+from granite.core.sql.pypika_types import LiteralValueCriterion
 from granite.core.sql.query_errors import ParseError
 
 
@@ -16,6 +19,7 @@ class GraniteFilterExpressionType(str, Enum):
     LessThan = "less_than"
     LessOrEqualThan = "less_or_equal_than"
     EqualTo = "equal_to"
+    NotEqualTo = "not_equal_to"
     GreaterOrEqualThan = "greater_or_equal_than"
     GreaterThan = "greater_than"
     Like = "like"
@@ -48,30 +52,22 @@ class GraniteFilter(GraniteBase):
     definition: {key, "expression", "value"}
     """
 
-    def __init__(
-        self, definition: Dict = {}, literal_filter: str = None, design=None, pivot_date: str = None
-    ) -> None:
+    def __init__(self, definition: Dict = {}, design=None, filter_type: str = None) -> None:
         definition = deepcopy(definition)
 
         # The design is used for filters in queries against specific designs
         #  to validate that all the tables and attributes (columns/aggregates)
         #  are properly defined in the design
         self.design = design
-        self.literal_filter = literal_filter
+        self.is_literal_filter = "literal" in definition
         self.query_type = self.design.query_type
+        self.filter_type = filter_type
+        print(self.filter_type)
 
         self.validate(definition)
 
-        self.expression_type = GraniteFilterExpressionType.parse(definition["expression"])
-
-        # Some Query definitions may have a pivot_date set in the `today` param
-        # We use that pivot_date to define relative date filter
-        #  around that date and not NOW()
-        self.pivot_date = pivot_date
-
-        # Check if there are relative date filter definitions, parse them
-        #  and generate the proper SQL clauses
-        self.parse_relative_date_filters(definition)
+        if not self.is_literal_filter:
+            self.expression_type = GraniteFilterExpressionType.parse(definition["expression"])
 
         super().__init__(definition)
 
@@ -79,10 +75,14 @@ class GraniteFilter(GraniteBase):
         """
         Validate the Filter definition
         """
-        key = definition.get("key", None)
+        key = definition.get("field", None)
+        filter_literal = definition.get("literal", None)
 
-        if key is None:
-            raise ParseError(f"An attribute key was not provided for filter '{definition}'.")
+        if key is None and filter_literal is None:
+            raise ParseError(f"An attribute key or literal was not provided for filter '{definition}'.")
+
+        if key is None and filter_literal:
+            return
 
         if definition["expression"] == "UNKNOWN":
             raise NotImplementedError(f"Unknown filter expression: {definition['expression']}.")
@@ -95,39 +95,44 @@ class GraniteFilter(GraniteBase):
             raise ParseError(f"Filter expression: {definition['expression']} needs a non-empty value.")
 
         if self.design:
-            logger.info(key)
+            print(key)
             # Will raise ParseError if not found
-            _, self.attribute_name = key.split(".")
-            # This handles the case that the attribute is a dimension group which we
-            # currently always read as the raw group in the date field
             try:
-                self.view_name = self.design.resolve_view_name(self.attribute_name)
-                attribute_def = self.design.get_field(self.attribute_name, self.view_name)
+                self.field = self.design.get_field(key)
             except ParseError:
-                self.attribute_name += "_raw"
-                self.view_name = self.design.resolve_view_name(self.attribute_name)
-                attribute_def = self.design.get_field(self.attribute_name, self.view_name)
+                raise ParseError(
+                    f"We could not find field {self.field_name} in explore {self.design.explore.name}"
+                )
 
-            logger.info("WWW")
-            logger.info(type(definition["value"]))
-            logger.info(attribute_def)
-            logger.info(attribute_def.type)
+            print(self.field)
 
-            if self.query_type == "BIGQUERY" and isinstance(definition["value"], datetime.datetime):
-                cast_func = "DATETIME" if attribute_def.datatype == "date" else "TIMESTAMP"
+            if self.design.query_type == "BIGQUERY" and isinstance(definition["value"], datetime.datetime):
+                cast_func = "DATETIME" if self.field.datatype == "date" else "TIMESTAMP"
                 definition["value"] = LiteralValue(f"{cast_func}('{definition['value']}')")
 
-            if attribute_def.type == "yesno" and "False" in definition["value"]:
+            if self.field.type == "yesno" and "False" in definition["value"]:
                 definition["expression"] = "boolean_false"
 
-            if attribute_def.type == "yesno" and "True" in definition["value"]:
+            if self.field.type == "yesno" and "True" in definition["value"]:
                 definition["expression"] = "boolean_true"
 
-    def match(self, attribute: GraniteBase) -> bool:
-        """
-        Return True if this filter is defined for the given attribute
-        """
-        return self.attribute_name == attribute.alias() and self.view_name == attribute.view_name
+    def sql_query(self):
+        if self.is_literal_filter:
+            return LiteralValueCriterion(self.replace_fields_literal_filter())
+        return self.criterion(LiteralValue(self.field.sql_query()))
+
+    def replace_fields_literal_filter(self):
+        generator = sqlparse.parse(self.literal)[0].flatten()
+        tokens = ["${" + str(token) + "}" if token.ttype == Name else str(token) for token in generator]
+
+        if self.filter_type == "where":
+            extra_args = {"field_type": None}
+        else:
+            extra_args = {"field_type": "measure", "type": "number"}
+
+        view = self.design.get_view(self.design.base_view_name)
+        field = GraniteField({"sql": "".join(tokens), "name": None, **extra_args}, view=view)
+        return field.sql_query()
 
     def criterion(self, field: Field) -> Criterion:
         """
@@ -143,6 +148,7 @@ class GraniteFilter(GraniteBase):
             GraniteFilterExpressionType.LessThan: lambda f: f < self.value,
             GraniteFilterExpressionType.LessOrEqualThan: lambda f: f <= self.value,
             GraniteFilterExpressionType.EqualTo: lambda f: f == self.value,
+            GraniteFilterExpressionType.NotEqualTo: lambda f: f != self.value,
             GraniteFilterExpressionType.GreaterOrEqualThan: lambda f: f >= self.value,
             GraniteFilterExpressionType.GreaterThan: lambda f: f > self.value,
             GraniteFilterExpressionType.Like: lambda f: f.like(self.value),

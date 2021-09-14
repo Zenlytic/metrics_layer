@@ -1,62 +1,38 @@
 # import pytest
+import os
 
 from granite.core.model.project import Project
+from granite.core.parse.parse_granite_config import GraniteProjectReader
 from granite.core.sql.resolve import SQLResolverByQuery
 
-simple_model = {
-    "type": "model",
-    "name": "core",
-    "connection": "fake",
-    "explores": [{"name": "simple_explore", "from": "simple"}],
-}
-
-simple_view = {
-    "type": "view",
-    "name": "simple",
-    "sql_table_name": "analytics.orders",
-    "fields": [
-        {
-            "field_type": "measure",
-            "type": "number",
-            "sql": "CASE WHEN ${average_order_value} = 0 THEN 0 ELSE ${total_revenue} / ${average_order_value} END",  # noqa
-            "name": "revenue_per_aov",
-        },
-        {"field_type": "measure", "type": "sum", "sql": "${TABLE}.revenue", "name": "total_revenue"},
-        {
-            "field_type": "measure",
-            "type": "average",
-            "sql": "${TABLE}.revenue",
-            "name": "average_order_value",
-        },
-        {"field_type": "dimension", "type": "string", "sql": "${TABLE}.sales_channel", "name": "channel"},
-        {
-            "field_type": "dimension",
-            "type": "string",
-            "sql": "${TABLE}.new_vs_repeat",
-            "name": "new_vs_repeat",
-        },
-        {
-            "field_type": "dimension",
-            "type": "yesno",
-            "sql": "CASE WHEN ${channel} != 'fraud' THEN TRUE ELSE FALSE END",
-            "name": "is_valid_order",
-        },
-    ],
-}
+BASE_PATH = os.path.dirname(__file__)
 
 
-def test_simple_query():
-    project = Project(models=[simple_model], views=[simple_view])
-    resolver = SQLResolverByQuery(metrics=["total_revenue"], dimensions=["channel"], project=project)
+model_path = os.path.join(BASE_PATH, "config/granite_config/models/commerce_test_model.yml")
+order_lines_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_order_lines.yml")
+orders_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_orders.yml")
+customers_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_customers.yml")
+discounts_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_discounts.yml")
+view_paths = [order_lines_view_path, orders_view_path, customers_view_path, discounts_view_path]
+
+models = [GraniteProjectReader.read_yaml_file(model_path)]
+views = [GraniteProjectReader.read_yaml_file(path) for path in view_paths]
+
+
+def test_query_no_join():
+    project = Project(models=models, views=views)
+    resolver = SQLResolverByQuery(metrics=["total_item_revenue"], dimensions=["channel"], project=project)
     query = resolver.get_query()
 
-    correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
-    correct += "analytics.orders simple GROUP BY simple.sales_channel;"
+    correct = (
+        "SELECT order_lines.sales_channel as channel,SUM(order_lines.revenue) as total_line_revenue FROM "
+    )
+    correct += "analytics.order_line_items order_lines GROUP BY order_lines.sales_channel;"
     assert query == correct
 
 
 def test_simple_query_two_group_by():
-    project = Project(models=[simple_model], views=[simple_view])
+    project = Project(models=models, views=views)
     resolver = SQLResolverByQuery(
         metrics=["total_revenue"], dimensions=["channel", "new_vs_repeat"], project=project
     )
@@ -69,7 +45,7 @@ def test_simple_query_two_group_by():
 
 
 def test_simple_query_two_metric():
-    project = Project(models=[simple_model], views=[simple_view])
+    project = Project(models=models, views=views)
     resolver = SQLResolverByQuery(
         metrics=["total_revenue", "average_order_value"],
         dimensions=["channel", "new_vs_repeat"],
@@ -84,7 +60,7 @@ def test_simple_query_two_metric():
 
 
 def test_simple_query_custom_dimension():
-    project = Project(models=[simple_model], views=[simple_view])
+    project = Project(models=models, views=views)
     resolver = SQLResolverByQuery(metrics=["total_revenue"], dimensions=["is_valid_order"], project=project)
     query = resolver.get_query()
 
@@ -95,7 +71,7 @@ def test_simple_query_custom_dimension():
 
 
 def test_simple_query_custom_metric():
-    project = Project(models=[simple_model], views=[simple_view])
+    project = Project(models=models, views=views)
     resolver = SQLResolverByQuery(metrics=["revenue_per_aov"], dimensions=["channel"], project=project)
     query = resolver.get_query()
 
@@ -105,7 +81,7 @@ def test_simple_query_custom_metric():
 
 
 def test_simple_query_with_where_dict():
-    project = Project(models=[simple_model], views=[simple_view])
+    project = Project(models=models, views=views)
     resolver = SQLResolverByQuery(
         metrics=["total_revenue"],
         dimensions=["channel"],
@@ -120,7 +96,7 @@ def test_simple_query_with_where_dict():
 
 
 def test_simple_query_with_where_literal():
-    project = Project(models=[simple_model], views=[simple_view])
+    project = Project(models=models, views=views)
     resolver = SQLResolverByQuery(
         metrics=["total_revenue"], dimensions=["channel"], where="channel != 'Email'", project=project
     )
@@ -132,7 +108,7 @@ def test_simple_query_with_where_literal():
 
 
 def test_simple_query_with_having_dict():
-    project = Project(models=[simple_model], views=[simple_view])
+    project = Project(models=models, views=views)
     resolver = SQLResolverByQuery(
         metrics=["total_revenue"],
         dimensions=["channel"],
@@ -147,7 +123,7 @@ def test_simple_query_with_having_dict():
 
 
 def test_simple_query_with_having_literal():
-    project = Project(models=[simple_model], views=[simple_view])
+    project = Project(models=models, views=views)
     resolver = SQLResolverByQuery(
         metrics=["total_revenue"], dimensions=["channel"], having="total_revenue > 12", project=project
     )
@@ -159,7 +135,7 @@ def test_simple_query_with_having_literal():
 
 
 def test_simple_query_with_order_by_dict():
-    project = Project(models=[simple_model], views=[simple_view])
+    project = Project(models=models, views=views)
     resolver = SQLResolverByQuery(
         metrics=["total_revenue", "average_order_value"],
         dimensions=["channel"],
@@ -174,7 +150,7 @@ def test_simple_query_with_order_by_dict():
 
 
 def test_simple_query_with_order_by_literal():
-    project = Project(models=[simple_model], views=[simple_view])
+    project = Project(models=models, views=views)
     resolver = SQLResolverByQuery(
         metrics=["total_revenue"], dimensions=["channel"], order_by="total_revenue asc", project=project
     )
@@ -186,7 +162,7 @@ def test_simple_query_with_order_by_literal():
 
 
 def test_simple_query_with_all():
-    project = Project(models=[simple_model], views=[simple_view])
+    project = Project(models=models, views=views)
     resolver = SQLResolverByQuery(
         metrics=["total_revenue"],
         dimensions=["channel"],

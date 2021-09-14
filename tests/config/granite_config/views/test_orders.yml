@@ -1,0 +1,65 @@
+version: 1
+type: view
+name: orders
+
+sql_table_name: analytics.orders
+
+default_date: order
+row_label: "Order"
+
+fields:
+  - name: order_id
+    field_type: "dimension"
+    primary_key: yes
+    hidden: yes
+    sql: "${TABLE}.order_id"
+    group_label: "ID's"
+
+  - name: customer_id
+    field_type: "dimension"
+    type: string
+    hidden: yes
+    sql: "${TABLE}.customer_id"
+    group_label: "ID's"
+
+  - name: order
+    field_type: "dimension_group"
+    type: time
+    timeframes: [
+      raw,
+      time,
+      date,
+      week,
+      month,
+      quarter,
+      year
+    ]
+    sql: "${TABLE}.order_date"
+
+  - name: sub_channel
+    field_type: "dimension"
+    type: string
+    sql: "${TABLE}.sub_channel"
+
+  - name: new_vs_repeat
+    field_type: "dimension"
+    type: string
+    sql: "${TABLE}.new_vs_repeat"
+
+  - name: total_revenue
+    field_type: "measure"
+    type: sum
+    sql: "${TABLE}.revenue"
+
+  - name: total_modified_revenue
+    field_type: "measure"
+    type: sum
+    sql: "case when ${TABLE}.order_id not like 'Z%'
+           and ${TABLE}.order_id not like 'QW%'
+           and length(${TABLE}.order_id)>=12
+           then ${TABLE}.revenue else 0 end"
+
+  - name: average_order_value
+    field_type: "measure"
+    type: average
+    sql: "${TABLE}.revenue"

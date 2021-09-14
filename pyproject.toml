@@ -20,6 +20,7 @@ black = "^21.8b0"
 flake8 = "^3.9.2"
 pre-commit = "^2.15.0"
 isort = "^5.9.3"
+pytest-cov = "^2.12.1"
 
 [tool.black]
 line-length = 110

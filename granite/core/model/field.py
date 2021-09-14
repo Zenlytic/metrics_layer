@@ -81,11 +81,6 @@ class Field(GraniteBase, SQLReplacement):
             return False
         return self.name == field_name
 
-    # def parse_function_definition(self):
-    #     if self.field_type == "measure":
-    #         return FunctionDefinitionParser(self, self.project).parse()
-    #     return [], None
-
     def dimension_group_names(self):
         if self.field_type == "dimension_group":
             return [f"{self.name}_{t}" for t in self._definition.get("timeframes", [])] + [self.name]

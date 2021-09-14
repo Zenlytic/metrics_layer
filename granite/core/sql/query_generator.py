@@ -1,6 +1,6 @@
 from typing import Dict, List, Tuple
 
-from pypika import Criterion, JoinType, Table
+from pypika import Criterion, JoinType, Order, Table
 from pypika.terms import LiteralValue
 
 from granite.core.model.base import GraniteBase
@@ -28,37 +28,65 @@ class GraniteByQuery(GraniteBase):
         self.query_type = self.design.query_type
         self.query_lookup = query_lookup
 
-        # A collection of all the column and aggregate filters in the query
-        # column_filters --> WHERE clauses that use columns selected in the query
-        # aggregate_filters --> HAVING clauses that use aggregates computed in the query
-        self.column_filters = []
+        # A collection of all the column and aggregate filters in the query + order by
+        self.where_filters = []
+        self.having_filters = []
+        self.order_by_args = []
 
-        self.validate_definition(definition)
         self.parse_definition(definition)
 
         super().__init__(definition)
 
-    def validate_definition(self, definition: dict):
-        pass
-
     def parse_definition(self, definition: dict):
-        # Parse and store the pivot date provided in the Query definition
-        pivot_date = definition.get("today", None)
-
         # Parse and store the provided filters
-        filters = definition.get("filters", None)
+        where = definition.get("where", None)
+        having = definition.get("having", None)
+        order_by = definition.get("order_by", None)
 
-        if filters:
-            for column_filter in filters.get("columns", []):
+        if where:
+            self.where_filters.extend(self._parse_filter_object(where, "where"))
+
+        if having:
+            self.having_filters.extend(self._parse_filter_object(having, "having"))
+
+        if order_by:
+            self.order_by_args.extend(self._parse_order_by_object(order_by))
+
+    def _parse_filter_object(self, filter_object, filter_type: str):
+        results = []
+        extra_kwargs = dict(filter_type=filter_type, design=self.design)
+
+        # Handle literal filter
+        if isinstance(filter_object, str):
+            filter_literal = GraniteFilter(definition={"literal": filter_object}, **extra_kwargs)
+            results.append(filter_literal)
+
+        # Handle JSON filter
+        if isinstance(filter_object, list):
+            for filter_dict in filter_object:
                 # Generate (and automatically validate) the filter and then store it
-                print(column_filter)
-                mf = GraniteFilter(
-                    definition=column_filter,
-                    design=self.design,
-                    pivot_date=pivot_date,
-                    query_type=self.query_type,
-                )
-                self.column_filters.append(mf)
+                f = GraniteFilter(definition=filter_dict, **extra_kwargs)
+                results.append(f)
+        return results
+
+    def _parse_order_by_object(self, order_by):
+        results = []
+        # Handle literal order by
+        if isinstance(order_by, str):
+            for order_clause in order_by.split(","):
+                if "desc" in order_clause.lower():
+                    field_reference = order_clause.lower().replace("desc", "").strip()
+                    results.append({"field": field_reference, "sort": "desc"})
+                else:
+                    field_reference = order_clause.lower().replace("asc", "").strip()
+                    results.append({"field": field_reference, "sort": "asc"})
+
+        # Handle JSON order_by
+        if isinstance(order_by, list):
+            for order_clause in order_by:
+                results.append({**order_clause, "sort": order_clause.get("sort", "asc").lower()})
+
+        return results
 
     def needs_hda(self):
         return len(self.design.joins()) > 0
@@ -79,27 +107,36 @@ class GraniteByQuery(GraniteBase):
         base_query = base_query.from_(self.table_expression(table))
 
         # Add all columns in the SELECT clause
-        # select = self.get_select_columns(tables=[table])
         select = []
         for field_name in self.dimensions + self.metrics:
             field = self.design.get_field(field_name)
             select.append(self.sql(field.sql_query(), alias=field.name))
 
-        # Add all the filters
-        # where = self.get_where_criterion([table])
-
-        # Generate the query
         no_join_query = base_query.select(*select)
 
-        # filter
-        # if len(where) > 0:
-        # no_join_query = no_join_query.where(Criterion.all(where))
+        # Apply the where filters
+        if self.where_filters:
+            where = [f.sql_query() for f in self.where_filters]
+            no_join_query = no_join_query.where(Criterion.all(where))
+
+        # Group by
         group_by = []
         for field_name in self.dimensions:
             field = self.design.get_field(field_name)
             group_by.append(self.sql(field.sql_query()))
 
         group_by_query = no_join_query.groupby(*group_by)
+
+        # Apply the having filters
+        if self.having_filters:
+            having = [f.sql_query() for f in self.having_filters]
+            group_by_query = group_by_query.having(Criterion.all(having))
+
+        # Handle order by
+        if self.order_by_args:
+            for arg in self.order_by_args:
+                order = Order.desc if arg["sort"] == "desc" else Order.asc
+                group_by_query = group_by_query.orderby(LiteralValue(arg["field"]), order=order)
 
         return str(group_by_query)
 
