@@ -7,8 +7,9 @@ from granite.core.sql.query_errors import ParseError
 class GraniteDesign:
     """ """
 
-    def __init__(self, query_type: str, explore, project) -> None:
+    def __init__(self, query_type: str, field_lookup: dict, explore, project) -> None:
         self.query_type = query_type
+        self.field_lookup = field_lookup
         self.explore = explore
         self.project = project
 
@@ -16,7 +17,14 @@ class GraniteDesign:
         return [self.project.get_view(name) for name in self.explore.view_names()]
 
     def joins(self) -> List[GraniteBase]:
-        return self.explore.joins()
+        fields_in_query = list(self.field_lookup.values())
+
+        joins_needed_for_query = []
+        for field in fields_in_query:
+            join_already_added = any(field.view.name == j.name for j in joins_needed_for_query)
+            if not join_already_added and field.view.name != self.explore.from_:
+                joins_needed_for_query.append(self.explore.get_join(field.view.name))
+        return joins_needed_for_query
 
     def get_view(self, name: str) -> GraniteBase:
         return next(t for t in self.views() if t.name == name)

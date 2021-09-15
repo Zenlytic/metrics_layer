@@ -15,10 +15,6 @@ class Field(GraniteBase, SQLReplacement):
         #     # TODO clean up - this is pretty hacky
         #     definition["sql"] = definition["sql"].lower().replace("${table}", "${TABLE}")
 
-        # if "value_format" in definition and "value_format_name" not in definition:
-        #     new_value_format_name = self._derived_value_format_name(definition["value_format"])
-        #     if new_value_format_name:
-        #         definition["value_format_name"] = new_value_format_name
         self.validate(definition)
         self.view = view
         super().__init__(definition)
@@ -52,7 +48,7 @@ class Field(GraniteBase, SQLReplacement):
             replaced = deepcopy(self.sql)
             for field_name in self.fields_to_replace(self.sql):
                 field = self.get_field_with_view_info(field_name)
-                replaced = replaced.replace("${" + field.name + "}", field.aggregate_sql_query())
+                replaced = replaced.replace("${" + field_name + "}", field.aggregate_sql_query())
         else:
             raise ValueError(f"handle case for sql: {sql}")
         return replaced
@@ -145,7 +141,7 @@ class Field(GraniteBase, SQLReplacement):
                 field = self.get_field_with_view_info(to_replace)
                 sql_replace = deepcopy(field.sql) if field and field.sql else to_replace
                 clean_sql = clean_sql.replace(
-                    "${" + to_replace + "}", self.replace_fields(sql_replace, view_name=field.view_name)
+                    "${" + to_replace + "}", self.replace_fields(sql_replace, view_name=field.view.name)
                 )
         return clean_sql.strip()
 
@@ -156,6 +152,7 @@ class Field(GraniteBase, SQLReplacement):
             view_name, field_name = self.view.name, field
         if self.view is None:
             raise AttributeError(f"You must specify which view this field is in '{self.name}'")
+        print(view_name, field_name)
         return self.view.project.get_field(field_name, view_name=view_name)
 
     @staticmethod

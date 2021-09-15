@@ -123,13 +123,19 @@ class GraniteFilter(GraniteBase):
 
     def replace_fields_literal_filter(self):
         generator = sqlparse.parse(self.literal)[0].flatten()
-        tokens = ["${" + str(token) + "}" if token.ttype == Name else str(token) for token in generator]
+        tokens = []
+        for token in generator:
+            if token.ttype == Name:
+                field = self.design.get_field(str(token))
+                tokens.append("${" + field.view.name + "." + str(token) + "}")
+            else:
+                tokens.append(str(token))
 
         if self.filter_type == "where":
             extra_args = {"field_type": None}
         else:
             extra_args = {"field_type": "measure", "type": "number"}
-
+        print("".join(tokens))
         view = self.design.get_view(self.design.base_view_name)
         field = GraniteField({"sql": "".join(tokens), "name": None, **extra_args}, view=view)
         return field.sql_query()

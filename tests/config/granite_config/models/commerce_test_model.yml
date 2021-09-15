@@ -17,7 +17,7 @@ explores:
         relationship: many_to_one
         sql_on: "${order_lines.order_id}=${orders.order_id}"
 
-      - name: test_customers
+      - name: customers
         type: left_outer
         relationship: many_to_one
         from: customers

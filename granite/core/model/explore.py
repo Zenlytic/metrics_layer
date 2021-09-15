@@ -22,6 +22,9 @@ class Explore(GraniteBase):
     def view_names(self):
         return [self.from_] + [j.name for j in self.joins()]
 
+    def get_join(self, join_name: str):
+        return next((j for j in self.joins() if j.name == join_name), None)
+
     def joins(self):
         output = []
         for j in self._definition.get("joins", []):

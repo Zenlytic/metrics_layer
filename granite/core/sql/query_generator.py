@@ -154,18 +154,43 @@ class GraniteByQuery(GraniteBase):
            Keys included in the hash: {id, label, source}
         """
         # Build the base_join table
-        base_join_query, skipped_joins = self.get_join_query()
+        base_join_query = self.get_join_query()
 
-        select = self.get_select_columns(skipped_joins=skipped_joins)
-        where = self.get_where_criterion()
+        # Add all columns in the SELECT clause
+        select = []
+        for field_name in self.dimensions + self.metrics:
+            field = self.design.get_field(field_name)
+            select.append(self.sql(field.sql_query(), alias=field.name))
 
         base_join_query = base_join_query.select(*select)
 
-        if len(where) > 0:
+        # Apply the where filters
+        if self.where_filters:
+            for field in self.where_filters:
+                print(field)
+            where = [f.sql_query() for f in self.where_filters]
             base_join_query = base_join_query.where(Criterion.all(where))
 
-        # base_join_query = base_join_query.limit(100)
-        return str(base_join_query)
+        # Group by
+        group_by = []
+        for field_name in self.dimensions:
+            field = self.design.get_field(field_name)
+            group_by.append(self.sql(field.sql_query()))
+
+        group_by_join_query = base_join_query.groupby(*group_by)
+
+        # Apply the having filters
+        if self.having_filters:
+            having = [f.sql_query() for f in self.having_filters]
+            group_by_join_query = group_by_join_query.having(Criterion.all(having))
+
+        # Handle order by
+        if self.order_by_args:
+            for arg in self.order_by_args:
+                order = Order.desc if arg["sort"] == "desc" else Order.asc
+                group_by_join_query = group_by_join_query.orderby(LiteralValue(arg["field"]), order=order)
+
+        return str(group_by_join_query)
 
     def get_select_columns(self, tables: list = None, skipped_joins=[]):
         if tables is None:
@@ -209,29 +234,25 @@ class GraniteByQuery(GraniteBase):
         base_join_query = self.query_lookup[self.query_type]
 
         # Base table from statement
-        table = self.design.find_table(self.design.base_view_name)
+        table = self.design.find_view(self.design.base_view_name)
 
         base_join_query = base_join_query.from_(self.table_expression(table))
-        skipped_joins = []
 
         # Start By building the Join
         for join in self.design.joins():
-            table = self.design.find_table(join.name)
+            table = self.design.find_view(join.name)
 
             # Create a pypika Table based on the Table's name
             db_table = self.table_expression(table)
             if isinstance(db_table, str):
-                # TODO handle valid subqueries
-                print(f"Skipping un-joinable {join.name}")
-                skipped_joins.append(join.name)
-                continue
+                raise NotImplementedError("TODO: handle sub queries (derived tables for joins)")
 
-            criteria = LiteralValueCriterion(join.sql_on)
+            criteria = LiteralValueCriterion(join.replaced_sql_on)
             join_type = self.get_pypika_join_type(join)
 
             base_join_query = base_join_query.join(db_table, join_type).on(criteria)
 
-        return base_join_query, skipped_joins
+        return base_join_query
 
     def sql_from_field(self, field: Field, table: View) -> List:
         sql = field.sql_query()

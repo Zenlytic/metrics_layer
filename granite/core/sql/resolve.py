@@ -136,7 +136,12 @@ class SQLResolverBase:
 
 class SQLResolverByQuery(SQLResolverBase):
     def get_query(self):
-        self.design = GraniteDesign(query_type=self.query_type, explore=self.explore, project=self.project)
+        self.design = GraniteDesign(
+            query_type=self.query_type,
+            field_lookup=self.field_lookup,
+            explore=self.explore,
+            project=self.project,
+        )
 
         query_definition = {
             "metrics": self.metrics,

@@ -91,17 +91,11 @@ class Project(GraniteBase):
         # If it's not we have to check all explores to make sure the field isn't ambiguously referenced
         all_fields_with_explore_duplicates = []
         for explore in self.explores():
-            print(explore)
             for view in self.views_with_explore(explore_name=explore.name):
-                print(view)
                 all_fields_with_explore_duplicates.extend(view.fields())
 
         matching_fields = [f for f in all_fields_with_explore_duplicates if f.name == field_name]
-        print(matching_fields)
-        print(len(matching_fields))
         match = self._matching_field_handler(matching_fields, field_name)
-        print(match)
-        print(match.view)
         return match.view.explore.name
 
     @staticmethod
