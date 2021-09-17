@@ -28,6 +28,7 @@ class SQLResolverBase:
         verbose: bool = False,
     ):
         self.field_lookup = {}
+        self.no_group_by = False
         self.query_type = "SNOWFLAKE"
         self.project = project
         self.metrics = metrics
@@ -91,7 +92,11 @@ class SQLResolverBase:
         #   They are not found in the selected explore (handled here)
 
         for name in self.dimensions:
-            self.field_lookup[name] = self.get_field_with_error_handling(name, "Dimension")
+            field = self.get_field_with_error_handling(name, "Dimension")
+            # We will not use a group by if the primary key of the main resulting table is included
+            if field.primary_key == "yes" and field.view.name == self.explore.from_:
+                self.no_group_by = True
+            self.field_lookup[name] = field
 
         for name in self._where_field_names:
             self.field_lookup[name] = self.get_field_with_error_handling(name, "Where clause field")
@@ -123,20 +128,11 @@ class SQLResolverBase:
     def parse_identifiers_from_dicts(conditions: list):
         return [cond["field"] for cond in conditions]
 
-    def resolve_where_clause(self):
-        if self.where is None:
-            return
-        raise NotImplementedError()
-
-    def resolve_order_by_clause(self):
-        if self.order_by is None:
-            return
-        raise NotImplementedError()
-
 
 class SQLResolverByQuery(SQLResolverBase):
     def get_query(self):
         self.design = GraniteDesign(
+            no_group_by=self.no_group_by,
             query_type=self.query_type,
             field_lookup=self.field_lookup,
             explore=self.explore,
@@ -153,11 +149,6 @@ class SQLResolverByQuery(SQLResolverBase):
         query = GraniteByQuery(query_definition, design=self.design).get_query()
 
         return query
-
-    def resolve_having_clause(self):
-        if self.having is None:
-            return
-        raise NotImplementedError()
 
 
 class SQLResolverRawQuery(SQLResolverBase):

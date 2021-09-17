@@ -7,7 +7,8 @@ from granite.core.sql.query_errors import ParseError
 class GraniteDesign:
     """ """
 
-    def __init__(self, query_type: str, field_lookup: dict, explore, project) -> None:
+    def __init__(self, no_group_by: bool, query_type: str, field_lookup: dict, explore, project) -> None:
+        self.no_group_by = no_group_by
         self.query_type = query_type
         self.field_lookup = field_lookup
         self.explore = explore

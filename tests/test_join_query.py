@@ -18,6 +18,14 @@ view_paths = [order_lines_view_path, orders_view_path, customers_view_path, disc
 models = [GraniteProjectReader.read_yaml_file(model_path)]
 views = [GraniteProjectReader.read_yaml_file(path) for path in view_paths]
 
+# DEFINE queries for Zenlytic
+# list_dimensions()
+# list_metrics()
+# convert()
+# query()
+# other necessary user facing functions
+# -- merge pr
+
 
 def test_query_no_join():
     project = Project(models=models, views=views)

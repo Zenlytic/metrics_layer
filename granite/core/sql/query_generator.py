@@ -26,6 +26,7 @@ class GraniteByQuery(GraniteBase):
         # The Design this Query has been built for
         self.design = design
         self.query_type = self.design.query_type
+        self.no_group_by = self.design.no_group_by
         self.query_lookup = query_lookup
 
         # A collection of all the column and aggregate filters in the query + order by
@@ -46,6 +47,12 @@ class GraniteByQuery(GraniteBase):
         always_where = self.design.explore.sql_always_where
         if where or always_where:
             self.where_filters.extend(self._parse_filter_object(where, "where", always_where=always_where))
+
+        if having and self.no_group_by:
+            raise ValueError(
+                """You cannot include the 'having' argument with the table's primary key
+                as a dimension, there is no group by statement in this case, and no having can be applied"""
+            )
 
         if having:
             self.having_filters.extend(self._parse_filter_object(having, "having"))
@@ -111,11 +118,15 @@ class GraniteByQuery(GraniteBase):
 
         base_query = base_query.from_(self.table_expression(table))
 
+        print(self.no_group_by)
         # Add all columns in the SELECT clause
-        select = []
-        for field_name in self.dimensions + self.metrics:
-            field = self.design.get_field(field_name)
-            select.append(self.sql(field.sql_query(), alias=field.alias()))
+        if self.no_group_by:
+            select = self.get_no_group_by_select_columns()
+        else:
+            select = []
+            for field_name in self.dimensions + self.metrics:
+                field = self.design.get_field(field_name)
+                select.append(self.sql(field.sql_query(), alias=field.alias()))
 
         no_join_query = base_query.select(*select)
 
@@ -125,25 +136,26 @@ class GraniteByQuery(GraniteBase):
             no_join_query = no_join_query.where(Criterion.all(where))
 
         # Group by
-        group_by = []
-        for field_name in self.dimensions:
-            field = self.design.get_field(field_name)
-            group_by.append(self.sql(field.sql_query()))
+        if not self.no_group_by:
+            group_by = []
+            for field_name in self.dimensions:
+                field = self.design.get_field(field_name)
+                group_by.append(self.sql(field.sql_query()))
 
-        group_by_query = no_join_query.groupby(*group_by)
+            no_join_query = no_join_query.groupby(*group_by)
 
         # Apply the having filters
-        if self.having_filters:
+        if self.having_filters and not self.no_group_by:
             having = [f.sql_query() for f in self.having_filters]
-            group_by_query = group_by_query.having(Criterion.all(having))
+            no_join_query = no_join_query.having(Criterion.all(having))
 
         # Handle order by
         if self.order_by_args:
             for arg in self.order_by_args:
                 order = Order.desc if arg["sort"] == "desc" else Order.asc
-                group_by_query = group_by_query.orderby(LiteralValue(arg["field"]), order=order)
+                no_join_query = no_join_query.orderby(LiteralValue(arg["field"]), order=order)
 
-        return str(group_by_query)
+        return str(no_join_query)
 
     def hda_query(self) -> Tuple:
         """
@@ -195,42 +207,32 @@ class GraniteByQuery(GraniteBase):
 
         return str(group_by_join_query)
 
-    def get_select_columns(self, tables: list = None, skipped_joins=[]):
-        if tables is None:
-            tables = self.design.tables()
-
+    def get_no_group_by_select_columns(self):
         select_with_duplicates = []
-        for table in tables:
-            if table.name in skipped_joins:
-                continue
-
-            for c in table.fields():
-                # Get columns to select
-                select_with_duplicates.extend(self.sql_from_field(c, table))
-
-        # Add groups to select (this is a 1 if true for group cond 0 if false)
-        select_with_duplicates.extend(self.groups_with_alias())
+        for field_name in self.dimensions + self.metrics:
+            field = self.design.get_field(field_name)
+            select_with_duplicates.extend(self.sql_from_field_no_group_by(field))
 
         select = self.deduplicate_select(select_with_duplicates)
-
-        if self.previous_period != [] and self.current_period != []:
-            select.append(self._sql_with_alias(self.group_sql(self.previous_period), "__previous_period"))
-            select.append(self._sql_with_alias(self.group_sql(self.current_period), "__current_period"))
         return select
 
-    def get_where_criterion(self, tables: list = None):
-        if tables is None:
-            tables = self.design.tables()
+    def sql_from_field_no_group_by(self, field: Field) -> List:
+        sql = field.raw_sql_query()
 
-        where = []
-        for table in tables:
-            for c in table.fields():
-                # Add where clause criterion
-                matching_criteria = [
-                    f.criterion(LiteralValue(c.sql_query())) for f in self.column_filters if f.match(c)
-                ]
-                where.extend(matching_criteria)
-        return where
+        if isinstance(sql, str):
+            return [self.sql(sql, alias=field.alias())]
+
+        # This handles the special case where the measure is made up of multiple references
+        elif isinstance(sql, list):
+            query = []
+            for reference in sql:
+                referenced_field = self.design.get_field(reference)
+                if referenced_field is not None:
+                    query.extend(self.sql_from_field_no_group_by(referenced_field))
+            return query
+
+        else:
+            return []
 
     def get_join_query(self):
         # Build the base_join table
