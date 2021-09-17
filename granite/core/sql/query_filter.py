@@ -6,7 +6,7 @@ from typing import Dict
 import sqlparse
 from pypika import Criterion, Field
 from pypika.terms import LiteralValue
-from sqlparse.tokens import Name
+from sqlparse.tokens import Error, Name
 
 from granite.core.model.base import GraniteBase
 from granite.core.model.field import Field as GraniteField
@@ -62,7 +62,6 @@ class GraniteFilter(GraniteBase):
         self.is_literal_filter = "literal" in definition
         self.query_type = self.design.query_type
         self.filter_type = filter_type
-        print(self.filter_type)
 
         self.validate(definition)
 
@@ -95,7 +94,6 @@ class GraniteFilter(GraniteBase):
             raise ParseError(f"Filter expression: {definition['expression']} needs a non-empty value.")
 
         if self.design:
-            print(key)
             # Will raise ParseError if not found
             try:
                 self.field = self.design.get_field(key)
@@ -103,8 +101,6 @@ class GraniteFilter(GraniteBase):
                 raise ParseError(
                     f"We could not find field {self.field_name} in explore {self.design.explore.name}"
                 )
-
-            print(self.field)
 
             if self.design.query_type == "BIGQUERY" and isinstance(definition["value"], datetime.datetime):
                 cast_func = "DATETIME" if self.field.datatype == "date" else "TIMESTAMP"
@@ -127,15 +123,14 @@ class GraniteFilter(GraniteBase):
         for token in generator:
             if token.ttype == Name:
                 field = self.design.get_field(str(token))
-                tokens.append("${" + field.view.name + "." + str(token) + "}")
-            else:
+                tokens.append("${" + field.view.name + "." + field.name + "}")
+            elif token.ttype != Error:
                 tokens.append(str(token))
 
         if self.filter_type == "where":
             extra_args = {"field_type": None}
         else:
             extra_args = {"field_type": "measure", "type": "number"}
-        print("".join(tokens))
         view = self.design.get_view(self.design.base_view_name)
         field = GraniteField({"sql": "".join(tokens), "name": None, **extra_args}, view=view)
         return field.sql_query()

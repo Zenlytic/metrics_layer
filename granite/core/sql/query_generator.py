@@ -43,8 +43,9 @@ class GraniteByQuery(GraniteBase):
         having = definition.get("having", None)
         order_by = definition.get("order_by", None)
 
-        if where:
-            self.where_filters.extend(self._parse_filter_object(where, "where"))
+        always_where = self.design.explore.sql_always_where
+        if where or always_where:
+            self.where_filters.extend(self._parse_filter_object(where, "where", always_where=always_where))
 
         if having:
             self.having_filters.extend(self._parse_filter_object(having, "having"))
@@ -52,9 +53,13 @@ class GraniteByQuery(GraniteBase):
         if order_by:
             self.order_by_args.extend(self._parse_order_by_object(order_by))
 
-    def _parse_filter_object(self, filter_object, filter_type: str):
+    def _parse_filter_object(self, filter_object, filter_type: str, always_where: str = None):
         results = []
         extra_kwargs = dict(filter_type=filter_type, design=self.design)
+
+        if always_where:
+            filter_literal = GraniteFilter(definition={"literal": always_where}, **extra_kwargs)
+            results.append(filter_literal)
 
         # Handle literal filter
         if isinstance(filter_object, str):
@@ -110,7 +115,7 @@ class GraniteByQuery(GraniteBase):
         select = []
         for field_name in self.dimensions + self.metrics:
             field = self.design.get_field(field_name)
-            select.append(self.sql(field.sql_query(), alias=field.name))
+            select.append(self.sql(field.sql_query(), alias=field.alias()))
 
         no_join_query = base_query.select(*select)
 
@@ -160,14 +165,12 @@ class GraniteByQuery(GraniteBase):
         select = []
         for field_name in self.dimensions + self.metrics:
             field = self.design.get_field(field_name)
-            select.append(self.sql(field.sql_query(), alias=field.name))
+            select.append(self.sql(field.sql_query(), alias=field.alias()))
 
         base_join_query = base_join_query.select(*select)
 
         # Apply the where filters
         if self.where_filters:
-            for field in self.where_filters:
-                print(field)
             where = [f.sql_query() for f in self.where_filters]
             base_join_query = base_join_query.where(Criterion.all(where))
 
@@ -308,7 +311,6 @@ class GraniteByQuery(GraniteBase):
             GraniteFilter(definition=condition, design=self.design, query_type=self.query_type)
             for condition in group_definition
         ]
-        print(group_filters)
         for table in self.design.tables():
             for c in table.fields():
                 # Add where clause criterion

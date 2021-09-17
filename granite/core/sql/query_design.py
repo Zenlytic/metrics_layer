@@ -14,7 +14,7 @@ class GraniteDesign:
         self.project = project
 
     def views(self) -> List[GraniteBase]:
-        return [self.project.get_view(name) for name in self.explore.view_names()]
+        return [self.project.get_view(name, explore=self.explore) for name in self.explore.view_names()]
 
     def joins(self) -> List[GraniteBase]:
         fields_in_query = list(self.field_lookup.values())
@@ -45,7 +45,7 @@ class GraniteDesign:
             views = [self.get_view(view_name)]
 
         try:
-            return next(f for t in views for f in t.fields(exclude_hidden=False) if f.alias() == field_name)
+            return next(f for t in views for f in t.fields(exclude_hidden=False) if f.equal(field_name))
         except StopIteration:
             raise ParseError(f"Attribute {field_name} not found in explore {self.explore.name}")
 

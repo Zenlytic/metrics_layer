@@ -47,6 +47,74 @@ def test_query_single_join():
     assert query == correct
 
 
+def test_query_single_join_with_case_raw_sql():
+    project = Project(models=models, views=views)
+    resolver = SQLResolverByQuery(
+        metrics=["total_item_revenue"], dimensions=["is_on_sale_sql", "new_vs_repeat"], project=project
+    )
+    query = resolver.get_query()
+
+    correct = "SELECT CASE WHEN order_lines.product_name ilike '%sale%' then TRUE else FALSE end "
+    correct += "as is_on_sale_sql,orders.new_vs_repeat as new_vs_repeat,"
+    correct += "SUM(order_lines.revenue) as total_item_revenue FROM "
+    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
+    correct += "ON order_lines.order_id=orders.order_id GROUP BY CASE WHEN order_lines.product_name "
+    correct += "ilike '%sale%' then TRUE else FALSE end,orders.new_vs_repeat;"
+    assert query == correct
+
+
+def test_query_single_join_with_case():
+    project = Project(models=models, views=views)
+    resolver = SQLResolverByQuery(
+        metrics=["total_item_revenue"], dimensions=["is_on_sale_case", "new_vs_repeat"], project=project
+    )
+    query = resolver.get_query()
+
+    correct = "SELECT case when order_lines.product_name ilike '%sale%' then 'On sale' else 'Not on sale' end "  # noqa
+    correct += "as is_on_sale_case,orders.new_vs_repeat as new_vs_repeat,"
+    correct += "SUM(order_lines.revenue) as total_item_revenue FROM "
+    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
+    correct += "ON order_lines.order_id=orders.order_id GROUP BY case when order_lines.product_name "
+    correct += "ilike '%sale%' then 'On sale' else 'Not on sale' end,orders.new_vs_repeat;"
+    assert query == correct
+
+
+def test_query_single_join_with_tier():
+    project = Project(models=models, views=views)
+    resolver = SQLResolverByQuery(
+        metrics=["total_item_revenue"], dimensions=["order_tier", "new_vs_repeat"], project=project
+    )
+    query = resolver.get_query()
+
+    tier_case_query = "case when order_lines.revenue < 0 then 'Below 0' when order_lines.revenue >= 0 "
+    tier_case_query += "and order_lines.revenue < 20 then '[0,20)' when order_lines.revenue >= 20 and "
+    tier_case_query += "order_lines.revenue < 50 then '[20,50)' when order_lines.revenue >= 50 and "
+    tier_case_query += "order_lines.revenue < 100 then '[50,100)' when order_lines.revenue >= 100 and "
+    tier_case_query += "order_lines.revenue < 300 then '[100,300)' when order_lines.revenue >= 300 "
+    tier_case_query += "then '[300,inf)' else 'Unknown' end"
+
+    correct = f"SELECT {tier_case_query} as order_tier,orders.new_vs_repeat as new_vs_repeat,"
+    correct += "SUM(order_lines.revenue) as total_item_revenue FROM "
+    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
+    correct += f"ON order_lines.order_id=orders.order_id GROUP BY {tier_case_query},orders.new_vs_repeat;"
+    assert query == correct
+
+
+def test_query_single_join_with_filter():
+    project = Project(models=models, views=views)
+    resolver = SQLResolverByQuery(
+        metrics=["number_of_email_purchased_items"], dimensions=["channel", "new_vs_repeat"], project=project
+    )
+    query = resolver.get_query()
+
+    correct = "SELECT order_lines.sales_channel as channel,orders.new_vs_repeat as new_vs_repeat,"
+    correct += "COUNT(case when order_lines.sales_channel = 'Email' then order_lines.order_id end) "
+    correct += "as number_of_email_purchased_items FROM analytics.order_line_items "
+    correct += "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id"
+    correct += " GROUP BY order_lines.sales_channel,orders.new_vs_repeat;"
+    assert query == correct
+
+
 def test_query_multiple_join():
     project = Project(models=models, views=views)
     resolver = SQLResolverByQuery(

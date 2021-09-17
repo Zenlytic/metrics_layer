@@ -51,6 +51,10 @@ explores:
 
     always_join: [view_name, view_name]
 
+    # This is like dbt meta tag, put whatever you want in here
+    extra:
+      zenlytic.joins:
+        - view_name
     joins:
       - name: view_name
         type: left_outer

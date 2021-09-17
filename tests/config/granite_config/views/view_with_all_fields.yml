@@ -27,6 +27,12 @@ fields:
         relationship: positive
       - field: related_metric_name
         relationship: negative
+    # This is like dbt meta tag, put whatever you want in here
+    extra:
+      zenlytic.exclude:
+        - field_name
+      zenlytic.include:
+        - field_name
     parent: parent_field
     child: child_field
     hidden: no

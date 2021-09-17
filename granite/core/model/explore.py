@@ -13,6 +13,12 @@ class Explore(GraniteBase):
         self.validate(definition)
         super().__init__(definition)
 
+    @property
+    def week_start_day(self):
+        if self.model.week_start_day:
+            return self.model.week_start_day.lower()
+        return "monday"
+
     def validate(self, definition: dict):
         required_keys = ["name", "model", "from_"]
         for k in required_keys:
