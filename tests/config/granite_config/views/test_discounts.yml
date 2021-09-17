@@ -1,0 +1,48 @@
+version: 1
+type: view
+name: discounts
+
+sql_table_name: analytics.discounts
+
+default_date: order
+row_label: "Discount"
+
+fields:
+  - name: discount_id
+    field_type: "dimension"
+    type: string
+    primary_key: yes
+    hidden: yes
+    sql: "${TABLE}.discount_id"
+    group_label: "ID's"
+
+  - name: order_line_id
+    field_type: "dimension"
+    type: string
+    hidden: yes
+    sql: "${TABLE}.order_line_id"
+    group_label: "ID's"
+
+  - name: order
+    field_type: "dimension_group"
+    type: time
+    timeframes: [
+      raw,
+      time,
+      date,
+      week,
+      month,
+      quarter,
+      year
+    ]
+    sql: "${TABLE}.order_date"
+
+  - name: discount_code
+    field_type: "dimension"
+    type: string
+    sql: "${TABLE}.code"
+
+  - name: total_discount_amt
+    field_type: "measure"
+    type: sum
+    sql: "${TABLE}.discount_amt"

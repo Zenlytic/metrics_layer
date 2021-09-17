@@ -1,3 +1,6 @@
+import re
+
+
 class GraniteBase:
     def __init__(self, definition: dict = {}) -> None:
         self._definition = definition
@@ -10,3 +13,10 @@ class GraniteBase:
 
     def to_dict(self):
         return self._definition
+
+
+class SQLReplacement:
+    @staticmethod
+    def fields_to_replace(text: str):
+        matches = re.finditer(r"\$\{(.*?)\}", text, re.MULTILINE)
+        return [match.group(1) for match in matches]

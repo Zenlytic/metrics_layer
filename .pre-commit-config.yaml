@@ -10,15 +10,11 @@ repos:
     - id: check-toml
     - id: debug-statements
 - repo: https://github.com/PyCQA/isort
-  rev: 4.3.21-2
+  rev: 5.9.3
   hooks:
     - id: isort
       args:
-        - '-sp pyproject.toml'
-        - '--filter-files'
-      additional_dependencies:
-        - toml
-      files: '.py'
+        - '--settings pyproject.toml'
 - repo: https://github.com/psf/black
   rev: 20.8b1
   hooks:

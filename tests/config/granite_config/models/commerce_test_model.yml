@@ -1,0 +1,29 @@
+version: 1
+type: model
+name: test_model
+label: "Test commerce data"
+connection: "connection_name"
+
+explores:
+  - name: order_lines
+    description: "Description for order lines"
+    label: "Description for order lines"
+    group_label: "Purchases"
+    join_for_analysis: [orders, customers]
+
+    joins:
+      - name: orders
+        type: left_outer
+        relationship: many_to_one
+        sql_on: "${order_lines.order_id}=${orders.order_id}"
+
+      - name: customers
+        type: left_outer
+        relationship: many_to_one
+        from: customers
+        foreign_key: customer_id
+
+      - name: discounts
+        type: left_outer
+        relationship: one_to_many
+        sql_on: "${order_lines.order_line_id}=${discounts.order_line_id}"

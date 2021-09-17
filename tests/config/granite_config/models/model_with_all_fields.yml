@@ -36,12 +36,12 @@ explores:
 
     always_filter:
       filters:
-        - name: field_name
+        - field: field_name
           value:  "value"
 
     conditionally_filter:
       filters:
-        - name: field_name
+        - field: field_name
           value: "expression"
       unless: [field_or_set, field_or_set]
 
@@ -51,6 +51,10 @@ explores:
 
     always_join: [view_name, view_name]
 
+    # This is like dbt meta tag, put whatever you want in here
+    extra:
+      zenlytic.joins:
+        - view_name
     joins:
       - name: view_name
         type: left_outer

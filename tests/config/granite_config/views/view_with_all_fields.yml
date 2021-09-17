@@ -23,10 +23,16 @@ fields:
     group_item_label: "label to use for the field under its group label in the field picker"
     description: "description string"
     related_metrics:
-      - name: related_metric_name
+      - field: related_metric_name
         relationship: positive
-      - name: related_metric_name
+      - field: related_metric_name
         relationship: negative
+    # This is like dbt meta tag, put whatever you want in here
+    extra:
+      zenlytic.exclude:
+        - field_name
+      zenlytic.include:
+        - field_name
     parent: parent_field
     child: child_field
     hidden: no
@@ -63,5 +69,5 @@ fields:
     sql_distinct_key: "SQL expression to define repeated entities ;;"
     percentile: 90
     filters:
-      - name: dimension_name
+      - field: dimension_name
         value: "looker filter expression"

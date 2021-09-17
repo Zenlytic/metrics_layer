@@ -1,0 +1,104 @@
+version: 1
+type: view
+name: order_lines
+
+sql_table_name: analytics.order_line_items
+#     -- if dev -- {{_user_attributes['dbt_schema']}}.order_line_items
+#    -- if prod -- analytics.order_line_items`
+
+default_date: order
+row_label: "Order line item"
+
+fields:
+  - name: order_line_id
+    field_type: "dimension"
+    type: string
+    label: "Order line PK"
+    primary_key: yes
+    hidden: yes
+    sql: "${TABLE}.order_line_id"
+    group_label: "ID's"
+    alias: [order_line_item_id]
+
+  - name: order_id
+    field_type: "dimension"
+    hidden: yes
+    sql: "${TABLE}.order_id"
+    group_label: "ID's"
+
+  - name: customer_id
+    field_type: "dimension"
+    type: string
+    hidden: yes
+    sql: "${TABLE}.customer_id"
+    group_label: "ID's"
+
+  - name: order
+    field_type: "dimension_group"
+    type: time
+    timeframes: [
+      raw,
+      time,
+      date,
+      week,
+      month,
+      quarter,
+      year
+    ]
+    sql: "${TABLE}.order_date"
+
+  - name: waiting
+    field_type: dimension_group
+    type: duration
+    timeframes: [day, week]
+    sql_start: "${TABLE}.view_date"
+    sql_end: "${TABLE}.order_date"
+
+  - name: channel
+    field_type: "dimension"
+    type: string
+    sql: "${TABLE}.sales_channel"
+
+  - name: product_name
+    field_type: "dimension"
+    type: string
+    sql: "${TABLE}.product_name"
+
+  - name: is_on_sale_sql
+    field_type: dimension
+    type: yesno
+    sql: "CASE WHEN ${TABLE}.product_name ilike '%sale%' then TRUE else FALSE end"
+
+  - name: is_on_sale_case
+    field_type: dimension
+    type: string
+    case:
+      whens:
+        - sql: "${TABLE}.product_name ilike '%sale%'"
+          label: "On sale"
+      else: "Not on sale"
+
+  - name: order_tier
+    field_type: dimension
+    type: tier
+    tiers: [0,20,50,100,300]
+    sql: "${TABLE}.revenue"
+
+  - name: number_of_email_purchased_items
+    field_type: measure
+    type: count
+    sql: "${TABLE}.order_id"
+    filters:
+      - field: channel
+        value: "Email"
+
+
+  - name: total_item_revenue
+    field_type: "measure"
+    type: sum
+    sql: "${TABLE}.revenue"
+
+  - name: total_item_costs
+    field_type: "measure"
+    type: sum
+    sql: "${TABLE}.item_costs"
