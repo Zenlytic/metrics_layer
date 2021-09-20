@@ -14,7 +14,7 @@ from granite.core.sql.query_errors import ArgumentError
 from granite.core.sql.query_filter import GraniteFilter
 
 
-class GraniteByQuery(GraniteBase):
+class GraniteQuery(GraniteBase):
     """ """
 
     def __init__(self, definition: Dict, design: GraniteDesign) -> None:
@@ -146,6 +146,9 @@ class GraniteByQuery(GraniteBase):
             select = self._get_no_group_by_select_columns()
         else:
             select = self._get_group_by_select_columns()
+
+        if self.select_raw_sql:
+            select.extend([self.sql(clause) for clause in self.select_raw_sql])
         return select
 
     def _get_group_by_select_columns(self):

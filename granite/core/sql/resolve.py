@@ -3,10 +3,10 @@ from sqlparse.tokens import Name
 
 from granite.core.model.project import Project
 from granite.core.sql.query_design import GraniteDesign
-from granite.core.sql.query_generator import GraniteByQuery
+from granite.core.sql.query_generator import GraniteQuery
 
 
-class SQLResolverBase:
+class SQLQueryResolver:
     """
     Method of resolving the explore name:
         if there is not explore passed (using the format explore_name.field_name), we'll search for
@@ -25,11 +25,13 @@ class SQLResolverBase:
         having: str = None,  # Either a list of json or a string
         order_by: str = None,  # Either a list of json or a string
         project: Project = None,
-        verbose: bool = False,
+        **kwargs,
     ):
         self.field_lookup = {}
         self.no_group_by = False
-        self.query_type = "SNOWFLAKE"
+        self.query_type = kwargs.get("query_type", "SNOWFLAKE")
+        self.verbose = kwargs.get("verbose", False)
+        self.select_raw_sql = kwargs.get("select_raw_sql", [])
         self.project = project
         self.metrics = metrics
         self.dimensions = dimensions
@@ -52,9 +54,30 @@ class SQLResolverBase:
         else:
             self._order_by_field_names = self.parse_identifiers_from_dicts(self.order_by)
 
-        self.explore_name = self.derive_explore(verbose)
+        self.explore_name = self.derive_explore(self.verbose)
         self.explore = self.project.get_explore(self.explore_name)
         self.parse_input()
+
+    def get_query(self):
+        self.design = GraniteDesign(
+            no_group_by=self.no_group_by,
+            query_type=self.query_type,
+            field_lookup=self.field_lookup,
+            explore=self.explore,
+            project=self.project,
+        )
+
+        query_definition = {
+            "metrics": self.metrics,
+            "dimensions": self.dimensions,
+            "where": self.where,
+            "having": self.having,
+            "order_by": self.order_by,
+            "select_raw_sql": self.select_raw_sql,
+        }
+        query = GraniteQuery(query_definition, design=self.design).get_query()
+
+        return query
 
     def derive_explore(self, verbose: bool):
         if len(self.metrics) == 0:
@@ -94,14 +117,9 @@ class SQLResolverBase:
         for name in self.dimensions:
             field = self.get_field_with_error_handling(name, "Dimension")
             # We will not use a group by if the primary key of the main resulting table is included
-            print(field.primary_key)
-            print(field.view.name)
-            print(self.explore.from_)
-            print(field.view.name == self.explore.from_)
             if field.primary_key == "yes" and field.view.name == self.explore.from_:
                 self.no_group_by = True
             self.field_lookup[name] = field
-        print(self.no_group_by)
 
         for name in self._where_field_names:
             self.field_lookup[name] = self.get_field_with_error_handling(name, "Where clause field")
@@ -132,27 +150,3 @@ class SQLResolverBase:
     @staticmethod
     def parse_identifiers_from_dicts(conditions: list):
         return [cond["field"] for cond in conditions]
-
-
-class SQLResolverByQuery(SQLResolverBase):
-    def get_query(self):
-        print(self.no_group_by)
-
-        self.design = GraniteDesign(
-            no_group_by=self.no_group_by,
-            query_type=self.query_type,
-            field_lookup=self.field_lookup,
-            explore=self.explore,
-            project=self.project,
-        )
-
-        query_definition = {
-            "metrics": self.metrics,
-            "dimensions": self.dimensions,
-            "where": self.where,
-            "having": self.having,
-            "order_by": self.order_by,
-        }
-        query = GraniteByQuery(query_definition, design=self.design).get_query()
-
-        return query

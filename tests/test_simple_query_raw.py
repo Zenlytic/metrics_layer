@@ -1,8 +1,8 @@
 import pytest
 
 from granite.core.model.project import Project
+from granite.core.query import get_sql_query
 from granite.core.sql.query_errors import ArgumentError
-from granite.core.sql.resolve import SQLResolverByQuery
 
 simple_model = {
     "type": "model",
@@ -71,10 +71,7 @@ simple_view = {
 
 def test_simple_query():
     project = Project(models=[simple_model], views=[simple_view])
-    resolver = SQLResolverByQuery(
-        metrics=["total_revenue"], dimensions=["order_id", "channel"], project=project
-    )
-    query = resolver.get_query()
+    query = get_sql_query(metrics=["total_revenue"], dimensions=["order_id", "channel"], project=project)
 
     correct = "SELECT simple.order_id as order_id,simple.sales_channel as channel,simple.revenue "
     correct += "as total_revenue FROM analytics.orders simple;"
@@ -83,10 +80,7 @@ def test_simple_query():
 
 def test_query_complex_metric():
     project = Project(models=[simple_model], views=[simple_view])
-    resolver = SQLResolverByQuery(
-        metrics=["revenue_per_aov"], dimensions=["order_id", "channel"], project=project
-    )
-    query = resolver.get_query()
+    query = get_sql_query(metrics=["revenue_per_aov"], dimensions=["order_id", "channel"], project=project)
 
     correct = "SELECT simple.order_id as order_id,simple.sales_channel as channel,simple.revenue as "
     correct += "average_order_value,simple.revenue as total_revenue FROM analytics.orders simple;"
@@ -95,41 +89,38 @@ def test_query_complex_metric():
 
 def test_query_complex_metric_having_error():
     project = Project(models=[simple_model], views=[simple_view])
-    resolver = SQLResolverByQuery(
-        metrics=["revenue_per_aov"],
-        dimensions=["order_id", "channel"],
-        having=[{"field": "revenue_per_aov", "expression": "greater_than", "value": 13}],
-        project=project,
-    )
     with pytest.raises(ArgumentError) as exc_info:
-        resolver.get_query()
+        get_sql_query(
+            metrics=["revenue_per_aov"],
+            dimensions=["order_id", "channel"],
+            having=[{"field": "revenue_per_aov", "expression": "greater_than", "value": 13}],
+            project=project,
+        )
 
     assert exc_info.value
 
 
 def test_query_complex_metric_order_by_error():
     project = Project(models=[simple_model], views=[simple_view])
-    resolver = SQLResolverByQuery(
-        metrics=["revenue_per_aov"],
-        dimensions=["order_id", "channel"],
-        order_by=[{"field": "revenue_per_aov", "sort": "desc"}],
-        project=project,
-    )
     with pytest.raises(ArgumentError) as exc_info:
-        resolver.get_query()
+        get_sql_query(
+            metrics=["revenue_per_aov"],
+            dimensions=["order_id", "channel"],
+            order_by=[{"field": "revenue_per_aov", "sort": "desc"}],
+            project=project,
+        )
 
     assert exc_info.value
 
 
 def test_query_complex_metric_all():
     project = Project(models=[simple_model], views=[simple_view])
-    resolver = SQLResolverByQuery(
+    query = get_sql_query(
         metrics=["revenue_per_aov"],
         dimensions=["order_id", "channel"],
         where=[{"field": "channel", "expression": "not_equal_to", "value": "Email"}],
         project=project,
     )
-    query = resolver.get_query()
 
     correct = "SELECT simple.order_id as order_id,simple.sales_channel as channel,simple.revenue as "
     correct += "average_order_value,simple.revenue as total_revenue FROM analytics.orders simple"

@@ -14,6 +14,10 @@ class Project(GraniteBase):
         self._models = models
         self._views = views
 
+    def __repr__(self):
+        text = "models" if len(self._models) != 1 else "model"
+        return f"<Project {len(self._models)} {text}>"
+
     def get_design(self, explore_name: str):
         design = {}
         design["explore"] = self.get_explore(explore_name).to_dict()
