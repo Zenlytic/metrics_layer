@@ -71,12 +71,12 @@ class Project(GraniteBase):
     def get_field(self, field_name: str, explore_name: str = None, view_name: str = None) -> Field:
         # Handle the case where the explore syntax is passed: explore_name.field_name
         if "." in field_name:
-            specified_explore_name, field_name = field_name.split(".")
-            if explore_name and specified_explore_name != explore_name:
+            specified_view_name, field_name = field_name.split(".")
+            if view_name and specified_view_name != view_name:
                 raise ValueError(
-                    f"You specificed two different explore names {specified_explore_name} and {explore_name}"
+                    f"You specificed two different view names {specified_view_name} and {view_name}"
                 )
-            explore_name = specified_explore_name
+            view_name = specified_view_name
 
         fields = self.fields(explore_name=explore_name, view_name=view_name)
         matching_fields = [f for f in fields if f.equal(field_name)]
@@ -85,8 +85,8 @@ class Project(GraniteBase):
     def get_explore_from_field(self, field_name: str):
         # If it's specified this is really easy
         if "." in field_name:
-            explore_name, _ = field_name.split(".")
-            return explore_name
+            view_name, _ = field_name.split(".")
+            return view_name
 
         # If it's not we have to check all explores to make sure the field isn't ambiguously referenced
         all_fields_with_explore_duplicates = []
@@ -107,8 +107,8 @@ class Project(GraniteBase):
 
         elif len(matching_fields) > 1:
             raise ValueError(
-                """Multiple fields found for this name, please specify an
-                explore name like this: explore_name.field_name"""
+                """Multiple fields found for this name, please specify a
+                view name like this: view_name.field_name"""
             )
         else:
             err_msg = f"Field {field_name} not found"

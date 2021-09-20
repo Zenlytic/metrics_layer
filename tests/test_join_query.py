@@ -19,12 +19,14 @@ models = [GraniteProjectReader.read_yaml_file(model_path)]
 views = [GraniteProjectReader.read_yaml_file(path) for path in view_paths]
 
 # DEFINE queries for Zenlytic
+# Take arb sql for select
 # list_dimensions()
 # list_metrics()
-# convert()
+# get_sql_query()
 # query()
 # other necessary user facing functions
 # -- merge pr
+# convert()
 
 
 def test_query_no_join():

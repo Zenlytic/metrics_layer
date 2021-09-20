@@ -40,6 +40,9 @@ class GraniteDesign:
             raise ParseError(f"Table {name} not found in explore {self.explore.name}")
 
     def get_field(self, field_name: str, view_name: str = None) -> GraniteBase:
+        if "." in field_name:
+            view_name, field_name = field_name.split(".")
+
         if view_name is None:
             views = self.views()
         else:

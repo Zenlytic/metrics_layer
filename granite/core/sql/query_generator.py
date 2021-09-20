@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 from pypika import Criterion, JoinType, Order, Table
 from pypika.terms import LiteralValue
@@ -10,13 +10,8 @@ from granite.core.model.view import View
 from granite.core.sql.pypika_types import LiteralValueCriterion
 from granite.core.sql.query_design import GraniteDesign
 from granite.core.sql.query_dialect import query_lookup
+from granite.core.sql.query_errors import ArgumentError
 from granite.core.sql.query_filter import GraniteFilter
-
-# from granite.core.sql.query_errors import ParseError
-
-
-class GraniteRawQuery(GraniteBase):
-    pass
 
 
 class GraniteByQuery(GraniteBase):
@@ -49,13 +44,20 @@ class GraniteByQuery(GraniteBase):
             self.where_filters.extend(self._parse_filter_object(where, "where", always_where=always_where))
 
         if having and self.no_group_by:
-            raise ValueError(
+            raise ArgumentError(
                 """You cannot include the 'having' argument with the table's primary key
                 as a dimension, there is no group by statement in this case, and no having can be applied"""
             )
 
         if having:
             self.having_filters.extend(self._parse_filter_object(having, "having"))
+
+        if order_by and self.no_group_by:
+            raise ArgumentError(
+                """You cannot include the 'order_by' argument with the table's primary key
+                as a dimension, metrics that reference multiple values do not exist by themselves
+                and cannot be referenced in the query"""
+            )
 
         if order_by:
             self.order_by_args.extend(self._parse_order_by_object(order_by))
@@ -100,123 +102,69 @@ class GraniteByQuery(GraniteBase):
 
         return results
 
-    def needs_hda(self):
+    def needs_join(self):
         return len(self.design.joins()) > 0
 
     def get_query(self):
-        if self.needs_hda():
-            sql = self.hda_query()
+        # Build the base_join table if of join is needed otherwise use a single table
+        if self.needs_join():
+            base_query = self.get_join_query_from()
         else:
-            sql = self.single_table_query()
-        sql += ";"
-        return sql
+            base_query = self.get_single_table_query_from()
 
-    def single_table_query(self):
-        base_query = self.query_lookup[self.query_type]
-
-        table = self.design.find_view(self.design.base_view_name)
-
-        base_query = base_query.from_(self.table_expression(table))
-
-        print(self.no_group_by)
         # Add all columns in the SELECT clause
-        if self.no_group_by:
-            select = self.get_no_group_by_select_columns()
-        else:
-            select = []
-            for field_name in self.dimensions + self.metrics:
-                field = self.design.get_field(field_name)
-                select.append(self.sql(field.sql_query(), alias=field.alias()))
-
-        no_join_query = base_query.select(*select)
+        select = self.get_select_columns()
+        base_query = base_query.select(*select)
 
         # Apply the where filters
         if self.where_filters:
             where = [f.sql_query() for f in self.where_filters]
-            no_join_query = no_join_query.where(Criterion.all(where))
+            base_query = base_query.where(Criterion.all(where))
 
         # Group by
         if not self.no_group_by:
-            group_by = []
-            for field_name in self.dimensions:
-                field = self.design.get_field(field_name)
-                group_by.append(self.sql(field.sql_query()))
-
-            no_join_query = no_join_query.groupby(*group_by)
+            group_by = self.get_group_by_columns()
+            base_query = base_query.groupby(*group_by)
 
         # Apply the having filters
         if self.having_filters and not self.no_group_by:
             having = [f.sql_query() for f in self.having_filters]
-            no_join_query = no_join_query.having(Criterion.all(having))
+            base_query = base_query.having(Criterion.all(having))
 
         # Handle order by
-        if self.order_by_args:
+        if self.order_by_args and not self.no_group_by:
             for arg in self.order_by_args:
                 order = Order.desc if arg["sort"] == "desc" else Order.asc
-                no_join_query = no_join_query.orderby(LiteralValue(arg["field"]), order=order)
+                base_query = base_query.orderby(LiteralValue(arg["field"]), order=order)
 
-        return str(no_join_query)
+        sql = str(base_query) + ";"
+        return sql
 
-    def hda_query(self) -> Tuple:
-        """
-        Build the HDA SQL query for this Query definition.
+    # Code to handle SELECT portion of query
+    def get_select_columns(self):
+        if self.no_group_by:
+            select = self._get_no_group_by_select_columns()
+        else:
+            select = self._get_group_by_select_columns()
+        return select
 
-        Returns a Tuple (sql, query_attributes, aggregate_columns)
-        - sql: A string with the hda_query as a SQL:1999 compatible query
-        - query_attributes: Array of hashes describing the attributes in the
-           final result in the same order as the one defined by the query.
-           Keys included in the hash:
-           {table_name, source_name, attribute_name, attribute_label, attribute_type}
-        - aggregate_columns: Array of hashes describing the aggregate columns.
-           Keys included in the hash: {id, label, source}
-        """
-        # Build the base_join table
-        base_join_query = self.get_join_query()
-
-        # Add all columns in the SELECT clause
+    def _get_group_by_select_columns(self):
         select = []
         for field_name in self.dimensions + self.metrics:
             field = self.design.get_field(field_name)
             select.append(self.sql(field.sql_query(), alias=field.alias()))
+        return select
 
-        base_join_query = base_join_query.select(*select)
-
-        # Apply the where filters
-        if self.where_filters:
-            where = [f.sql_query() for f in self.where_filters]
-            base_join_query = base_join_query.where(Criterion.all(where))
-
-        # Group by
-        group_by = []
-        for field_name in self.dimensions:
-            field = self.design.get_field(field_name)
-            group_by.append(self.sql(field.sql_query()))
-
-        group_by_join_query = base_join_query.groupby(*group_by)
-
-        # Apply the having filters
-        if self.having_filters:
-            having = [f.sql_query() for f in self.having_filters]
-            group_by_join_query = group_by_join_query.having(Criterion.all(having))
-
-        # Handle order by
-        if self.order_by_args:
-            for arg in self.order_by_args:
-                order = Order.desc if arg["sort"] == "desc" else Order.asc
-                group_by_join_query = group_by_join_query.orderby(LiteralValue(arg["field"]), order=order)
-
-        return str(group_by_join_query)
-
-    def get_no_group_by_select_columns(self):
+    def _get_no_group_by_select_columns(self):
         select_with_duplicates = []
         for field_name in self.dimensions + self.metrics:
             field = self.design.get_field(field_name)
-            select_with_duplicates.extend(self.sql_from_field_no_group_by(field))
+            select_with_duplicates.extend(self._sql_from_field_no_group_by(field))
 
-        select = self.deduplicate_select(select_with_duplicates)
+        select = self._deduplicate_select(select_with_duplicates)
         return select
 
-    def sql_from_field_no_group_by(self, field: Field) -> List:
+    def _sql_from_field_no_group_by(self, field: Field) -> List:
         sql = field.raw_sql_query()
 
         if isinstance(sql, str):
@@ -225,30 +173,40 @@ class GraniteByQuery(GraniteBase):
         # This handles the special case where the measure is made up of multiple references
         elif isinstance(sql, list):
             query = []
-            for reference in sql:
+            for reference in sorted(sql):
                 referenced_field = self.design.get_field(reference)
                 if referenced_field is not None:
-                    query.extend(self.sql_from_field_no_group_by(referenced_field))
+                    query.extend(self._sql_from_field_no_group_by(referenced_field))
             return query
 
         else:
             return []
 
-    def get_join_query(self):
+    def _deduplicate_select(self, select_with_duplicates: list):
+        select, field_aliases = [], set()
+        for s in select_with_duplicates:
+            alias = str(s).split(" as ")[-1]
+            if alias not in field_aliases:
+                field_aliases.add(alias)
+                select.append(s)
+        return select
+
+    # Code to handle the FROM portion of the query
+    def get_join_query_from(self):
         # Build the base_join table
-        base_join_query = self.query_lookup[self.query_type]
+        base_join_query = self._get_base_query()
 
         # Base table from statement
         table = self.design.find_view(self.design.base_view_name)
 
-        base_join_query = base_join_query.from_(self.table_expression(table))
+        base_join_query = base_join_query.from_(self._table_expression(table))
 
         # Start By building the Join
         for join in self.design.joins():
             table = self.design.find_view(join.name)
 
             # Create a pypika Table based on the Table's name
-            db_table = self.table_expression(table)
+            db_table = self._table_expression(table)
             if isinstance(db_table, str):
                 raise NotImplementedError("TODO: handle sub queries (derived tables for joins)")
 
@@ -259,69 +217,24 @@ class GraniteByQuery(GraniteBase):
 
         return base_join_query
 
-    def sql_from_field(self, field: Field, table: View) -> List:
-        sql = field.sql_query()
-        if isinstance(sql, str):
-            return [self._sql_with_alias(sql, field.alias())]
-        elif isinstance(sql, list):
-            query = []
-            for ref in sql:
-                ref_field = table.get_field(ref)
-                if ref_field is not None and ref_field.sql is not None:
-                    query.append(self._sql_with_alias(ref_field.sql, ref_field.alias()))
-            return query
-        else:
-            return []
+    def get_single_table_query_from(self):
+        base_query = self._get_base_query()
 
-    def _sql_with_alias(self, sql_text: str, alias: str):
-        return LiteralValue(sql_text + f" as {alias}")
+        table = self.design.find_view(self.design.base_view_name)
+        base_query = base_query.from_(self._table_expression(table))
 
-    def deduplicate_select(self, select_with_duplicates: list):
-        select, field_aliases = [], set()
-        for s in select_with_duplicates:
-            alias = str(s).split(" as ")[-1]
-            if alias not in field_aliases:
-                field_aliases.add(alias)
-                select.append(s)
-        return select
+        return base_query
 
-    def table_expression(self, view: View):
+    def _get_base_query(self):
+        return self.query_lookup[self.query_type]
+
+    def _table_expression(self, view: View):
         # Create a pypika Table based on the Table's name or it's derived table sql definition
         if view.derived_table:
             table_expr = f"({view.sql}) as {view.name}"
         else:
             table_expr = Table(view.sql_table_name, alias=view.name)
         return table_expr
-
-    @staticmethod
-    def sql(sql: str, alias: str = None):
-        if alias:
-            return LiteralValue(sql + f" as {alias}")
-        return LiteralValue(sql)
-
-    def groups_with_alias(self):
-        # Groups to select (this is a 1 if true for group cond 0 if false)
-        result = []
-        for group in self.groups:
-            group_sql = self.group_sql(group["definition"])
-            result.append(self._sql_with_alias(group_sql, group["group"]["name"]))
-        return result
-
-    def group_sql(self, group_definition: list):
-        criteria = []
-        group_filters = [
-            GraniteFilter(definition=condition, design=self.design, query_type=self.query_type)
-            for condition in group_definition
-        ]
-        for table in self.design.tables():
-            for c in table.fields():
-                # Add where clause criterion
-                matching_criteria = [
-                    f.criterion(LiteralValue(c.sql_query())) for f in group_filters if f.match(c)
-                ]
-                criteria.extend(matching_criteria)
-        int_type = "INT64" if self.query_type == "BIGQUERY" else "INT"
-        return f"CAST({str(Criterion.all(criteria))} AS {int_type})"
 
     @staticmethod
     def get_pypika_join_type(join: Join):
@@ -332,3 +245,18 @@ class GraniteByQuery(GraniteBase):
         elif join.type == "full_outer":
             return JoinType.outer
         return JoinType.left
+
+    # Code for the GROUP BY part of the query
+    def get_group_by_columns(self):
+        group_by = []
+        for field_name in self.dimensions:
+            field = self.design.get_field(field_name)
+            group_by.append(self.sql(field.sql_query()))
+        return group_by
+
+    # Code for formatting values
+    @staticmethod
+    def sql(sql: str, alias: str = None):
+        if alias:
+            return LiteralValue(sql + f" as {alias}")
+        return LiteralValue(sql)
