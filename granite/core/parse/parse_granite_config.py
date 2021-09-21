@@ -6,13 +6,27 @@ from .github_repo import GithubRepo
 class GraniteProjectReader:
     def __init__(self, repo: GithubRepo):
         self.repo = repo
+        self.unloaded = True
         self._models = []
         self._views = []
+
+    @property
+    def models(self):
+        if self.unloaded:
+            self.load()
+        return self._models
+
+    @property
+    def views(self):
+        if self.unloaded:
+            self.load()
+        return self._views
 
     def load(self) -> None:
         self.repo.fetch()
         self.load_files()
         self.repo.delete()
+        self.unloaded = False
 
     def load_files(self):
         file_names = self.repo.search(pattern="*.yml") + self.repo.search(pattern="*.yaml")

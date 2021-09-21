@@ -10,7 +10,18 @@ from granite.core import utils
 BASE_PATH = os.path.dirname(__file__)
 
 
-class GithubRepo:
+class BaseRepo:
+    def delete(self):
+        raise NotImplementedError()
+
+    def search(self):
+        raise NotImplementedError()
+
+    def fetch(self):
+        raise NotImplementedError()
+
+
+class GithubRepo(BaseRepo):
     def __init__(self, repo_url: str, branch: str) -> None:
         self.repo_name = utils.generate_uuid()
         self.repo_url = repo_url
@@ -39,7 +50,7 @@ class GithubRepo:
         git.Repo.clone_from(repo_url, to_path=repo_destination, branch=branch, depth=1)
 
 
-class LookerGithubRepo:
+class LookerGithubRepo(BaseRepo):
     def __init__(self, looker_url: str, client_id: str, client_secret: str, project_name: str):
         self.looker_url = looker_url
         self.client_id = client_id

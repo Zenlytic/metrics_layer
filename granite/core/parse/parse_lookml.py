@@ -6,14 +6,28 @@ from .github_repo import GithubRepo
 class LookMLProjectReader:
     def __init__(self, repo: GithubRepo):
         self.repo = repo
+        self.unloaded = True
         self._models = []
         self._views = []
+
+    @property
+    def models(self):
+        if self.unloaded:
+            self.load()
+        return self._models
+
+    @property
+    def views(self):
+        if self.unloaded:
+            self.load()
+        return self._views
 
     def load(self) -> None:
         self.repo.fetch()
         self.load_models()
         self.load_views()
         self.repo.delete()
+        self.unloaded = False
 
     def load_models(self):
         for fn in self.repo.search(pattern="*.model.*"):

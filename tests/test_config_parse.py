@@ -2,6 +2,7 @@ import os
 
 from granite.core.parse.parse_granite_config import GraniteProjectReader
 from granite.core.parse.parse_lookml import LookMLProjectReader
+from granite.core.parse.parse_multiple_config import GraniteMultipleProjectReader
 
 BASE_PATH = os.path.dirname(__file__)
 
@@ -29,7 +30,7 @@ def test_config_load_yaml():
     reader = GraniteProjectReader(repo=repo_mock())
     reader.load()
 
-    model = reader._models[0]
+    model = reader.models[0]
 
     assert model["type"] == "model"
     assert isinstance(model["name"], str)
@@ -49,7 +50,7 @@ def test_config_load_yaml():
     assert isinstance(join["type"], str)
     assert isinstance(join["relationship"], str)
 
-    view = reader._views[0]
+    view = reader.views[0]
 
     assert view["type"] == "view"
     assert isinstance(view["name"], str)
@@ -68,7 +69,7 @@ def test_config_load_lkml():
     reader = LookMLProjectReader(repo=repo_mock())
     reader.load()
 
-    model = reader._models[0]
+    model = reader.models[0]
 
     assert model["type"] == "model"
     assert isinstance(model["name"], str)
@@ -88,7 +89,7 @@ def test_config_load_lkml():
     assert isinstance(join["type"], str)
     assert isinstance(join["relationship"], str)
 
-    view = reader._views[0]
+    view = reader.views[0]
 
     assert view["type"] == "view"
     assert isinstance(view["name"], str)
@@ -101,3 +102,45 @@ def test_config_load_lkml():
     assert isinstance(field["field_type"], str)
     assert isinstance(field["type"], str)
     assert isinstance(field["sql"], str)
+
+
+def test_config_load_multiple():
+
+    reader = GraniteMultipleProjectReader(repo_mock(), "lookml", repo_mock(), "granite")
+
+    model = reader.models[0]
+
+    assert model["type"] == "model"
+    assert isinstance(model["name"], str)
+    assert isinstance(model["connection"], str)
+    assert isinstance(model["explores"], list)
+
+    explore = model["explores"][0]
+
+    assert isinstance(explore["name"], str)
+    assert isinstance(explore["from"], str)
+    assert isinstance(explore["joins"], list)
+
+    join = explore["joins"][0]
+
+    assert isinstance(join["name"], str)
+    assert isinstance(join["sql_on"], str)
+    assert isinstance(join["type"], str)
+    assert isinstance(join["relationship"], str)
+
+    view = reader.views[0]
+
+    assert view["type"] == "view"
+    assert isinstance(view["name"], str)
+    assert isinstance(view["sql_table_name"], str)
+    assert isinstance(view["fields"], list)
+
+    field = view["fields"][0]
+
+    assert isinstance(field["name"], str)
+    assert isinstance(field["field_type"], str)
+    assert isinstance(field["type"], str)
+    assert isinstance(field["sql"], str)
+    assert field["view_label"] == "desired looker label name"
+    assert field["parent"] == "parent_field"
+    assert field["extra"]["zenlytic.exclude"] == ["field_name"]
