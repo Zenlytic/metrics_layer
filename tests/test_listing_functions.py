@@ -18,29 +18,35 @@ models = [ProjectReader.read_yaml_file(model_path)]
 views = [ProjectReader.read_yaml_file(path) for path in view_paths]
 
 
+class config_mock:
+    pass
+
+
 def test_list_metrics():
     project = Project(models=models, views=views)
+    config_mock.project = project
 
-    metrics = list_metrics(project=project)
+    metrics = list_metrics(config=config_mock)
     assert len(metrics) == 10
 
-    metrics = list_metrics(explore_name="order_lines", project=project)
+    metrics = list_metrics(explore_name="order_lines", config=config_mock)
     assert len(metrics) == 10
 
-    metrics = list_metrics(view_name="order_lines", names_only=True, project=project)
+    metrics = list_metrics(view_name="order_lines", names_only=True, config=config_mock)
     assert len(metrics) == 3
     assert set(metrics) == {"number_of_email_purchased_items", "total_item_revenue", "total_item_costs"}
 
 
 def test_list_dimensions():
     project = Project(models=models, views=views)
-    dimensions = list_dimensions(project=project)
+    config_mock.project = project
+    dimensions = list_dimensions(config=config_mock)
     assert len(dimensions) == 26
 
-    dimensions = list_dimensions(explore_name="order_lines", project=project)
+    dimensions = list_dimensions(explore_name="order_lines", config=config_mock)
     assert len(dimensions) == 26
 
-    dimensions = list_dimensions(view_name="order_lines", names_only=True, project=project)
+    dimensions = list_dimensions(view_name="order_lines", names_only=True, config=config_mock)
     dimensions_present = {
         "order_line_id",
         "order_id",

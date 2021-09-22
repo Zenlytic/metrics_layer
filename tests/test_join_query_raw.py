@@ -21,10 +21,17 @@ models = [ProjectReader.read_yaml_file(model_path)]
 views = [ProjectReader.read_yaml_file(path) for path in view_paths]
 
 
+class config_mock:
+    pass
+
+
 def test_query_no_join_raw():
     project = Project(models=models, views=views)
+    config_mock.project = project
     query = get_sql_query(
-        metrics=["total_item_revenue"], dimensions=["order_lines.order_line_id", "channel"], project=project
+        metrics=["total_item_revenue"],
+        dimensions=["order_lines.order_line_id", "channel"],
+        config=config_mock,
     )
 
     correct = "SELECT order_lines.order_line_id as order_line_id,order_lines.sales_channel as channel"
@@ -34,10 +41,11 @@ def test_query_no_join_raw():
 
 def test_query_single_join_non_base_primary_key():
     project = Project(models=models, views=views)
+    config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["orders.order_id", "channel", "new_vs_repeat"],
-        project=project,
+        config=config_mock,
     )
 
     correct = "SELECT orders.order_id as order_id,order_lines.sales_channel as channel,"
@@ -50,10 +58,11 @@ def test_query_single_join_non_base_primary_key():
 
 def test_query_single_join_raw():
     project = Project(models=models, views=views)
+    config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["order_lines.order_line_id", "channel", "new_vs_repeat"],
-        project=project,
+        config=config_mock,
     )
 
     correct = "SELECT order_lines.order_line_id as order_line_id,order_lines.sales_channel as channel,"
@@ -65,12 +74,13 @@ def test_query_single_join_raw():
 
 def test_query_single_join_having_error():
     project = Project(models=models, views=views)
+    config_mock.project = project
     with pytest.raises(ArgumentError) as exc_info:
         get_sql_query(
             metrics=["total_item_revenue"],
             dimensions=["order_lines.order_line_id", "channel", "new_vs_repeat"],
             having=[{"field": "total_item_revenue", "expression": "less_than", "value": 22}],
-            project=project,
+            config=config_mock,
         )
 
     assert exc_info.value
@@ -78,12 +88,13 @@ def test_query_single_join_having_error():
 
 def test_query_single_join_order_by_error():
     project = Project(models=models, views=views)
+    config_mock.project = project
     with pytest.raises(ArgumentError) as exc_info:
         get_sql_query(
             metrics=["total_item_revenue"],
             dimensions=["order_lines.order_line_id", "channel", "new_vs_repeat"],
             order_by=[{"field": "total_item_revenue"}],
-            project=project,
+            config=config_mock,
         )
 
     assert exc_info.value
@@ -91,11 +102,12 @@ def test_query_single_join_order_by_error():
 
 def test_query_single_join_raw_all():
     project = Project(models=models, views=views)
+    config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["order_lines.order_line_id", "channel", "new_vs_repeat"],
         where=[{"field": "new_vs_repeat", "expression": "equal_to", "value": "Repeat"}],
-        project=project,
+        config=config_mock,
     )
 
     correct = "SELECT order_lines.order_line_id as order_line_id,order_lines.sales_channel as channel,"

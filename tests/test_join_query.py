@@ -19,9 +19,14 @@ models = [ProjectReader.read_yaml_file(model_path)]
 views = [ProjectReader.read_yaml_file(path) for path in view_paths]
 
 
+class config_mock:
+    pass
+
+
 def test_query_no_join():
     project = Project(models=models, views=views)
-    query = get_sql_query(metrics=["total_item_revenue"], dimensions=["channel"], project=project)
+    config_mock.project = project
+    query = get_sql_query(metrics=["total_item_revenue"], dimensions=["channel"], config=config_mock)
 
     correct = (
         "SELECT order_lines.sales_channel as channel,SUM(order_lines.revenue) as total_item_revenue FROM "
@@ -32,8 +37,9 @@ def test_query_no_join():
 
 def test_query_single_join():
     project = Project(models=models, views=views)
+    config_mock.project = project
     query = get_sql_query(
-        metrics=["total_item_revenue"], dimensions=["channel", "new_vs_repeat"], project=project
+        metrics=["total_item_revenue"], dimensions=["channel", "new_vs_repeat"], config=config_mock
     )
 
     correct = "SELECT order_lines.sales_channel as channel,orders.new_vs_repeat as new_vs_repeat,"
@@ -47,6 +53,7 @@ def test_query_single_join():
 
 def test_query_single_join_select_args():
     project = Project(models=models, views=views)
+    config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["channel", "new_vs_repeat"],
@@ -54,7 +61,7 @@ def test_query_single_join_select_args():
             "CAST(new_vs_repeat = 'Repeat' AS INT) as group_1",
             "CAST(date_created > '2021-04-02' AS INT) as period",
         ],
-        project=project,
+        config=config_mock,
     )
 
     correct = "SELECT order_lines.sales_channel as channel,orders.new_vs_repeat as new_vs_repeat,"
@@ -70,8 +77,9 @@ def test_query_single_join_select_args():
 
 def test_query_single_join_with_case_raw_sql():
     project = Project(models=models, views=views)
+    config_mock.project = project
     query = get_sql_query(
-        metrics=["total_item_revenue"], dimensions=["is_on_sale_sql", "new_vs_repeat"], project=project
+        metrics=["total_item_revenue"], dimensions=["is_on_sale_sql", "new_vs_repeat"], config=config_mock
     )
 
     correct = "SELECT CASE WHEN order_lines.product_name ilike '%sale%' then TRUE else FALSE end "
@@ -85,8 +93,9 @@ def test_query_single_join_with_case_raw_sql():
 
 def test_query_single_join_with_case():
     project = Project(models=models, views=views)
+    config_mock.project = project
     query = get_sql_query(
-        metrics=["total_item_revenue"], dimensions=["is_on_sale_case", "new_vs_repeat"], project=project
+        metrics=["total_item_revenue"], dimensions=["is_on_sale_case", "new_vs_repeat"], config=config_mock
     )
 
     correct = "SELECT case when order_lines.product_name ilike '%sale%' then 'On sale' else 'Not on sale' end "  # noqa
@@ -100,8 +109,9 @@ def test_query_single_join_with_case():
 
 def test_query_single_join_with_tier():
     project = Project(models=models, views=views)
+    config_mock.project = project
     query = get_sql_query(
-        metrics=["total_item_revenue"], dimensions=["order_tier", "new_vs_repeat"], project=project
+        metrics=["total_item_revenue"], dimensions=["order_tier", "new_vs_repeat"], config=config_mock
     )
 
     tier_case_query = "case when order_lines.revenue < 0 then 'Below 0' when order_lines.revenue >= 0 "
@@ -120,8 +130,11 @@ def test_query_single_join_with_tier():
 
 def test_query_single_join_with_filter():
     project = Project(models=models, views=views)
+    config_mock.project = project
     query = get_sql_query(
-        metrics=["number_of_email_purchased_items"], dimensions=["channel", "new_vs_repeat"], project=project
+        metrics=["number_of_email_purchased_items"],
+        dimensions=["channel", "new_vs_repeat"],
+        config=config_mock,
     )
 
     correct = "SELECT order_lines.sales_channel as channel,orders.new_vs_repeat as new_vs_repeat,"
@@ -134,8 +147,9 @@ def test_query_single_join_with_filter():
 
 def test_query_multiple_join():
     project = Project(models=models, views=views)
+    config_mock.project = project
     query = get_sql_query(
-        metrics=["total_item_revenue"], dimensions=["region", "new_vs_repeat"], project=project
+        metrics=["total_item_revenue"], dimensions=["region", "new_vs_repeat"], config=config_mock
     )
 
     correct = "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
@@ -148,11 +162,12 @@ def test_query_multiple_join():
 
 def test_query_multiple_join_where_dict():
     project = Project(models=models, views=views)
+    config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],
         where=[{"field": "region", "expression": "not_equal_to", "value": "West"}],
-        project=project,
+        config=config_mock,
     )
 
     correct = "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
@@ -166,11 +181,12 @@ def test_query_multiple_join_where_dict():
 
 def test_query_multiple_join_where_literal():
     project = Project(models=models, views=views)
+    config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],
         where="region != 'West'",
-        project=project,
+        config=config_mock,
     )
 
     correct = "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
@@ -184,11 +200,12 @@ def test_query_multiple_join_where_literal():
 
 def test_query_multiple_join_having_dict():
     project = Project(models=models, views=views)
+    config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],
         having=[{"field": "total_item_revenue", "expression": "greater_than", "value": -12}],
-        project=project,
+        config=config_mock,
     )
 
     correct = "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
@@ -202,11 +219,12 @@ def test_query_multiple_join_having_dict():
 
 def test_query_multiple_join_having_literal():
     project = Project(models=models, views=views)
+    config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],
         having="total_item_revenue > -12",
-        project=project,
+        config=config_mock,
     )
 
     correct = "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
@@ -220,11 +238,12 @@ def test_query_multiple_join_having_literal():
 
 def test_query_multiple_join_order_by_literal():
     project = Project(models=models, views=views)
+    config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],
         order_by="total_item_revenue",
-        project=project,
+        config=config_mock,
     )
 
     correct = "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
@@ -238,13 +257,14 @@ def test_query_multiple_join_order_by_literal():
 
 def test_query_multiple_join_all():
     project = Project(models=models, views=views)
+    config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],
         where=[{"field": "region", "expression": "not_equal_to", "value": "West"}],
         having=[{"field": "total_item_revenue", "expression": "greater_than", "value": -12}],
         order_by=[{"field": "total_item_revenue", "sort": "desc"}],
-        project=project,
+        config=config_mock,
     )
 
     correct = "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
