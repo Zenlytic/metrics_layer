@@ -3,7 +3,7 @@ import os
 import pytest
 
 from granite.core.model.project import Project
-from granite.core.parse.parse_granite_config import GraniteProjectReader
+from granite.core.parse.project_reader import ProjectReader
 from granite.core.query import get_sql_query
 from granite.core.sql.query_errors import ArgumentError
 
@@ -17,8 +17,8 @@ customers_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_
 discounts_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_discounts.yml")
 view_paths = [order_lines_view_path, orders_view_path, customers_view_path, discounts_view_path]
 
-models = [GraniteProjectReader.read_yaml_file(model_path)]
-views = [GraniteProjectReader.read_yaml_file(path) for path in view_paths]
+models = [ProjectReader.read_yaml_file(model_path)]
+views = [ProjectReader.read_yaml_file(path) for path in view_paths]
 
 
 def test_query_no_join_raw():

@@ -1,13 +1,17 @@
 import os
 
-from granite.core.parse.parse_granite_config import GraniteProjectReader
-from granite.core.parse.parse_lookml import LookMLProjectReader
-from granite.core.parse.parse_multiple_config import GraniteMultipleProjectReader
+import pytest
+
+from granite.core.parse.github_repo import BaseRepo
+from granite.core.parse.project_reader import ProjectReader
 
 BASE_PATH = os.path.dirname(__file__)
 
 
-class repo_mock:
+class repo_mock(BaseRepo):
+    def __init__(self, repo_type: str = None):
+        self.repo_type = repo_type
+
     def fetch(self):
         return
 
@@ -27,7 +31,7 @@ class repo_mock:
 
 
 def test_config_load_yaml():
-    reader = GraniteProjectReader(repo=repo_mock())
+    reader = ProjectReader(repo=repo_mock(repo_type="granite"))
     reader.load()
 
     model = reader.models[0]
@@ -66,7 +70,7 @@ def test_config_load_yaml():
 
 
 def test_config_load_lkml():
-    reader = LookMLProjectReader(repo=repo_mock())
+    reader = ProjectReader(repo=repo_mock(repo_type="lookml"))
     reader.load()
 
     model = reader.models[0]
@@ -104,9 +108,25 @@ def test_config_load_lkml():
     assert isinstance(field["sql"], str)
 
 
+def test_automatic_choosing():
+    reader = ProjectReader(repo=repo_mock())
+    reader.load()
+    assert reader.base_repo.get_repo_type() == "granite"
+
+
+def test_bad_repo_type():
+    reader = ProjectReader(repo=repo_mock(repo_type="dne"))
+    with pytest.raises(TypeError) as exc_info:
+        reader.load()
+
+    assert exc_info.value
+
+
 def test_config_load_multiple():
 
-    reader = GraniteMultipleProjectReader(repo_mock(), "lookml", repo_mock(), "granite")
+    base_mock = repo_mock(repo_type="lookml")
+    additional_mock = repo_mock(repo_type="granite")
+    reader = ProjectReader(repo=base_mock, additional_repo=additional_mock)
 
     model = reader.models[0]
 

@@ -11,6 +11,22 @@ BASE_PATH = os.path.dirname(__file__)
 
 
 class BaseRepo:
+    def get_repo_type(self):
+        if self.repo_type:
+            return self.repo_type
+
+        looker_files = list(self.search(pattern="*.model.*"))
+        looker_files += list(self.search(pattern="*.view.*"))
+        n_looker_files = len(looker_files)
+
+        yaml_files = list(self.search(pattern="*.yml"))
+        yaml_files += list(self.search(pattern="*.yaml"))
+        n_yaml_files = len(yaml_files)
+
+        if n_looker_files > n_yaml_files:
+            return "lookml"
+        return "granite"
+
     def delete(self):
         raise NotImplementedError()
 
@@ -22,9 +38,10 @@ class BaseRepo:
 
 
 class GithubRepo(BaseRepo):
-    def __init__(self, repo_url: str, branch: str) -> None:
+    def __init__(self, repo_url: str, branch: str, repo_type: str = None) -> None:
         self.repo_name = utils.generate_uuid()
         self.repo_url = repo_url
+        self.repo_type = repo_type
         self.repo_destination = os.path.join(BASE_PATH, self.repo_name)
         self.folder = f"{self.repo_destination}/"
         self.branch = branch
@@ -51,11 +68,14 @@ class GithubRepo(BaseRepo):
 
 
 class LookerGithubRepo(BaseRepo):
-    def __init__(self, looker_url: str, client_id: str, client_secret: str, project_name: str):
+    def __init__(
+        self, looker_url: str, client_id: str, client_secret: str, project_name: str, repo_type: str = None
+    ):
         self.looker_url = looker_url
         self.client_id = client_id
         self.client_secret = client_secret
         self.project_name = project_name
+        self.repo_type = repo_type
         self.repo_url, self.branch = self.get_looker_github_info()
         self.repo = GithubRepo(self.repo_url, self.branch)
 
@@ -74,7 +94,7 @@ class LookerGithubRepo(BaseRepo):
         project = next((p for p in projects if p["name"] == self.project_name))
         return project["git_remote_url"], project["git_production_branch_name"]
 
-    def get_looker_projects(self, base_url: str, client_id: str, client_secret: str):
+    def get_looker_projects(self):
         token = self.get_looker_oauth_token(self.looker_url, self.client_id, self.client_secret)
         headers = {"Authorization": f"token {token}"}
         response = requests.get(f"{self.looker_url}/api/3.1/projects", headers=headers)
