@@ -14,6 +14,12 @@ class Field(GraniteBase, SQLReplacement):
         if definition["name"] is not None:
             definition["name"] = definition["name"].lower()
 
+        if "primary_key" in definition and isinstance(definition["primary_key"], bool):
+            definition["primary_key"] = "yes" if definition["primary_key"] else "no"
+
+        if "hidden" in definition and isinstance(definition["hidden"], bool):
+            definition["hidden"] = "yes" if definition["hidden"] else "no"
+
         # TODO figure out how to handle this weird case
         # if definition["name"][0] in {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}:
         #     definition["name"] = "_" + definition["name"]

@@ -171,7 +171,7 @@ view: view_name {
     }
     label: "desired label name"
     label_from_parameter: parameter_name
-    view_label: "desired label name"
+    view_label: "desired looker label name"
     group_label: "label used to group dimensions in the field picker"
     group_item_label: "label to use for the field under its group label in the field picker"
     description: "description string"
