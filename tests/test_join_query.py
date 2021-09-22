@@ -75,6 +75,34 @@ def test_query_single_join_select_args():
     assert query == correct
 
 
+def test_query_single_join_select_and_group_args():
+    project = Project(models=models, views=views)
+    config_mock.project = project
+    query = get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["channel", "new_vs_repeat"],
+        select_raw_sql=[
+            "CAST(new_vs_repeat = 'Repeat' AS INT) as group_1",
+            "CAST(date_created > '2021-04-02' AS INT) as period",
+        ],
+        group_by_raw_sql=[
+            "CAST(new_vs_repeat = 'Repeat' AS INT)",
+            "CAST(date_created > '2021-04-02' AS INT)",
+        ],
+        config=config_mock,
+    )
+
+    correct = "SELECT order_lines.sales_channel as channel,orders.new_vs_repeat as new_vs_repeat,"
+    correct += "SUM(order_lines.revenue) as total_item_revenue,"
+    correct += "CAST(new_vs_repeat = 'Repeat' AS INT) as group_1,"
+    correct += "CAST(date_created > '2021-04-02' AS INT) as period FROM "
+    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
+    correct += "order_lines.order_id=orders.order_id GROUP BY order_lines.sales_channel,orders.new_vs_repeat,"
+    correct += "CAST(new_vs_repeat = 'Repeat' AS INT),CAST(date_created > '2021-04-02' AS INT);"
+
+    assert query == correct
+
+
 def test_query_single_join_with_case_raw_sql():
     project = Project(models=models, views=views)
     config_mock.project = project

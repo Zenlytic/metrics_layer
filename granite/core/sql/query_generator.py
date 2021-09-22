@@ -255,6 +255,9 @@ class GraniteQuery(GraniteBase):
         for field_name in self.dimensions:
             field = self.design.get_field(field_name)
             group_by.append(self.sql(field.sql_query()))
+
+        if self.group_by_raw_sql:
+            group_by.extend([self.sql(clause) for clause in self.group_by_raw_sql])
         return group_by
 
     # Code for formatting values

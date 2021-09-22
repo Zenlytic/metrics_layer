@@ -32,6 +32,7 @@ class SQLQueryResolver:
         self.query_type = kwargs.get("query_type", "SNOWFLAKE")
         self.verbose = kwargs.get("verbose", False)
         self.select_raw_sql = kwargs.get("select_raw_sql", [])
+        self.group_by_raw_sql = kwargs.get("group_by_raw_sql", [])
         self.project = project
         self.metrics = metrics
         self.dimensions = dimensions
@@ -74,6 +75,7 @@ class SQLQueryResolver:
             "having": self.having,
             "order_by": self.order_by,
             "select_raw_sql": self.select_raw_sql,
+            "group_by_raw_sql": self.group_by_raw_sql,
         }
         query = GraniteQuery(query_definition, design=self.design).get_query()
 
