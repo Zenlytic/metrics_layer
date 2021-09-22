@@ -91,9 +91,13 @@ class Field(GraniteBase, SQLReplacement):
         required_keys = ["name", "field_type"]
         for k in required_keys:
             if k not in definition:
-                raise ValueError(f"Field missing required key {k}")
-        if all(key not in definition for key in ["sql", "sql_end", "sql_start", "case"]):
-            raise ValueError(f"Field missing one of required keys sql, sql_start, sql_end, case")
+                raise ValueError(f"Field missing required key '{k}' The field passed was {definition}")
+        sql_keys = ["sql", "sql_end", "sql_start", "case", "sql_latitude", "sql_longitude"]
+        if all(key not in definition for key in sql_keys) and definition.get("type") != "count":
+            raise ValueError(
+                f"""Field missing one of required keys sql, sql_start, sql_end, case.
+             The field passed was {definition}"""
+            )
 
     def to_dict(self):
         output = {**self._definition}

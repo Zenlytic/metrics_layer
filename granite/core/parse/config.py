@@ -21,7 +21,7 @@ class GraniteConfiguration:
     @property
     def project(self):
         if self._project is None:
-            self._project = self._get_project()
+            self.load()
         return self._project
 
     def connections(self):
@@ -32,6 +32,9 @@ class GraniteConfiguration:
             return next((c for c in self.connections() if c.name == connection_name))
         except StopIteration:
             raise ConfigError(f"Could not find connection named {connection_name} in {self.connections}")
+
+    def load(self):
+        self._project = self._get_project()
 
     def _get_project(self):
         reader = ProjectReader(repo=self.repo, additional_repo=self.additional_repo)
