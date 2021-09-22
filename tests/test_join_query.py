@@ -18,15 +18,6 @@ view_paths = [order_lines_view_path, orders_view_path, customers_view_path, disc
 models = [ProjectReader.read_yaml_file(model_path)]
 views = [ProjectReader.read_yaml_file(path) for path in view_paths]
 
-# how to load the necessary config
-# For all of these either local based or api key based
-# - pass credentials object
-# - env variables
-# - config file
-
-# -- merge pr
-# convert()
-
 
 def test_query_no_join():
     project = Project(models=models, views=views)

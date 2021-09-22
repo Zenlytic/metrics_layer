@@ -1,6 +1,7 @@
 import pytest
 
 from granite.core.parse.config import ConfigError, GraniteConfiguration
+from granite.core.parse.connections import BigQueryConnection, SnowflakeConnection
 from granite.core.parse.github_repo import LookerGithubRepo
 
 
@@ -11,6 +12,50 @@ def test_config_explicit_granite_single():
     assert config.repo.repo_type == "granite"
     assert config.repo.branch == "dev"
     assert config.repo.repo_url == "https://github.com"
+
+
+def test_config_explicit_granite_single_with_connections():
+    repo_config = {"repo_url": "https://github.com", "branch": "dev", "repo_type": "granite"}
+    connections = [
+        {
+            "type": "SNOWFLAKE",
+            "name": "sf_name",
+            "account": "sf_account",
+            "username": "sf_username",
+            "password": "sf_password",
+        },
+        {
+            "type": "BIGQUERY",
+            "name": "bq_name",
+            "credentials": '{"key": "value", "project_id": "test-1234"}',
+        },
+    ]
+    config = GraniteConfiguration(repo_config=repo_config, connections=connections)
+
+    assert config.repo.repo_type == "granite"
+    assert config.repo.branch == "dev"
+    assert config.repo.repo_url == "https://github.com"
+
+    sf_connection = config.get_connection("sf_name")
+    assert isinstance(sf_connection, SnowflakeConnection)
+    assert sf_connection.to_dict() == {
+        "user": "sf_username",
+        "password": "sf_password",
+        "account": "sf_account",
+    }
+
+    bq_connection = config.get_connection("bq_name")
+    assert isinstance(bq_connection, BigQueryConnection)
+    assert bq_connection.to_dict() == {
+        "project_id": "test-1234",
+        "credentials": {"key": "value", "project_id": "test-1234"},
+    }
+
+    # Should raise ConfigError
+    with pytest.raises(ConfigError) as exc_info:
+        config.get_connection("does_not_exist")
+
+    assert exc_info.value
 
 
 def test_config_explicit_granite_multiple():

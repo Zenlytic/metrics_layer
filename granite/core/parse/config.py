@@ -1,6 +1,7 @@
 import os
 
 from granite.core.model.project import Project
+from granite.core.parse.connections import BigQueryConnection, SnowflakeConnection
 
 from .github_repo import GithubRepo, LookerGithubRepo
 from .project_reader import ProjectReader
@@ -14,7 +15,7 @@ class GraniteConfiguration:
     def __init__(self, repo_config: dict = None, additional_repo_config: dict = None, connections: list = []):
         self.repo = self._resolve_config(repo_config, prefix="GRANITE", raise_exception=True)
         self.additional_repo = self._resolve_config(additional_repo_config, prefix="GRANITE_ADDITIONAL")
-        self._connections = connections
+        self._connections = self._parse_connections(connections)
         self._project = None
 
     @property
@@ -28,7 +29,7 @@ class GraniteConfiguration:
 
     def get_connection(self, connection_name: str):
         try:
-            return next((c for c in self.connections() if c["name"] == connection_name))
+            return next((c for c in self.connections() if c.name == connection_name))
         except StopIteration:
             raise ConfigError(f"Could not find connection named {connection_name} in {self.connections}")
 
@@ -93,3 +94,12 @@ class GraniteConfiguration:
                 "repo_type": "lookml",
             }
             return LookerGithubRepo(**config)
+
+    def _parse_connections(self, connections: list):
+        class_lookup = {"SNOWFLAKE": SnowflakeConnection, "BIGQUERY": BigQueryConnection}
+        results = []
+        for connection in connections:
+            connection_type = connection["type"].upper()
+            connection_class = class_lookup[connection_type](**connection)
+            results.append(connection_class)
+        return results
