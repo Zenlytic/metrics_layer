@@ -1,11 +1,10 @@
-from .base import GraniteBase
 from .explore import Explore
 from .field import Field
 from .model import Model
 from .view import View
 
 
-class Project(GraniteBase):
+class Project:
     """
     Higher level abstraction for the whole project
     """
