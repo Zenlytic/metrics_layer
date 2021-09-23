@@ -76,6 +76,25 @@ def test_simple_query():
     assert query == correct
 
 
+def test_simple_query_single_metric():
+    project = Project(models=[simple_model], views=[simple_view])
+    config_mock.project = project
+    query = get_sql_query(metrics=["total_revenue"], config=config_mock)
+
+    correct = "SELECT SUM(simple.revenue) as total_revenue FROM analytics.orders simple;"
+    assert query == correct
+
+
+def test_simple_query_single_dimension():
+    project = Project(models=[simple_model], views=[simple_view])
+    config_mock.project = project
+    query = get_sql_query(dimensions=["channel"], config=config_mock)
+
+    correct = "SELECT simple.sales_channel as channel FROM "
+    correct += "analytics.orders simple GROUP BY simple.sales_channel;"
+    assert query == correct
+
+
 def test_simple_query_count():
     project = Project(models=[simple_model], views=[simple_view])
     config_mock.project = project

@@ -80,17 +80,23 @@ class SQLQueryResolver:
         return query
 
     def derive_explore(self, verbose: bool):
-        if len(self.metrics) == 0:
-            raise ValueError("You need to include at least one metric for the query to run")
+        # Only checking metrics when they exist reduces the number of obvious explores a user has to specify
+        if len(self.metrics) > 0:
+            all_fields = self.metrics
+        else:
+            all_fields = self.dimensions
 
-        initial_metric = self.metrics[0]
-        working_explore_name = self.project.get_explore_from_field(initial_metric)
-        for metric in self.metrics[1:]:
-            explore_name = self.project.get_explore_from_field(metric)
+        if len(all_fields) == 0:
+            raise ValueError("You need to include at least one metric or dimension for the query to run")
+
+        initial_field = all_fields[0]
+        working_explore_name = self.project.get_explore_from_field(initial_field)
+        for field_name in all_fields[1:]:
+            explore_name = self.project.get_explore_from_field(field_name)
             if explore_name != working_explore_name:
                 raise ValueError(
-                    f"""The explore found in metric {initial_metric}, {working_explore_name}
-                    does not match the explore found in {metric}, {explore_name}"""
+                    f"""The explore found in metric {initial_field}, {working_explore_name}
+                    does not match the explore found in {field_name}, {explore_name}"""
                 )
 
         if verbose:

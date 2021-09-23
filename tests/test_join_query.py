@@ -51,6 +51,17 @@ def test_query_single_join():
     assert query == correct
 
 
+def test_query_single_dimension():
+    project = Project(models=models, views=views)
+    config_mock.project = project
+    query = get_sql_query(metrics=[], dimensions=["new_vs_repeat"], config=config_mock)
+
+    correct = "SELECT orders.new_vs_repeat as new_vs_repeat FROM "
+    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
+    correct += "order_lines.order_id=orders.order_id GROUP BY orders.new_vs_repeat;"
+    assert query == correct
+
+
 def test_query_single_join_count():
     project = Project(models=models, views=views)
     config_mock.project = project

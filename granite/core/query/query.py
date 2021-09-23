@@ -3,7 +3,7 @@ from granite.core.sql import SQLQueryResolver
 
 
 def query(
-    metrics: list,
+    metrics: list = [],
     dimensions: list = [],
     where: list = [],
     having: list = [],
@@ -27,7 +27,7 @@ def query(
 
 
 def get_sql_query(
-    metrics: list,
+    metrics: list = [],
     dimensions: list = [],
     where: list = [],
     having: list = [],
