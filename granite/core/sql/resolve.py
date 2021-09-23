@@ -32,7 +32,6 @@ class SQLQueryResolver:
         self.query_type = kwargs.get("query_type", "SNOWFLAKE")
         self.verbose = kwargs.get("verbose", False)
         self.select_raw_sql = kwargs.get("select_raw_sql", [])
-        self.group_by_raw_sql = kwargs.get("group_by_raw_sql", [])
         self.project = project
         self.metrics = metrics
         self.dimensions = dimensions
@@ -75,7 +74,6 @@ class SQLQueryResolver:
             "having": self.having,
             "order_by": self.order_by,
             "select_raw_sql": self.select_raw_sql,
-            "group_by_raw_sql": self.group_by_raw_sql,
         }
         query = GraniteQuery(query_definition, design=self.design).get_query()
 
@@ -151,4 +149,10 @@ class SQLQueryResolver:
 
     @staticmethod
     def parse_identifiers_from_dicts(conditions: list):
-        return [cond["field"] for cond in conditions]
+        try:
+            return [cond["field"] for cond in conditions]
+        except KeyError:
+            for cond in conditions:
+                if "field" not in cond:
+                    break
+            raise KeyError(f"Identifier was missing required 'field' key: {cond}")

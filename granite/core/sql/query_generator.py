@@ -1,3 +1,5 @@
+import re
+from copy import deepcopy
 from typing import Dict, List
 
 from pypika import Criterion, JoinType, Order, Table
@@ -200,13 +202,13 @@ class GraniteQuery(GraniteBase):
         base_join_query = self._get_base_query()
 
         # Base table from statement
-        table = self.design.find_view(self.design.base_view_name)
+        table = self.design.get_view(self.design.base_view_name)
 
         base_join_query = base_join_query.from_(self._table_expression(table))
 
         # Start By building the Join
         for join in self.design.joins():
-            table = self.design.find_view(join.name)
+            table = self.design.get_view(join.name)
 
             # Create a pypika Table based on the Table's name
             db_table = self._table_expression(table)
@@ -223,7 +225,7 @@ class GraniteQuery(GraniteBase):
     def get_single_table_query_from(self):
         base_query = self._get_base_query()
 
-        table = self.design.find_view(self.design.base_view_name)
+        table = self.design.get_view(self.design.base_view_name)
         base_query = base_query.from_(self._table_expression(table))
 
         return base_query
@@ -256,8 +258,8 @@ class GraniteQuery(GraniteBase):
             field = self.design.get_field(field_name)
             group_by.append(self.sql(field.sql_query()))
 
-        if self.group_by_raw_sql:
-            group_by.extend([self.sql(clause) for clause in self.group_by_raw_sql])
+        if self.select_raw_sql:
+            group_by.extend([self.sql(self.strip_alias(clause)) for clause in self.select_raw_sql])
         return group_by
 
     # Code for formatting values
@@ -266,3 +268,14 @@ class GraniteQuery(GraniteBase):
         if alias:
             return LiteralValue(sql + f" as {alias}")
         return LiteralValue(sql)
+
+    @staticmethod
+    def strip_alias(sql: str):
+        stripped_sql = deepcopy(sql)
+        matches = re.findall(r"(?i)\ as\ ", stripped_sql)
+        if matches:
+            alias = " AS "
+            for match in matches:
+                stripped_sql = stripped_sql.replace(match, alias)
+            return alias.join(stripped_sql.split(alias)[:-1])
+        return sql

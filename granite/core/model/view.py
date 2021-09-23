@@ -27,6 +27,10 @@ class View(GraniteBase):
                 f"Incorrect table identifiers sql_table_name and derived_table (must have exactly one)"
             )
 
+    @property
+    def primary_key(self):
+        return next((f for f in self.fields() if f.primary_key == "yes"), None)
+
     def fields(self, exclude_hidden: bool = False) -> list:
         all_fields = [Field(f, view=self) for f in self._definition.get("fields", [])]
         if exclude_hidden:

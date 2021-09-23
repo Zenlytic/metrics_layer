@@ -72,6 +72,30 @@ def test_query_single_join_raw():
     assert query == correct
 
 
+def test_query_single_join_raw_select_args():
+    project = Project(models=models, views=views)
+    config_mock.project = project
+    query = get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["order_lines.order_line_id", "channel", "new_vs_repeat"],
+        select_raw_sql=[
+            "CAST(new_vs_repeat = 'Repeat' AS INT) as group_1",
+            "CAST(date_created > '2021-04-02' AS INT) as period",
+        ],
+        config=config_mock,
+    )
+
+    correct = "SELECT order_lines.order_line_id as order_line_id,order_lines.sales_channel as channel,"
+    correct += "orders.new_vs_repeat as new_vs_repeat,"
+    correct += "order_lines.revenue as total_item_revenue,"
+    correct += "CAST(new_vs_repeat = 'Repeat' AS INT) as group_1,"
+    correct += "CAST(date_created > '2021-04-02' AS INT) as period FROM "
+    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
+    correct += "order_lines.order_id=orders.order_id;"
+
+    assert query == correct
+
+
 def test_query_single_join_having_error():
     project = Project(models=models, views=views)
     config_mock.project = project

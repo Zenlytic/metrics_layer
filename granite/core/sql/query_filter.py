@@ -49,7 +49,7 @@ class GraniteFilter(GraniteBase):
     An internal representation of a Filter (WHERE or HAVING clause)
     defined in a GraniteQuery.
 
-    definition: {key, "expression", "value"}
+    definition: {"field", "expression", "value"}
     """
 
     def __init__(self, definition: Dict = {}, design=None, filter_type: str = None) -> None:

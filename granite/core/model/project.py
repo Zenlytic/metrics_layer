@@ -82,6 +82,7 @@ class Project(GraniteBase):
                 )
             view_name = specified_view_name
 
+        field_name = field_name.lower()
         fields = self.fields(explore_name=explore_name, view_name=view_name)
         matching_fields = [f for f in fields if f.equal(field_name)]
         return self._matching_field_handler(matching_fields, field_name, explore_name, view_name)
@@ -102,23 +103,31 @@ class Project(GraniteBase):
         match = self._matching_field_handler(matching_fields, field_name)
         return match.view.explore.name
 
-    @staticmethod
     def _matching_field_handler(
-        matching_fields: list, field_name: str, explore_name: str = None, view_name: str = None
+        self, matching_fields: list, field_name: str, explore_name: str = None, view_name: str = None
     ):
         if len(matching_fields) == 1:
             return matching_fields[0]
 
         elif len(matching_fields) > 1:
+            matching_names = [f"{f.view.name}.{f.name}" for f in matching_fields]
             raise ValueError(
-                """Multiple fields found for this name, please specify a
+                f"""Multiple fields found for the name {field_name}, {matching_names} please specify a
                 view name like this: view_name.field_name"""
             )
+        elif field_name == "count" and (explore_name or view_name):
+            definition = {"type": "count", "name": "count", "field_type": "measure"}
+            if explore_name and not view_name:
+                view_name = self.get_explore(explore_name).from_
+            return Field(definition, view=self.get_view(view_name))
         else:
             err_msg = f"Field {field_name} not found"
             if explore_name:
                 err_msg += f" in explore {explore_name}"
             if view_name:
                 err_msg += f" in view {view_name}"
-            err_msg += ", please check that this field exists"
+            err_msg += ", please check that this field exists. "
+            err_msg += "If this is a dimension group specify the group parameter, if not already specified, "
+            err_msg += "for example, with a dimension group named 'order' with timeframes: [raw, date, month]"
+            err_msg += " specify 'order_raw' or 'order_date' or 'order_month'"
             raise ValueError(err_msg)

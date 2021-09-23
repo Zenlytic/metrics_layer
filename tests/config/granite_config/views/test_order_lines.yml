@@ -84,6 +84,10 @@ fields:
     tiers: [0,20,50,100,300]
     sql: "${TABLE}.revenue"
 
+  # - name: count
+  #   field_type: measure
+  #   type: count
+
   - name: number_of_email_purchased_items
     field_type: measure
     type: count

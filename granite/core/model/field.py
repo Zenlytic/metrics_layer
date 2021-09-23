@@ -40,6 +40,16 @@ class Field(GraniteBase, SQLReplacement):
         if "sql" in definition and definition.get("type") == "tier":
             definition["sql"] = self._translate_looker_tier_to_sql(definition["sql"], definition["tiers"])
 
+        if (
+            "sql" not in definition
+            and definition.get("field_type") == "measure"
+            and definition.get("type") == "count"
+        ):
+            if self.view.primary_key:
+                definition["sql"] = self.view.primary_key.sql
+            else:
+                definition["sql"] = "*"
+
         if "sql" in definition:
             definition["sql"] = self._clean_sql_for_case(definition["sql"])
         return definition.get("sql")

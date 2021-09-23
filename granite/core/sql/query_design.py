@@ -28,30 +28,16 @@ class GraniteDesign:
         return joins_needed_for_query
 
     def get_view(self, name: str) -> GraniteBase:
-        return next(t for t in self.views() if t.name == name)
+        try:
+            return next(t for t in self.views() if t.name == name)
+        except StopIteration:
+            raise ParseError(f"View {name} not found in explore {self.explore.name}")
 
     def get_join(self, name: str) -> GraniteBase:
         return next(j for j in self.joins() if j.name == name)
 
-    def find_view(self, name: str) -> GraniteBase:
-        try:
-            return next(t for t in self.views() if t.name == name)
-        except StopIteration:
-            raise ParseError(f"Table {name} not found in explore {self.explore.name}")
-
     def get_field(self, field_name: str, view_name: str = None) -> GraniteBase:
-        if "." in field_name:
-            view_name, field_name = field_name.split(".")
-
-        if view_name is None:
-            views = self.views()
-        else:
-            views = [self.get_view(view_name)]
-
-        try:
-            return next(f for t in views for f in t.fields(exclude_hidden=False) if f.equal(field_name))
-        except StopIteration:
-            raise ParseError(f"Attribute {field_name} not found in explore {self.explore.name}")
+        return self.project.get_field(field_name, view_name=view_name, explore_name=self.explore.name)
 
     @property
     def base_view_name(self):

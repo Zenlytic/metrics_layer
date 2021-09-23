@@ -16,6 +16,7 @@ simple_view = {
     "name": "simple",
     "sql_table_name": "analytics.orders",
     "fields": [
+        {"field_type": "measure", "type": "count", "name": "count"},
         {
             "field_type": "measure",
             "type": "number",
@@ -71,6 +72,16 @@ def test_simple_query():
     query = get_sql_query(metrics=["total_revenue"], dimensions=["channel"], config=config_mock)
 
     correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
+    correct += "analytics.orders simple GROUP BY simple.sales_channel;"
+    assert query == correct
+
+
+def test_simple_query_count():
+    project = Project(models=[simple_model], views=[simple_view])
+    config_mock.project = project
+    query = get_sql_query(metrics=["count"], dimensions=["channel"], config=config_mock)
+
+    correct = "SELECT simple.sales_channel as channel,COUNT(*) as count FROM "
     correct += "analytics.orders simple GROUP BY simple.sales_channel;"
     assert query == correct
 
