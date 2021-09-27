@@ -1,6 +1,6 @@
 from granite.core.convert import MQLConverter
 from granite.core.parse import GraniteConfiguration
-from granite.core.sql import SQLQueryResolver
+from granite.core.sql import QueryRunner, SQLQueryResolver
 
 
 def query(
@@ -14,7 +14,7 @@ def query(
     **kwargs,
 ):
     working_config = get_granite_configuration(config)
-    get_sql_query(
+    query, explore = get_sql_query(
         sql=sql,
         metrics=metrics,
         dimensions=dimensions,
@@ -23,8 +23,13 @@ def query(
         order_by=order_by,
         config=working_config,
         **kwargs,
+        return_explore=True,
     )
-    raise NotImplementedError()
+    connection_name = explore.model.connection
+    connection = working_config.get_connection(connection_name)
+    runner = QueryRunner(query, connection)
+    df = runner.run_query(**kwargs)
+    return df
 
 
 def get_sql_query(
@@ -53,6 +58,8 @@ def get_sql_query(
         )
         query = resolver.get_query()
 
+    if kwargs.get("return_explore", False):
+        return query, resolver.explore
     return query
 
 
