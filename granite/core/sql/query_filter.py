@@ -114,6 +114,7 @@ class GraniteFilter(GraniteBase):
 
     def sql_query(self):
         if self.is_literal_filter:
+
             return LiteralValueCriterion(self.replace_fields_literal_filter())
         return self.criterion(LiteralValue(self.field.sql_query()))
 
