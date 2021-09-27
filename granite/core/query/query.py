@@ -1,8 +1,10 @@
+from granite.core.convert import MQLConverter
 from granite.core.parse import GraniteConfiguration
 from granite.core.sql import SQLQueryResolver
 
 
 def query(
+    sql: str = None,
     metrics: list = [],
     dimensions: list = [],
     where: list = [],
@@ -12,21 +14,21 @@ def query(
     **kwargs,
 ):
     working_config = get_granite_configuration(config)
-    resolver = SQLQueryResolver(
+    get_sql_query(
+        sql=sql,
         metrics=metrics,
         dimensions=dimensions,
         where=where,
         having=having,
         order_by=order_by,
-        project=working_config.project,
+        config=working_config,
         **kwargs,
     )
-    resolver.get_query()
-    #
     raise NotImplementedError()
 
 
 def get_sql_query(
+    sql: str = None,
     metrics: list = [],
     dimensions: list = [],
     where: list = [],
@@ -36,16 +38,22 @@ def get_sql_query(
     **kwargs,
 ):
     working_config = get_granite_configuration(config)
-    resolver = SQLQueryResolver(
-        metrics=metrics,
-        dimensions=dimensions,
-        where=where,
-        having=having,
-        order_by=order_by,
-        project=working_config.project,
-        **kwargs,
-    )
-    return resolver.get_query()
+    if sql:
+        converter = MQLConverter(sql, project=working_config.project)
+        query = converter.get_query()
+    else:
+        resolver = SQLQueryResolver(
+            metrics=metrics,
+            dimensions=dimensions,
+            where=where,
+            having=having,
+            order_by=order_by,
+            project=working_config.project,
+            **kwargs,
+        )
+        query = resolver.get_query()
+
+    return query
 
 
 def define(

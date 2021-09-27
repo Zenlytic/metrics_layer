@@ -107,7 +107,7 @@ class GraniteQuery(GraniteBase):
     def needs_join(self):
         return len(self.design.joins()) > 0
 
-    def get_query(self):
+    def get_query(self, semicolon: bool = True):
         # Build the base_join table if of join is needed otherwise use a single table
         if self.needs_join():
             base_query = self.get_join_query_from()
@@ -139,7 +139,9 @@ class GraniteQuery(GraniteBase):
                 order = Order.desc if arg["sort"] == "desc" else Order.asc
                 base_query = base_query.orderby(LiteralValue(arg["field"]), order=order)
 
-        sql = str(base_query) + ";"
+        sql = str(base_query)
+        if semicolon:
+            sql += ";"
         return sql
 
     # Code to handle SELECT portion of query

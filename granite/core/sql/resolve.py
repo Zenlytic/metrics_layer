@@ -58,7 +58,7 @@ class SQLQueryResolver:
         self.explore = self.project.get_explore(self.explore_name)
         self.parse_input()
 
-    def get_query(self):
+    def get_query(self, semicolon=True):
         self.design = GraniteDesign(
             no_group_by=self.no_group_by,
             query_type=self.query_type,
@@ -75,7 +75,7 @@ class SQLQueryResolver:
             "order_by": self.order_by,
             "select_raw_sql": self.select_raw_sql,
         }
-        query = GraniteQuery(query_definition, design=self.design).get_query()
+        query = GraniteQuery(query_definition, design=self.design).get_query(semicolon=semicolon)
 
         return query
 
