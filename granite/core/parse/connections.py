@@ -2,6 +2,15 @@ import json
 from copy import deepcopy
 
 
+class GraniteConnectionError(Exception):
+    pass
+
+
+class ConnectionType:
+    snowflake = "SNOWFLAKE"
+    bigquery = "BIGQUERY"
+
+
 class BaseConnection:
     def __repr__(self):
         return f"<{self.__class__.__name__} name={self.name}>"
@@ -20,7 +29,7 @@ class SnowflakeConnection(BaseConnection):
         schema: str = None,
         **kwargs,
     ) -> None:
-        self.type = "SNOWFLAKE"
+        self.type = ConnectionType.snowflake
         self.name = name
         self.account = account
         self.username = username
@@ -46,7 +55,7 @@ class SnowflakeConnection(BaseConnection):
 
 class BigQueryConnection(BaseConnection):
     def __init__(self, name: str, credentials: str, **kwargs) -> None:
-        self.type = "BIGQUERY"
+        self.type = ConnectionType.bigquery
         self.name = name
         self.credentials = self._convert_json_if_needed(credentials)
         self.project_id = self.credentials["project_id"]
