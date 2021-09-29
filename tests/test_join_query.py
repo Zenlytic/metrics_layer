@@ -1,30 +1,13 @@
 # import pytest
-import os
 
-from granite.core.model.project import Project
-from granite.core.parse.project_reader import ProjectReader
 from granite.core.query import get_sql_query
-
-BASE_PATH = os.path.dirname(__file__)
-
-
-model_path = os.path.join(BASE_PATH, "config/granite_config/models/commerce_test_model.yml")
-order_lines_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_order_lines.yml")
-orders_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_orders.yml")
-customers_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_customers.yml")
-discounts_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_discounts.yml")
-view_paths = [order_lines_view_path, orders_view_path, customers_view_path, discounts_view_path]
-
-models = [ProjectReader.read_yaml_file(model_path)]
-views = [ProjectReader.read_yaml_file(path) for path in view_paths]
 
 
 class config_mock:
     pass
 
 
-def test_query_no_join():
-    project = Project(models=models, views=views)
+def test_query_no_join(project):
     config_mock.project = project
     query = get_sql_query(metrics=["total_item_revenue"], dimensions=["channel"], config=config_mock)
 
@@ -35,8 +18,7 @@ def test_query_no_join():
     assert query == correct
 
 
-def test_query_single_join():
-    project = Project(models=models, views=views)
+def test_query_single_join(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"], dimensions=["channel", "new_vs_repeat"], config=config_mock
@@ -51,8 +33,7 @@ def test_query_single_join():
     assert query == correct
 
 
-def test_query_single_dimension():
-    project = Project(models=models, views=views)
+def test_query_single_dimension(project):
     config_mock.project = project
     query = get_sql_query(metrics=[], dimensions=["new_vs_repeat"], config=config_mock)
 
@@ -62,8 +43,7 @@ def test_query_single_dimension():
     assert query == correct
 
 
-def test_query_single_join_count():
-    project = Project(models=models, views=views)
+def test_query_single_join_count(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["order_lines.count"],
@@ -78,8 +58,7 @@ def test_query_single_join_count():
     assert query == correct
 
 
-def test_query_single_join_select_args():
-    project = Project(models=models, views=views)
+def test_query_single_join_select_args(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
@@ -102,8 +81,7 @@ def test_query_single_join_select_args():
     assert query == correct
 
 
-def test_query_single_join_with_case_raw_sql():
-    project = Project(models=models, views=views)
+def test_query_single_join_with_case_raw_sql(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"], dimensions=["is_on_sale_sql", "new_vs_repeat"], config=config_mock
@@ -118,8 +96,7 @@ def test_query_single_join_with_case_raw_sql():
     assert query == correct
 
 
-def test_query_single_join_with_case():
-    project = Project(models=models, views=views)
+def test_query_single_join_with_case(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"], dimensions=["is_on_sale_case", "new_vs_repeat"], config=config_mock
@@ -134,8 +111,7 @@ def test_query_single_join_with_case():
     assert query == correct
 
 
-def test_query_single_join_with_tier():
-    project = Project(models=models, views=views)
+def test_query_single_join_with_tier(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"], dimensions=["order_tier", "new_vs_repeat"], config=config_mock
@@ -155,8 +131,7 @@ def test_query_single_join_with_tier():
     assert query == correct
 
 
-def test_query_single_join_with_filter():
-    project = Project(models=models, views=views)
+def test_query_single_join_with_filter(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["number_of_email_purchased_items"],
@@ -172,8 +147,7 @@ def test_query_single_join_with_filter():
     assert query == correct
 
 
-def test_query_multiple_join():
-    project = Project(models=models, views=views)
+def test_query_multiple_join(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"], dimensions=["region", "new_vs_repeat"], config=config_mock
@@ -187,8 +161,7 @@ def test_query_multiple_join():
     assert query == correct
 
 
-def test_query_multiple_join_where_dict():
-    project = Project(models=models, views=views)
+def test_query_multiple_join_where_dict(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
@@ -206,8 +179,7 @@ def test_query_multiple_join_where_dict():
     assert query == correct
 
 
-def test_query_multiple_join_where_literal():
-    project = Project(models=models, views=views)
+def test_query_multiple_join_where_literal(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
@@ -225,8 +197,7 @@ def test_query_multiple_join_where_literal():
     assert query == correct
 
 
-def test_query_multiple_join_having_dict():
-    project = Project(models=models, views=views)
+def test_query_multiple_join_having_dict(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
@@ -244,8 +215,7 @@ def test_query_multiple_join_having_dict():
     assert query == correct
 
 
-def test_query_multiple_join_having_literal():
-    project = Project(models=models, views=views)
+def test_query_multiple_join_having_literal(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
@@ -263,8 +233,7 @@ def test_query_multiple_join_having_literal():
     assert query == correct
 
 
-def test_query_multiple_join_order_by_literal():
-    project = Project(models=models, views=views)
+def test_query_multiple_join_order_by_literal(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
@@ -282,8 +251,7 @@ def test_query_multiple_join_order_by_literal():
     assert query == correct
 
 
-def test_query_multiple_join_all():
-    project = Project(models=models, views=views)
+def test_query_multiple_join_all(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],

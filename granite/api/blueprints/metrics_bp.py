@@ -1,0 +1,48 @@
+from flask import Blueprint
+from flask_restful import Api, Resource
+
+from granite.core import query as granite_query
+from granite.core.sql.query_errors import ParseError
+
+metrics_blueprint = Blueprint("metrics", __name__, url_prefix="/api/v1")
+api = Api(metrics_blueprint)
+
+
+class Metrics(Resource):
+    def get(self, metric_name: str):
+        try:
+            metric = granite_query.get_metric(metric_name)
+        except ParseError:
+            return {"status": "failure", "message": f"metric {metric_name} not found"}, 404
+
+        return {"status": "success", "data": metric.to_dict()}, 200
+
+
+class MetricsList(Resource):
+    def get(self):
+        metrics = granite_query.list_metrics()
+        metrics_json = [m.to_dict() for m in metrics]
+        return {"status": "success", "data": metrics_json}, 200
+
+
+class Dimensions(Resource):
+    def get(self, dimension_name: str):
+        try:
+            dimension = granite_query.get_dimension(dimension_name)
+        except ParseError:
+            return {"status": "failure", "message": f"dimension {dimension_name} not found"}, 404
+
+        return {"status": "success", "data": dimension.to_dict()}, 200
+
+
+class DimensionsList(Resource):
+    def get(self):
+        dimensions = granite_query.list_dimensions()
+        dimensions_json = [d.to_dict() for d in dimensions]
+        return {"status": "success", "data": dimensions_json}, 200
+
+
+api.add_resource(MetricsList, "/metrics")
+api.add_resource(Metrics, "/metrics/<metric_name>")
+api.add_resource(DimensionsList, "/dimensions")
+api.add_resource(Dimensions, "/dimensions/<dimension_name>")
