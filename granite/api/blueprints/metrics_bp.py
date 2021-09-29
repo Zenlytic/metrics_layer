@@ -1,6 +1,7 @@
 from flask import Blueprint
 from flask_restful import Api, Resource
 
+from granite.api.auth_utils import authenticate_restful
 from granite.core import query as granite_query
 from granite.core.sql.query_errors import ParseError
 
@@ -9,7 +10,9 @@ api = Api(metrics_blueprint)
 
 
 class Metrics(Resource):
-    def get(self, metric_name: str):
+    method_decorators = {"get": [authenticate_restful]}
+
+    def get(self, sub, metric_name: str):
         try:
             metric = granite_query.get_metric(metric_name)
         except ParseError:
@@ -19,14 +22,18 @@ class Metrics(Resource):
 
 
 class MetricsList(Resource):
-    def get(self):
+    method_decorators = {"get": [authenticate_restful]}
+
+    def get(self, sub):
         metrics = granite_query.list_metrics()
         metrics_json = [m.to_dict() for m in metrics]
         return {"status": "success", "data": metrics_json}, 200
 
 
 class Dimensions(Resource):
-    def get(self, dimension_name: str):
+    method_decorators = {"get": [authenticate_restful]}
+
+    def get(self, sub, dimension_name: str):
         try:
             dimension = granite_query.get_dimension(dimension_name)
         except ParseError:
@@ -36,7 +43,9 @@ class Dimensions(Resource):
 
 
 class DimensionsList(Resource):
-    def get(self):
+    method_decorators = {"get": [authenticate_restful]}
+
+    def get(self, sub):
         dimensions = granite_query.list_dimensions()
         dimensions_json = [d.to_dict() for d in dimensions]
         return {"status": "success", "data": dimensions_json}, 200

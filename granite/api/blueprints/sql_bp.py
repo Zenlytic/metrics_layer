@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 from flask_restful import Api, Resource
 
+from granite.api.auth_utils import authenticate_restful
 from granite.core.query import get_sql_query, query
 
 sql_blueprint = Blueprint("sql", __name__, url_prefix="/api/v1")
@@ -8,7 +9,9 @@ api = Api(sql_blueprint)
 
 
 class ConvertApi(Resource):
-    def post(self):
+    method_decorators = {"post": [authenticate_restful]}
+
+    def post(self, sub):
         request_json = request.get_json()
 
         if "query" not in request_json:
@@ -19,7 +22,9 @@ class ConvertApi(Resource):
 
 
 class QueryApi(Resource):
-    def post(self):
+    method_decorators = {"post": [authenticate_restful]}
+
+    def post(self, sub):
         request_json = request.get_json()
 
         df = query(

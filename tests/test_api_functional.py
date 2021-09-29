@@ -5,7 +5,8 @@ from granite.core.parse import GraniteConfiguration
 from granite.core.sql import QueryRunner
 
 
-def test_api_query(client, monkeypatch, models, views):
+def test_api_query(client, monkeypatch, models, views, add_user_and_get_auth):
+    _, token = add_user_and_get_auth("query@test.com", "test")
     repo_config = {"repo_url": "https://github.com", "branch": "dev", "repo_type": "granite"}
     connections = [
         {
@@ -33,13 +34,14 @@ def test_api_query(client, monkeypatch, models, views):
     monkeypatch.setattr(QueryRunner, "_run_snowflake_query", lambda *args, **kwargs: correct_df)
 
     query_args = {"metrics": ["total_item_revenue"], "dimensions": ["channel"]}
-    response = client.post(f"api/v1/query", json=query_args)
+    response = client.post(f"api/v1/query", json=query_args, headers={"Authorization": f"Bearer {token}"})
     data = response.get_json()
 
     assert data["data"] == correct_df.to_dict("records")
 
 
-def test_api_convert_sql(client, monkeypatch, project):
+def test_api_convert_sql(client, monkeypatch, project, add_user_and_get_auth):
+    _, token = add_user_and_get_auth("convert@test.com", "test")
     monkeypatch.setenv("GRANITE_REPO_URL", "https://github.com")
     monkeypatch.setenv("GRANITE_BRANCH", "dev")
     monkeypatch.setenv("GRANITE_REPO_TYPE", "granite")
@@ -47,7 +49,9 @@ def test_api_convert_sql(client, monkeypatch, project):
     monkeypatch.setattr(GraniteConfiguration, "_get_project", lambda *args, **kwargs: project)
 
     mql_query = "SELECT * FROM MQL(total_item_revenue BY channel)"
-    response = client.post(f"api/v1/convert", json={"query": mql_query})
+    response = client.post(
+        f"api/v1/convert", json={"query": mql_query}, headers={"Authorization": f"Bearer {token}"}
+    )
     data = response.get_json()
 
     correct = (
@@ -58,40 +62,43 @@ def test_api_convert_sql(client, monkeypatch, project):
     assert data["data"] == correct
 
 
-def test_api_list_metrics(client, monkeypatch, project):
+def test_api_list_metrics(client, monkeypatch, project, add_user_and_get_auth):
+    _, token = add_user_and_get_auth("list_metrics@test.com", "test")
     monkeypatch.setenv("GRANITE_REPO_URL", "https://github.com")
     monkeypatch.setenv("GRANITE_BRANCH", "dev")
     monkeypatch.setenv("GRANITE_REPO_TYPE", "granite")
 
     monkeypatch.setattr(GraniteConfiguration, "_get_project", lambda *args, **kwargs: project)
 
-    response = client.get(f"api/v1/metrics")
+    response = client.get(f"api/v1/metrics", headers={"Authorization": f"Bearer {token}"})
     data = response.get_json()
 
     assert len(data["data"]) == 10
 
 
-def test_api_list_dimensions(client, monkeypatch, project):
+def test_api_list_dimensions(client, monkeypatch, project, add_user_and_get_auth):
+    _, token = add_user_and_get_auth("list_dimensions@test.com", "test")
     monkeypatch.setenv("GRANITE_REPO_URL", "https://github.com")
     monkeypatch.setenv("GRANITE_BRANCH", "dev")
     monkeypatch.setenv("GRANITE_REPO_TYPE", "granite")
 
     monkeypatch.setattr(GraniteConfiguration, "_get_project", lambda *args, **kwargs: project)
 
-    response = client.get(f"api/v1/dimensions")
+    response = client.get(f"api/v1/dimensions", headers={"Authorization": f"Bearer {token}"})
     data = response.get_json()
 
     assert len(data["data"]) == 26
 
 
-def test_api_get_metric(client, monkeypatch, project):
+def test_api_get_metric(client, monkeypatch, project, add_user_and_get_auth):
+    _, token = add_user_and_get_auth("get_metric@test.com", "test")
     monkeypatch.setenv("GRANITE_REPO_URL", "https://github.com")
     monkeypatch.setenv("GRANITE_BRANCH", "dev")
     monkeypatch.setenv("GRANITE_REPO_TYPE", "granite")
 
     monkeypatch.setattr(GraniteConfiguration, "_get_project", lambda *args, **kwargs: project)
 
-    response = client.get(f"api/v1/metrics/total_item_revenue")
+    response = client.get(f"api/v1/metrics/total_item_revenue", headers={"Authorization": f"Bearer {token}"})
     data = response.get_json()
 
     assert isinstance(data["data"], dict)
@@ -101,14 +108,15 @@ def test_api_get_metric(client, monkeypatch, project):
     assert data["data"]["field_type"] == "measure"
 
 
-def test_api_get_dimension(client, monkeypatch, project):
+def test_api_get_dimension(client, monkeypatch, project, add_user_and_get_auth):
+    _, token = add_user_and_get_auth("get_dimension@test.com", "test")
     monkeypatch.setenv("GRANITE_REPO_URL", "https://github.com")
     monkeypatch.setenv("GRANITE_BRANCH", "dev")
     monkeypatch.setenv("GRANITE_REPO_TYPE", "granite")
 
     monkeypatch.setattr(GraniteConfiguration, "_get_project", lambda *args, **kwargs: project)
 
-    response = client.get(f"api/v1/dimensions/new_vs_repeat")
+    response = client.get(f"api/v1/dimensions/new_vs_repeat", headers={"Authorization": f"Bearer {token}"})
     data = response.get_json()
 
     assert isinstance(data["data"], dict)

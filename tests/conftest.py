@@ -46,6 +46,16 @@ def add_user():
     return _add_user
 
 
+@pytest.fixture(scope="function")
+def add_user_and_get_auth(client, test_database, add_user):
+    def _add_user_and_get_auth(email, password):
+        user = add_user(email, password)
+        response = client.post("/api/v1/login", json={"email": email, "password": password})
+        return user, response.get_json()["auth_token"]
+
+    return _add_user_and_get_auth
+
+
 @pytest.fixture(scope="module")
 def models():
     models = [ProjectReader.read_yaml_file(model_path)]
