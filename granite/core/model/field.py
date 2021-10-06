@@ -114,6 +114,8 @@ class Field(GraniteBase, SQLReplacement):
         output["sql_raw"] = deepcopy(self.sql)
         if output["field_type"] == "measure" and output["type"] == "number":
             output["sql"] = self.get_referenced_sql_query()
+        elif output["field_type"] == "dimension_group" and self.dimension_group is None:
+            output["sql"] = deepcopy(self.sql)
         else:
             output["sql"] = self.get_replaced_sql_query()
         return output

@@ -1,26 +1,10 @@
-import os
 import pickle
 
 import pytest
 
-from granite.core.model.project import Project
 from granite.core.parse.config import ConfigError, GraniteConfiguration
 from granite.core.parse.connections import BigQueryConnection, SnowflakeConnection
 from granite.core.parse.github_repo import LookerGithubRepo
-from granite.core.parse.project_reader import ProjectReader
-
-BASE_PATH = os.path.dirname(__file__)
-
-
-model_path = os.path.join(BASE_PATH, "config/granite_config/models/commerce_test_model.yml")
-order_lines_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_order_lines.yml")
-orders_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_orders.yml")
-customers_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_customers.yml")
-discounts_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_discounts.yml")
-view_paths = [order_lines_view_path, orders_view_path, customers_view_path, discounts_view_path]
-
-models = [ProjectReader.read_yaml_file(model_path)]
-views = [ProjectReader.read_yaml_file(path) for path in view_paths]
 
 
 def test_config_explicit_granite_single():
@@ -32,8 +16,7 @@ def test_config_explicit_granite_single():
     assert config.repo.repo_url == "https://github.com"
 
 
-def test_config_explicit_granite_pickle():
-    project = Project(models=models, views=views)
+def test_config_explicit_granite_pickle(project):
     repo_config = {"repo_url": "https://github.com", "branch": "dev", "repo_type": "granite"}
     config = GraniteConfiguration(repo_config=repo_config)
     config._project = project

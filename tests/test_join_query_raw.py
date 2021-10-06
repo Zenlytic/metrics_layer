@@ -1,32 +1,14 @@
-import os
-
 import pytest
 
-from granite.core.model.project import Project
-from granite.core.parse.project_reader import ProjectReader
 from granite.core.query import get_sql_query
 from granite.core.sql.query_errors import ArgumentError
-
-BASE_PATH = os.path.dirname(__file__)
-
-
-model_path = os.path.join(BASE_PATH, "config/granite_config/models/commerce_test_model.yml")
-order_lines_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_order_lines.yml")
-orders_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_orders.yml")
-customers_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_customers.yml")
-discounts_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_discounts.yml")
-view_paths = [order_lines_view_path, orders_view_path, customers_view_path, discounts_view_path]
-
-models = [ProjectReader.read_yaml_file(model_path)]
-views = [ProjectReader.read_yaml_file(path) for path in view_paths]
 
 
 class config_mock:
     pass
 
 
-def test_query_no_join_raw():
-    project = Project(models=models, views=views)
+def test_query_no_join_raw(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
@@ -39,8 +21,7 @@ def test_query_no_join_raw():
     assert query == correct
 
 
-def test_query_single_join_non_base_primary_key():
-    project = Project(models=models, views=views)
+def test_query_single_join_non_base_primary_key(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
@@ -56,8 +37,7 @@ def test_query_single_join_non_base_primary_key():
     assert query == correct
 
 
-def test_query_single_join_raw():
-    project = Project(models=models, views=views)
+def test_query_single_join_raw(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
@@ -72,8 +52,7 @@ def test_query_single_join_raw():
     assert query == correct
 
 
-def test_query_single_join_raw_select_args():
-    project = Project(models=models, views=views)
+def test_query_single_join_raw_select_args(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
@@ -96,8 +75,7 @@ def test_query_single_join_raw_select_args():
     assert query == correct
 
 
-def test_query_single_join_having_error():
-    project = Project(models=models, views=views)
+def test_query_single_join_having_error(project):
     config_mock.project = project
     with pytest.raises(ArgumentError) as exc_info:
         get_sql_query(
@@ -110,8 +88,7 @@ def test_query_single_join_having_error():
     assert exc_info.value
 
 
-def test_query_single_join_order_by_error():
-    project = Project(models=models, views=views)
+def test_query_single_join_order_by_error(project):
     config_mock.project = project
     with pytest.raises(ArgumentError) as exc_info:
         get_sql_query(
@@ -124,8 +101,7 @@ def test_query_single_join_order_by_error():
     assert exc_info.value
 
 
-def test_query_single_join_raw_all():
-    project = Project(models=models, views=views)
+def test_query_single_join_raw_all(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],

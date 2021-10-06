@@ -1,29 +1,11 @@
-import os
-
-from granite.core.model.project import Project
-from granite.core.parse.project_reader import ProjectReader
 from granite.core.query import list_dimensions, list_metrics
-
-BASE_PATH = os.path.dirname(__file__)
-
-
-model_path = os.path.join(BASE_PATH, "config/granite_config/models/commerce_test_model.yml")
-order_lines_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_order_lines.yml")
-orders_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_orders.yml")
-customers_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_customers.yml")
-discounts_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_discounts.yml")
-view_paths = [order_lines_view_path, orders_view_path, customers_view_path, discounts_view_path]
-
-models = [ProjectReader.read_yaml_file(model_path)]
-views = [ProjectReader.read_yaml_file(path) for path in view_paths]
 
 
 class config_mock:
     pass
 
 
-def test_list_metrics():
-    project = Project(models=models, views=views)
+def test_list_metrics(project):
     config_mock.project = project
 
     metrics = list_metrics(config=config_mock)
@@ -37,8 +19,7 @@ def test_list_metrics():
     assert set(metrics) == {"number_of_email_purchased_items", "total_item_revenue", "total_item_costs"}
 
 
-def test_list_dimensions():
-    project = Project(models=models, views=views)
+def test_list_dimensions(project):
     config_mock.project = project
     dimensions = list_dimensions(config=config_mock)
     assert len(dimensions) == 26

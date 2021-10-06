@@ -22,6 +22,12 @@ class GraniteConfiguration:
         self._connections = self._parse_connections(connections)
         self._project = None
 
+    @staticmethod
+    def get_granite_configuration(config=None):
+        if config:
+            return config
+        return GraniteConfiguration()
+
     @property
     def project(self):
         if self._project is None:
