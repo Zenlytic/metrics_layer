@@ -159,7 +159,10 @@ class GraniteQuery(GraniteBase):
         select = []
         for field_name in self.dimensions + self.metrics:
             field = self.design.get_field(field_name)
-            select.append(self.sql(field.sql_query(), alias=field.alias()))
+            symmetric_aggregates = False
+            if field.field_type == "measure" and self.design.base_view_name != field.view.name:
+                symmetric_aggregates = True
+            select.append(self.sql(field.sql_query(symmetric_aggregates), alias=field.alias()))
         return select
 
     def _get_no_group_by_select_columns(self):

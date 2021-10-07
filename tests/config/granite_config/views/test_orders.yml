@@ -46,6 +46,11 @@ fields:
     type: string
     sql: "${TABLE}.new_vs_repeat"
 
+  - name: number_of_orders
+    field_type: measure
+    type: count
+    sql: "${order_id}"
+
   - name: total_revenue
     field_type: "measure"
     type: sum
