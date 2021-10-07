@@ -20,6 +20,12 @@ class Field(GraniteBase, SQLReplacement):
         if "hidden" in definition and isinstance(definition["hidden"], bool):
             definition["hidden"] = "yes" if definition["hidden"] else "no"
 
+        if (
+            "sql" not in definition
+            and definition.get("field_type") == "measure"
+            and definition.get("type") == "count"
+        ):
+            definition["primary_key_count"] = True
         # TODO figure out how to handle this weird case
         # if definition["name"][0] in {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}:
         #     definition["name"] = "_" + definition["name"]
@@ -62,9 +68,9 @@ class Field(GraniteBase, SQLReplacement):
                 return f"{self.dimension_group}_{self.name}"
         return self.name
 
-    def sql_query(self):
+    def sql_query(self, symmetric_aggregates: bool = False):
         if self.field_type == "measure":
-            return self.aggregate_sql_query()
+            return self.aggregate_sql_query(symmetric_aggregates)
         return self.raw_sql_query()
 
     def raw_sql_query(self):
@@ -72,18 +78,64 @@ class Field(GraniteBase, SQLReplacement):
             return self.get_referenced_sql_query()
         return self.get_replaced_sql_query()
 
-    def aggregate_sql_query(self):
+    def aggregate_sql_query(self, symmetric_aggregates: bool):
         sql = self.raw_sql_query()
         type_lookup = {
-            "sum": lambda s: f"SUM({s})",
-            "count_distinct": lambda s: f"COUNT(DISTINCT({s}))",
-            "count": lambda s: f"COUNT({s})",
-            "average": lambda s: f"AVG({s})",
+            "sum": self._sum_aggregate_sql,
+            "count_distinct": self._count_distinct_aggregate_sql,
+            "count": self._count_aggregate_sql,
+            "average": self._average_aggregate_sql,
             "number": self._number_aggregate_sql,
         }
-        return type_lookup[self.type](sql)
+        return type_lookup[self.type](sql, symmetric_aggregates)
 
-    def _number_aggregate_sql(self, sql: str):
+    def _count_distinct_aggregate_sql(self, sql: str, symmetric_aggregates: bool):
+        return f"COUNT(DISTINCT({sql}))"
+
+    def _sum_aggregate_sql(self, sql: str, symmetric_aggregates: bool):
+        if symmetric_aggregates:
+            return self._sum_symmetric_aggregate(sql)
+        return f"SUM({sql})"
+
+    def _sum_symmetric_aggregate(self, sql: str, factor: int = 1_000_000):
+        primary_key_sql = self.view.primary_key.sql_query()
+
+        adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS DECIMAL(38,0)))"
+
+        pk_sum = f"(TO_NUMBER(MD5({primary_key_sql}), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)"  # noqa
+
+        sum_with_pk_backout = f"SUM(DISTINCT {adjusted_sum} + {pk_sum}) - SUM(DISTINCT {pk_sum})"
+
+        backed_out_cast = f"COALESCE(CAST(({sum_with_pk_backout}) AS DOUBLE PRECISION)"
+
+        result = f"{backed_out_cast} / CAST(({factor}*1.0) AS DOUBLE PRECISION), 0)"
+        return result
+
+    def _count_aggregate_sql(self, sql: str, symmetric_aggregates: bool):
+        if symmetric_aggregates:
+            if self.primary_key_count:
+                return self._count_distinct_aggregate_sql(sql, True)
+            return self._count_symmetric_aggregate(sql)
+        return f"COUNT({sql})"
+
+    def _count_symmetric_aggregate(self, sql: str):
+        primary_key_sql = self.view.primary_key.sql_query()
+        pk_if_not_null = f"CASE WHEN  ({sql})  IS NOT NULL THEN  {primary_key_sql}  ELSE NULL END"
+        result = f"NULLIF(COUNT(DISTINCT {pk_if_not_null}), 0)"
+        return result
+
+    def _average_aggregate_sql(self, sql: str, symmetric_aggregates: bool):
+        if symmetric_aggregates:
+            return self._average_symmetric_aggregate(sql)
+        return f"AVG({sql})"
+
+    def _average_symmetric_aggregate(self, sql: str, factor=1_000_000):
+        sum_symmetric = self._sum_symmetric_aggregate(sql, factor)
+        count_symmetric = self._count_symmetric_aggregate(sql)
+        result = f"({sum_symmetric} / {count_symmetric})"
+        return result
+
+    def _number_aggregate_sql(self, sql: str, symmetric_aggregates: bool):
         if isinstance(sql, list):
             replaced = deepcopy(self.sql)
             for field_name in self.fields_to_replace(self.sql):
@@ -91,7 +143,7 @@ class Field(GraniteBase, SQLReplacement):
                     to_replace = self.view.name
                 else:
                     field = self.get_field_with_view_info(field_name)
-                    to_replace = field.aggregate_sql_query()
+                    to_replace = field.aggregate_sql_query(symmetric_aggregates)
                 replaced = replaced.replace("${" + field_name + "}", to_replace)
         else:
             raise ValueError(f"handle case for sql: {sql}")

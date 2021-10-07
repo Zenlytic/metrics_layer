@@ -9,10 +9,10 @@ def test_list_metrics(project):
     config_mock.project = project
 
     metrics = list_metrics(config=config_mock)
-    assert len(metrics) == 10
+    assert len(metrics) == 13
 
     metrics = list_metrics(explore_name="order_lines", config=config_mock)
-    assert len(metrics) == 10
+    assert len(metrics) == 13
 
     metrics = list_metrics(view_name="order_lines", names_only=True, config=config_mock)
     assert len(metrics) == 3

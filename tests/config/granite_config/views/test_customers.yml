@@ -44,6 +44,10 @@ fields:
     ]
     sql: "${TABLE}.second_order_date"
 
+  - name: number_of_customers
+    field_type: measure
+    type: count
+
   - name: region
     field_type: "dimension"
     type: string
@@ -78,3 +82,8 @@ fields:
     field_type: "measure"
     type: sum
     sql: "${TABLE}.total_sessions"
+
+  - name: total_sessions_divide
+    field_type: "measure"
+    type: number
+    sql: "${total_sessions} / (100 * 1.0)"
