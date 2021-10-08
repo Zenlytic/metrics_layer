@@ -7,7 +7,7 @@ from granite.core.parse.connections import (
     SnowflakeConnection,
 )
 
-from .github_repo import GithubRepo, LookerGithubRepo
+from .github_repo import GithubRepo, LocalRepo, LookerGithubRepo
 from .project_reader import ProjectReader
 
 
@@ -50,6 +50,11 @@ class GraniteConfiguration:
     def load(self):
         self._project = self._get_project()
 
+    def dump(self, path: str = "./"):
+        reader = ProjectReader(repo=self.repo, additional_repo=self.additional_repo)
+        reader.load()
+        reader.dump(path)
+
     def _get_project(self):
         reader = ProjectReader(repo=self.repo, additional_repo=self.additional_repo)
         reader.load()
@@ -76,6 +81,9 @@ class GraniteConfiguration:
 
     @staticmethod
     def _get_config_repo(config: dict):
+        if all(a in config for a in ["repo_path"]):
+            return LocalRepo(**config)
+
         if all(a in config for a in ["repo_url", "branch"]):
             return GithubRepo(**config)
 
@@ -84,7 +92,9 @@ class GraniteConfiguration:
 
         raise ConfigError(
             f"""Could not initialize any known config with the arguments passed:
-            {list(config.keys())} We either initialize a direct Github connection with following arguments:
+            {list(config.keys())} We either initialize a local repo with the following arguments:
+            'repo_path': 'path/to/my/repo'
+            or a direct Github connection with following arguments:
             'repo_url': https://username:personal_access_token@github.com/yourorg/yourrepo.git, 'branch': dev
             or through the Looker API with the following arguments:
             'looker_url': https://cloud.company.looker.com, 'client_id': aefafasdasd,
@@ -94,6 +104,11 @@ class GraniteConfiguration:
 
     @staticmethod
     def _get_repo_from_environment(prefix: str):
+        local_repo_param = os.getenv(f"{prefix}_REPO_PATH")
+        if local_repo_param:
+            repo_type = os.getenv(f"{prefix}_REPO_TYPE")
+            return GithubRepo(repo_url=local_repo_param, repo_type=repo_type)
+
         repo_params = [os.getenv(f"{prefix}_{a}") for a in ["REPO_URL", "BRANCH"]]
         if all(repo_params):
             repo_type = os.getenv(f"{prefix}_REPO_TYPE")

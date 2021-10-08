@@ -1,3 +1,4 @@
+import os
 from copy import deepcopy
 
 import lkml
@@ -5,14 +6,15 @@ import yaml
 
 from granite.core.utils import merge_nested_dict
 
-from .github_repo import GithubRepo
+from .github_repo import BaseRepo
 
 
 class ProjectReader:
-    def __init__(self, repo: GithubRepo, additional_repo: GithubRepo = None):
+    def __init__(self, repo: BaseRepo, additional_repo: BaseRepo = None):
         self.base_repo = repo
         self.additional_repo = additional_repo
         self.multiple_repos = self.additional_repo is not None
+        self.version = 1
         self.unloaded = True
         self._models = []
         self._views = []
@@ -29,6 +31,17 @@ class ProjectReader:
             self.load()
         return self._views
 
+    def dump(self, path: str):
+        for model in self.models:
+            file_name = model["name"] + "_model.yml"
+            with open(os.path.join(path, file_name), "w") as f:
+                yaml.dump(model, f)
+
+        for view in self.views:
+            file_name = view["name"] + "_view.yml"
+            with open(os.path.join(path, file_name), "w") as f:
+                yaml.dump(view, f)
+
     def load(self) -> None:
         base_models, base_views = self._load_repo(self.base_repo)
         if self.multiple_repos:
@@ -41,7 +54,7 @@ class ProjectReader:
 
         self.unloaded = False
 
-    def _load_repo(self, repo: GithubRepo):
+    def _load_repo(self, repo: BaseRepo):
         repo.fetch()
         repo_type = repo.get_repo_type()
         if repo_type == "lookml":
@@ -53,7 +66,7 @@ class ProjectReader:
         repo.delete()
         return models, views
 
-    def _load_lookml(self, repo: GithubRepo):
+    def _load_lookml(self, repo: BaseRepo):
         models = []
         for fn in repo.search(pattern="*.model.*"):
             model_name = self._parse_model_name(fn)
@@ -66,7 +79,7 @@ class ProjectReader:
 
         return models, views
 
-    def _load_granite(self, repo: GithubRepo):
+    def _load_granite(self, repo: BaseRepo):
         models, views = [], []
         file_names = repo.search(pattern="*.yml") + repo.search(pattern="*.yaml")
         for fn in file_names:

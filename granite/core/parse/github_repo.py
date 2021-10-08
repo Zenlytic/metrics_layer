@@ -37,11 +37,28 @@ class BaseRepo:
         raise NotImplementedError()
 
 
+class LocalRepo(BaseRepo):
+    def __init__(self, repo_path: str, repo_type: str = None) -> None:
+        self.repo_path = repo_path
+        self.repo_type = repo_type
+        self.folder = f"{os.path.join(BASE_PATH, self.repo_path)}/"
+
+    def search(self, pattern: str):
+        """Example arg: pattern='*.model.*'"""
+        return glob(f"{self.folder}**/{pattern}", recursive=True)
+
+    def fetch(self):
+        pass
+
+    def delete(self):
+        pass
+
+
 class GithubRepo(BaseRepo):
     def __init__(self, repo_url: str, branch: str, repo_type: str = None) -> None:
-        self.repo_name = utils.generate_uuid()
         self.repo_url = repo_url
         self.repo_type = repo_type
+        self.repo_name = utils.generate_uuid()
         self.repo_destination = os.path.join(BASE_PATH, self.repo_name)
         self.folder = f"{self.repo_destination}/"
         self.branch = branch

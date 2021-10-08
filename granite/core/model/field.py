@@ -315,10 +315,10 @@ class Field(GraniteBase, SQLReplacement):
         return clean_sql.strip()
 
     def get_field_with_view_info(self, field: str):
-        if "." in field:
-            view_name, field_name = field.split(".")
-        else:
-            view_name, field_name = self.view.name, field
+        _, view_name, field_name = self.field_name_parts(field)
+        if view_name is None:
+            view_name = self.view.name
+
         if self.view is None:
             raise AttributeError(f"You must specify which view this field is in '{self.name}'")
         return self.view.project.get_field(field_name, view_name=view_name)
@@ -376,3 +376,14 @@ class Field(GraniteBase, SQLReplacement):
             if to_replace != "TABLE":
                 clean_sql = clean_sql.replace("${" + to_replace + "}", "${" + to_replace.lower() + "}")
         return clean_sql
+
+    @staticmethod
+    def field_name_parts(field_name: str):
+        explore_name, view_name = None, None
+        if field_name.count(".") == 2:
+            explore_name, view_name, name = field_name.split(".")
+        elif field_name.count(".") == 1:
+            view_name, name = field_name.split(".")
+        else:
+            name = field_name
+        return explore_name, view_name, name

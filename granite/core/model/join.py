@@ -1,6 +1,7 @@
 from copy import deepcopy
 
 from .base import GraniteBase, SQLReplacement
+from .field import Field
 
 
 class Join(GraniteBase, SQLReplacement):
@@ -39,7 +40,7 @@ class Join(GraniteBase, SQLReplacement):
 
             # The join isn't valid if we can't find an existing view with that name
             for field in fields_to_replace:
-                view_name, _ = field.split(".")
+                _, view_name, _ = Field.field_name_parts(field)
                 view = self._get_view_internal(view_name)
                 if view is None:
                     return False
@@ -56,7 +57,7 @@ class Join(GraniteBase, SQLReplacement):
         fields_to_replace = self.fields_to_replace(sql_on)
 
         for field in fields_to_replace:
-            view_name, column_name = field.split(".")
+            _, view_name, column_name = Field.field_name_parts(field)
             view = self._get_view_internal(view_name)
 
             if view is None:

@@ -74,12 +74,18 @@ class Project:
     def get_field(self, field_name: str, explore_name: str = None, view_name: str = None) -> Field:
         # Handle the case where the explore syntax is passed: explore_name.field_name
         if "." in field_name:
-            specified_view_name, field_name = field_name.split(".")
+            specified_explore_name, specified_view_name, field_name = Field.field_name_parts(field_name)
             if view_name and specified_view_name != view_name:
                 raise ValueError(
                     f"You specificed two different view names {specified_view_name} and {view_name}"
                 )
+            if specified_explore_name and explore_name and specified_explore_name != explore_name:
+                raise ValueError(
+                    f"You specificed two different explore names {specified_explore_name} and {explore_name}"
+                )
             view_name = specified_view_name
+            if specified_explore_name:
+                explore_name = specified_explore_name
 
         field_name = field_name.lower()
         fields = self.fields(explore_name=explore_name, view_name=view_name)
