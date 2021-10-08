@@ -17,13 +17,13 @@ pandas = {version = "^1.2.2", optional = true}
 snowflake-connector-python = {version = "~2.5.1", optional = true}
 pyarrow = {version = "3.0.0", optional = true}
 google-cloud-bigquery = {version = "^2.24.1", optional = true}
-Flask = "~1.1.4"
-Flask-RESTful = "^0.3.9"
-Flask-SQLAlchemy = "^2.5.1"
-Flask-Migrate = "^3.1.0"
-gunicorn = "^20.1.0"
-Flask-Bcrypt = "^0.7.1"
-PyJWT = "^2.1.0"
+Flask = {version = "~1.1.4", optional = true}
+Flask-RESTful = {version = "^0.3.9", optional = true}
+Flask-SQLAlchemy = {version = "^2.5.1", optional = true}
+Flask-Migrate = {version = "^3.1.0", optional = true}
+gunicorn = {version = "^20.1.0", optional = true}
+Flask-Bcrypt = {version = "^0.7.1", optional = true}
+PyJWT = {version = "^2.1.0", optional = true}
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
@@ -37,7 +37,8 @@ pytest-mock = "^3.6.1"
 [tool.poetry.extras]
 snowflake = ["snowflake-connector-python", "pyarrow", "pandas"]
 bigquery = ["google-cloud-bigquery", "pyarrow", "pandas"]
-all = ["snowflake-connector-python", "google-cloud-bigquery", "pyarrow", "pandas"]
+flask = ["Flask", "Flask-RESTful", "Flask-SQLAlchemy", "Flask-Bcrypt", "PyJWT", "gunicorn"]
+all = ["snowflake-connector-python", "google-cloud-bigquery", "pyarrow", "pandas", "Flask", "Flask-RESTful", "Flask-SQLAlchemy", "Flask-Bcrypt", "PyJWT", "gunicorn"]
 
 [tool.black]
 line-length = 110
