@@ -16,11 +16,11 @@ fields:
     sql: "${TABLE}.discount_id"
     group_label: "ID's"
 
-  - name: order_line_id
+  - name: order_id
     field_type: "dimension"
     type: string
     hidden: yes
-    sql: "${TABLE}.order_line_id"
+    sql: "${TABLE}.order_id"
     group_label: "ID's"
 
   - name: order

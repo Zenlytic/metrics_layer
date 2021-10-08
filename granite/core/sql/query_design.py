@@ -26,7 +26,17 @@ class GraniteDesign:
             join_already_added = any(view_name == j.name for j in joins_needed_for_query)
             if not join_already_added and view_name != self.explore.from_:
                 joins_needed_for_query.append(self.explore.get_join(view_name))
-        return joins_needed_for_query
+
+        print(joins_needed_for_query)
+        final_joins_needed = []
+        for join in joins_needed_for_query:
+            required_views = join.required_views()
+            for view_name in required_views:
+                join_already_added = any(view_name == j.name for j in final_joins_needed)
+                if not join_already_added and view_name != self.explore.from_:
+                    final_joins_needed.append(self.explore.get_join(view_name))
+        print(joins_needed_for_query)
+        return final_joins_needed
 
     def get_view(self, name: str) -> GraniteBase:
         try:

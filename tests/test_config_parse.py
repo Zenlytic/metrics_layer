@@ -46,6 +46,11 @@ def test_config_load_yaml():
     assert isinstance(explore["name"], str)
     assert isinstance(explore["from"], str)
     assert isinstance(explore["joins"], list)
+    assert isinstance(explore["always_filter"], dict)
+    assert isinstance(explore["always_filter"]["filters"], list)
+    assert isinstance(explore["always_filter"]["filters"][0], dict)
+    assert "field" in explore["always_filter"]["filters"][0]
+    assert "value" in explore["always_filter"]["filters"][0]
 
     join = explore["joins"][0]
 
@@ -85,6 +90,11 @@ def test_config_load_lkml():
     assert isinstance(explore["name"], str)
     assert isinstance(explore["from"], str)
     assert isinstance(explore["joins"], list)
+    assert isinstance(explore["always_filter"], dict)
+    assert isinstance(explore["always_filter"]["filters"], list)
+    assert isinstance(explore["always_filter"]["filters"][0], dict)
+    assert "field" in explore["always_filter"]["filters"][0]
+    assert "value" in explore["always_filter"]["filters"][0]
 
     join = explore["joins"][0]
 

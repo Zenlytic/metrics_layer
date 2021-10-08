@@ -47,6 +47,16 @@ class Join(GraniteBase, SQLReplacement):
             return True
         return self.foreign_key is not None
 
+    def required_views(self):
+        if not self.sql_on:
+            return [self.from_]
+
+        views = []
+        for field in self.fields_to_replace(self.sql_on):
+            _, view_name, _ = Field.field_name_parts(field)
+            views.append(view_name)
+        return views
+
     def to_dict(self):
         output = {**self._definition}
         output["sql_on"] = self.get_replaced_sql_on(output["sql_on"])

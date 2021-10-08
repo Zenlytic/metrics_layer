@@ -26,4 +26,4 @@ explores:
       - name: discounts
         type: left_outer
         relationship: one_to_many
-        sql_on: "${order_lines.order_line_id}=${discounts.order_line_id}"
+        sql_on: "${orders.order_id}=${discounts.order_id}"

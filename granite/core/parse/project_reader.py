@@ -70,7 +70,8 @@ class ProjectReader:
         models = []
         for fn in repo.search(pattern="*.model.*"):
             model_name = self._parse_model_name(fn)
-            models.append({**self.read_lkml_file(fn), "name": model_name, "type": "model"})
+            model = self.read_lkml_file(fn)
+            models.append(self._standardize_model({**model, "name": model_name, "type": "model"}))
 
         views = []
         for fn in repo.search(pattern="*.view.*"):
@@ -108,6 +109,16 @@ class ProjectReader:
 
         fields = measures + dimensions + dimension_groups
         return {**view, "type": "view", "fields": fields}
+
+    def _standardize_model(self, model: dict):
+        model["explores"] = [self._standardize_explore(e) for e in model.get("explores", [])]
+        return model
+
+    def _standardize_explore(self, explore: dict):
+        if "always_filter" in explore:
+            filters = explore["always_filter"].pop("filters__all")
+            explore["always_filter"]["filters"] = filters
+        return explore
 
     def _merge_objects(self, base_objects: list, additional_objects: list):
         results = []
