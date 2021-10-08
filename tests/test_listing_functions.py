@@ -9,14 +9,19 @@ def test_list_metrics(project):
     config_mock.project = project
 
     metrics = list_metrics(config=config_mock)
-    assert len(metrics) == 13
+    assert len(metrics) == 14
 
     metrics = list_metrics(explore_name="order_lines", config=config_mock)
-    assert len(metrics) == 13
+    assert len(metrics) == 14
 
     metrics = list_metrics(view_name="order_lines", names_only=True, config=config_mock)
-    assert len(metrics) == 3
-    assert set(metrics) == {"number_of_email_purchased_items", "total_item_revenue", "total_item_costs"}
+    assert len(metrics) == 4
+    assert set(metrics) == {
+        "number_of_email_purchased_items",
+        "total_item_revenue",
+        "total_item_costs",
+        "line_item_aov",
+    }
 
 
 def test_list_dimensions(project):

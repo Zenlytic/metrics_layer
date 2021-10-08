@@ -21,10 +21,11 @@ class GraniteDesign:
         fields_in_query = list(self.field_lookup.values())
 
         joins_needed_for_query = []
-        for field in fields_in_query:
-            join_already_added = any(field.view.name == j.name for j in joins_needed_for_query)
-            if not join_already_added and field.view.name != self.explore.from_:
-                joins_needed_for_query.append(self.explore.get_join(field.view.name))
+        required_views = list(set([v for field in fields_in_query for v in field.required_views()]))
+        for view_name in sorted(required_views):
+            join_already_added = any(view_name == j.name for j in joins_needed_for_query)
+            if not join_already_added and view_name != self.explore.from_:
+                joins_needed_for_query.append(self.explore.get_join(view_name))
         return joins_needed_for_query
 
     def get_view(self, name: str) -> GraniteBase:

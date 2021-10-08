@@ -58,6 +58,24 @@ def test_query_single_join_count(project):
     assert query == correct
 
 
+def test_query_single_join_metric_with_sub_field(project):
+    config_mock.project = project
+    query = get_sql_query(
+        metrics=["line_item_aov"],
+        dimensions=["channel"],
+        config=config_mock,
+    )
+
+    correct = (
+        "SELECT order_lines.sales_channel as channel,SUM(order_lines.revenue) "
+        "/ NULLIF(COUNT(DISTINCT CASE WHEN  (orders.order_id)  IS NOT NULL "
+        "THEN  orders.order_id  ELSE NULL END), 0) as line_item_aov "
+        "FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
+        "ON order_lines.order_id=orders.order_id GROUP BY order_lines.sales_channel;"
+    )
+    assert query == correct
+
+
 def test_query_single_join_select_args(project):
     config_mock.project = project
     query = get_sql_query(

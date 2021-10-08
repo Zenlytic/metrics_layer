@@ -106,3 +106,9 @@ fields:
     field_type: "measure"
     type: sum
     sql: "${TABLE}.item_costs"
+
+
+  - name: line_item_aov
+    field_type: "measure"
+    type: number
+    sql: "${total_item_revenue} / ${orders.number_of_orders}"

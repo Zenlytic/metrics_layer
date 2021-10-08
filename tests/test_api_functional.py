@@ -73,7 +73,7 @@ def test_api_list_metrics(client, monkeypatch, project, add_user_and_get_auth):
     response = client.get(f"api/v1/metrics", headers={"Authorization": f"Bearer {token}"})
     data = response.get_json()
 
-    assert len(data["data"]) == 13
+    assert len(data["data"]) == 14
 
 
 def test_api_list_dimensions(client, monkeypatch, project, add_user_and_get_auth):

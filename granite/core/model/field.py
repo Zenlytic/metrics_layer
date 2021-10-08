@@ -68,9 +68,9 @@ class Field(GraniteBase, SQLReplacement):
                 return f"{self.dimension_group}_{self.name}"
         return self.name
 
-    def sql_query(self, symmetric_aggregates: bool = False):
+    def sql_query(self, query_base_view: str = None):
         if self.field_type == "measure":
-            return self.aggregate_sql_query(symmetric_aggregates)
+            return self.aggregate_sql_query(query_base_view)
         return self.raw_sql_query()
 
     def raw_sql_query(self):
@@ -78,7 +78,7 @@ class Field(GraniteBase, SQLReplacement):
             return self.get_referenced_sql_query()
         return self.get_replaced_sql_query()
 
-    def aggregate_sql_query(self, symmetric_aggregates: bool):
+    def aggregate_sql_query(self, query_base_view: str):
         sql = self.raw_sql_query()
         type_lookup = {
             "sum": self._sum_aggregate_sql,
@@ -87,13 +87,18 @@ class Field(GraniteBase, SQLReplacement):
             "average": self._average_aggregate_sql,
             "number": self._number_aggregate_sql,
         }
-        return type_lookup[self.type](sql, symmetric_aggregates)
+        return type_lookup[self.type](sql, query_base_view)
 
-    def _count_distinct_aggregate_sql(self, sql: str, symmetric_aggregates: bool):
+    def _needs_symmetric_aggregate(self, query_base_view: str):
+        if query_base_view:
+            return self.view.name != query_base_view
+        return False
+
+    def _count_distinct_aggregate_sql(self, sql: str, query_base_view: str):
         return f"COUNT(DISTINCT({sql}))"
 
-    def _sum_aggregate_sql(self, sql: str, symmetric_aggregates: bool):
-        if symmetric_aggregates:
+    def _sum_aggregate_sql(self, sql: str, query_base_view: str):
+        if self._needs_symmetric_aggregate(query_base_view):
             return self._sum_symmetric_aggregate(sql)
         return f"SUM({sql})"
 
@@ -111,8 +116,8 @@ class Field(GraniteBase, SQLReplacement):
         result = f"{backed_out_cast} / CAST(({factor}*1.0) AS DOUBLE PRECISION), 0)"
         return result
 
-    def _count_aggregate_sql(self, sql: str, symmetric_aggregates: bool):
-        if symmetric_aggregates:
+    def _count_aggregate_sql(self, sql: str, query_base_view: str):
+        if self._needs_symmetric_aggregate(query_base_view):
             if self.primary_key_count:
                 return self._count_distinct_aggregate_sql(sql, True)
             return self._count_symmetric_aggregate(sql)
@@ -124,8 +129,8 @@ class Field(GraniteBase, SQLReplacement):
         result = f"NULLIF(COUNT(DISTINCT {pk_if_not_null}), 0)"
         return result
 
-    def _average_aggregate_sql(self, sql: str, symmetric_aggregates: bool):
-        if symmetric_aggregates:
+    def _average_aggregate_sql(self, sql: str, query_base_view: str):
+        if self._needs_symmetric_aggregate(query_base_view):
             return self._average_symmetric_aggregate(sql)
         return f"AVG({sql})"
 
@@ -135,7 +140,7 @@ class Field(GraniteBase, SQLReplacement):
         result = f"({sum_symmetric} / {count_symmetric})"
         return result
 
-    def _number_aggregate_sql(self, sql: str, symmetric_aggregates: bool):
+    def _number_aggregate_sql(self, sql: str, query_base_view: str):
         if isinstance(sql, list):
             replaced = deepcopy(self.sql)
             for field_name in self.fields_to_replace(self.sql):
@@ -143,11 +148,24 @@ class Field(GraniteBase, SQLReplacement):
                     to_replace = self.view.name
                 else:
                     field = self.get_field_with_view_info(field_name)
-                    to_replace = field.aggregate_sql_query(symmetric_aggregates)
+                    to_replace = field.aggregate_sql_query(query_base_view)
                 replaced = replaced.replace("${" + field_name + "}", to_replace)
         else:
             raise ValueError(f"handle case for sql: {sql}")
         return replaced
+
+    def required_views(self):
+        views = []
+        if not self.sql:
+            return []
+
+        for field_name in self.fields_to_replace(self.sql):
+            if field_name != "TABLE":
+                print(field_name)
+                field = self.get_field_with_view_info(field_name)
+                print(field)
+                views.extend(field.required_views())
+        return list(set([self.view.name] + views))
 
     def validate(self, definition: dict):
         required_keys = ["name", "field_type"]
