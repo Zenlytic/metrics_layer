@@ -1,0 +1,18 @@
+version: 1
+type: view
+name: discount_detail
+sql_table_name: analytics.discount_detail
+
+fields:
+  - name: discount_id
+    field_type: "dimension"
+    type: string
+    primary_key: yes
+    hidden: yes
+    sql: ${TABLE}.discount_id
+    group_label: "ID's"
+
+  - name: discount_promo_name
+    field_type: "dimension"
+    type: string
+    sql: ${TABLE}.promo_name

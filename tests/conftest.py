@@ -14,7 +14,14 @@ order_lines_view_path = os.path.join(BASE_PATH, "config/granite_config/views/tes
 orders_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_orders.yml")
 customers_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_customers.yml")
 discounts_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_discounts.yml")
-view_paths = [order_lines_view_path, orders_view_path, customers_view_path, discounts_view_path]
+discount_detail_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_discount_detail.yml")
+view_paths = [
+    order_lines_view_path,
+    orders_view_path,
+    customers_view_path,
+    discounts_view_path,
+    discount_detail_view_path,
+]
 
 
 @pytest.fixture(scope="module")

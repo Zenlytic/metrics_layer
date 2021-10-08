@@ -34,7 +34,7 @@ class Explore(GraniteBase):
     def joins(self):
         output = []
         for j in self._definition.get("joins", []):
-            join = Join({**j, "explore_from": self.from_}, project=self.project)
+            join = Join(j, explore=self, project=self.project)
             if join.is_valid():
                 output.append(join)
         return output

@@ -27,3 +27,8 @@ explores:
         type: left_outer
         relationship: one_to_many
         sql_on: "${orders.order_id}=${discounts.order_id}"
+
+      - name: discount_detail
+        type: left_outer
+        relationship: one_to_one
+        sql_on: "${discounts.discount_id}=${discount_detail.discount_id}"

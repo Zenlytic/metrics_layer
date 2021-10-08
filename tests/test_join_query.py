@@ -78,16 +78,18 @@ def test_query_single_join_with_forced_additional_join(project):
     config_mock.project = project
     query = get_sql_query(
         metrics=["total_item_revenue"],
-        dimensions=["discount_code"],
+        dimensions=["discount_promo_name"],
         config=config_mock,
     )
 
     # TODO this should be symmetric
     correct = (
-        "SELECT discounts.code as discount_code,SUM(order_lines.revenue) as "
+        "SELECT discount_detail.promo_name as discount_promo_name,SUM(order_lines.revenue) as "
         "total_item_revenue FROM analytics.order_line_items order_lines LEFT JOIN "
         "analytics.orders orders ON order_lines.order_id=orders.order_id LEFT JOIN "
-        "analytics.discounts discounts ON orders.order_id=discounts.order_id GROUP BY discounts.code;"
+        "analytics.discounts discounts ON orders.order_id=discounts.order_id LEFT JOIN "
+        "analytics.discount_detail discount_detail ON discounts.discount_id=discount_detail.discount_id "
+        "GROUP BY discount_detail.promo_name;"
     )
     assert query == correct
 

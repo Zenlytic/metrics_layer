@@ -19,24 +19,23 @@ class GraniteDesign:
 
     def joins(self) -> List[GraniteBase]:
         fields_in_query = list(self.field_lookup.values())
+        required_views = list(set([v for field in fields_in_query for v in field.required_views()]))
 
         joins_needed_for_query = []
-        required_views = list(set([v for field in fields_in_query for v in field.required_views()]))
-        for view_name in sorted(required_views):
-            join_already_added = any(view_name == j.name for j in joins_needed_for_query)
-            if not join_already_added and view_name != self.explore.from_:
-                joins_needed_for_query.append(self.explore.get_join(view_name))
+        for view_name in reversed(sorted(required_views)):
+            joins_needed_for_query.extend(self._find_needed_joins(view_name, joins_needed_for_query))
+        return list(reversed(joins_needed_for_query))
 
-        print(joins_needed_for_query)
-        final_joins_needed = []
-        for join in joins_needed_for_query:
-            required_views = join.required_views()
-            for view_name in required_views:
-                join_already_added = any(view_name == j.name for j in final_joins_needed)
-                if not join_already_added and view_name != self.explore.from_:
-                    final_joins_needed.append(self.explore.get_join(view_name))
-        print(joins_needed_for_query)
-        return final_joins_needed
+    def _find_needed_joins(self, view_name: str, joins_already_added: list):
+        joins_to_add = []
+
+        join_already_added = any(view_name == j.name for j in joins_already_added)
+        if not join_already_added and view_name != self.explore.from_:
+            join = self.explore.get_join(view_name)
+            joins_to_add.append(join)
+            for view_name in join.required_views():
+                joins_to_add.extend(self._find_needed_joins(view_name, joins_already_added + [join]))
+        return joins_to_add
 
     def get_view(self, name: str) -> GraniteBase:
         try:

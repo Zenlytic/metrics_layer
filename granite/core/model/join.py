@@ -5,8 +5,9 @@ from .field import Field
 
 
 class Join(GraniteBase, SQLReplacement):
-    def __init__(self, definition: dict = {}, project=None) -> None:
+    def __init__(self, definition: dict = {}, explore=None, project=None) -> None:
         self.project = project
+        self.explore = explore
         if definition.get("from") is not None:
             definition["from_"] = definition["from"]
 
@@ -17,7 +18,7 @@ class Join(GraniteBase, SQLReplacement):
     def replaced_sql_on(self):
         if self.sql_on:
             return self.get_replaced_sql_on(self.sql_on)
-        return f"{self.explore_from}.{self.foreign_key}={self.from_}.{self.foreign_key}"
+        return f"{self.explore.from_}.{self.foreign_key}={self.from_}.{self.foreign_key}"
 
     def validate(self, definition: dict):
         required_keys = ["name", "relationship", "type"]
@@ -55,7 +56,7 @@ class Join(GraniteBase, SQLReplacement):
         for field in self.fields_to_replace(self.sql_on):
             _, view_name, _ = Field.field_name_parts(field)
             views.append(view_name)
-        return views
+        return list(set(views))
 
     def to_dict(self):
         output = {**self._definition}
@@ -92,8 +93,8 @@ class Join(GraniteBase, SQLReplacement):
     def _get_view_internal(self, view_name: str):
         if self.from_ is not None and view_name == self.from_:
             view = self.project.get_view(self.from_)
-        elif view_name == self.explore_from:
-            view = self.project.get_view(self.explore_from)
+        elif view_name == self.explore.from_:
+            view = self.project.get_view(self.explore.from_)
         else:
             view = self.project.get_view(view_name)
         return view
