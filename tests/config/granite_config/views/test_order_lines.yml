@@ -3,8 +3,6 @@ type: view
 name: order_lines
 
 sql_table_name: analytics.order_line_items
-#     -- if dev -- {{_user_attributes['dbt_schema']}}.order_line_items
-#    -- if prod -- analytics.order_line_items`
 
 default_date: order
 row_label: "Order line item"

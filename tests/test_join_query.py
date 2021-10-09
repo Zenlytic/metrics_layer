@@ -87,7 +87,7 @@ def test_query_single_join_with_forced_additional_join(project):
         "SELECT discount_detail.promo_name as discount_promo_name,SUM(order_lines.revenue) as "
         "total_item_revenue FROM analytics.order_line_items order_lines LEFT JOIN "
         "analytics.orders orders ON order_lines.order_id=orders.order_id LEFT JOIN "
-        "analytics.discounts discounts ON orders.order_id=discounts.order_id LEFT JOIN "
+        "analytics_live.discounts discounts ON orders.order_id=discounts.order_id LEFT JOIN "
         "analytics.discount_detail discount_detail ON discounts.discount_id=discount_detail.discount_id "
         "GROUP BY discount_detail.promo_name;"
     )

@@ -77,5 +77,5 @@ def views():
 
 @pytest.fixture(scope="module")
 def project(models, views):
-    project = Project(models=models, views=views)
+    project = Project(models=models, views=views, looker_env="prod")
     return project

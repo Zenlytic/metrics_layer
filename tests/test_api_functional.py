@@ -25,7 +25,7 @@ def test_api_query(client, monkeypatch, models, views, add_user_and_get_auth):
     config = GraniteConfiguration(repo_config=repo_config, connections=connections)
     # Add reference to snowflake creds
     sf_models = [{**m, "connection": "sf_name"} for m in models]
-    project = Project(models=sf_models, views=views)
+    project = Project(models=sf_models, views=views, looker_env="prod")
     config._project = project
 
     monkeypatch.setattr(GraniteConfiguration, "get_granite_configuration", lambda *args, **kwargs: config)

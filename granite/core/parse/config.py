@@ -16,10 +16,17 @@ class ConfigError(Exception):
 
 
 class GraniteConfiguration:
-    def __init__(self, repo_config: dict = None, additional_repo_config: dict = None, connections: list = []):
+    def __init__(
+        self,
+        repo_config: dict = None,
+        additional_repo_config: dict = None,
+        connections: list = [],
+        looker_env: str = None,
+    ):
         self.repo = self._resolve_config(repo_config, prefix="GRANITE", raise_exception=True)
         self.additional_repo = self._resolve_config(additional_repo_config, prefix="GRANITE_ADDITIONAL")
         self._connections = self._parse_connections(connections)
+        self.looker_env = looker_env
         self._project = None
 
     @staticmethod
@@ -58,7 +65,7 @@ class GraniteConfiguration:
     def _get_project(self):
         reader = ProjectReader(repo=self.repo, additional_repo=self.additional_repo)
         reader.load()
-        project = Project(models=reader.models, views=reader.views)
+        project = Project(models=reader.models, views=reader.views, looker_env=self.looker_env)
         return project
 
     def _resolve_config(self, config: dict, prefix: str, raise_exception: bool = False):

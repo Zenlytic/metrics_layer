@@ -26,7 +26,7 @@ def test_run_query_snowflake(monkeypatch, models, views):
     config = GraniteConfiguration(repo_config=repo_config, connections=connections)
     # Add reference to snowflake creds
     sf_models = [{**m, "connection": "sf_name"} for m in models]
-    project = Project(models=sf_models, views=views)
+    project = Project(models=sf_models, views=views, looker_env="prod")
     config._project = project
 
     correct_df = pd.DataFrame({"dimension": ["cat1", "cat2", "cat3"], "metric": [12, 21, 34]})
@@ -56,7 +56,7 @@ def test_run_query_bigquery(monkeypatch, models, views):
     config = GraniteConfiguration(repo_config=repo_config, connections=connections)
     # Add reference to BigQuery creds
     bq_models = [{**m, "connection": "bq_name"} for m in models]
-    project = Project(models=bq_models, views=views)
+    project = Project(models=bq_models, views=views, looker_env="prod")
     config._project = project
 
     correct_df = pd.DataFrame({"dimension": ["cat7", "cat8", "cat9"], "metric": [98, 86, 65]})

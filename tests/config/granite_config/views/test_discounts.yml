@@ -2,7 +2,8 @@ version: 1
 type: view
 name: discounts
 
-sql_table_name: analytics.discounts
+sql_table_name: "-- if dev -- dev_db.discounts
+                 -- if prod -- analytics_live.discounts"
 
 default_date: order
 row_label: "Discount"
