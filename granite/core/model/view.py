@@ -21,14 +21,6 @@ class View(GraniteBase):
             if k not in definition:
                 raise ValueError(f"View missing required key {k}")
 
-        neither_references = "sql_table_name" not in definition and "derived_table" not in definition
-        both_references = "sql_table_name" in definition and "derived_table" in definition
-
-        if neither_references or both_references:
-            raise ValueError(
-                f"Incorrect table identifiers sql_table_name and derived_table (must have exactly one)"
-            )
-
     @property
     def primary_key(self):
         return next((f for f in self.fields() if f.primary_key == "yes"), None)
