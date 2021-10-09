@@ -174,3 +174,8 @@ def test_config_load_multiple():
     assert field["view_label"] == "desired looker label name"
     assert field["parent"] == "parent_field"
     assert field["extra"]["zenlytic.exclude"] == ["field_name"]
+
+
+def test_config_use_view_name(project):
+    explore = project.get_explore("discounts_only")
+    assert explore.from_ == "discounts"

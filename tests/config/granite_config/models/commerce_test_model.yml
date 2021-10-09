@@ -32,3 +32,6 @@ explores:
         type: left_outer
         relationship: one_to_one
         sql_on: "${discounts.discount_id}=${discount_detail.discount_id}"
+
+  - name: discounts_only
+    view_name: discounts

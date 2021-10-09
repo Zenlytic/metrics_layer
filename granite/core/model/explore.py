@@ -6,6 +6,8 @@ class Explore(GraniteBase):
     def __init__(self, definition: dict = {}, project=None) -> None:
         if definition.get("from") is not None:
             definition["from_"] = definition["from"]
+        elif definition.get("view_name") is not None:
+            definition["from_"] = definition["view_name"]
         else:
             definition["from_"] = definition["name"]
 
