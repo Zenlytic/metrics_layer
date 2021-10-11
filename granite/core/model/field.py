@@ -221,11 +221,11 @@ class Field(GraniteBase, SQLReplacement):
                 "years": lambda start, end: f"DATEDIFF('YEAR', {start}, {end})",
             },
             Definitions.bigquery: {
-                "days": lambda start, end: f"DATE_DIFF({end}, {start}, 'DAY')",
-                "weeks": lambda start, end: f"DATE_DIFF({end}, {start}, 'ISOWEEK')",
-                "months": lambda start, end: f"DATE_DIFF({end}, {start}, 'MONTH')",
-                "quarters": lambda start, end: f"DATE_DIFF({end}, {start}, 'QUARTER')",
-                "years": lambda start, end: f"DATE_DIFF({end}, {start}, 'ISOYEAR')",
+                "days": lambda start, end: f"DATE_DIFF({end}, {start}, DAY)",
+                "weeks": lambda start, end: f"DATE_DIFF({end}, {start}, ISOWEEK)",
+                "months": lambda start, end: f"DATE_DIFF({end}, {start}, MONTH)",
+                "quarters": lambda start, end: f"DATE_DIFF({end}, {start}, QUARTER)",
+                "years": lambda start, end: f"DATE_DIFF({end}, {start}, ISOYEAR)",
             },
         }
         try:
@@ -254,11 +254,11 @@ class Field(GraniteBase, SQLReplacement):
             Definitions.bigquery: {
                 "raw": lambda s, qt: s,
                 "time": lambda s, qt: f"CAST({s} as TIMESTAMP)",
-                "date": lambda s, qt: f"DATE_TRUNC({s}, 'DAY')",
+                "date": lambda s, qt: f"DATE_TRUNC({s}, DAY)",
                 "week": self._week_dimension_group_time_sql,
-                "month": lambda s, qt: f"DATE_TRUNC({s}, 'MONTH')",
-                "quarter": lambda s, qt: f"DATE_TRUNC({s}, 'QUARTER')",
-                "year": lambda s, qt: f"DATE_TRUNC({s}, 'YEAR')",
+                "month": lambda s, qt: f"DATE_TRUNC({s}, MONTH)",
+                "quarter": lambda s, qt: f"DATE_TRUNC({s}, QUARTER)",
+                "year": lambda s, qt: f"DATE_TRUNC({s}, YEAR)",
                 "hour_of_day": lambda s, qt: f"CAST({s} AS STRING FORMAT 'HH24')",
                 "day_of_week": lambda s, qt: f"CAST({s} AS STRING FORMAT 'DAY')",
             },
@@ -288,7 +288,7 @@ class Field(GraniteBase, SQLReplacement):
         if Definitions.snowflake == query_type:
             return f"DATE_TRUNC('WEEK', {sql})"
         elif Definitions.bigquery == query_type:
-            return f"DATE_TRUNC({sql}, 'WEEK')"
+            return f"DATE_TRUNC({sql}, WEEK)"
 
     def get_referenced_sql_query(self):
         if "{%" in self.sql or self.sql == "":
