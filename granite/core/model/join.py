@@ -14,10 +14,9 @@ class Join(GraniteBase, SQLReplacement):
         self.validate(definition)
         super().__init__(definition)
 
-    @property
-    def replaced_sql_on(self):
+    def replaced_sql_on(self, query_type: str):
         if self.sql_on:
-            return self.get_replaced_sql_on(self.sql_on)
+            return self.get_replaced_sql_on(self.sql_on, query_type)
         return f"{self.explore.from_}.{self.foreign_key}={self.from_}.{self.foreign_key}"
 
     def validate(self, definition: dict):
@@ -60,10 +59,9 @@ class Join(GraniteBase, SQLReplacement):
 
     def to_dict(self):
         output = {**self._definition}
-        output["sql_on"] = self.get_replaced_sql_on(output["sql_on"])
-        return output if output["sql_on"] is not None else {}
+        return output
 
-    def get_replaced_sql_on(self, sql: str):
+    def get_replaced_sql_on(self, sql: str, query_type: str):
         sql_on = deepcopy(sql)
         fields_to_replace = self.fields_to_replace(sql_on)
 
@@ -78,7 +76,7 @@ class Join(GraniteBase, SQLReplacement):
             field_obj = self.project.get_field(column_name, view_name=table_name)
 
             if field_obj and table_name:
-                sql_condition = field_obj.get_replaced_sql_query()
+                sql_condition = field_obj.sql_query(query_type)
                 replace_with = sql_condition
             elif table_name:
                 replace_with = f"{table_name}.{column_name}"

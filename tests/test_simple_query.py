@@ -1,6 +1,6 @@
 import pytest
 
-from granite.core.model.project import Project
+from granite.core.model import Definitions, Project
 from granite.core.query import get_sql_query
 
 simple_model = {
@@ -41,7 +41,17 @@ simple_view = {
             "field_type": "dimension_group",
             "type": "time",
             "sql": "${TABLE}.order_date",
-            "timeframes": ["raw", "time", "date", "week", "month", "quarter", "year"],
+            "timeframes": [
+                "raw",
+                "time",
+                "date",
+                "week",
+                "month",
+                "quarter",
+                "year",
+                "day_of_week",
+                "hour_of_day",
+            ],
             "name": "order",
         },
         {
@@ -105,20 +115,57 @@ def test_simple_query_count():
     assert query == correct
 
 
-@pytest.mark.parametrize("group", ["time", "date", "week", "month", "quarter", "year"])
-def test_simple_query_dimension_group(group: str):
+@pytest.mark.parametrize(
+    "group,query_type",
+    [
+        ("time", Definitions.snowflake),
+        ("date", Definitions.snowflake),
+        ("week", Definitions.snowflake),
+        ("month", Definitions.snowflake),
+        ("quarter", Definitions.snowflake),
+        ("year", Definitions.snowflake),
+        ("hour_of_day", Definitions.snowflake),
+        ("day_of_week", Definitions.snowflake),
+        ("time", Definitions.bigquery),
+        ("date", Definitions.bigquery),
+        ("week", Definitions.bigquery),
+        ("month", Definitions.bigquery),
+        ("quarter", Definitions.bigquery),
+        ("year", Definitions.bigquery),
+        ("hour_of_day", Definitions.bigquery),
+        ("day_of_week", Definitions.bigquery),
+    ],
+)
+def test_simple_query_dimension_group(group: str, query_type: str):
     project = Project(models=[simple_model], views=[simple_view])
     config_mock.project = project
-    query = get_sql_query(metrics=["total_revenue"], dimensions=[f"order_{group}"], config=config_mock)
+    query = get_sql_query(
+        metrics=["total_revenue"], dimensions=[f"order_{group}"], config=config_mock, query_type=query_type
+    )
 
-    result_lookup = {
-        "time": "CAST(simple.order_date as TIMESTAMP)",
-        "date": "DATE_TRUNC('DAY', simple.order_date)",
-        "week": "DATE_TRUNC('WEEK', simple.order_date + 1) - 1",
-        "month": "DATE_TRUNC('MONTH', simple.order_date)",
-        "quarter": "DATE_TRUNC('QUARTER', simple.order_date)",
-        "year": "DATE_TRUNC('YEAR', simple.order_date)",
-    }
+    if query_type == Definitions.snowflake:
+        result_lookup = {
+            "time": "CAST(simple.order_date as TIMESTAMP)",
+            "date": "DATE_TRUNC('DAY', simple.order_date)",
+            "week": "DATE_TRUNC('WEEK', simple.order_date + 1) - 1",
+            "month": "DATE_TRUNC('MONTH', simple.order_date)",
+            "quarter": "DATE_TRUNC('QUARTER', simple.order_date)",
+            "year": "DATE_TRUNC('YEAR', simple.order_date)",
+            "hour_of_day": "HOUR(simple.order_date)",
+            "day_of_week": "DAYOFWEEK(simple.order_date)",
+        }
+    else:
+        result_lookup = {
+            "time": "CAST(simple.order_date as TIMESTAMP)",
+            "date": "DATE_TRUNC(simple.order_date, 'DAY')",
+            "week": "DATE_TRUNC(simple.order_date + 1, 'WEEK') - 1",
+            "month": "DATE_TRUNC(simple.order_date, 'MONTH')",
+            "quarter": "DATE_TRUNC(simple.order_date, 'QUARTER')",
+            "year": "DATE_TRUNC(simple.order_date, 'YEAR')",
+            "hour_of_day": f"CAST(simple.order_date AS STRING FORMAT 'HH24')",
+            "day_of_week": f"CAST(simple.order_date AS STRING FORMAT 'DAY')",
+        }
+
     date_result = result_lookup[group]
 
     correct = f"SELECT {date_result} as order_{group},SUM(simple.revenue) as "
@@ -126,27 +173,79 @@ def test_simple_query_dimension_group(group: str):
     assert query == correct
 
 
-@pytest.mark.parametrize("interval", ["second", "minute", "hour", "day", "week", "month", "quarter", "year"])
-def test_simple_query_dimension_group_interval(interval: str):
+@pytest.mark.parametrize(
+    "interval,query_type",
+    [
+        ("second", Definitions.snowflake),
+        ("minute", Definitions.snowflake),
+        ("hour", Definitions.snowflake),
+        ("day", Definitions.snowflake),
+        ("week", Definitions.snowflake),
+        ("month", Definitions.snowflake),
+        ("quarter", Definitions.snowflake),
+        ("year", Definitions.snowflake),
+        ("day", Definitions.bigquery),
+        ("week", Definitions.bigquery),
+        ("month", Definitions.bigquery),
+        ("quarter", Definitions.bigquery),
+        ("year", Definitions.bigquery),
+        ("hour", Definitions.bigquery),  # Should raise error
+    ],
+)
+def test_simple_query_dimension_group_interval(interval: str, query_type: str):
     project = Project(models=[simple_model], views=[simple_view])
     config_mock.project = project
-    query = get_sql_query(metrics=["total_revenue"], dimensions=[f"{interval}s_waiting"], config=config_mock)
 
-    result_lookup = {
-        "second": "DATEDIFF('SECOND', simple.view_date, simple.order_date)",
-        "minute": "DATEDIFF('MINUTE', simple.view_date, simple.order_date)",
-        "hour": "DATEDIFF('HOUR', simple.view_date, simple.order_date)",
-        "day": "DATEDIFF('DAY', simple.view_date, simple.order_date)",
-        "week": "DATEDIFF('WEEK', simple.view_date, simple.order_date)",
-        "month": "DATEDIFF('MONTH', simple.view_date, simple.order_date)",
-        "quarter": "DATEDIFF('QUARTER', simple.view_date, simple.order_date)",
-        "year": "DATEDIFF('YEAR', simple.view_date, simple.order_date)",
-    }
-    interval_result = result_lookup[interval]
+    raises_error = interval == "hour" and query_type == Definitions.bigquery
+    if raises_error:
+        with pytest.raises(KeyError) as exc_info:
+            get_sql_query(
+                metrics=["total_revenue"],
+                dimensions=[f"{interval}s_waiting"],
+                config=config_mock,
+                query_type=query_type,
+            )
+        print(exc_info)
+    else:
+        query = get_sql_query(
+            metrics=["total_revenue"],
+            dimensions=[f"{interval}s_waiting"],
+            config=config_mock,
+            query_type=query_type,
+        )
 
-    correct = f"SELECT {interval_result} as {interval}s_waiting,SUM(simple.revenue) as total_revenue FROM "
-    correct += f"analytics.orders simple GROUP BY {interval_result};"
-    assert query == correct
+    print(query_type)
+    if query_type == Definitions.snowflake:
+        result_lookup = {
+            "second": "DATEDIFF('SECOND', simple.view_date, simple.order_date)",
+            "minute": "DATEDIFF('MINUTE', simple.view_date, simple.order_date)",
+            "hour": "DATEDIFF('HOUR', simple.view_date, simple.order_date)",
+            "day": "DATEDIFF('DAY', simple.view_date, simple.order_date)",
+            "week": "DATEDIFF('WEEK', simple.view_date, simple.order_date)",
+            "month": "DATEDIFF('MONTH', simple.view_date, simple.order_date)",
+            "quarter": "DATEDIFF('QUARTER', simple.view_date, simple.order_date)",
+            "year": "DATEDIFF('YEAR', simple.view_date, simple.order_date)",
+        }
+    else:
+        result_lookup = {
+            "day": "DATE_DIFF(simple.order_date, simple.view_date, 'DAY')",
+            "week": "DATE_DIFF(simple.order_date, simple.view_date, 'ISOWEEK')",
+            "month": "DATE_DIFF(simple.order_date, simple.view_date, 'MONTH')",
+            "quarter": "DATE_DIFF(simple.order_date, simple.view_date, 'QUARTER')",
+            "year": "DATE_DIFF(simple.order_date, simple.view_date, 'ISOYEAR')",
+        }
+
+    if raises_error:
+        assert exc_info.value
+    else:
+        interval_result = result_lookup[interval]
+
+        print(interval_result)
+        correct = (
+            f"SELECT {interval_result} as {interval}s_waiting,SUM(simple.revenue) as total_revenue FROM "
+        )
+        correct += f"analytics.orders simple GROUP BY {interval_result};"
+        assert query == correct
 
 
 def test_simple_query_two_group_by():

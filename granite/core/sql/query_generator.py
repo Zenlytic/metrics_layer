@@ -159,7 +159,7 @@ class GraniteQuery(GraniteBase):
         select = []
         for field_name in self.dimensions + self.metrics:
             field = self.design.get_field(field_name)
-            select.append(self.sql(field.sql_query(self.design.base_view_name), alias=field.alias()))
+            select.append(self.get_sql(field, alias=field.alias(), use_symmetric=True))
         return select
 
     def _get_no_group_by_select_columns(self):
@@ -172,7 +172,7 @@ class GraniteQuery(GraniteBase):
         return select
 
     def _sql_from_field_no_group_by(self, field: Field) -> List:
-        sql = field.raw_sql_query()
+        sql = field.raw_sql_query(self.query_type)
 
         if isinstance(sql, str):
             return [self.sql(sql, alias=field.alias())]
@@ -217,7 +217,7 @@ class GraniteQuery(GraniteBase):
             if isinstance(db_table, str):
                 raise NotImplementedError("TODO: handle sub queries (derived tables for joins)")
 
-            criteria = LiteralValueCriterion(join.replaced_sql_on)
+            criteria = LiteralValueCriterion(join.replaced_sql_on(self.query_type))
             join_type = self.get_pypika_join_type(join)
 
             base_join_query = base_join_query.join(db_table, join_type).on(criteria)
@@ -258,13 +258,20 @@ class GraniteQuery(GraniteBase):
         group_by = []
         for field_name in self.dimensions:
             field = self.design.get_field(field_name)
-            group_by.append(self.sql(field.sql_query()))
+            group_by.append(self.get_sql(field))
 
         if self.select_raw_sql:
             group_by.extend([self.sql(self.strip_alias(clause)) for clause in self.select_raw_sql])
         return group_by
 
     # Code for formatting values
+    def get_sql(self, field, alias: str = None, use_symmetric: bool = False):
+        if use_symmetric:
+            query = field.sql_query(query_type=self.query_type, query_base_view=self.design.base_view_name)
+        else:
+            query = field.sql_query(query_type=self.query_type)
+        return self.sql(query, alias)
+
     @staticmethod
     def sql(sql: str, alias: str = None):
         if alias:

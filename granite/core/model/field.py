@@ -2,6 +2,7 @@ import re
 from copy import deepcopy
 
 from .base import GraniteBase, SQLReplacement
+from .definitions import Definitions
 
 
 class Field(GraniteBase, SQLReplacement):
@@ -68,18 +69,18 @@ class Field(GraniteBase, SQLReplacement):
                 return f"{self.dimension_group}_{self.name}"
         return self.name
 
-    def sql_query(self, query_base_view: str = None):
+    def sql_query(self, query_type: str = None, query_base_view: str = None):
         if self.field_type == "measure":
-            return self.aggregate_sql_query(query_base_view)
-        return self.raw_sql_query()
+            return self.aggregate_sql_query(query_type, query_base_view)
+        return self.raw_sql_query(query_type)
 
-    def raw_sql_query(self):
+    def raw_sql_query(self, query_type: str):
         if self.field_type == "measure" and self.type == "number":
             return self.get_referenced_sql_query()
-        return self.get_replaced_sql_query()
+        return self.get_replaced_sql_query(query_type)
 
-    def aggregate_sql_query(self, query_base_view: str):
-        sql = self.raw_sql_query()
+    def aggregate_sql_query(self, query_type: str, query_base_view: str):
+        sql = self.raw_sql_query(query_type)
         type_lookup = {
             "sum": self._sum_aggregate_sql,
             "count_distinct": self._count_distinct_aggregate_sql,
@@ -87,17 +88,17 @@ class Field(GraniteBase, SQLReplacement):
             "average": self._average_aggregate_sql,
             "number": self._number_aggregate_sql,
         }
-        return type_lookup[self.type](sql, query_base_view)
+        return type_lookup[self.type](sql, query_type, query_base_view)
 
     def _needs_symmetric_aggregate(self, query_base_view: str):
         if query_base_view:
             return self.view.name != query_base_view
         return False
 
-    def _count_distinct_aggregate_sql(self, sql: str, query_base_view: str):
+    def _count_distinct_aggregate_sql(self, sql: str, query_type: str, query_base_view: str):
         return f"COUNT(DISTINCT({sql}))"
 
-    def _sum_aggregate_sql(self, sql: str, query_base_view: str):
+    def _sum_aggregate_sql(self, sql: str, query_type: str, query_base_view: str):
         if self._needs_symmetric_aggregate(query_base_view):
             return self._sum_symmetric_aggregate(sql)
         return f"SUM({sql})"
@@ -116,10 +117,10 @@ class Field(GraniteBase, SQLReplacement):
         result = f"{backed_out_cast} / CAST(({factor}*1.0) AS DOUBLE PRECISION), 0)"
         return result
 
-    def _count_aggregate_sql(self, sql: str, query_base_view: str):
+    def _count_aggregate_sql(self, sql: str, query_type: str, query_base_view: str):
         if self._needs_symmetric_aggregate(query_base_view):
             if self.primary_key_count:
-                return self._count_distinct_aggregate_sql(sql, True)
+                return self._count_distinct_aggregate_sql(sql, query_type, query_base_view)
             return self._count_symmetric_aggregate(sql)
         return f"COUNT({sql})"
 
@@ -129,7 +130,7 @@ class Field(GraniteBase, SQLReplacement):
         result = f"NULLIF(COUNT(DISTINCT {pk_if_not_null}), 0)"
         return result
 
-    def _average_aggregate_sql(self, sql: str, query_base_view: str):
+    def _average_aggregate_sql(self, sql: str, query_type: str, query_base_view: str):
         if self._needs_symmetric_aggregate(query_base_view):
             return self._average_symmetric_aggregate(sql)
         return f"AVG({sql})"
@@ -140,7 +141,7 @@ class Field(GraniteBase, SQLReplacement):
         result = f"({sum_symmetric} / {count_symmetric})"
         return result
 
-    def _number_aggregate_sql(self, sql: str, query_base_view: str):
+    def _number_aggregate_sql(self, sql: str, query_type: str, query_base_view: str):
         if isinstance(sql, list):
             replaced = deepcopy(self.sql)
             for field_name in self.fields_to_replace(self.sql):
@@ -148,7 +149,7 @@ class Field(GraniteBase, SQLReplacement):
                     to_replace = self.view.name
                 else:
                     field = self.get_field_with_view_info(field_name)
-                    to_replace = field.aggregate_sql_query(query_base_view)
+                    to_replace = field.aggregate_sql_query(query_type, query_base_view)
                 replaced = replaced.replace("${" + field_name + "}", to_replace)
         else:
             raise ValueError(f"handle case for sql: {sql}")
@@ -181,7 +182,7 @@ class Field(GraniteBase, SQLReplacement):
         elif output["field_type"] == "dimension_group" and self.dimension_group is None:
             output["sql"] = deepcopy(self.sql)
         else:
-            output["sql"] = self.get_replaced_sql_query()
+            output["sql"] = self.sql_query()
         return output
 
     def equal(self, field_name: str):
@@ -207,38 +208,69 @@ class Field(GraniteBase, SQLReplacement):
             return field_name.replace(f"{self.name}_", "")
         return self.name
 
-    def apply_dimension_group_duration_sql(self, sql_start: str, sql_end: str):
-        dimension_group_sql_lookup = {
-            "seconds": lambda start, end: f"DATEDIFF('SECOND', {start}, {end})",
-            "minutes": lambda start, end: f"DATEDIFF('MINUTE', {start}, {end})",
-            "hours": lambda start, end: f"DATEDIFF('HOUR', {start}, {end})",
-            "days": lambda start, end: f"DATEDIFF('DAY', {start}, {end})",
-            "weeks": lambda start, end: f"DATEDIFF('WEEK', {start}, {end})",
-            "months": lambda start, end: f"DATEDIFF('MONTH', {start}, {end})",
-            "quarters": lambda start, end: f"DATEDIFF('QUARTER', {start}, {end})",
-            "years": lambda start, end: f"DATEDIFF('YEAR', {start}, {end})",
+    def apply_dimension_group_duration_sql(self, sql_start: str, sql_end: str, query_type: str):
+        meta_lookup = {
+            Definitions.snowflake: {
+                "seconds": lambda start, end: f"DATEDIFF('SECOND', {start}, {end})",
+                "minutes": lambda start, end: f"DATEDIFF('MINUTE', {start}, {end})",
+                "hours": lambda start, end: f"DATEDIFF('HOUR', {start}, {end})",
+                "days": lambda start, end: f"DATEDIFF('DAY', {start}, {end})",
+                "weeks": lambda start, end: f"DATEDIFF('WEEK', {start}, {end})",
+                "months": lambda start, end: f"DATEDIFF('MONTH', {start}, {end})",
+                "quarters": lambda start, end: f"DATEDIFF('QUARTER', {start}, {end})",
+                "years": lambda start, end: f"DATEDIFF('YEAR', {start}, {end})",
+            },
+            Definitions.bigquery: {
+                "days": lambda start, end: f"DATE_DIFF({end}, {start}, 'DAY')",
+                "weeks": lambda start, end: f"DATE_DIFF({end}, {start}, 'ISOWEEK')",
+                "months": lambda start, end: f"DATE_DIFF({end}, {start}, 'MONTH')",
+                "quarters": lambda start, end: f"DATE_DIFF({end}, {start}, 'QUARTER')",
+                "years": lambda start, end: f"DATE_DIFF({end}, {start}, 'ISOYEAR')",
+            },
         }
-        return dimension_group_sql_lookup[self.dimension_group](sql_start, sql_end)
+        try:
+            return meta_lookup[query_type][self.dimension_group](sql_start, sql_end)
+        except KeyError:
+            raise KeyError(
+                f"Unable to find a valid method for running "
+                f"{self.dimension_group} with query type {query_type}"
+            )
 
-    def apply_dimension_group_time_sql(self, sql: str):
+    def apply_dimension_group_time_sql(self, sql: str, query_type: str):
         # TODO add day_of_week, day_of_week_index, month_name, month_num
         # more types here https://docs.looker.com/reference/field-params/dimension_group
-        dimension_group_sql_lookup = {
-            "raw": lambda s: s,
-            "time": lambda s: f"CAST({s} as TIMESTAMP)",
-            "date": lambda s: f"DATE_TRUNC('DAY', {s})",
-            "week": self._week_dimension_group_time_sql,
-            "month": lambda s: f"DATE_TRUNC('MONTH', {s})",
-            "quarter": lambda s: f"DATE_TRUNC('QUARTER', {s})",
-            "year": lambda s: f"DATE_TRUNC('YEAR', {s})",
+        meta_lookup = {
+            Definitions.snowflake: {
+                "raw": lambda s, qt: s,
+                "time": lambda s, qt: f"CAST({s} as TIMESTAMP)",
+                "date": lambda s, qt: f"DATE_TRUNC('DAY', {s})",
+                "week": self._week_dimension_group_time_sql,
+                "month": lambda s, qt: f"DATE_TRUNC('MONTH', {s})",
+                "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', {s})",
+                "year": lambda s, qt: f"DATE_TRUNC('YEAR', {s})",
+                "hour_of_day": lambda s, qt: f"HOUR({s})",
+                "day_of_week": lambda s, qt: f"DAYOFWEEK({s})",
+            },
+            Definitions.bigquery: {
+                "raw": lambda s, qt: s,
+                "time": lambda s, qt: f"CAST({s} as TIMESTAMP)",
+                "date": lambda s, qt: f"DATE_TRUNC({s}, 'DAY')",
+                "week": self._week_dimension_group_time_sql,
+                "month": lambda s, qt: f"DATE_TRUNC({s}, 'MONTH')",
+                "quarter": lambda s, qt: f"DATE_TRUNC({s}, 'QUARTER')",
+                "year": lambda s, qt: f"DATE_TRUNC({s}, 'YEAR')",
+                "hour_of_day": lambda s, qt: f"CAST({s} AS STRING FORMAT 'HH24')",
+                "day_of_week": lambda s, qt: f"CAST({s} AS STRING FORMAT 'DAY')",
+            },
         }
-        return dimension_group_sql_lookup[self.dimension_group](sql)
 
-    def _week_dimension_group_time_sql(self, sql: str):
+        return meta_lookup[query_type][self.dimension_group](sql, query_type)
+
+    def _week_dimension_group_time_sql(self, sql: str, query_type: str):
         # Monday is the default date for warehouses
         week_start_day = self.view.explore.week_start_day
         if week_start_day == "monday":
-            return f"DATE_TRUNC('WEEK', {sql})"
+            return self._week_sql_date_trunc(sql, query_type)
         offset_lookup = {
             "sunday": 1,
             "saturday": 2,
@@ -248,7 +280,15 @@ class Field(GraniteBase, SQLReplacement):
             "tuesday": 6,
         }
         offset = offset_lookup[week_start_day]
-        return f"DATE_TRUNC('WEEK', {sql} + {offset}) - {offset}"
+        offset_sql = f"{sql} + {offset}"
+        return f"{self._week_sql_date_trunc(offset_sql, query_type)} - {offset}"
+
+    @staticmethod
+    def _week_sql_date_trunc(sql, query_type):
+        if Definitions.snowflake == query_type:
+            return f"DATE_TRUNC('WEEK', {sql})"
+        elif Definitions.bigquery == query_type:
+            return f"DATE_TRUNC({sql}, 'WEEK')"
 
     def get_referenced_sql_query(self):
         if "{%" in self.sql or self.sql == "":
@@ -271,17 +311,17 @@ class Field(GraniteBase, SQLReplacement):
 
         return list(set(reference_fields))
 
-    def get_replaced_sql_query(self):
+    def get_replaced_sql_query(self, query_type: str):
         if self.sql:
             clean_sql = self._replace_sql_query(self.sql)
             if self.field_type == "dimension_group" and self.type == "time":
-                clean_sql = self.apply_dimension_group_time_sql(clean_sql)
+                clean_sql = self.apply_dimension_group_time_sql(clean_sql, query_type)
             return clean_sql
 
         if self.sql_start and self.sql_end and self.type == "duration":
             clean_sql_start = self._replace_sql_query(self.sql_start)
             clean_sql_end = self._replace_sql_query(self.sql_end)
-            return self.apply_dimension_group_duration_sql(clean_sql_start, clean_sql_end)
+            return self.apply_dimension_group_duration_sql(clean_sql_start, clean_sql_end, query_type)
 
         raise ValueError(f"Unknown type of SQL query for field {self.name}")
 

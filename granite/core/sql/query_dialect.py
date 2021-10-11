@@ -6,6 +6,8 @@ from pypika.dialects import (
 )
 from pypika.enums import Dialects
 
+from granite.core.model.definitions import Definitions
+
 SnowflakeQueryBuilder.ALIAS_QUOTE_CHAR = None
 PostgreSQLQueryBuilder.ALIAS_QUOTE_CHAR = None
 PostgreSQLQueryBuilder.QUOTE_CHAR = "'"
@@ -41,4 +43,8 @@ class BigQueryQuery(Query):
         return SnowflakeQueryBuilder(**kwargs)
 
 
-query_lookup = {"SNOWFLAKE": SnowflakeQuery, "BIGQUERY": BigQueryQuery, "REDSHIFT": RedshiftQuery}
+query_lookup = {
+    Definitions.snowflake: SnowflakeQuery,
+    Definitions.bigquery: BigQueryQuery,
+    Definitions.redshift: RedshiftQuery,
+}

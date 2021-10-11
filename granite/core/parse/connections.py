@@ -1,14 +1,16 @@
 import json
 from copy import deepcopy
 
+from granite.core.model.definitions import Definitions
+
 
 class GraniteConnectionError(Exception):
     pass
 
 
 class ConnectionType:
-    snowflake = "SNOWFLAKE"
-    bigquery = "BIGQUERY"
+    snowflake = Definitions.snowflake
+    bigquery = Definitions.bigquery
 
 
 class BaseConnection:

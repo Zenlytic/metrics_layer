@@ -1,7 +1,7 @@
 import sqlparse
 from sqlparse.tokens import Name
 
-from granite.core.model.project import Project
+from granite.core.model import Definitions, Project
 from granite.core.sql.query_design import GraniteDesign
 from granite.core.sql.query_generator import GraniteQuery
 
@@ -29,7 +29,7 @@ class SQLQueryResolver:
     ):
         self.field_lookup = {}
         self.no_group_by = False
-        self.query_type = kwargs.get("query_type", "SNOWFLAKE")
+        self.query_type = kwargs.get("query_type", Definitions.snowflake)
         self.verbose = kwargs.get("verbose", False)
         self.select_raw_sql = kwargs.get("select_raw_sql", [])
         self.project = project

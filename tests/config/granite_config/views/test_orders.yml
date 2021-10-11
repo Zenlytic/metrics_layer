@@ -32,7 +32,9 @@ fields:
       week,
       month,
       quarter,
-      year
+      year,
+      day_of_week,
+      hour_of_day
     ]
     sql: "${TABLE}.order_date"
 
