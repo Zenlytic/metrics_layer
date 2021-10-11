@@ -297,6 +297,31 @@ def test_simple_query_custom_metric():
     assert query == correct
 
 
+@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery])
+def test_simple_query_with_where_dim_group(query_type):
+    project = Project(models=[simple_model], views=[simple_view])
+    config_mock.project = project
+    query = get_sql_query(
+        metrics=["total_revenue"],
+        dimensions=["channel"],
+        where=[{"field": "order_date", "expression": "greater_than", "value": "2021-08-04"}],
+        config=config_mock,
+        query_type=query_type,
+    )
+
+    print(query_type)
+    if query_type == Definitions.snowflake:
+        condition = "DATE_TRUNC('DAY', simple.order_date)>'2021-08-04'"
+    else:
+        condition = "DATE_TRUNC(simple.order_date, 'DAY')>'2021-08-04'"
+
+    correct = (
+        "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
+        f"analytics.orders simple WHERE {condition} GROUP BY simple.sales_channel;"
+    )
+    assert query == correct
+
+
 def test_simple_query_with_where_dict():
     project = Project(models=[simple_model], views=[simple_view])
     config_mock.project = project

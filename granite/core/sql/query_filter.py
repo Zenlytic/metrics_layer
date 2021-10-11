@@ -116,7 +116,7 @@ class GraniteFilter(GraniteBase):
         if self.is_literal_filter:
 
             return LiteralValueCriterion(self.replace_fields_literal_filter())
-        return self.criterion(LiteralValue(self.field.sql_query()))
+        return self.criterion(LiteralValue(self.field.sql_query(self.query_type, self.design.base_view_name)))
 
     def replace_fields_literal_filter(self):
         generator = sqlparse.parse(self.literal)[0].flatten()
@@ -134,7 +134,7 @@ class GraniteFilter(GraniteBase):
             extra_args = {"field_type": "measure", "type": "number"}
         view = self.design.get_view(self.design.base_view_name)
         field = GraniteField({"sql": "".join(tokens), "name": None, **extra_args}, view=view)
-        return field.sql_query()
+        return field.sql_query(self.query_type, view.name)
 
     def criterion(self, field: Field) -> Criterion:
         """
