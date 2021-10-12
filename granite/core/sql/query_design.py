@@ -1,5 +1,7 @@
 from typing import List
 
+import networkx as nx
+
 from granite.core.model.base import GraniteBase
 from granite.core.sql.query_errors import ParseError
 
@@ -24,7 +26,7 @@ class GraniteDesign:
         joins_needed_for_query = []
         for view_name in reversed(sorted(required_views)):
             joins_needed_for_query.extend(self._find_needed_joins(view_name, joins_needed_for_query))
-        return list(reversed(joins_needed_for_query))
+        return self._sort_joins(joins_needed_for_query)
 
     def _find_needed_joins(self, view_name: str, joins_already_added: list):
         joins_to_add = []
@@ -36,6 +38,20 @@ class GraniteDesign:
             for view_name in join.required_views():
                 joins_to_add.extend(self._find_needed_joins(view_name, joins_already_added + [join]))
         return joins_to_add
+
+    def _sort_joins(self, joins_needed: list):
+        if len(joins_needed) == 0:
+            return []
+
+        G = nx.DiGraph()
+        for join in joins_needed:
+            for view_name in join.required_views():
+                G.add_edge(view_name, join.name)
+        print(G.edges)
+        ordered_names = list(nx.bfs_tree(G, source=self.base_view_name))
+        print(ordered_names)
+        # Skip the first one because that's *always* the base of the explore
+        return [self.explore.get_join(name) for name in ordered_names[1:]]
 
     def get_view(self, name: str) -> GraniteBase:
         try:

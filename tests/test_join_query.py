@@ -75,28 +75,34 @@ def test_query_single_join_metric_with_sub_field(config):
     assert query == correct
 
 
-def test_query_single_join_with_forced_additional_join(config):
+# TODO have a test for symmetric for a one_to_many or many_to_many join e.g. discounts
 
+
+def test_query_single_join_with_forced_additional_join(config):
     query = get_sql_query(
-        metrics=["total_item_revenue"],
+        metrics=["avg_rainfall"],
         dimensions=["discount_promo_name"],
         config=config,
     )
 
-    # TODO this should be symmetric
     correct = (
-        "SELECT discount_detail.promo_name as discount_promo_name,SUM(order_lines.revenue) as "
-        "total_item_revenue FROM analytics.order_line_items order_lines LEFT JOIN "
-        "analytics.orders orders ON order_lines.order_id=orders.order_id LEFT JOIN "
-        "analytics_live.discounts discounts ON orders.order_id=discounts.order_id LEFT JOIN "
-        "analytics.discount_detail discount_detail ON discounts.discount_id=discount_detail.discount_id "
+        "SELECT discount_detail.promo_name as discount_promo_name,(COALESCE(CAST((SUM(DISTINCT "
+        "(CAST(FLOOR(COALESCE(country_detail.rain, 0) * (1000000 * 1.0)) AS FLOAT64))"
+        " + CAST(FARM_FINGERPRINT(country_detail.country) AS BIGNUMERIC)) - SUM(DISTINCT "
+        "CAST(FARM_FINGERPRINT(country_detail.country) AS BIGNUMERIC))) AS FLOAT64) "
+        "/ CAST((1000000*1.0) AS FLOAT64), 0) / NULLIF(COUNT(DISTINCT CASE WHEN  "
+        "(country_detail.rain)  IS NOT NULL THEN  country_detail.country  ELSE NULL END), "
+        "0)) as avg_rainfall FROM analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
+        "LEFT JOIN analytics_live.discounts discounts ON orders.order_id=discounts.order_id "
+        "LEFT JOIN analytics.discount_detail discount_detail ON discounts.discount_id=discount_detail.discount_id "  # noqa
+        "LEFT JOIN analytics.country_detail country_detail ON discounts.country=country_detail.country "
         "GROUP BY discount_detail.promo_name;"
     )
     assert query == correct
 
 
 def test_query_single_join_select_args(config):
-
     query = get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["channel", "new_vs_repeat"],
@@ -119,7 +125,6 @@ def test_query_single_join_select_args(config):
 
 
 def test_query_single_join_with_case_raw_sql(config):
-
     query = get_sql_query(
         metrics=["total_item_revenue"], dimensions=["is_on_sale_sql", "new_vs_repeat"], config=config
     )
@@ -134,7 +139,6 @@ def test_query_single_join_with_case_raw_sql(config):
 
 
 def test_query_single_join_with_case(config):
-
     query = get_sql_query(
         metrics=["total_item_revenue"], dimensions=["is_on_sale_case", "new_vs_repeat"], config=config
     )
@@ -149,7 +153,6 @@ def test_query_single_join_with_case(config):
 
 
 def test_query_single_join_with_tier(config):
-
     query = get_sql_query(
         metrics=["total_item_revenue"], dimensions=["order_tier", "new_vs_repeat"], config=config
     )
@@ -169,7 +172,6 @@ def test_query_single_join_with_tier(config):
 
 
 def test_query_single_join_with_filter(config):
-
     query = get_sql_query(
         metrics=["number_of_email_purchased_items"],
         dimensions=["channel", "new_vs_repeat"],
@@ -185,16 +187,18 @@ def test_query_single_join_with_filter(config):
 
 
 def test_query_multiple_join(config):
-
     query = get_sql_query(
         metrics=["total_item_revenue"], dimensions=["region", "new_vs_repeat"], config=config
     )
 
-    correct = "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
-    correct += "SUM(order_lines.revenue) as total_item_revenue FROM "
-    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.customers customers "
-    correct += "ON order_lines.customer_id=customers.customer_id LEFT JOIN analytics.orders orders "
-    correct += "ON order_lines.order_id=orders.order_id GROUP BY customers.region,orders.new_vs_repeat;"
+    correct = (
+        "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
+        "SUM(order_lines.revenue) as total_item_revenue FROM "
+        "analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
+        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        "GROUP BY customers.region,orders.new_vs_repeat;"
+    )
     assert query == correct
 
 
@@ -207,12 +211,15 @@ def test_query_multiple_join_where_dict(config):
         config=config,
     )
 
-    correct = "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
-    correct += "SUM(order_lines.revenue) as total_item_revenue FROM "
-    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.customers customers "
-    correct += "ON order_lines.customer_id=customers.customer_id LEFT JOIN analytics.orders orders "
-    correct += "ON order_lines.order_id=orders.order_id WHERE customers.region<>'West' "
-    correct += "GROUP BY customers.region,orders.new_vs_repeat;"
+    correct = (
+        "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
+        "SUM(order_lines.revenue) as total_item_revenue FROM "
+        "analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
+        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        "WHERE customers.region<>'West' "
+        "GROUP BY customers.region,orders.new_vs_repeat;"
+    )
     assert query == correct
 
 
@@ -225,12 +232,15 @@ def test_query_multiple_join_where_literal(config):
         config=config,
     )
 
-    correct = "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
-    correct += "SUM(order_lines.revenue) as total_item_revenue FROM "
-    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.customers customers "
-    correct += "ON order_lines.customer_id=customers.customer_id LEFT JOIN analytics.orders orders "
-    correct += "ON order_lines.order_id=orders.order_id WHERE customers.region != 'West' "
-    correct += "GROUP BY customers.region,orders.new_vs_repeat;"
+    correct = (
+        "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
+        "SUM(order_lines.revenue) as total_item_revenue FROM "
+        "analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
+        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        "WHERE customers.region != 'West' "
+        "GROUP BY customers.region,orders.new_vs_repeat;"
+    )
     assert query == correct
 
 
@@ -243,12 +253,14 @@ def test_query_multiple_join_having_dict(config):
         config=config,
     )
 
-    correct = "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
-    correct += "SUM(order_lines.revenue) as total_item_revenue FROM "
-    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.customers customers "
-    correct += "ON order_lines.customer_id=customers.customer_id LEFT JOIN analytics.orders orders "
-    correct += "ON order_lines.order_id=orders.order_id "
-    correct += "GROUP BY customers.region,orders.new_vs_repeat HAVING SUM(order_lines.revenue)>-12;"
+    correct = (
+        "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
+        "SUM(order_lines.revenue) as total_item_revenue FROM "
+        "analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
+        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        "GROUP BY customers.region,orders.new_vs_repeat HAVING SUM(order_lines.revenue)>-12;"
+    )
     assert query == correct
 
 
@@ -261,12 +273,14 @@ def test_query_multiple_join_having_literal(config):
         config=config,
     )
 
-    correct = "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
-    correct += "SUM(order_lines.revenue) as total_item_revenue FROM "
-    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.customers customers "
-    correct += "ON order_lines.customer_id=customers.customer_id LEFT JOIN analytics.orders orders "
-    correct += "ON order_lines.order_id=orders.order_id "
-    correct += "GROUP BY customers.region,orders.new_vs_repeat HAVING SUM(order_lines.revenue) > -12;"
+    correct = (
+        "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
+        "SUM(order_lines.revenue) as total_item_revenue FROM "
+        "analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
+        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        "GROUP BY customers.region,orders.new_vs_repeat HAVING SUM(order_lines.revenue) > -12;"
+    )
     assert query == correct
 
 
@@ -279,12 +293,14 @@ def test_query_multiple_join_order_by_literal(config):
         config=config,
     )
 
-    correct = "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
-    correct += "SUM(order_lines.revenue) as total_item_revenue FROM "
-    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.customers customers "
-    correct += "ON order_lines.customer_id=customers.customer_id LEFT JOIN analytics.orders orders "
-    correct += "ON order_lines.order_id=orders.order_id "
-    correct += "GROUP BY customers.region,orders.new_vs_repeat ORDER BY total_item_revenue ASC;"
+    correct = (
+        "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
+        "SUM(order_lines.revenue) as total_item_revenue FROM "
+        "analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
+        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        "GROUP BY customers.region,orders.new_vs_repeat ORDER BY total_item_revenue ASC;"
+    )
     assert query == correct
 
 
@@ -299,11 +315,14 @@ def test_query_multiple_join_all(config):
         config=config,
     )
 
-    correct = "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
-    correct += "SUM(order_lines.revenue) as total_item_revenue FROM "
-    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.customers customers "
-    correct += "ON order_lines.customer_id=customers.customer_id LEFT JOIN analytics.orders orders "
-    correct += "ON order_lines.order_id=orders.order_id WHERE customers.region<>'West' "
-    correct += "GROUP BY customers.region,orders.new_vs_repeat HAVING SUM(order_lines.revenue)>-12 "
-    correct += "ORDER BY total_item_revenue DESC;"
+    correct = (
+        "SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
+        "SUM(order_lines.revenue) as total_item_revenue FROM "
+        "analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
+        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        "WHERE customers.region<>'West' "
+        "GROUP BY customers.region,orders.new_vs_repeat HAVING SUM(order_lines.revenue)>-12 "
+        "ORDER BY total_item_revenue DESC;"
+    )
     assert query == correct

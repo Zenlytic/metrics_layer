@@ -49,11 +49,14 @@ def test_query_multiple_join_mql(config):
         sql="SELECT * FROM MQL(total_item_revenue BY region, new_vs_repeat) as rev_group", config=config
     )
 
-    correct = "SELECT * FROM (SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
-    correct += "SUM(order_lines.revenue) as total_item_revenue FROM analytics.order_line_items "
-    correct += "order_lines LEFT JOIN analytics.customers customers ON order_lines.customer_id"
-    correct += "=customers.customer_id LEFT JOIN analytics.orders orders ON order_lines.order_id"
-    correct += "=orders.order_id GROUP BY customers.region,orders.new_vs_repeat) as rev_group;"
+    correct = (
+        "SELECT * FROM (SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
+        "SUM(order_lines.revenue) as total_item_revenue FROM "
+        "analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
+        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        "GROUP BY customers.region,orders.new_vs_repeat) as rev_group;"
+    )
     assert query == correct
 
 
@@ -66,10 +69,10 @@ def test_query_multiple_join_all_mql(config):
 
     correct = (
         "SELECT * FROM (SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
-        "SUM(order_lines.revenue) as total_item_revenue FROM "
-        "analytics.order_line_items order_lines LEFT JOIN analytics.customers customers "
-        "ON order_lines.customer_id=customers.customer_id LEFT JOIN analytics.orders orders "
-        "ON order_lines.order_id=orders.order_id WHERE customers.region != 'West' AND orders.new_vs_repeat <>"
+        "SUM(order_lines.revenue) as total_item_revenue FROM analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
+        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        "WHERE customers.region != 'West' AND orders.new_vs_repeat <>"
         " 'New' GROUP BY customers.region,orders.new_vs_repeat HAVING SUM(order_lines.revenue) > -12 AND "
         "SUM(order_lines.revenue) < 122 ORDER BY total_item_revenue DESC,new_vs_repeat ASC) as rev_group;"
     )

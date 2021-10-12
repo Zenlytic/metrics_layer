@@ -15,12 +15,14 @@ orders_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_ord
 customers_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_customers.yml")
 discounts_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_discounts.yml")
 discount_detail_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_discount_detail.yml")
+country_detail_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_country_detail.yml")
 view_paths = [
     order_lines_view_path,
     orders_view_path,
     customers_view_path,
     discounts_view_path,
     discount_detail_view_path,
+    country_detail_view_path,
 ]
 
 

@@ -38,19 +38,19 @@ class SQLQueryResolver:
         self.metrics = metrics
         self.dimensions = dimensions
 
-        self.where = where
+        self.where = self._check_for_dict(where)
         if self._is_literal(self.where):
             self._where_field_names = self.parse_identifiers_from_clause(self.where)
         else:
             self._where_field_names = self.parse_identifiers_from_dicts(self.where)
 
-        self.having = having
+        self.having = self._check_for_dict(having)
         if self._is_literal(self.having):
             self._having_field_names = self.parse_identifiers_from_clause(self.having)
         else:
             self._having_field_names = self.parse_identifiers_from_dicts(self.having)
 
-        self.order_by = order_by
+        self.order_by = self._check_for_dict(order_by)
         if self._is_literal(self.order_by):
             self._order_by_field_names = self.parse_identifiers_from_clause(self.order_by)
         else:
@@ -169,3 +169,9 @@ class SQLQueryResolver:
                 if "field" not in cond:
                     break
             raise KeyError(f"Identifier was missing required 'field' key: {cond}")
+
+    @staticmethod
+    def _check_for_dict(conditions: list):
+        if isinstance(conditions, dict):
+            return [conditions]
+        return conditions

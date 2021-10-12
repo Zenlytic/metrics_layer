@@ -49,7 +49,7 @@ class Join(GraniteBase, SQLReplacement):
 
     def required_views(self):
         if not self.sql_on:
-            return [self.from_]
+            return [self.explore.from_, self.from_]
 
         views = []
         for field in self.fields_to_replace(self.sql_on):

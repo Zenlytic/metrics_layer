@@ -9,10 +9,10 @@ def test_list_metrics(project):
     config_mock.project = project
 
     metrics = list_metrics(config=config_mock)
-    assert len(metrics) == 14
+    assert len(metrics) == 15
 
     metrics = list_metrics(explore_name="order_lines", config=config_mock)
-    assert len(metrics) == 14
+    assert len(metrics) == 15
 
     metrics = list_metrics(view_name="order_lines", names_only=True, config=config_mock)
     assert len(metrics) == 4
@@ -27,10 +27,10 @@ def test_list_metrics(project):
 def test_list_dimensions(project):
     config_mock.project = project
     dimensions = list_dimensions(config=config_mock)
-    assert len(dimensions) == 28
+    assert len(dimensions) == 31
 
     dimensions = list_dimensions(explore_name="order_lines", config=config_mock)
-    assert len(dimensions) == 28
+    assert len(dimensions) == 31
 
     dimensions = list_dimensions(view_name="order_lines", names_only=True, config=config_mock)
     dimensions_present = {

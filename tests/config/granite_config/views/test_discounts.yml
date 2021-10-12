@@ -24,6 +24,11 @@ fields:
     sql: "${TABLE}.order_id"
     group_label: "ID's"
 
+  - name: country
+    field_type: "dimension"
+    type: string
+    sql: "${TABLE}.country"
+
   - name: order
     field_type: "dimension_group"
     type: time
