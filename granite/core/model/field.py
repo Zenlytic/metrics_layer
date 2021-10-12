@@ -100,10 +100,29 @@ class Field(GraniteBase, SQLReplacement):
 
     def _sum_aggregate_sql(self, sql: str, query_type: str, query_base_view: str):
         if self._needs_symmetric_aggregate(query_base_view):
-            return self._sum_symmetric_aggregate(sql)
+            return self._sum_symmetric_aggregate(sql, query_type)
         return f"SUM({sql})"
 
-    def _sum_symmetric_aggregate(self, sql: str, factor: int = 1_000_000):
+    def _sum_symmetric_aggregate(self, sql: str, query_type: str, factor: int = 1_000_000):
+        if query_type == Definitions.snowflake:
+            return self._sum_symmetric_aggregate_snowflake(sql, factor)
+        elif query_type == Definitions.bigquery:
+            return self._sum_symmetric_aggregate_bigquery(sql, factor)
+
+    def _sum_symmetric_aggregate_bigquery(self, sql: str, factor: int = 1_000_000):
+        primary_key_sql = self.view.primary_key.sql_query()
+        adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS FLOAT64))"
+
+        pk_sum = f"CAST(FARM_FINGERPRINT({primary_key_sql}) AS BIGNUMERIC)"
+
+        sum_with_pk_backout = f"SUM(DISTINCT {adjusted_sum} + {pk_sum}) - SUM(DISTINCT {pk_sum})"
+
+        backed_out_cast = f"COALESCE(CAST(({sum_with_pk_backout}) AS FLOAT64)"
+
+        result = f"{backed_out_cast} / CAST(({factor}*1.0) AS FLOAT64), 0)"
+        return result
+
+    def _sum_symmetric_aggregate_snowflake(self, sql: str, factor: int = 1_000_000):
         primary_key_sql = self.view.primary_key.sql_query()
 
         adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS DECIMAL(38,0)))"
@@ -121,10 +140,14 @@ class Field(GraniteBase, SQLReplacement):
         if self._needs_symmetric_aggregate(query_base_view):
             if self.primary_key_count:
                 return self._count_distinct_aggregate_sql(sql, query_type, query_base_view)
-            return self._count_symmetric_aggregate(sql)
+            return self._count_symmetric_aggregate(sql, query_type)
         return f"COUNT({sql})"
 
-    def _count_symmetric_aggregate(self, sql: str):
+    def _count_symmetric_aggregate(self, sql: str, query_type: str, factor: int = 1_000_000):
+        # This works for both query types
+        return self._count_symmetric_aggregate_snowflake(sql)
+
+    def _count_symmetric_aggregate_snowflake(self, sql: str):
         primary_key_sql = self.view.primary_key.sql_query()
         pk_if_not_null = f"CASE WHEN  ({sql})  IS NOT NULL THEN  {primary_key_sql}  ELSE NULL END"
         result = f"NULLIF(COUNT(DISTINCT {pk_if_not_null}), 0)"
@@ -132,12 +155,12 @@ class Field(GraniteBase, SQLReplacement):
 
     def _average_aggregate_sql(self, sql: str, query_type: str, query_base_view: str):
         if self._needs_symmetric_aggregate(query_base_view):
-            return self._average_symmetric_aggregate(sql)
+            return self._average_symmetric_aggregate(sql, query_type)
         return f"AVG({sql})"
 
-    def _average_symmetric_aggregate(self, sql: str, factor=1_000_000):
-        sum_symmetric = self._sum_symmetric_aggregate(sql, factor)
-        count_symmetric = self._count_symmetric_aggregate(sql)
+    def _average_symmetric_aggregate(self, sql: str, query_type):
+        sum_symmetric = self._sum_symmetric_aggregate(sql, query_type)
+        count_symmetric = self._count_symmetric_aggregate(sql, query_type)
         result = f"({sum_symmetric} / {count_symmetric})"
         return result
 
