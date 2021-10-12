@@ -1,4 +1,5 @@
 import json
+import os
 from copy import deepcopy
 
 from granite.core.model.definitions import Definitions
@@ -59,7 +60,8 @@ class BigQueryConnection(BaseConnection):
     def __init__(self, name: str, credentials: str, **kwargs) -> None:
         self.type = ConnectionType.bigquery
         self.name = name
-        self.credentials = self._convert_json_if_needed(credentials)
+        print(credentials)
+        self.credentials = self._convert_json_if_needed(credentials, kwargs)
         self.project_id = self.credentials["project_id"]
 
     def to_dict(self):
@@ -67,10 +69,20 @@ class BigQueryConnection(BaseConnection):
         return {"credentials": self.credentials, "project_id": self.project_id}
 
     @staticmethod
-    def _convert_json_if_needed(creds: dict):
+    def _convert_json_if_needed(creds: dict, kwargs: dict):
         if isinstance(creds, dict):
             return deepcopy(creds)
         elif isinstance(creds, str):
-            return json.loads(creds)
+            try:
+                return json.loads(creds)
+            except json.JSONDecodeError:
+                # This means it's a file path not a JSON string
+                if os.path.isabs(creds):
+                    path = creds
+                else:
+                    path = os.path.join(kwargs["directory"], creds)
+
+                with open(path, "r") as f:
+                    return json.load(f)
         else:
             raise TypeError(f"BigQuery credentials json had wrong type: {type(creds)} for value {creds}")
