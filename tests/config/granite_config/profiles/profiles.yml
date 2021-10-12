@@ -1,0 +1,15 @@
+test_warehouse:
+  target: dev
+  outputs:
+    dev:
+      repo_path: ../
+      connections:
+        - name: bq_creds
+          type: bigquery
+          credentials: ./bq-test-service-account.json
+        - name: sf_creds
+          type: snowflake
+          account: 'xyz.us-east-1'
+          username: test_user
+          password: test_password
+          role: test_role

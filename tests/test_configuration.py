@@ -7,6 +7,14 @@ from granite.core.parse.connections import BigQueryConnection, SnowflakeConnecti
 from granite.core.parse.github_repo import LookerGithubRepo
 
 
+def test_config_explicit_granite_single_local():
+    repo_config = {"repo_path": "./tests/config/granite_config/", "repo_type": "granite"}
+    config = GraniteConfiguration(repo_config=repo_config)
+
+    assert config.repo.repo_type == "granite"
+    assert config.repo.repo_path == "./tests/config/granite_config/"
+
+
 def test_config_explicit_granite_single():
     repo_config = {"repo_url": "https://github.com", "branch": "dev", "repo_type": "granite"}
     config = GraniteConfiguration(repo_config=repo_config)
@@ -152,6 +160,29 @@ def test_config_explicit_env_config(monkeypatch):
     assert config.repo.repo_type == "granite"
     assert config.repo.branch == "master"
     assert config.repo.repo_url == "https://correct.com"
+
+
+def test_config_file_granite(monkeypatch):
+    monkeypatch.setenv("GRANITE_PROFILES_DIR", "./tests/config/granite_config/profiles")
+    config = GraniteConfiguration("test_warehouse")
+
+    assert "granite/tests/config/granite_config" in config.repo.repo_path
+    assert len(config.connections()) == 2
+    assert all(c.name in {"sf_creds", "bq_creds"} for c in config.connections())
+
+    sf = config.get_connection("sf_creds")
+    assert sf.account == "xyz.us-east-1"
+    assert sf.username == "test_user"
+    assert sf.password == "test_password"
+    assert sf.role == "test_role"
+
+    bq = config.get_connection("bq_creds")
+    assert bq.project_id == "test-data-warehouse"
+    assert bq.credentials == {
+        "client_email": "granite@testing.iam.gserviceaccount.com",
+        "project_id": "test-data-warehouse",
+        "type": "service_account",
+    }
 
 
 def test_config_does_not_exist():

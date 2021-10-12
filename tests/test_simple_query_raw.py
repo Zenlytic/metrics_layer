@@ -69,66 +69,62 @@ simple_view = {
 }
 
 
-class config_mock:
-    pass
-
-
-def test_simple_query():
+def test_simple_query(config):
     project = Project(models=[simple_model], views=[simple_view])
-    config_mock.project = project
-    query = get_sql_query(metrics=["total_revenue"], dimensions=["order_id", "channel"], config=config_mock)
+    config.project = project
+    query = get_sql_query(metrics=["total_revenue"], dimensions=["order_id", "channel"], config=config)
 
     correct = "SELECT simple.order_id as order_id,simple.sales_channel as channel,simple.revenue "
     correct += "as total_revenue FROM analytics.orders simple;"
     assert query == correct
 
 
-def test_query_complex_metric():
+def test_query_complex_metric(config):
     project = Project(models=[simple_model], views=[simple_view])
-    config_mock.project = project
-    query = get_sql_query(metrics=["revenue_per_aov"], dimensions=["order_id", "channel"], config=config_mock)
+    config.project = project
+    query = get_sql_query(metrics=["revenue_per_aov"], dimensions=["order_id", "channel"], config=config)
 
     correct = "SELECT simple.order_id as order_id,simple.sales_channel as channel,simple.revenue as "
     correct += "average_order_value,simple.revenue as total_revenue FROM analytics.orders simple;"
     assert query == correct
 
 
-def test_query_complex_metric_having_error():
+def test_query_complex_metric_having_error(config):
     project = Project(models=[simple_model], views=[simple_view])
-    config_mock.project = project
+    config.project = project
     with pytest.raises(ArgumentError) as exc_info:
         get_sql_query(
             metrics=["revenue_per_aov"],
             dimensions=["order_id", "channel"],
             having=[{"field": "revenue_per_aov", "expression": "greater_than", "value": 13}],
-            config=config_mock,
+            config=config,
         )
 
     assert exc_info.value
 
 
-def test_query_complex_metric_order_by_error():
+def test_query_complex_metric_order_by_error(config):
     project = Project(models=[simple_model], views=[simple_view])
-    config_mock.project = project
+    config.project = project
     with pytest.raises(ArgumentError) as exc_info:
         get_sql_query(
             metrics=["revenue_per_aov"],
             dimensions=["order_id", "channel"],
             order_by=[{"field": "revenue_per_aov", "sort": "desc"}],
-            config=config_mock,
+            config=config,
         )
 
     assert exc_info.value
 
 
-def test_query_complex_metric_all():
+def test_query_complex_metric_all(config):
     project = Project(models=[simple_model], views=[simple_view])
-    config_mock.project = project
+    config.project = project
     query = get_sql_query(
         metrics=["revenue_per_aov"],
         dimensions=["order_id", "channel"],
         where=[{"field": "channel", "expression": "not_equal_to", "value": "Email"}],
-        config=config_mock,
+        config=config,
     )
 
     correct = "SELECT simple.order_id as order_id,simple.sales_channel as channel,simple.revenue as "

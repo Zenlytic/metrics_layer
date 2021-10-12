@@ -15,12 +15,14 @@ orders_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_ord
 customers_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_customers.yml")
 discounts_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_discounts.yml")
 discount_detail_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_discount_detail.yml")
+country_detail_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_country_detail.yml")
 view_paths = [
     order_lines_view_path,
     orders_view_path,
     customers_view_path,
     discounts_view_path,
     discount_detail_view_path,
+    country_detail_view_path,
 ]
 
 
@@ -79,3 +81,22 @@ def views():
 def project(models, views):
     project = Project(models=models, views=views, looker_env="prod")
     return project
+
+
+@pytest.fixture(scope="module")
+def config(project):
+    class bq_mock:
+        type = "BIGQUERY"
+
+    class sf_mock:
+        type = "BIGQUERY"
+
+    class config_mock:
+        def get_connection(name: str):
+            if name == "bq_creds":
+                return bq_mock
+            else:
+                return sf_mock
+
+    config_mock.project = project
+    return config_mock

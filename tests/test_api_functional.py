@@ -40,13 +40,30 @@ def test_api_query(client, monkeypatch, models, views, add_user_and_get_auth):
     assert data["data"] == correct_df.to_dict("records")
 
 
-def test_api_convert_sql(client, monkeypatch, project, add_user_and_get_auth):
+def test_api_convert_sql(client, monkeypatch, models, views, add_user_and_get_auth):
     _, token = add_user_and_get_auth("convert@test.com", "test")
-    monkeypatch.setenv("GRANITE_REPO_URL", "https://github.com")
-    monkeypatch.setenv("GRANITE_BRANCH", "dev")
-    monkeypatch.setenv("GRANITE_REPO_TYPE", "granite")
+    repo_config = {"repo_url": "https://github.com", "branch": "dev", "repo_type": "granite"}
+    connections = [
+        {
+            "type": "SNOWFLAKE",
+            "name": "sf_name",
+            "account": "sf_account",
+            "username": "sf_username",
+            "password": "sf_password",
+        },
+        {
+            "type": "BIGQUERY",
+            "name": "bq_name",
+            "credentials": '{"key": "value", "project_id": "test-1234"}',
+        },
+    ]
+    config = GraniteConfiguration(repo_config=repo_config, connections=connections)
+    # Add reference to snowflake creds
+    sf_models = [{**m, "connection": "sf_name"} for m in models]
+    project = Project(models=sf_models, views=views, looker_env="prod")
+    config._project = project
 
-    monkeypatch.setattr(GraniteConfiguration, "_get_project", lambda *args, **kwargs: project)
+    monkeypatch.setattr(GraniteConfiguration, "get_granite_configuration", lambda *args, **kwargs: config)
 
     mql_query = "SELECT * FROM MQL(total_item_revenue BY channel)"
     response = client.post(
@@ -73,7 +90,7 @@ def test_api_list_metrics(client, monkeypatch, project, add_user_and_get_auth):
     response = client.get(f"api/v1/metrics", headers={"Authorization": f"Bearer {token}"})
     data = response.get_json()
 
-    assert len(data["data"]) == 14
+    assert len(data["data"]) == 15
 
 
 def test_api_list_dimensions(client, monkeypatch, project, add_user_and_get_auth):
@@ -87,7 +104,7 @@ def test_api_list_dimensions(client, monkeypatch, project, add_user_and_get_auth
     response = client.get(f"api/v1/dimensions", headers={"Authorization": f"Bearer {token}"})
     data = response.get_json()
 
-    assert len(data["data"]) == 28
+    assert len(data["data"]) == 31
 
 
 def test_api_get_metric(client, monkeypatch, project, add_user_and_get_auth):

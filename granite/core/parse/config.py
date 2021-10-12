@@ -23,9 +23,11 @@ class GraniteConfiguration:
         connections: list = [],
         looker_env: str = None,
     ):
-        self.repo = self._resolve_config(repo_config, prefix="GRANITE", raise_exception=True)
-        self.additional_repo = self._resolve_config(additional_repo_config, prefix="GRANITE_ADDITIONAL")
-        self._connections = self._parse_connections(connections)
+        self.repo, conns = self._resolve_config(repo_config, prefix="GRANITE", raise_exception=True)
+        self.additional_repo, addtl_conns = self._resolve_config(
+            additional_repo_config, prefix="GRANITE_ADDITIONAL"
+        )
+        self._connections = self._parse_connections(connections) + conns + addtl_conns
         self.looker_env = looker_env
         self._project = None
 
@@ -69,14 +71,20 @@ class GraniteConfiguration:
         return project
 
     def _resolve_config(self, config: dict, prefix: str, raise_exception: bool = False):
+        print(config)
         # Config is passed explicitly: this gets first priority
-        if config is not None:
-            return self._get_config_repo(config)
+        if config is not None and isinstance(config, dict):
+            return self._get_config_repo(config), []
 
         # Next look for environment variables
         repo = self._get_repo_from_environment(prefix)
         if repo:
-            return repo
+            return repo, []
+
+        # Finally look for config file
+        repo, connections = self._get_repo_from_config_file(config)
+        if repo:
+            return repo, connections
 
         if raise_exception:
             raise ConfigError(
@@ -85,6 +93,7 @@ class GraniteConfiguration:
                 configuration explicitly as a dictionary
             """
             )
+        return None, []
 
     @staticmethod
     def _get_config_repo(config: dict):
@@ -114,7 +123,7 @@ class GraniteConfiguration:
         local_repo_param = os.getenv(f"{prefix}_REPO_PATH")
         if local_repo_param:
             repo_type = os.getenv(f"{prefix}_REPO_TYPE")
-            return GithubRepo(repo_url=local_repo_param, repo_type=repo_type)
+            return LocalRepo(repo_path=local_repo_param, repo_type=repo_type)
 
         repo_params = [os.getenv(f"{prefix}_{a}") for a in ["REPO_URL", "BRANCH"]]
         if all(repo_params):
@@ -134,7 +143,100 @@ class GraniteConfiguration:
             }
             return LookerGithubRepo(**config)
 
-    def _parse_connections(self, connections: list):
+    @staticmethod
+    def _get_repo_from_config_file(config_profile_name: str, target_name: str = None):
+        print(config_profile_name)
+        if config_profile_name is None:
+            return None, []
+
+        granite_directory = GraniteConfiguration.get_granite_directory()
+        profiles_path = os.path.join(granite_directory, "profiles.yml")
+
+        if not os.path.exists(profiles_path):
+            raise ConfigError(
+                f"""Granite could not find the profiles.yml file in the directory
+             {profiles_path}, please check that path to ensure the file exists.
+             If this does not look like the path you specified, make sure you haven't set
+             the environment variable GRANITE_PROFILES_DIR to another value
+             which may be overriding the default (~, your home directory)"""
+            )
+
+        all_profiles = ProjectReader.read_yaml_file(profiles_path)
+
+        try:
+            profile = all_profiles[config_profile_name]
+        except KeyError:
+            raise ConfigError(
+                f"Granite could not find the profile "
+                f"{config_profile_name} in options {list(all_profiles.keys())} "
+                f"located in the profiles.yml file at {profiles_path}"
+            )
+
+        if "target" not in profile:
+            raise ConfigError(
+                "You need to specify a default target in the "
+                f"file {profiles_path} for profile {config_profile_name}"
+            )
+
+        if "outputs" not in profile:
+            raise ConfigError(
+                "You need to specify outputs in your profile so Granite can "
+                f"connect to your database for profile {config_profile_name}"
+            )
+
+        try:
+            target_name = target_name if target_name else profile["target"]
+            target = profile["outputs"][target_name]
+        except KeyError:
+            raise ConfigError(
+                f"Granite could not find the target "
+                f"{target_name} in outputs {list(profile['outputs'].keys())} "
+                f"located in the profiles.yml file at {profiles_path}"
+            )
+
+        repo_type = target.get("repo_type")
+
+        # Local repo
+        if "repo_path" in target:
+            if os.path.isabs(target["repo_path"]):
+                path = target["repo_path"]
+            else:
+                print(target["repo_path"])
+                path = os.path.abspath(
+                    os.path.join(granite_directory, os.path.expanduser(target["repo_path"]))
+                )
+                print(path)
+            repo = LocalRepo(repo_path=path, repo_type=repo_type)
+
+        # Github repo
+        if all(k in target for k in ["repo_url", "branch"]):
+            repo = GithubRepo(repo_path=target["repo_url"], branch=target["branch"], repo_type=repo_type)
+
+        # Looker API
+        looker_keys = ["looker_url", "client_id", "client_secret", "project_name"]
+        if all(k in target for k in looker_keys):
+            looker_args = {k: target[k] for k in looker_keys}
+            repo = LookerGithubRepo(**looker_args, repo_type="lookml")
+
+        connections = [{**c, "directory": granite_directory} for c in target.get("connections", [])]
+        return repo, GraniteConfiguration._parse_connections(connections)
+
+    @staticmethod
+    def get_granite_directory():
+        env_specified_location = os.getenv(f"GRANITE_PROFILES_DIR")
+        if env_specified_location:
+            if os.path.isabs(env_specified_location):
+                return env_specified_location
+            else:
+                return os.path.join(os.getcwd(), os.path.abspath(env_specified_location))
+
+        # System default home directory
+        home = os.path.expanduser("~")
+        location = os.path.join(home, ".granite/")
+        return location
+
+    @staticmethod
+    def _parse_connections(connections: list):
         class_lookup = {
             ConnectionType.snowflake: SnowflakeConnection,
             ConnectionType.bigquery: BigQueryConnection,

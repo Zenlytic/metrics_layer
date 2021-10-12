@@ -1,6 +1,13 @@
-import snowflake.connector
-from google.cloud import bigquery
-from google.oauth2 import service_account
+try:
+    import snowflake.connector
+except ModuleNotFoundError:
+    pass
+
+try:
+    from google.cloud import bigquery
+    from google.oauth2 import service_account
+except ModuleNotFoundError:
+    pass
 
 from granite.core.parse.connections import (
     BaseConnection,
@@ -56,15 +63,31 @@ class QueryRunner:
 
     @staticmethod
     def _get_snowflake_connection(connection: BaseConnection):
-        return snowflake.connector.connect(
-            account=connection.account,
-            user=connection.username,
-            password=connection.password,
-            role=connection.role,
-        )
+        try:
+            return snowflake.connector.connect(
+                account=connection.account,
+                user=connection.username,
+                password=connection.password,
+                role=connection.role,
+            )
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "Granite could not find the Snowflake modules it needs to run the query. "
+                "Make sure that you have those modules installed or reinstall Granite with "
+                "the [snowflake] option e.g. pip install granite[snowflake]"
+            )
 
     @staticmethod
     def _get_bigquery_connection(connection: BaseConnection):
-        service_account_creds = service_account.Credentials.from_service_account_info(connection.credentials)
-        connection = bigquery.Client(project=connection.project_id, credentials=service_account_creds)
+        try:
+            service_account_creds = service_account.Credentials.from_service_account_info(
+                connection.credentials
+            )
+            connection = bigquery.Client(project=connection.project_id, credentials=service_account_creds)
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "Granite could not find the BigQuery modules it needs to run the query. "
+                "Make sure that you have those modules installed or reinstall Granite with "
+                "the [bigquery] option e.g. pip install granite[bigquery]"
+            )
         return connection

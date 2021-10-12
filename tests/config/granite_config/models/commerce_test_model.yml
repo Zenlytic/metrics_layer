@@ -17,6 +17,11 @@ explores:
         relationship: many_to_one
         sql_on: "${order_lines.order_id}=${orders.order_id}"
 
+      - name: country_detail
+        type: left_outer
+        relationship: many_to_one
+        sql_on: "${discounts.country}=${country_detail.country_id}"
+
       - name: customers
         type: left_outer
         relationship: many_to_one

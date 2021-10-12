@@ -96,8 +96,9 @@ class Project:
     def get_explore_from_field(self, field_name: str):
         # If it's specified this is really easy
         if "." in field_name:
-            view_name, _ = field_name.split(".")
-            return view_name
+            explore_name, _, _ = Field.field_name_parts(field_name)
+            if explore_name is not None:
+                return explore_name
 
         # If it's not we have to check all explores to make sure the field isn't ambiguously referenced
         all_fields_with_explore_duplicates = []
@@ -116,11 +117,17 @@ class Project:
             return matching_fields[0]
 
         elif len(matching_fields) > 1:
-            matching_names = [f"{f.view.name}.{f.name}" for f in matching_fields]
-            raise ValueError(
-                f"""Multiple fields found for the name {field_name}, {matching_names} please specify a
-                view name like this: view_name.field_name"""
+            matching_names = [self._fully_qualified_name(f) for f in matching_fields]
+            explore_text = f", in explore {explore_name}" if explore_name else ""
+            view_text = f", in view {view_name}" if view_name else ""
+            err_msg = (
+                f"Multiple fields found for the name {field_name}{explore_text}{view_text}"
+                f" - those fields were {matching_names} \n\nPlease specify a "
+                "view name like this: 'view_name.field_name' or "
+                "an explore and view like this 'explore_name.view_name.field_name'"
+                "\n\nor pass the argument 'explore_name' to the function, to set the explore"
             )
+            raise ValueError(err_msg)
         elif field_name == "count" and (explore_name or view_name):
             definition = {"type": "count", "name": "count", "field_type": "measure"}
             if explore_name and not view_name:
@@ -132,8 +139,15 @@ class Project:
                 err_msg += f" in explore {explore_name}"
             if view_name:
                 err_msg += f" in view {view_name}"
-            err_msg += ", please check that this field exists. "
+            err_msg += ", please check that this field exists. \n\n"
             err_msg += "If this is a dimension group specify the group parameter, if not already specified, "
             err_msg += "for example, with a dimension group named 'order' with timeframes: [raw, date, month]"
             err_msg += " specify 'order_raw' or 'order_date' or 'order_month'"
             raise ValueError(err_msg)
+
+    @staticmethod
+    def _fully_qualified_name(field: Field):
+        name = f"{field.view.name}.{field.name}"
+        if field.view.explore:
+            name = f"{field.view.explore.name}.{name}"
+        return name
