@@ -14,11 +14,8 @@ def query(
     config: GraniteConfiguration = None,
     **kwargs,
 ):
-    print(config)
-    print(GraniteConfiguration.get_granite_configuration)
     working_config = GraniteConfiguration.get_granite_configuration(config)
-    print(working_config)
-    query, explore = get_sql_query(
+    query, connection = get_sql_query(
         sql=sql,
         metrics=metrics,
         dimensions=dimensions,
@@ -27,10 +24,8 @@ def query(
         order_by=order_by,
         config=working_config,
         **kwargs,
-        return_explore=True,
+        return_connection=True,
     )
-    connection_name = explore.model.connection
-    connection = working_config.get_connection(connection_name)
     runner = QueryRunner(query, connection)
     df = runner.run_query(**kwargs)
     return df
@@ -48,7 +43,7 @@ def get_sql_query(
 ):
     working_config = GraniteConfiguration.get_granite_configuration(config)
     if sql:
-        converter = MQLConverter(sql, project=working_config.project)
+        converter = MQLConverter(sql, config=working_config)
         query = converter.get_query()
     else:
         resolver = SQLQueryResolver(
@@ -57,13 +52,13 @@ def get_sql_query(
             where=where,
             having=having,
             order_by=order_by,
-            project=working_config.project,
+            config=working_config,
             **kwargs,
         )
         query = resolver.get_query()
 
-    if kwargs.get("return_explore", False):
-        return query, resolver.explore
+    if kwargs.get("return_connection", False):
+        return query, resolver.connection
     return query
 
 

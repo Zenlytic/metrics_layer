@@ -3,13 +3,9 @@
 from granite.core.query import get_sql_query
 
 
-class config_mock:
-    pass
+def test_query_count_no_sql(config):
 
-
-def test_query_count_no_sql(project):
-    config_mock.project = project
-    query = get_sql_query(metrics=["number_of_customers"], dimensions=["channel"], config=config_mock)
+    query = get_sql_query(metrics=["number_of_customers"], dimensions=["channel"], config=config)
 
     correct = (
         "SELECT order_lines.sales_channel as channel,COUNT(DISTINCT(customers.customer_id))"
@@ -20,9 +16,9 @@ def test_query_count_no_sql(project):
     assert query == correct
 
 
-def test_query_sum_with_sql(project):
-    config_mock.project = project
-    query = get_sql_query(metrics=["total_revenue"], dimensions=["channel"], config=config_mock)
+def test_query_sum_with_sql(config):
+
+    query = get_sql_query(metrics=["total_revenue"], dimensions=["channel"], config=config)
 
     correct = (
         "SELECT order_lines.sales_channel as channel,"
@@ -39,9 +35,9 @@ def test_query_sum_with_sql(project):
     assert query == correct
 
 
-def test_query_count_with_sql(project):
-    config_mock.project = project
-    query = get_sql_query(metrics=["number_of_orders"], dimensions=["channel"], config=config_mock)
+def test_query_count_with_sql(config):
+
+    query = get_sql_query(metrics=["number_of_orders"], dimensions=["channel"], config=config)
 
     correct = (
         "SELECT order_lines.sales_channel as channel,NULLIF(COUNT(DISTINCT CASE WHEN  "
@@ -53,9 +49,9 @@ def test_query_count_with_sql(project):
     assert query == correct
 
 
-def test_query_average_with_sql(project):
-    config_mock.project = project
-    query = get_sql_query(metrics=["average_order_value"], dimensions=["channel"], config=config_mock)
+def test_query_average_with_sql(config):
+
+    query = get_sql_query(metrics=["average_order_value"], dimensions=["channel"], config=config)
 
     correct = (
         "SELECT order_lines.sales_channel as channel,"
@@ -73,9 +69,9 @@ def test_query_average_with_sql(project):
     assert query == correct
 
 
-def test_query_number_with_sql(project):
-    config_mock.project = project
-    query = get_sql_query(metrics=["total_sessions_divide"], dimensions=["channel"], config=config_mock)
+def test_query_number_with_sql(config):
+
+    query = get_sql_query(metrics=["total_sessions_divide"], dimensions=["channel"], config=config)
 
     correct = (
         "SELECT order_lines.sales_channel as channel,"

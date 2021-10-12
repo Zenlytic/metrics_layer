@@ -201,7 +201,11 @@ class GraniteConfiguration:
             if os.path.isabs(target["repo_path"]):
                 path = target["repo_path"]
             else:
-                path = os.path.abspath(os.path.join(granite_directory, target["repo_path"]))
+                print(target["repo_path"])
+                path = os.path.abspath(
+                    os.path.join(granite_directory, os.path.expanduser(target["repo_path"]))
+                )
+                print(path)
             repo = LocalRepo(repo_path=path, repo_type=repo_type)
 
         # Github repo

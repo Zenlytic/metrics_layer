@@ -79,3 +79,22 @@ def views():
 def project(models, views):
     project = Project(models=models, views=views, looker_env="prod")
     return project
+
+
+@pytest.fixture(scope="module")
+def config(project):
+    class bq_mock:
+        type = "BIGQUERY"
+
+    class sf_mock:
+        type = "BIGQUERY"
+
+    class config_mock:
+        def get_connection(name: str):
+            if name == "bq_creds":
+                return bq_mock
+            else:
+                return sf_mock
+
+    config_mock.project = project
+    return config_mock

@@ -1,4 +1,5 @@
 import re
+import warnings
 from copy import deepcopy
 from typing import Dict, List
 
@@ -19,12 +20,13 @@ from granite.core.sql.query_filter import GraniteFilter
 class GraniteQuery(GraniteBase):
     """ """
 
-    def __init__(self, definition: Dict, design: GraniteDesign) -> None:
+    def __init__(self, definition: Dict, design: GraniteDesign, suppress_warnings: bool = False) -> None:
         # The Design this Query has been built for
         self.design = design
         self.query_type = self.design.query_type
         self.no_group_by = self.design.no_group_by
         self.query_lookup = query_lookup
+        self.suppress_warnings = suppress_warnings
 
         # A collection of all the column and aggregate filters in the query + order by
         self.where_filters = []
@@ -68,9 +70,19 @@ class GraniteQuery(GraniteBase):
         results = []
         extra_kwargs = dict(filter_type=filter_type, design=self.design)
 
-        if always_where:
+        always_where_is_valid = always_where and "{%" not in always_where
+        if always_where_is_valid:
             filter_literal = GraniteFilter(definition={"literal": always_where}, **extra_kwargs)
             results.append(filter_literal)
+
+        if always_where and not always_where_is_valid and not self.suppress_warnings:
+            warnings.warn(
+                (
+                    "Always where clause NOT being applied due to "
+                    f"Looker conditional in the clause (to suppress these warnings pass"
+                    f" the argument 'suppress_warnings=True' to the function):\n\n {always_where}"
+                )
+            )
 
         # Handle literal filter
         if isinstance(filter_object, str):

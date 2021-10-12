@@ -1,7 +1,7 @@
 import sqlparse
 from sqlparse.tokens import Name
 
-from granite.core.model import Definitions, Project
+from granite.core.parse.config import GraniteConfiguration
 from granite.core.sql.query_design import GraniteDesign
 from granite.core.sql.query_generator import GraniteQuery
 
@@ -24,15 +24,17 @@ class SQLQueryResolver:
         where: str = None,  # Either a list of json or a string
         having: str = None,  # Either a list of json or a string
         order_by: str = None,  # Either a list of json or a string
-        project: Project = None,
+        config: GraniteConfiguration = None,
         **kwargs,
     ):
         self.field_lookup = {}
         self.no_group_by = False
-        self.query_type = kwargs.get("query_type", Definitions.snowflake)
         self.verbose = kwargs.get("verbose", False)
         self.select_raw_sql = kwargs.get("select_raw_sql", [])
-        self.project = project
+        self.explore_name = kwargs.get("explore_name")
+        self.suppress_warnings = kwargs.get("suppress_warnings", False)
+        self.config = config
+        self.project = self.config.project
         self.metrics = metrics
         self.dimensions = dimensions
 
@@ -54,8 +56,11 @@ class SQLQueryResolver:
         else:
             self._order_by_field_names = self.parse_identifiers_from_dicts(self.order_by)
 
-        self.explore_name = self.derive_explore(self.verbose)
+        if not self.explore_name:
+            self.explore_name = self.derive_explore(self.verbose)
         self.explore = self.project.get_explore(self.explore_name)
+        self.connection = self.config.get_connection(self.explore.model.connection)
+        self.query_type = kwargs.get("query_type", self.connection.type)
         self.parse_input()
 
     def get_query(self, semicolon=True):
@@ -75,7 +80,9 @@ class SQLQueryResolver:
             "order_by": self.order_by,
             "select_raw_sql": self.select_raw_sql,
         }
-        query = GraniteQuery(query_definition, design=self.design).get_query(semicolon=semicolon)
+        query = GraniteQuery(
+            query_definition, design=self.design, suppress_warnings=self.suppress_warnings
+        ).get_query(semicolon=semicolon)
 
         return query
 

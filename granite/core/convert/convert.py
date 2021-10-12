@@ -9,7 +9,7 @@ import sqlparse
 from sqlparse.sql import Function, Identifier, IdentifierList, Statement, Where
 from sqlparse.tokens import Keyword
 
-from granite.core.model.project import Project
+from granite.core.parse.config import GraniteConfiguration
 from granite.core.sql.query_errors import ParseError
 from granite.core.sql.resolve import SQLQueryResolver
 
@@ -53,11 +53,12 @@ class MQLConverter:
             ON metric_by_country.country=countries.country
     """
 
-    def __init__(self, sql: str, project: Project):
+    def __init__(self, sql: str, config: GraniteConfiguration):
         self._function_name = "MQL"
         self.reserved_keywords = ["BY", "RAW", "FEATURES"]
         self.sql = sql
-        self.project = project
+        self.config = config
+        self.project = self.config.project
 
     def get_query(self):
         converted_sql = deepcopy(self.sql)
@@ -143,7 +144,7 @@ class MQLConverter:
             where=where_literal,
             having=having_literal,
             order_by=order_by_literal,
-            project=self.project,
+            config=self.config,
         )
         return resolver.get_query(semicolon=False)
 
