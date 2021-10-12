@@ -1,7 +1,7 @@
 import sqlparse
 from sqlparse.tokens import Name
 
-from granite.core.parse.config import GraniteConfiguration
+from granite.core.parse.config import ConfigError, GraniteConfiguration
 from granite.core.sql.query_design import GraniteDesign
 from granite.core.sql.query_generator import GraniteQuery
 
@@ -59,8 +59,21 @@ class SQLQueryResolver:
         if not self.explore_name:
             self.explore_name = self.derive_explore(self.verbose)
         self.explore = self.project.get_explore(self.explore_name)
-        self.connection = self.config.get_connection(self.explore.model.connection)
-        self.query_type = kwargs.get("query_type", self.connection.type)
+        try:
+            self.connection = self.config.get_connection(self.explore.model.connection)
+        except ConfigError:
+            self.connection = None
+
+        if "query_type" in kwargs:
+            self.query_type = kwargs["query_type"]
+        elif self.connection:
+            self.query_type = self.connection.type
+        else:
+            raise ConfigError(
+                "Could not determine query_type. Please have connection information for "
+                "your warehouse in the configuration or explicitly pass the "
+                "'query_type' argument to this function"
+            )
         self.parse_input()
 
     def get_query(self, semicolon=True):
