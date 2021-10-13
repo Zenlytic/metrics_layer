@@ -26,10 +26,37 @@ class View(GraniteBase):
         return next((f for f in self.fields() if f.primary_key == "yes"), None)
 
     def fields(self, exclude_hidden: bool = False) -> list:
-        all_fields = [Field(f, view=self) for f in self._definition.get("fields", [])]
+        all_fields = self._valid_fields()
         if exclude_hidden:
             return [field for field in all_fields if field.hidden == "yes"]
         return all_fields
+
+    def _valid_fields(self):
+        ALL_FIELDS = "ALL_FIELDS*"
+        # TODO handle sets
+        fields = [Field(f, view=self) for f in self._definition.get("fields", [])]
+        if self.explore and self.explore.fields:
+            if ALL_FIELDS in self.explore.fields:
+                fields = fields
+                for field_expr in self.explore.fields:
+                    # Remove this field
+                    if "-" == field_expr[0] and "*" != field_expr[-1]:
+                        name = self._field_name_to_remove(field_expr)
+                        if name:
+                            fields = [f for f in fields if not f.equal(name)]
+            else:
+                raise NotImplementedError("TODO handle single field inclusions")
+        return fields
+
+    def _field_name_to_remove(self, field_expr: str):
+        # Skip the initial - sign
+        field_clean_expr = field_expr[1:]
+        if "." in field_clean_expr:
+            view_name, field_name = field_clean_expr.split(".")
+            if view_name == self.name:
+                return field_name
+            return None
+        return field_clean_expr
 
     def resolve_sql_table_name(self, sql_table_name: str, looker_env: str):
         start_cond, end_cond = "-- if", "--"

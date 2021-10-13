@@ -25,7 +25,7 @@ def test_list_dimensions(config):
     assert len(dimensions) == 31
 
     dimensions = conn.list_dimensions(explore_name="order_lines")
-    assert len(dimensions) == 31
+    assert len(dimensions) == 30
 
     dimensions = conn.list_dimensions(view_name="order_lines", names_only=True)
     dimensions_present = {
