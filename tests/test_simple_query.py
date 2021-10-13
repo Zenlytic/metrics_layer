@@ -1,7 +1,7 @@
 import pytest
 
+from granite import GraniteConnection
 from granite.core.model import Definitions, Project
-from granite.core.query import get_sql_query
 
 simple_model = {
     "type": "model",
@@ -75,7 +75,8 @@ simple_view = {
 def test_simple_query(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(metrics=["total_revenue"], dimensions=["channel"], config=config)
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"])
 
     correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
     correct += "analytics.orders simple GROUP BY simple.sales_channel;"
@@ -85,7 +86,8 @@ def test_simple_query(config):
 def test_simple_query_single_metric(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(metrics=["total_revenue"], config=config)
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(metrics=["total_revenue"])
 
     correct = "SELECT SUM(simple.revenue) as total_revenue FROM analytics.orders simple;"
     assert query == correct
@@ -94,7 +96,8 @@ def test_simple_query_single_metric(config):
 def test_simple_query_single_dimension(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(dimensions=["channel"], config=config)
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(dimensions=["channel"])
 
     correct = "SELECT simple.sales_channel as channel FROM "
     correct += "analytics.orders simple GROUP BY simple.sales_channel;"
@@ -104,7 +107,8 @@ def test_simple_query_single_dimension(config):
 def test_simple_query_count(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(metrics=["count"], dimensions=["channel"], config=config)
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(metrics=["count"], dimensions=["channel"])
 
     correct = "SELECT simple.sales_channel as channel,COUNT(*) as count FROM "
     correct += "analytics.orders simple GROUP BY simple.sales_channel;"
@@ -135,8 +139,9 @@ def test_simple_query_count(config):
 def test_simple_query_dimension_group(config, group: str, query_type: str):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(
-        metrics=["total_revenue"], dimensions=[f"order_{group}"], config=config, query_type=query_type
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(
+        metrics=["total_revenue"], dimensions=[f"order_{group}"], query_type=query_type
     )
 
     if query_type == Definitions.snowflake:
@@ -191,21 +196,19 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
 def test_simple_query_dimension_group_interval(config, interval: str, query_type: str):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-
+    conn = GraniteConnection(config=config)
     raises_error = interval == "hour" and query_type == Definitions.bigquery
     if raises_error:
         with pytest.raises(KeyError) as exc_info:
-            get_sql_query(
+            conn.get_sql_query(
                 metrics=["total_revenue"],
                 dimensions=[f"{interval}s_waiting"],
-                config=config,
                 query_type=query_type,
             )
     else:
-        query = get_sql_query(
+        query = conn.get_sql_query(
             metrics=["total_revenue"],
             dimensions=[f"{interval}s_waiting"],
-            config=config,
             query_type=query_type,
         )
 
@@ -244,7 +247,8 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
 def test_simple_query_two_group_by(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(metrics=["total_revenue"], dimensions=["channel", "new_vs_repeat"], config=config)
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel", "new_vs_repeat"])
 
     correct = "SELECT simple.sales_channel as channel,simple.new_vs_repeat as new_vs_repeat,"
     correct += "SUM(simple.revenue) as total_revenue FROM "
@@ -255,10 +259,10 @@ def test_simple_query_two_group_by(config):
 def test_simple_query_two_metric(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(
         metrics=["total_revenue", "average_order_value"],
         dimensions=["channel", "new_vs_repeat"],
-        config=config,
     )
 
     correct = "SELECT simple.sales_channel as channel,simple.new_vs_repeat as new_vs_repeat,"
@@ -270,7 +274,8 @@ def test_simple_query_two_metric(config):
 def test_simple_query_custom_dimension(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(metrics=["total_revenue"], dimensions=["is_valid_order"], config=config)
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["is_valid_order"])
 
     correct = "SELECT CASE WHEN simple.sales_channel != 'fraud' THEN TRUE ELSE FALSE END as is_valid_order,"
     correct += "SUM(simple.revenue) as total_revenue FROM analytics.orders simple"
@@ -281,7 +286,8 @@ def test_simple_query_custom_dimension(config):
 def test_simple_query_custom_metric(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(metrics=["revenue_per_aov"], dimensions=["channel"], config=config)
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(metrics=["revenue_per_aov"], dimensions=["channel"])
 
     correct = "SELECT simple.sales_channel as channel,CASE WHEN AVG(simple.revenue) = 0 THEN 0 ELSE SUM(simple.revenue) / AVG(simple.revenue) END as revenue_per_aov FROM "  # noqa
     correct += "analytics.orders simple GROUP BY simple.sales_channel;"
@@ -292,11 +298,11 @@ def test_simple_query_custom_metric(config):
 def test_simple_query_with_where_dim_group(config, query_type):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=["channel"],
         where=[{"field": "order_date", "expression": "greater_than", "value": "2021-08-04"}],
-        config=config,
         query_type=query_type,
     )
 
@@ -315,11 +321,11 @@ def test_simple_query_with_where_dim_group(config, query_type):
 def test_simple_query_with_where_dict(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=["channel"],
         where=[{"field": "channel", "expression": "not_equal_to", "value": "Email"}],
-        config=config,
     )
 
     correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
@@ -330,9 +336,8 @@ def test_simple_query_with_where_dict(config):
 def test_simple_query_with_where_literal(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(
-        metrics=["total_revenue"], dimensions=["channel"], where="channel != 'Email'", config=config
-    )
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"], where="channel != 'Email'")
 
     correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
     correct += "analytics.orders simple WHERE simple.sales_channel != 'Email' GROUP BY simple.sales_channel;"
@@ -342,11 +347,11 @@ def test_simple_query_with_where_literal(config):
 def test_simple_query_with_having_dict(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=["channel"],
         having=[{"field": "total_revenue", "expression": "greater_than", "value": 12}],
-        config=config,
     )
 
     correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
@@ -357,9 +362,8 @@ def test_simple_query_with_having_dict(config):
 def test_simple_query_with_having_literal(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(
-        metrics=["total_revenue"], dimensions=["channel"], having="total_revenue > 12", config=config
-    )
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"], having="total_revenue > 12")
 
     correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
     correct += "analytics.orders simple GROUP BY simple.sales_channel HAVING SUM(simple.revenue) > 12;"
@@ -369,11 +373,11 @@ def test_simple_query_with_having_literal(config):
 def test_simple_query_with_order_by_dict(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(
         metrics=["total_revenue", "average_order_value"],
         dimensions=["channel"],
         order_by=[{"field": "total_revenue", "sort": "desc"}, {"field": "average_order_value"}],
-        config=config,
     )
 
     correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue,AVG(simple.revenue) as average_order_value FROM "  # noqa
@@ -384,8 +388,9 @@ def test_simple_query_with_order_by_dict(config):
 def test_simple_query_with_order_by_literal(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(
-        metrics=["total_revenue"], dimensions=["channel"], order_by="total_revenue asc", config=config
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(
+        metrics=["total_revenue"], dimensions=["channel"], order_by="total_revenue asc"
     )
 
     correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
@@ -396,13 +401,13 @@ def test_simple_query_with_order_by_literal(config):
 def test_simple_query_with_all(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=["channel"],
         where=[{"field": "channel", "expression": "not_equal_to", "value": "Email"}],
         having=[{"field": "total_revenue", "expression": "greater_than", "value": 12}],
         order_by=[{"field": "total_revenue", "sort": "asc"}],
-        config=config,
     )
 
     correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
@@ -416,7 +421,8 @@ def test_simple_query_sql_always_where(config):
 
     project = Project(models=[{**simple_model, "explores": [modified_explore]}], views=[simple_view])
     config.project = project
-    query = get_sql_query(metrics=["total_revenue"], dimensions=["channel"], config=config)
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"])
 
     correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
     correct += "analytics.orders simple WHERE simple.new_vs_repeat = 'Repeat' GROUP BY simple.sales_channel;"
@@ -432,9 +438,8 @@ def test_simple_query_invalid_sql_always_where(config):
 
     project = Project(models=[{**simple_model, "explores": [modified_explore]}], views=[simple_view])
     config.project = project
-    query = get_sql_query(
-        metrics=["total_revenue"], dimensions=["channel"], config=config, suppress_warnings=True
-    )
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"], suppress_warnings=True)
 
     correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
     correct += "analytics.orders simple GROUP BY simple.sales_channel;"

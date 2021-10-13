@@ -1,117 +1,118 @@
+from typing import Union
+
 from granite.core.convert import MQLConverter
 from granite.core.parse import GraniteConfiguration
+from granite.core.parse.connections import BaseConnection
 from granite.core.sql import QueryRunner, SQLQueryResolver
 from granite.core.sql.query_errors import ParseError
 
 
-def query(
-    sql: str = None,
-    metrics: list = [],
-    dimensions: list = [],
-    where: list = [],
-    having: list = [],
-    order_by: list = [],
-    config: GraniteConfiguration = None,
-    **kwargs,
-):
-    working_config = GraniteConfiguration.get_granite_configuration(config)
-    query, connection = get_sql_query(
-        sql=sql,
-        metrics=metrics,
-        dimensions=dimensions,
-        where=where,
-        having=having,
-        order_by=order_by,
-        config=working_config,
+class GraniteConnection:
+    def __init__(self, config: Union[GraniteConfiguration, str] = None, env: str = None, **kwargs):
+        if isinstance(config, str):
+            self.config = GraniteConfiguration(config, env=env)
+        else:
+            self.config = GraniteConfiguration.get_granite_configuration(config, env=env)
+        self.kwargs = kwargs
+
+    def query(
+        self,
+        metrics: list = [],
+        dimensions: list = [],
+        where: list = [],
+        having: list = [],
+        order_by: list = [],
+        sql: str = None,
         **kwargs,
-        return_connection=True,
-    )
-    runner = QueryRunner(query, connection)
-    df = runner.run_query(**kwargs)
-    return df
-
-
-def get_sql_query(
-    sql: str = None,
-    metrics: list = [],
-    dimensions: list = [],
-    where: list = [],
-    having: list = [],
-    order_by: list = [],
-    config: GraniteConfiguration = None,
-    **kwargs,
-):
-    working_config = GraniteConfiguration.get_granite_configuration(config)
-    if sql:
-        converter = MQLConverter(sql, config=working_config)
-        query = converter.get_query()
-    else:
-        resolver = SQLQueryResolver(
+    ):
+        query, connection = self.get_sql_query(
+            sql=sql,
             metrics=metrics,
             dimensions=dimensions,
             where=where,
             having=having,
             order_by=order_by,
-            config=working_config,
-            **kwargs,
+            **{**self.kwargs, **kwargs},
+            return_connection=True,
         )
-        query = resolver.get_query()
+        df = self.run_query(query, connection, **kwargs)
+        return df
 
-    if kwargs.get("return_connection", False):
-        return query, resolver.connection
-    return query
+    def get_sql_query(
+        self,
+        metrics: list = [],
+        dimensions: list = [],
+        where: list = [],
+        having: list = [],
+        order_by: list = [],
+        sql: str = None,
+        **kwargs,
+    ):
+        if sql:
+            converter = MQLConverter(sql, config=self.config, **{**self.kwargs, **kwargs})
+            query = converter.get_query()
+            connection = converter.connection
+        else:
+            resolver = SQLQueryResolver(
+                metrics=metrics,
+                dimensions=dimensions,
+                where=where,
+                having=having,
+                order_by=order_by,
+                config=self.config,
+                **{**self.kwargs, **kwargs},
+            )
+            query = resolver.get_query()
+            connection = resolver.connection
 
+        if kwargs.get("return_connection", False):
+            return query, connection
+        return query
 
-def define(
-    metric: str,
-    config: GraniteConfiguration = None,
-):
-    working_config = GraniteConfiguration.get_granite_configuration(config)
-    field = working_config.project.get_field(metric)
-    return field.sql_query()
+    def run_query(self, query: str, connection: BaseConnection, **kwargs):
+        runner = QueryRunner(query, connection)
+        df = runner.run_query(**{**self.kwargs, **kwargs})
+        return df
 
+    def define(self, metric: str):
+        field = self.config.project.get_field(metric)
+        return field.sql_query()
 
-def list_metrics(
-    explore_name: str = None,
-    view_name: str = None,
-    names_only: bool = False,
-    config: GraniteConfiguration = None,
-):
-    working_config = GraniteConfiguration.get_granite_configuration(config)
-    all_fields = working_config.project.fields(explore_name=explore_name, view_name=view_name)
-    metrics = [f for f in all_fields if f.field_type == "measure"]
-    if names_only:
-        return [m.name for m in metrics]
-    return metrics
+    def list_metrics(self, explore_name: str = None, view_name: str = None, names_only: bool = False):
+        all_fields = self.config.project.fields(explore_name=explore_name, view_name=view_name)
+        metrics = [f for f in all_fields if f.field_type == "measure"]
+        if names_only:
+            return [m.name for m in metrics]
+        return metrics
 
+    def get_metric(self, metric_name: str, explore_name: str = None, view_name: str = None):
+        metrics = self.list_metrics(explore_name=explore_name, view_name=view_name)
+        try:
+            metric = next((m for m in metrics if m.equal(metric_name)))
+            return metric
+        except ParseError as e:
+            raise e(f"Could not find metric {metric_name} in the project config")
 
-def get_metric(metric_name: str, config: GraniteConfiguration = None):
-    metrics = list_metrics(config=config)
-    try:
-        metric = next((m for m in metrics if m.equal(metric_name)))
-        return metric
-    except ParseError as e:
-        raise e(f"Could not find metric {metric_name} in the project config")
+    def list_dimensions(self, explore_name: str = None, view_name: str = None, names_only: bool = False):
+        all_fields = self.config.project.fields(explore_name=explore_name, view_name=view_name)
+        dimensions = [f for f in all_fields if f.field_type in {"dimension", "dimension_group"}]
+        if names_only:
+            return [d.name for d in dimensions]
+        return dimensions
 
+    def get_dimension(self, dimension_name: str, explore_name: str = None, view_name: str = None):
+        dimensions = self.list_dimensions(explore_name=explore_name, view_name=view_name)
+        try:
+            dimension = next((d for d in dimensions if d.equal(dimension_name)))
+            return dimension
+        except ParseError as e:
+            raise e(f"Could not find dimension {dimension_name} in the project config")
 
-def list_dimensions(
-    explore_name: str = None,
-    view_name: str = None,
-    names_only: bool = False,
-    config: GraniteConfiguration = None,
-):
-    working_config = GraniteConfiguration.get_granite_configuration(config)
-    all_fields = working_config.project.fields(explore_name=explore_name, view_name=view_name)
-    dimensions = [f for f in all_fields if f.field_type in {"dimension", "dimension_group"}]
-    if names_only:
-        return [d.name for d in dimensions]
-    return dimensions
+    def list_explores(self, names_only=False):
+        explores = self.config.project.explores()
+        if names_only:
+            return [e.name for e in explores]
+        return explores
 
-
-def get_dimension(dimension_name: str, config: GraniteConfiguration = None):
-    dimensions = list_dimensions(config=config)
-    try:
-        dimension = next((d for d in dimensions if d.equal(dimension_name)))
-        return dimension
-    except ParseError as e:
-        raise e(f"Could not find dimension {dimension_name} in the project config")
+    def get_explore(self, explore_name: str):
+        return self.config.project.get_explore(explore_name=explore_name)

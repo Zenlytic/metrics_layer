@@ -21,21 +21,22 @@ class GraniteConfiguration:
         repo_config: dict = None,
         additional_repo_config: dict = None,
         connections: list = [],
-        looker_env: str = None,
+        env: str = None,
     ):
+        self.env_name = env
+        self.looker_env = self.env_name
         self.repo, conns = self._resolve_config(repo_config, prefix="GRANITE", raise_exception=True)
         self.additional_repo, addtl_conns = self._resolve_config(
             additional_repo_config, prefix="GRANITE_ADDITIONAL"
         )
         self._connections = self._parse_connections(connections) + conns + addtl_conns
-        self.looker_env = looker_env
         self._project = None
 
     @staticmethod
-    def get_granite_configuration(config=None):
+    def get_granite_configuration(config=None, env: str = None):
         if config:
             return config
-        return GraniteConfiguration()
+        return GraniteConfiguration(env=env)
 
     @property
     def project(self):
@@ -81,7 +82,7 @@ class GraniteConfiguration:
             return repo, []
 
         # Finally look for config file
-        repo, connections = self._get_repo_from_config_file(config)
+        repo, connections = self._get_repo_from_config_file(config, target_name=self.env_name)
         if repo:
             return repo, connections
 
@@ -142,12 +143,11 @@ class GraniteConfiguration:
             }
             return LookerGithubRepo(**config)
 
-    @staticmethod
-    def _get_repo_from_config_file(config_profile_name: str, target_name: str = None):
+    def _get_repo_from_config_file(self, config_profile_name: str, target_name: str = None):
         if config_profile_name is None:
             return None, []
 
-        granite_directory = GraniteConfiguration.get_granite_directory()
+        granite_directory = self.get_granite_directory()
         profiles_path = os.path.join(granite_directory, "profiles.yml")
 
         if not os.path.exists(profiles_path):
@@ -193,6 +193,9 @@ class GraniteConfiguration:
             )
 
         repo_type = target.get("repo_type")
+
+        if "looker_env" in target:
+            self.looker_env = target["looker_env"]
 
         # Local repo
         if "repo_path" in target:

@@ -1,12 +1,13 @@
 import pytest
 
-from granite.core.query import get_sql_query
 from granite.core.sql.query_errors import ParseError
 
 
-def test_query_no_join_mql(config):
+def test_query_no_join_mql(connection):
 
-    query = get_sql_query(sql="SELECT * FROM MQL(total_item_revenue BY channel)", config=config)
+    query = connection.get_sql_query(
+        sql="SELECT * FROM MQL(total_item_revenue BY channel)",
+    )
 
     correct = "SELECT * FROM (SELECT order_lines.sales_channel as channel,SUM(order_lines.revenue) "
     correct += "as total_item_revenue FROM "
@@ -14,26 +15,32 @@ def test_query_no_join_mql(config):
     assert query == correct
 
     # Test lowercase
-    query = get_sql_query(sql="SELECT * FROM MQL(total_item_revenue by channel)", config=config)
+    query = connection.get_sql_query(
+        sql="SELECT * FROM MQL(total_item_revenue by channel)",
+    )
     assert query == correct
 
     # Test mixed case
-    query = get_sql_query(sql="SELECT * FROM MQL(total_item_revenue By channel)", config=config)
+    query = connection.get_sql_query(
+        sql="SELECT * FROM MQL(total_item_revenue By channel)",
+    )
     assert query == correct
 
 
-def test_query_no_join_mql_syntax_error(config):
+def test_query_no_join_mql_syntax_error(connection):
 
     with pytest.raises(ParseError) as exc_info:
-        get_sql_query(sql="SELECT * FROM MQL(total_item_revenue by channel", config=config)
+        connection.get_sql_query(
+            sql="SELECT * FROM MQL(total_item_revenue by channel",
+        )
 
     assert exc_info.value
 
 
-def test_query_single_join_mql(config):
+def test_query_single_join_mql(connection):
 
-    query = get_sql_query(
-        sql="SELECT * FROM MQL(total_item_revenue BY channel, new_vs_repeat) as rev_group", config=config
+    query = connection.get_sql_query(
+        sql="SELECT * FROM MQL(total_item_revenue BY channel, new_vs_repeat) as rev_group",
     )
 
     correct = "SELECT * FROM (SELECT order_lines.sales_channel as channel,orders.new_vs_repeat as "
@@ -43,10 +50,10 @@ def test_query_single_join_mql(config):
     assert query == correct
 
 
-def test_query_multiple_join_mql(config):
+def test_query_multiple_join_mql(connection):
 
-    query = get_sql_query(
-        sql="SELECT * FROM MQL(total_item_revenue BY region, new_vs_repeat) as rev_group", config=config
+    query = connection.get_sql_query(
+        sql="SELECT * FROM MQL(total_item_revenue BY region, new_vs_repeat) as rev_group",
     )
 
     correct = (
@@ -60,11 +67,10 @@ def test_query_multiple_join_mql(config):
     assert query == correct
 
 
-def test_query_multiple_join_all_mql(config):
+def test_query_multiple_join_all_mql(connection):
 
-    query = get_sql_query(
+    query = connection.get_sql_query(
         sql="SELECT * FROM MQL(total_item_revenue BY region, new_vs_repeat WHERE region != 'West' AND new_vs_repeat <> 'New' HAVING total_item_revenue > -12 AND total_item_revenue < 122 ORDER BY total_item_revenue DESC, new_vs_repeat) as rev_group",  # noqa
-        config=config,
     )
 
     correct = (
@@ -79,14 +85,16 @@ def test_query_multiple_join_all_mql(config):
     assert query == correct
 
 
-def test_query_mql_as_subset(config):
+def test_query_mql_as_subset(connection):
 
     mql = (
         "SELECT channelinfo.channel, channelinfo.channel_owner, rev_group.total_item_revenue FROM "
         "MQL(total_item_revenue BY channel, new_vs_repeat) as rev_group LEFT JOIN analytics.channeldata "
         "channelinfo on rev_group.channel = channelinfo.channel;"
     )
-    query = get_sql_query(sql=mql, config=config)
+    query = connection.get_sql_query(
+        sql=mql,
+    )
 
     correct = (
         "SELECT channelinfo.channel, channelinfo.channel_owner, rev_group.total_item_revenue FROM "
@@ -100,34 +108,38 @@ def test_query_mql_as_subset(config):
 
 
 @pytest.mark.skip("TODO add list dimensions support")
-def test_query_mql_list_dimensions(config):
+def test_query_mql_list_dimensions(connection):
 
-    query = get_sql_query(sql="SELECT * FROM MQL(LIST_DIMENSIONS)", config=config)
+    query = connection.get_sql_query(
+        sql="SELECT * FROM MQL(LIST_DIMENSIONS)",
+    )
 
     correct = "SELECT * FROM (SELECT ... TODO"
     assert query == correct
 
 
 @pytest.mark.skip("TODO add list metrics support")
-def test_query_mql_list_metrics(config):
+def test_query_mql_list_metrics(connection):
 
-    query = get_sql_query(sql="SELECT * FROM MQL(LIST_METRICS)", config=config)
+    query = connection.get_sql_query(
+        sql="SELECT * FROM MQL(LIST_METRICS)",
+    )
 
     correct = "SELECT * FROM (SELECT ... TODO"
     assert query == correct
 
 
 @pytest.mark.skip("TODO add define metric support")
-def test_query_mql_define(config):
-
-    query = get_sql_query(sql="SELECT * FROM MQL(DEFINE total_item_revenue)", config=config)
+def test_query_mql_define(connection):
+    query = connection.get_sql_query(
+        sql="SELECT * FROM MQL(DEFINE total_item_revenue)",
+    )
 
     correct = "SELECT * FROM (SELECT ... TODO"
     assert query == correct
 
 
-def test_query_mql_pass_through_query(config):
-
+def test_query_mql_pass_through_query(connection):
     correct = "SELECT channelinfo.channel, channelinfo.channel_owner FROM analytics.channeldata channelinfo;"
-    query = get_sql_query(sql=correct, config=config)
+    query = connection.get_sql_query(sql=correct, connection_name="connection_name")
     assert query == correct

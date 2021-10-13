@@ -1,12 +1,10 @@
 import pytest
 
 from granite.core.model.definitions import Definitions
-from granite.core.query import get_sql_query
 
 
-def test_query_count_no_sql(config):
-
-    query = get_sql_query(metrics=["number_of_customers"], dimensions=["channel"], config=config)
+def test_query_count_no_sql(connection):
+    query = connection.get_sql_query(metrics=["number_of_customers"], dimensions=["channel"])
 
     correct = (
         "SELECT order_lines.sales_channel as channel,COUNT(DISTINCT(customers.customer_id))"
@@ -18,10 +16,8 @@ def test_query_count_no_sql(config):
 
 
 @pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery])
-def test_query_sum_with_sql(config, query_type):
-    query = get_sql_query(
-        metrics=["total_revenue"], dimensions=["channel"], config=config, query_type=query_type
-    )
+def test_query_sum_with_sql(connection, query_type):
+    query = connection.get_sql_query(metrics=["total_revenue"], dimensions=["channel"], query_type=query_type)
 
     if query_type == Definitions.snowflake:
         sa = (
@@ -50,9 +46,8 @@ def test_query_sum_with_sql(config, query_type):
     assert query == correct
 
 
-def test_query_count_with_sql(config):
-
-    query = get_sql_query(metrics=["number_of_orders"], dimensions=["channel"], config=config)
+def test_query_count_with_sql(connection):
+    query = connection.get_sql_query(metrics=["number_of_orders"], dimensions=["channel"])
 
     correct = (
         "SELECT order_lines.sales_channel as channel,NULLIF(COUNT(DISTINCT CASE WHEN  "
@@ -65,9 +60,9 @@ def test_query_count_with_sql(config):
 
 
 @pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery])
-def test_query_average_with_sql(config, query_type: str):
-    query = get_sql_query(
-        metrics=["average_order_value"], dimensions=["channel"], config=config, query_type=query_type
+def test_query_average_with_sql(connection, query_type: str):
+    query = connection.get_sql_query(
+        metrics=["average_order_value"], dimensions=["channel"], query_type=query_type
     )
 
     if query_type == Definitions.snowflake:
@@ -100,9 +95,9 @@ def test_query_average_with_sql(config, query_type: str):
 
 
 @pytest.mark.parametrize("query_type", [Definitions.bigquery, Definitions.snowflake])
-def test_query_number_with_sql(config, query_type):
-    query = get_sql_query(
-        metrics=["total_sessions_divide"], dimensions=["channel"], config=config, query_type=query_type
+def test_query_number_with_sql(connection, query_type):
+    query = connection.get_sql_query(
+        metrics=["total_sessions_divide"], dimensions=["channel"], query_type=query_type
     )
 
     if query_type == Definitions.snowflake:

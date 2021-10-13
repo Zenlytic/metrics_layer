@@ -1,1 +1,1 @@
-from granite.core.query import *  # noqa
+from granite.core import GraniteConnection  # noqa
