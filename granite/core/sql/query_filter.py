@@ -119,12 +119,10 @@ class GraniteFilter(GraniteBase):
         return self.criterion(LiteralValue(self.field.sql_query(self.query_type, self.design.base_view_name)))
 
     def replace_fields_literal_filter(self):
-        print(self.literal)
         generator = sqlparse.parse(self.literal)[0].flatten()
         tokens = []
         for token in generator:
             if token.ttype == Name:
-                print(str(token))
                 field = self.design.get_field(str(token))
                 tokens.append("${" + field.view.name + "." + field.name + "}")
             elif token.ttype != Error:

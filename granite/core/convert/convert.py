@@ -88,9 +88,6 @@ class MQLConverter:
                     # Do the replace for the MQL() function with the resolved SQL
                     converted_sql = converted_sql.replace(str(mql_token), mql_as_sql)
 
-            print(token)
-            print(type(token))
-            print(token.ttype)
         if converted_sql[-1] != ";":
             converted_sql += ";"
         return converted_sql

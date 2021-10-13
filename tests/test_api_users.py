@@ -27,7 +27,6 @@ def test_encode_auth_token(test_app, test_database, add_user):
 
 def test_user_registration(client, test_database, add_user):
     response = client.post("/api/v1/register", json={"email": "test4@test.com", "password": "123456"})
-    print(response)
     data = response.get_json()
 
     assert data["status"] == "success"

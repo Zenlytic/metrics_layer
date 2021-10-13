@@ -60,7 +60,6 @@ class BigQueryConnection(BaseConnection):
     def __init__(self, name: str, credentials: str, **kwargs) -> None:
         self.type = ConnectionType.bigquery
         self.name = name
-        print(credentials)
         self.credentials = self._convert_json_if_needed(credentials, kwargs)
         self.project_id = self.credentials["project_id"]
 

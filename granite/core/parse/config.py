@@ -71,7 +71,6 @@ class GraniteConfiguration:
         return project
 
     def _resolve_config(self, config: dict, prefix: str, raise_exception: bool = False):
-        print(config)
         # Config is passed explicitly: this gets first priority
         if config is not None and isinstance(config, dict):
             return self._get_config_repo(config), []
@@ -145,7 +144,6 @@ class GraniteConfiguration:
 
     @staticmethod
     def _get_repo_from_config_file(config_profile_name: str, target_name: str = None):
-        print(config_profile_name)
         if config_profile_name is None:
             return None, []
 
@@ -201,11 +199,9 @@ class GraniteConfiguration:
             if os.path.isabs(target["repo_path"]):
                 path = target["repo_path"]
             else:
-                print(target["repo_path"])
                 path = os.path.abspath(
                     os.path.join(granite_directory, os.path.expanduser(target["repo_path"]))
                 )
-                print(path)
             repo = LocalRepo(repo_path=path, repo_type=repo_type)
 
         # Github repo

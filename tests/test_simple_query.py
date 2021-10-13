@@ -201,7 +201,6 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
                 config=config,
                 query_type=query_type,
             )
-        print(exc_info)
     else:
         query = get_sql_query(
             metrics=["total_revenue"],
@@ -210,7 +209,6 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
             query_type=query_type,
         )
 
-    print(query_type)
     if query_type == Definitions.snowflake:
         result_lookup = {
             "second": "DATEDIFF('SECOND', simple.view_date, simple.order_date)",
@@ -236,7 +234,6 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
     else:
         interval_result = result_lookup[interval]
 
-        print(interval_result)
         correct = (
             f"SELECT {interval_result} as {interval}s_waiting,SUM(simple.revenue) as total_revenue FROM "
         )
@@ -303,7 +300,6 @@ def test_simple_query_with_where_dim_group(config, query_type):
         query_type=query_type,
     )
 
-    print(query_type)
     if query_type == Definitions.snowflake:
         condition = "DATE_TRUNC('DAY', simple.order_date)>'2021-08-04'"
     else:

@@ -47,9 +47,7 @@ class GraniteDesign:
         for join in joins_needed:
             for view_name in join.required_views():
                 G.add_edge(view_name, join.name)
-        print(G.edges)
         ordered_names = list(nx.bfs_tree(G, source=self.base_view_name))
-        print(ordered_names)
         # Skip the first one because that's *always* the base of the explore
         return [self.explore.get_join(name) for name in ordered_names[1:]]
 

@@ -185,9 +185,7 @@ class Field(GraniteBase, SQLReplacement):
 
         for field_name in self.fields_to_replace(self.sql):
             if field_name != "TABLE":
-                print(field_name)
                 field = self.get_field_with_view_info(field_name)
-                print(field)
                 views.extend(field.required_views())
         return list(set([self.view.name] + views))
 
