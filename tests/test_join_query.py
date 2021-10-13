@@ -1,15 +1,9 @@
 # import pytest
 
-from granite.core.query import get_sql_query
 
+def test_query_no_join(connection):
 
-class config:
-    pass
-
-
-def test_query_no_join(config):
-
-    query = get_sql_query(metrics=["total_item_revenue"], dimensions=["channel"], config=config)
+    query = connection.get_sql_query(metrics=["total_item_revenue"], dimensions=["channel"])
 
     correct = (
         "SELECT order_lines.sales_channel as channel,SUM(order_lines.revenue) as total_item_revenue FROM "
@@ -18,11 +12,9 @@ def test_query_no_join(config):
     assert query == correct
 
 
-def test_query_single_join(config):
+def test_query_single_join(connection):
 
-    query = get_sql_query(
-        metrics=["total_item_revenue"], dimensions=["channel", "new_vs_repeat"], config=config
-    )
+    query = connection.get_sql_query(metrics=["total_item_revenue"], dimensions=["channel", "new_vs_repeat"])
 
     correct = "SELECT order_lines.sales_channel as channel,orders.new_vs_repeat as new_vs_repeat,"
     correct += "SUM(order_lines.revenue) as total_item_revenue FROM "
@@ -31,9 +23,9 @@ def test_query_single_join(config):
     assert query == correct
 
 
-def test_query_single_dimension(config):
+def test_query_single_dimension(connection):
 
-    query = get_sql_query(metrics=[], dimensions=["new_vs_repeat"], config=config)
+    query = connection.get_sql_query(metrics=[], dimensions=["new_vs_repeat"])
 
     correct = "SELECT orders.new_vs_repeat as new_vs_repeat FROM "
     correct += "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
@@ -41,12 +33,11 @@ def test_query_single_dimension(config):
     assert query == correct
 
 
-def test_query_single_join_count(config):
+def test_query_single_join_count(connection):
 
-    query = get_sql_query(
+    query = connection.get_sql_query(
         metrics=["order_lines.count"],
         dimensions=["channel", "new_vs_repeat"],
-        config=config,
         explore_name="order_lines",
     )
 
@@ -57,12 +48,11 @@ def test_query_single_join_count(config):
     assert query == correct
 
 
-def test_query_single_join_metric_with_sub_field(config):
+def test_query_single_join_metric_with_sub_field(connection):
 
-    query = get_sql_query(
+    query = connection.get_sql_query(
         metrics=["line_item_aov"],
         dimensions=["channel"],
-        config=config,
     )
 
     correct = (
@@ -78,11 +68,10 @@ def test_query_single_join_metric_with_sub_field(config):
 # TODO have a test for symmetric for a one_to_many or many_to_many join e.g. discounts
 
 
-def test_query_single_join_with_forced_additional_join(config):
-    query = get_sql_query(
+def test_query_single_join_with_forced_additional_join(connection):
+    query = connection.get_sql_query(
         metrics=["avg_rainfall"],
         dimensions=["discount_promo_name"],
-        config=config,
     )
 
     correct = (
@@ -102,15 +91,14 @@ def test_query_single_join_with_forced_additional_join(config):
     assert query == correct
 
 
-def test_query_single_join_select_args(config):
-    query = get_sql_query(
+def test_query_single_join_select_args(connection):
+    query = connection.get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["channel", "new_vs_repeat"],
         select_raw_sql=[
             "CAST(new_vs_repeat = 'Repeat' AS INT) as group_1",
             "CAST(date_created > '2021-04-02' AS INT) as period",
         ],
-        config=config,
     )
 
     correct = "SELECT order_lines.sales_channel as channel,orders.new_vs_repeat as new_vs_repeat,"
@@ -124,9 +112,10 @@ def test_query_single_join_select_args(config):
     assert query == correct
 
 
-def test_query_single_join_with_case_raw_sql(config):
-    query = get_sql_query(
-        metrics=["total_item_revenue"], dimensions=["is_on_sale_sql", "new_vs_repeat"], config=config
+def test_query_single_join_with_case_raw_sql(connection):
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["is_on_sale_sql", "new_vs_repeat"],
     )
 
     correct = "SELECT CASE WHEN order_lines.product_name ilike '%sale%' then TRUE else FALSE end "
@@ -138,9 +127,10 @@ def test_query_single_join_with_case_raw_sql(config):
     assert query == correct
 
 
-def test_query_single_join_with_case(config):
-    query = get_sql_query(
-        metrics=["total_item_revenue"], dimensions=["is_on_sale_case", "new_vs_repeat"], config=config
+def test_query_single_join_with_case(connection):
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["is_on_sale_case", "new_vs_repeat"],
     )
 
     correct = "SELECT case when order_lines.product_name ilike '%sale%' then 'On sale' else 'Not on sale' end "  # noqa
@@ -152,9 +142,10 @@ def test_query_single_join_with_case(config):
     assert query == correct
 
 
-def test_query_single_join_with_tier(config):
-    query = get_sql_query(
-        metrics=["total_item_revenue"], dimensions=["order_tier", "new_vs_repeat"], config=config
+def test_query_single_join_with_tier(connection):
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["order_tier", "new_vs_repeat"],
     )
 
     tier_case_query = "case when order_lines.revenue < 0 then 'Below 0' when order_lines.revenue >= 0 "
@@ -171,11 +162,10 @@ def test_query_single_join_with_tier(config):
     assert query == correct
 
 
-def test_query_single_join_with_filter(config):
-    query = get_sql_query(
+def test_query_single_join_with_filter(connection):
+    query = connection.get_sql_query(
         metrics=["number_of_email_purchased_items"],
         dimensions=["channel", "new_vs_repeat"],
-        config=config,
     )
 
     correct = "SELECT order_lines.sales_channel as channel,orders.new_vs_repeat as new_vs_repeat,"
@@ -186,9 +176,10 @@ def test_query_single_join_with_filter(config):
     assert query == correct
 
 
-def test_query_multiple_join(config):
-    query = get_sql_query(
-        metrics=["total_item_revenue"], dimensions=["region", "new_vs_repeat"], config=config
+def test_query_multiple_join(connection):
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["region", "new_vs_repeat"],
     )
 
     correct = (
@@ -202,13 +193,12 @@ def test_query_multiple_join(config):
     assert query == correct
 
 
-def test_query_multiple_join_where_dict(config):
+def test_query_multiple_join_where_dict(connection):
 
-    query = get_sql_query(
+    query = connection.get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],
         where=[{"field": "region", "expression": "not_equal_to", "value": "West"}],
-        config=config,
     )
 
     correct = (
@@ -223,13 +213,12 @@ def test_query_multiple_join_where_dict(config):
     assert query == correct
 
 
-def test_query_multiple_join_where_literal(config):
+def test_query_multiple_join_where_literal(connection):
 
-    query = get_sql_query(
+    query = connection.get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],
         where="region != 'West'",
-        config=config,
     )
 
     correct = (
@@ -244,13 +233,12 @@ def test_query_multiple_join_where_literal(config):
     assert query == correct
 
 
-def test_query_multiple_join_having_dict(config):
+def test_query_multiple_join_having_dict(connection):
 
-    query = get_sql_query(
+    query = connection.get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],
         having=[{"field": "total_item_revenue", "expression": "greater_than", "value": -12}],
-        config=config,
     )
 
     correct = (
@@ -264,13 +252,12 @@ def test_query_multiple_join_having_dict(config):
     assert query == correct
 
 
-def test_query_multiple_join_having_literal(config):
+def test_query_multiple_join_having_literal(connection):
 
-    query = get_sql_query(
+    query = connection.get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],
         having="total_item_revenue > -12",
-        config=config,
     )
 
     correct = (
@@ -284,13 +271,12 @@ def test_query_multiple_join_having_literal(config):
     assert query == correct
 
 
-def test_query_multiple_join_order_by_literal(config):
+def test_query_multiple_join_order_by_literal(connection):
 
-    query = get_sql_query(
+    query = connection.get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],
         order_by="total_item_revenue",
-        config=config,
     )
 
     correct = (
@@ -304,15 +290,14 @@ def test_query_multiple_join_order_by_literal(config):
     assert query == correct
 
 
-def test_query_multiple_join_all(config):
+def test_query_multiple_join_all(connection):
 
-    query = get_sql_query(
+    query = connection.get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],
         where=[{"field": "region", "expression": "not_equal_to", "value": "West"}],
         having=[{"field": "total_item_revenue", "expression": "greater_than", "value": -12}],
         order_by=[{"field": "total_item_revenue", "sort": "desc"}],
-        config=config,
     )
 
     correct = (

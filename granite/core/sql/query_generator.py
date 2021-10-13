@@ -279,7 +279,11 @@ class GraniteQuery(GraniteBase):
     # Code for formatting values
     def get_sql(self, field, alias: str = None, use_symmetric: bool = False):
         if use_symmetric:
-            query = field.sql_query(query_type=self.query_type, query_base_view=self.design.base_view_name)
+            query = field.sql_query(
+                query_type=self.query_type,
+                query_base_view=self.design.base_view_name,
+                joins=self.design.joins(),
+            )
         else:
             query = field.sql_query(query_type=self.query_type)
         return self.sql(query, alias)

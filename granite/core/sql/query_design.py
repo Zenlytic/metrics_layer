@@ -47,9 +47,7 @@ class GraniteDesign:
         for join in joins_needed:
             for view_name in join.required_views():
                 G.add_edge(view_name, join.name)
-        print(G.edges)
         ordered_names = list(nx.bfs_tree(G, source=self.base_view_name))
-        print(ordered_names)
         # Skip the first one because that's *always* the base of the explore
         return [self.explore.get_join(name) for name in ordered_names[1:]]
 
@@ -60,7 +58,7 @@ class GraniteDesign:
             raise ParseError(f"View {name} not found in explore {self.explore.name}")
 
     def get_join(self, name: str) -> GraniteBase:
-        return next(j for j in self.joins() if j.name == name)
+        return next((j for j in self.joins() if j.name == name), None)
 
     def get_field(self, field_name: str, view_name: str = None) -> GraniteBase:
         return self.project.get_field(field_name, view_name=view_name, explore_name=self.explore.name)

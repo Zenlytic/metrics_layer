@@ -2,6 +2,7 @@ import os
 
 import pytest
 
+from granite import GraniteConnection
 from granite.api import create_app, db
 from granite.api.models import User
 from granite.core.model.project import Project
@@ -100,3 +101,8 @@ def config(project):
 
     config_mock.project = project
     return config_mock
+
+
+@pytest.fixture(scope="module")
+def connection(config):
+    return GraniteConnection(config=config)

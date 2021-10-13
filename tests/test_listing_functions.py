@@ -1,20 +1,15 @@
-from granite.core.query import list_dimensions, list_metrics
+from granite import GraniteConnection
 
 
-class config_mock:
-    pass
-
-
-def test_list_metrics(project):
-    config_mock.project = project
-
-    metrics = list_metrics(config=config_mock)
+def test_list_metrics(config):
+    conn = GraniteConnection(config=config)
+    metrics = conn.list_metrics()
     assert len(metrics) == 15
 
-    metrics = list_metrics(explore_name="order_lines", config=config_mock)
+    metrics = conn.list_metrics(explore_name="order_lines")
     assert len(metrics) == 15
 
-    metrics = list_metrics(view_name="order_lines", names_only=True, config=config_mock)
+    metrics = conn.list_metrics(view_name="order_lines", names_only=True)
     assert len(metrics) == 4
     assert set(metrics) == {
         "number_of_email_purchased_items",
@@ -24,15 +19,15 @@ def test_list_metrics(project):
     }
 
 
-def test_list_dimensions(project):
-    config_mock.project = project
-    dimensions = list_dimensions(config=config_mock)
+def test_list_dimensions(config):
+    conn = GraniteConnection(config=config)
+    dimensions = conn.list_dimensions()
     assert len(dimensions) == 31
 
-    dimensions = list_dimensions(explore_name="order_lines", config=config_mock)
-    assert len(dimensions) == 31
+    dimensions = conn.list_dimensions(explore_name="order_lines")
+    assert len(dimensions) == 30
 
-    dimensions = list_dimensions(view_name="order_lines", names_only=True, config=config_mock)
+    dimensions = conn.list_dimensions(view_name="order_lines", names_only=True)
     dimensions_present = {
         "order_line_id",
         "order_id",

@@ -38,7 +38,11 @@ class Project:
         return [Explore({**e, "model": m}, project=self) for m in self.models() for e in m.explores]
 
     def get_explore(self, explore_name: str) -> Explore:
-        return next((e for e in self.explores() if e.name == explore_name), None)
+        try:
+            return next((e for e in self.explores() if e.name == explore_name))
+        except StopIteration:
+            pass
+        raise ValueError(f"Could not find explore {explore_name} in config")
 
     def views_with_explore(self, explore_name: str):
         explore = self.get_explore(explore_name)

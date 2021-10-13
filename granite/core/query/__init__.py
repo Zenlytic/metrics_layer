@@ -1,1 +1,1 @@
-from .query import *  # noqa
+from .query import GraniteConnection  # noqa

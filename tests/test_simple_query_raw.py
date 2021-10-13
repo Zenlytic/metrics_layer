@@ -1,7 +1,7 @@
 import pytest
 
+from granite import GraniteConnection
 from granite.core.model.project import Project
-from granite.core.query import get_sql_query
 from granite.core.sql.query_errors import ArgumentError
 
 simple_model = {
@@ -72,7 +72,8 @@ simple_view = {
 def test_simple_query(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(metrics=["total_revenue"], dimensions=["order_id", "channel"], config=config)
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["order_id", "channel"])
 
     correct = "SELECT simple.order_id as order_id,simple.sales_channel as channel,simple.revenue "
     correct += "as total_revenue FROM analytics.orders simple;"
@@ -82,7 +83,8 @@ def test_simple_query(config):
 def test_query_complex_metric(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(metrics=["revenue_per_aov"], dimensions=["order_id", "channel"], config=config)
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(metrics=["revenue_per_aov"], dimensions=["order_id", "channel"])
 
     correct = "SELECT simple.order_id as order_id,simple.sales_channel as channel,simple.revenue as "
     correct += "average_order_value,simple.revenue as total_revenue FROM analytics.orders simple;"
@@ -92,12 +94,12 @@ def test_query_complex_metric(config):
 def test_query_complex_metric_having_error(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
+    conn = GraniteConnection(config=config)
     with pytest.raises(ArgumentError) as exc_info:
-        get_sql_query(
+        conn.get_sql_query(
             metrics=["revenue_per_aov"],
             dimensions=["order_id", "channel"],
             having=[{"field": "revenue_per_aov", "expression": "greater_than", "value": 13}],
-            config=config,
         )
 
     assert exc_info.value
@@ -106,12 +108,12 @@ def test_query_complex_metric_having_error(config):
 def test_query_complex_metric_order_by_error(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
+    conn = GraniteConnection(config=config)
     with pytest.raises(ArgumentError) as exc_info:
-        get_sql_query(
+        conn.get_sql_query(
             metrics=["revenue_per_aov"],
             dimensions=["order_id", "channel"],
             order_by=[{"field": "revenue_per_aov", "sort": "desc"}],
-            config=config,
         )
 
     assert exc_info.value
@@ -120,11 +122,11 @@ def test_query_complex_metric_order_by_error(config):
 def test_query_complex_metric_all(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    query = get_sql_query(
+    conn = GraniteConnection(config=config)
+    query = conn.get_sql_query(
         metrics=["revenue_per_aov"],
         dimensions=["order_id", "channel"],
         where=[{"field": "channel", "expression": "not_equal_to", "value": "Email"}],
-        config=config,
     )
 
     correct = "SELECT simple.order_id as order_id,simple.sales_channel as channel,simple.revenue as "

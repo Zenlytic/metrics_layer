@@ -53,12 +53,18 @@ class MQLConverter:
             ON metric_by_country.country=countries.country
     """
 
-    def __init__(self, sql: str, config: GraniteConfiguration):
+    def __init__(self, sql: str, config: GraniteConfiguration, **kwargs):
         self._function_name = "MQL"
-        self.reserved_keywords = ["BY", "RAW", "FEATURES"]
         self.sql = sql
         self.config = config
         self.project = self.config.project
+        self._connection_name = None
+        if kwargs.get("connection_name"):
+            self._connection_name = kwargs.get("connection_name")
+
+        if self._connection_name:
+            self.connection = self.config.get_connection(self._connection_name)
+        self.kwargs = kwargs
 
     def get_query(self):
         converted_sql = deepcopy(self.sql)
@@ -88,9 +94,6 @@ class MQLConverter:
                     # Do the replace for the MQL() function with the resolved SQL
                     converted_sql = converted_sql.replace(str(mql_token), mql_as_sql)
 
-            print(token)
-            print(type(token))
-            print(token.ttype)
         if converted_sql[-1] != ";":
             converted_sql += ";"
         return converted_sql
@@ -145,7 +148,9 @@ class MQLConverter:
             having=having_literal,
             order_by=order_by_literal,
             config=self.config,
+            **self.kwargs,
         )
+        self.connection = resolver.connection
         return resolver.get_query(semicolon=False)
 
     def _resolve_mode(self, token, mode):

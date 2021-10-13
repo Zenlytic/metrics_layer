@@ -1,9 +1,9 @@
 import pandas as pd
 import pytest
 
+from granite import GraniteConnection
 from granite.core.model.project import Project
 from granite.core.parse.config import ConfigError, GraniteConfiguration
-from granite.core.query import query
 from granite.core.sql import QueryRunner
 
 
@@ -32,7 +32,8 @@ def test_run_query_snowflake(monkeypatch, models, views):
     correct_df = pd.DataFrame({"dimension": ["cat1", "cat2", "cat3"], "metric": [12, 21, 34]})
     monkeypatch.setattr(QueryRunner, "_run_snowflake_query", lambda *args, **kwargs: correct_df)
 
-    df = query(metrics=["total_item_revenue"], dimensions=["channel"], config=config)
+    conn = GraniteConnection(config=config)
+    df = conn.query(metrics=["total_item_revenue"], dimensions=["channel"])
 
     assert df.equals(correct_df)
 
@@ -61,7 +62,9 @@ def test_run_query_bigquery(monkeypatch, models, views):
 
     correct_df = pd.DataFrame({"dimension": ["cat7", "cat8", "cat9"], "metric": [98, 86, 65]})
     monkeypatch.setattr(QueryRunner, "_run_bigquery_query", lambda *args, **kwargs: correct_df)
-    df = query(metrics=["total_item_revenue"], dimensions=["channel"], config=config)
+
+    conn = GraniteConnection(config=config)
+    df = conn.query(metrics=["total_item_revenue"], dimensions=["channel"])
 
     assert df.equals(correct_df)
 
@@ -70,7 +73,8 @@ def test_run_query_no_connection_error(project):
     repo_config = {"repo_url": "https://github.com", "branch": "dev", "repo_type": "granite"}
     config = GraniteConfiguration(repo_config=repo_config)
     config._project = project
+    conn = GraniteConnection(config=config)
     with pytest.raises(ConfigError) as exc_info:
-        query(metrics=["total_item_revenue"], dimensions=["channel"], config=config)
+        conn.query(metrics=["total_item_revenue"], dimensions=["channel"])
 
     assert exc_info.value

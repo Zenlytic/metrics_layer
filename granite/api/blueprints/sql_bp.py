@@ -1,8 +1,8 @@
 from flask import Blueprint, request
 from flask_restful import Api, Resource
 
+from granite import GraniteConnection
 from granite.api.auth_utils import authenticate_restful
-from granite.core.query import get_sql_query, query
 
 sql_blueprint = Blueprint("sql", __name__, url_prefix="/api/v1")
 api = Api(sql_blueprint)
@@ -17,7 +17,8 @@ class ConvertApi(Resource):
         if "query" not in request_json:
             return {"status": "failure", "message": "Request missing required parameter 'query'"}, 400
 
-        converted_query = get_sql_query(sql=request_json["query"])
+        conn = GraniteConnection()
+        converted_query = conn.get_sql_query(sql=request_json["query"])
         return {"status": "success", "data": converted_query}
 
 
@@ -27,7 +28,8 @@ class QueryApi(Resource):
     def post(self, sub):
         request_json = request.get_json()
 
-        df = query(
+        conn = GraniteConnection()
+        df = conn.query(
             sql=request_json.get("sql"),
             metrics=request_json.get("metrics", []),
             dimensions=request_json.get("dimensions", []),
