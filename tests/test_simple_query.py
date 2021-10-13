@@ -337,7 +337,9 @@ def test_simple_query_with_where_literal(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
     conn = GraniteConnection(config=config)
-    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"], where="channel != 'Email'")
+    query = conn.get_sql_query(
+        metrics=["total_revenue"], dimensions=["simple.channel"], where="simple.channel != 'Email'"
+    )
 
     correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
     correct += "analytics.orders simple WHERE simple.sales_channel != 'Email' GROUP BY simple.sales_channel;"

@@ -6,11 +6,12 @@ from typing import Dict
 import sqlparse
 from pypika import Criterion, Field
 from pypika.terms import LiteralValue
-from sqlparse.tokens import Error, Name
+from sqlparse.tokens import Error, Name, Punctuation
 
 from granite.core.model.base import GraniteBase
 from granite.core.model.field import Field as GraniteField
 from granite.core.sql.pypika_types import LiteralValueCriterion
+from granite.core.sql.query_design import GraniteDesign
 from granite.core.sql.query_errors import ParseError
 
 
@@ -52,7 +53,7 @@ class GraniteFilter(GraniteBase):
     definition: {"field", "expression", "value"}
     """
 
-    def __init__(self, definition: Dict = {}, design=None, filter_type: str = None) -> None:
+    def __init__(self, definition: Dict = {}, design: GraniteDesign = None, filter_type: str = None) -> None:
         definition = deepcopy(definition)
 
         # The design is used for filters in queries against specific designs
@@ -119,14 +120,7 @@ class GraniteFilter(GraniteBase):
         return self.criterion(LiteralValue(self.field.sql_query(self.query_type, self.design.base_view_name)))
 
     def replace_fields_literal_filter(self):
-        generator = sqlparse.parse(self.literal)[0].flatten()
-        tokens = []
-        for token in generator:
-            if token.ttype == Name:
-                field = self.design.get_field(str(token))
-                tokens.append("${" + field.view.name + "." + field.name + "}")
-            elif token.ttype != Error:
-                tokens.append(str(token))
+        tokens = self._parse_sql_literal(self.literal)
 
         if self.filter_type == "where":
             extra_args = {"field_type": None}
@@ -135,6 +129,29 @@ class GraniteFilter(GraniteBase):
         view = self.design.get_view(self.design.base_view_name)
         field = GraniteField({"sql": "".join(tokens), "name": None, **extra_args}, view=view)
         return field.sql_query(self.query_type, view.name)
+
+    def _parse_sql_literal(self, clause: str):
+        generator = list(sqlparse.parse(clause)[0].flatten())
+        tokens, field_names = [], []
+        for i, token in enumerate(generator):
+            not_already_added = i == 0 or str(generator[i - 1]) != "."
+
+            if token.ttype == Name and not_already_added:
+                try:
+                    field = self.design.get_field(str(token))
+                    tokens.append("${" + field.view.name + "." + str(token) + "}")
+                except Exception:
+                    field_names.append(str(token))
+            elif token.ttype == Name and not not_already_added:
+                pass
+            elif token.ttype == Punctuation and str(token) == ".":
+                if generator[i - 1].ttype == Name and generator[i + 1].ttype == Name:
+                    field = self.design.get_field(f"{field_names[-1]}.{str(generator[i+1])}")
+                    tokens.append("${" + field.view.name + "." + str(generator[i + 1]) + "}")
+            elif token.ttype != Error:
+                tokens.append(str(token))
+
+        return tokens
 
     def criterion(self, field: Field) -> Criterion:
         """
