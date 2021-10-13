@@ -58,7 +58,7 @@ class GraniteDesign:
             raise ParseError(f"View {name} not found in explore {self.explore.name}")
 
     def get_join(self, name: str) -> GraniteBase:
-        return next(j for j in self.joins() if j.name == name)
+        return next((j for j in self.joins() if j.name == name), None)
 
     def get_field(self, field_name: str, view_name: str = None) -> GraniteBase:
         return self.project.get_field(field_name, view_name=view_name, explore_name=self.explore.name)

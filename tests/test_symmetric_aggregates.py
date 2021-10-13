@@ -59,6 +59,24 @@ def test_query_count_with_sql(connection):
     assert query == correct
 
 
+def test_query_count_with_one_to_many(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_email_purchased_items"], dimensions=["discount_code"]
+    )
+
+    correct = (
+        "SELECT discounts.code as discount_code,NULLIF(COUNT(DISTINCT "
+        "CASE WHEN  (case when order_lines.sales_channel = 'Email' then "
+        "order_lines.order_id end)  IS NOT NULL THEN  order_lines.order_line_id  ELSE NULL "
+        "END), 0) as number_of_email_purchased_items "
+        "FROM analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
+        "LEFT JOIN analytics_live.discounts discounts ON orders.order_id=discounts.order_id "
+        "GROUP BY discounts.code;"
+    )
+    assert query == correct
+
+
 @pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery])
 def test_query_average_with_sql(connection, query_type: str):
     query = connection.get_sql_query(
