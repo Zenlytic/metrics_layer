@@ -54,12 +54,16 @@ class QueryRunner:
         return df
 
     def _run_snowflake_pre_queries(self, snowflake_connection):
+        to_execute = ""
         if self.connection.warehouse:
-            snowflake_connection.cursor().execute(f"USE WAREHOUSE {self.connection.warehouse}")
+            to_execute += f"USE WAREHOUSE {self.connection.warehouse};"
         if self.connection.database:
-            snowflake_connection.cursor().execute(f'USE DATABASE "{self.connection.database}"')
+            to_execute += f'USE DATABASE "{self.connection.database.upper()}";'
         if self.connection.schema:
-            snowflake_connection.cursor().execute(f'USE SCHEMA "{self.connection.schema}"')
+            to_execute += f'USE SCHEMA "{self.connection.schema.upper()}";'
+
+        if to_execute != "":
+            snowflake_connection.execute_string(to_execute)
 
     @staticmethod
     def _get_snowflake_connection(connection: BaseConnection):
@@ -70,7 +74,7 @@ class QueryRunner:
                 password=connection.password,
                 role=connection.role,
             )
-        except ModuleNotFoundError:
+        except (ModuleNotFoundError, NameError):
             raise ModuleNotFoundError(
                 "Granite could not find the Snowflake modules it needs to run the query. "
                 "Make sure that you have those modules installed or reinstall Granite with "
@@ -84,7 +88,7 @@ class QueryRunner:
                 connection.credentials
             )
             connection = bigquery.Client(project=connection.project_id, credentials=service_account_creds)
-        except ModuleNotFoundError:
+        except (ModuleNotFoundError, NameError):
             raise ModuleNotFoundError(
                 "Granite could not find the BigQuery modules it needs to run the query. "
                 "Make sure that you have those modules installed or reinstall Granite with "

@@ -82,7 +82,7 @@ class GraniteConfiguration:
             return repo, []
 
         # Finally look for config file
-        repo, connections = self._get_repo_from_config_file(config, target_name=self.env_name)
+        repo, connections = self._get_repo_from_config_file(prefix, config, target_name=self.env_name)
         if repo:
             return repo, connections
 
@@ -143,9 +143,11 @@ class GraniteConfiguration:
             }
             return LookerGithubRepo(**config)
 
-    def _get_repo_from_config_file(self, config_profile_name: str, target_name: str = None):
+    def _get_repo_from_config_file(self, prefix: str, config_profile_name: str, target_name: str = None):
         if config_profile_name is None:
             return None, []
+
+        clean_prefix = "additional_" if "additional" in prefix.lower() else ""
 
         granite_directory = self.get_granite_directory()
         profiles_path = os.path.join(granite_directory, "profiles.yml")
@@ -192,27 +194,35 @@ class GraniteConfiguration:
                 f"located in the profiles.yml file at {profiles_path}"
             )
 
-        repo_type = target.get("repo_type")
-
         if "looker_env" in target:
             self.looker_env = target["looker_env"]
 
+        repo_type = target.get(f"{clean_prefix}repo_type")
+
         # Local repo
-        if "repo_path" in target:
-            if os.path.isabs(target["repo_path"]):
-                path = target["repo_path"]
+        path_arg = f"{clean_prefix}repo_path"
+        if path_arg in target:
+            if os.path.isabs(target[path_arg]):
+                path = target[path_arg]
             else:
-                path = os.path.abspath(
-                    os.path.join(granite_directory, os.path.expanduser(target["repo_path"]))
-                )
+                path = os.path.abspath(os.path.join(granite_directory, os.path.expanduser(target[path_arg])))
             repo = LocalRepo(repo_path=path, repo_type=repo_type)
 
         # Github repo
-        if all(k in target for k in ["repo_url", "branch"]):
-            repo = GithubRepo(repo_path=target["repo_url"], branch=target["branch"], repo_type=repo_type)
+        if all(k in target for k in [f"{clean_prefix}repo_url", f"{clean_prefix}branch"]):
+            repo = GithubRepo(
+                repo_url=target[f"{clean_prefix}repo_url"],
+                branch=target[f"{clean_prefix}branch"],
+                repo_type=repo_type,
+            )
 
         # Looker API
-        looker_keys = ["looker_url", "client_id", "client_secret", "project_name"]
+        looker_keys = [
+            f"{clean_prefix}looker_url",
+            f"{clean_prefix}client_id",
+            f"{clean_prefix}client_secret",
+            f"{clean_prefix}project_name",
+        ]
         if all(k in target for k in looker_keys):
             looker_args = {k: target[k] for k in looker_keys}
             repo = LookerGithubRepo(**looker_args, repo_type="lookml")
