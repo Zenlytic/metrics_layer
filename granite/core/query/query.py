@@ -8,11 +8,15 @@ from granite.core.sql.query_errors import ParseError
 
 
 class GraniteConnection:
-    def __init__(self, config: Union[GraniteConfiguration, str] = None, env: str = None, **kwargs):
+    def __init__(self, config: Union[GraniteConfiguration, str, dict] = None, target: str = None, **kwargs):
         if isinstance(config, str):
-            self.config = GraniteConfiguration(config, env=env)
+            self.config = GraniteConfiguration(config, target=target)
+        if isinstance(config, dict):
+            self.config = GraniteConfiguration(
+                config, connections=config.get("connections", []), target=target
+            )
         else:
-            self.config = GraniteConfiguration.get_granite_configuration(config, env=env)
+            self.config = GraniteConfiguration.get_granite_configuration(config, target=target)
         self.kwargs = kwargs
 
     def query(

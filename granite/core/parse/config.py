@@ -21,9 +21,9 @@ class GraniteConfiguration:
         repo_config: dict = None,
         additional_repo_config: dict = None,
         connections: list = [],
-        env: str = None,
+        target: str = None,
     ):
-        self.env_name = env
+        self.env_name = target
         self.looker_env = self.env_name
         self.repo, conns = self._resolve_config(repo_config, prefix="GRANITE", raise_exception=True)
         self.additional_repo, addtl_conns = self._resolve_config(
@@ -33,10 +33,10 @@ class GraniteConfiguration:
         self._project = None
 
     @staticmethod
-    def get_granite_configuration(config=None, env: str = None):
+    def get_granite_configuration(config=None, target: str = None):
         if config:
             return config
-        return GraniteConfiguration(env=env)
+        return GraniteConfiguration(target=target)
 
     @property
     def project(self):
