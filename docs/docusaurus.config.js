@@ -23,7 +23,7 @@ const config = {
       ({
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
-          editUrl: 'https://github.com/Zenlytic/granite/docs/docs/',
+          editUrl: 'https://github.com/Zenlytic/granite/docs/',
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
@@ -44,7 +44,7 @@ const config = {
         items: [
           {
             type: 'doc',
-            docId: 'intro',
+            docId: 'getting_started',
             position: 'left',
             label: 'Tutorial',
           },
@@ -69,7 +69,7 @@ const config = {
             items: [
               {
                 label: 'Tutorial',
-                to: '/docs/intro',
+                to: '/docs/getting_started',
               },
               {
                 label: 'Documentation',

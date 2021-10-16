@@ -14,6 +14,8 @@ The python client library looks like this:
 
 
 ```
+from granite import GraniteConnection
+
 # References a profile defining where to find the LookML and how to connect to the data warehouse
 conn = GraniteConnection("demo")
 

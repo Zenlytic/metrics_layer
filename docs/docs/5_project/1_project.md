@@ -4,18 +4,71 @@ sidebar_position: 1
 
 # Project
 
-You have just learned the **basics of Docusaurus** and made some changes to the **initial template**.
+The project object is the class you use to interact with your project as a whole. It has many convenience methods that allow you to look around the project.
 
-Docusaurus has **much more to offer**!
+Once you create a connection, you can access the project like this:
 
-Have **5 more minutes**? Take a look at **[versioning](../tutorial-extras/manage-docs-versions.md)** and **[i18n](../tutorial-extras/translate-your-site.md)**.
+```
+from granite import GraniteConnection
 
-Anything **unclear** or **buggy** in this tutorial? [Please report it!](https://github.com/facebook/docusaurus/discussions/4610)
+conn = GraniteConnection("demo")
 
-## What's next?
+project = conn.project
+```
 
-- Read the [official documentation](https://docusaurus.io/).
-- Add a custom [Design and Layout](https://docusaurus.io/docs/styling-layout)
-- Add a [search bar](https://docusaurus.io/docs/search)
-- Find inspirations in the [Docusaurus showcase](https://docusaurus.io/showcase)
-- Get involved in the [Docusaurus Community](https://docusaurus.io/community/support)
+Using the project object you can look around your entire data model
+
+
+### Models
+```
+# Models
+all_models_in_project = project.models()
+
+a_single_model = project.get_model(model_name="revenue")
+```
+
+
+### Explores
+```
+# Explores
+all_explores_in_project = project.explores()
+
+a_single_explore = project.get_explore(explore_name="order_lines")
+```
+
+
+### Views
+```
+# Views
+all_views_in_project = project.views()
+
+all_views_in_explore = project.views(explore_name="order_lines")
+
+a_single_view = project.get_view(view_name="orders")
+```
+
+
+### Fields
+```
+# Fields
+all_fields_in_project = project.fields()
+
+all_fields_in_explore = project.fields(explore_name="order_lines")
+
+all_fields_in_view_in_explore = project.fields(explore_name="order_lines", view_name="orders")
+
+# Only specify field name
+a_single_field = project.get_field("total_revenue")
+
+# Specify view and field name
+a_single_field = project.get_field("orders.total_revenue")
+
+# Specify explore, view and field name
+a_single_field = project.get_field("order_lines.orders.total_revenue")
+
+# OR pass them as arguments
+a_single_field = project.get_field("total_revenue", explore_name="order_lines", view_name="orders")
+```
+
+
+To learn more about any of the objects returned here, look at the documentation for [models](./2_model.md), [explores](./3_explore.md), [views](./4_view.md), or [fields](./5_field.md).

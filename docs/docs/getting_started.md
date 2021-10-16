@@ -19,11 +19,11 @@ For BigQuery run `pip install granite-metrics[bigquery]`
 
 ## Profile set up
 
-There are several ways to set up a profile, we're going to look at the fastest one here, but look at [other connection options](./4_connection_setup/connecting.md) if you want more robust connection methods.
+There are several ways to set up a profile, we're going to look at the fastest one here, but look at [other connection options](./3_connection_setup/connecting.md) if you want more robust connection methods.
 
 The fastest way to get connected is to pass the necessary information directly into Granite. Once you've installed the library with the warehouse you need, you should be able to run the code snippet below and start querying.
 
-You'll need to pull the repo with your LookML locally for this example or look at [other connection options](./4_connection_setup/connecting.md) for connections through GitHub directly or the Looker API.
+You'll need to pull the repo with your LookML locally for this example or look at [other connection options](./3_connection_setup/connecting.md) for connections through GitHub directly or the Looker API.
 
 
 ```
@@ -50,5 +50,5 @@ df = conn.query(metrics=["total_revenue"], dimensions=["channel", "region"])
 
 That's it.
 
-For more advanced methods of connection check out [other connection options](./4_connection_setup/connecting.md) and for supported data warehouses look at [supported warehouses](./4_connection_setup/integrations.md).
+For more advanced methods of connection check out [other connection options](./3_connection_setup/connecting.md) and for supported data warehouses look at [supported warehouses](./3_connection_setup/integrations.md).
 
