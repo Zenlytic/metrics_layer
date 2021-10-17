@@ -80,7 +80,6 @@ class Field(GraniteBase, SQLReplacement):
         return self.get_replaced_sql_query(query_type)
 
     def aggregate_sql_query(self, query_type: str, query_base_view: str, joins: list = []):
-        print(self.name, joins)
         sql = self.raw_sql_query(query_type)
         type_lookup = {
             "sum": self._sum_aggregate_sql,

@@ -18,16 +18,6 @@ class Project:
         text = "models" if len(self._models) != 1 else "model"
         return f"<Project {len(self._models)} {text}>"
 
-    def get_design(self, explore_name: str):
-        design = {}
-        design["explore"] = self.get_explore(explore_name).to_dict()
-        views_to_add = [design["explore"]["from"]] + [j["name"] for j in design["explore"]["joins"]]
-        design["views"] = []
-        for view_name in views_to_add:
-            view = self.get_view(view_name).to_dict(explore_to_exclude_by=explore_name)
-            design["views"].append(view)
-        return design
-
     def models(self) -> list:
         return [Model(m) for m in self._models]
 
@@ -49,7 +39,9 @@ class Project:
         view_names = [explore.from_] + [j.name for j in explore.joins()]
         return [v for v in self.views(explore=explore) if v.name in view_names]
 
-    def views(self, explore: Explore = None) -> list:
+    def views(self, explore_name: str = None, explore: Explore = None) -> list:
+        if explore_name:
+            return self.views_with_explore(explore_name=explore_name)
         return [View({**v, "explore": explore}, project=self) for v in self._views]
 
     def get_view(self, view_name: str, explore: Explore = None) -> View:
