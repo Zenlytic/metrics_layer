@@ -33,13 +33,15 @@ from granite import GraniteConnection
 config = {
   "repo_path": "~/Desktop/my-looker-repo",
   "connections": [
-    "name": "mycompany",              # The name of the connection in LookML (you'll see this in model files)
-    "type": "snowflake",
-    "account": "2e12ewdq.us-east-1",
-    "username": "demo_user",
-    "password": "q23e13erfwefqw",
-    "database": "ANALYTICS",          # Optional
-    "schema": "DEV",                  # Optional
+    {
+      "name": "mycompany",              # The name of the connection in LookML (you'll see this in model files)
+      "type": "snowflake",
+      "account": "2e12ewdq.us-east-1",
+      "username": "demo_user",
+      "password": "q23e13erfwefqw",
+      "database": "ANALYTICS",          # Optional
+      "schema": "DEV",                  # Optional
+    }
   ],
 }
 conn = GraniteConnection(config)

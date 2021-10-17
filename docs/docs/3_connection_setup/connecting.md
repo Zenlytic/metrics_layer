@@ -96,7 +96,7 @@ demo_api_connection:
   outputs:
     dev:
       project_name: my_company                              # The name of your Looker Project
-      looker_url: https://cloud.mycompany.looker.com        # The API endpoint for your Looker instance
+      looker_url: https://mycompany.cloud.looker.com        # The API endpoint for your Looker instance
       client_id: 13412e3qedqwdqe2e13e                       # The client ID from your Looker API3 credentials
       client_secret: 342r3e2erfw23e1241rewfwer12e1          # The client secret from your Looker API3 credentials
       connections:

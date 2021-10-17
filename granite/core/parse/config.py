@@ -113,7 +113,7 @@ class GraniteConfiguration:
             or a direct Github connection with following arguments:
             'repo_url': https://username:personal_access_token@github.com/yourorg/yourrepo.git, 'branch': dev
             or through the Looker API with the following arguments:
-            'looker_url': https://cloud.company.looker.com, 'client_id': aefafasdasd,
+            'looker_url': https://company.cloud.looker.com, 'client_id': aefafasdasd,
             'client_secret': adfawdada, 'project_name': yourcompany
             """
         )

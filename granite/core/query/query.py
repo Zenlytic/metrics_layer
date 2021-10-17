@@ -11,10 +11,9 @@ class GraniteConnection:
     def __init__(self, config: Union[GraniteConfiguration, str, dict] = None, target: str = None, **kwargs):
         if isinstance(config, str):
             self.config = GraniteConfiguration(config, target=target)
-        if isinstance(config, dict):
-            self.config = GraniteConfiguration(
-                config, connections=config.get("connections", []), target=target
-            )
+        elif isinstance(config, dict):
+            connections = config.pop("connections", [])
+            self.config = GraniteConfiguration(config, connections=connections, target=target)
         else:
             self.config = GraniteConfiguration.get_granite_configuration(config, target=target)
         self.kwargs = kwargs
@@ -82,8 +81,16 @@ class GraniteConnection:
         field = self.config.project.get_field(metric)
         return field.sql_query()
 
-    def list_metrics(self, explore_name: str = None, view_name: str = None, names_only: bool = False):
-        all_fields = self.config.project.fields(explore_name=explore_name, view_name=view_name)
+    def list_metrics(
+        self,
+        explore_name: str = None,
+        view_name: str = None,
+        names_only: bool = False,
+        show_hidden: bool = False,
+    ):
+        all_fields = self.config.project.fields(
+            explore_name=explore_name, view_name=view_name, show_hidden=show_hidden
+        )
         metrics = [f for f in all_fields if f.field_type == "measure"]
         if names_only:
             return [m.name for m in metrics]
@@ -97,8 +104,16 @@ class GraniteConnection:
         except ParseError as e:
             raise e(f"Could not find metric {metric_name} in the project config")
 
-    def list_dimensions(self, explore_name: str = None, view_name: str = None, names_only: bool = False):
-        all_fields = self.config.project.fields(explore_name=explore_name, view_name=view_name)
+    def list_dimensions(
+        self,
+        explore_name: str = None,
+        view_name: str = None,
+        names_only: bool = False,
+        show_hidden: bool = False,
+    ):
+        all_fields = self.config.project.fields(
+            explore_name=explore_name, view_name=view_name, show_hidden=show_hidden
+        )
         dimensions = [f for f in all_fields if f.field_type in {"dimension", "dimension_group"}]
         if names_only:
             return [d.name for d in dimensions]
@@ -112,8 +127,8 @@ class GraniteConnection:
         except ParseError as e:
             raise e(f"Could not find dimension {dimension_name} in the project config")
 
-    def list_explores(self, names_only=False):
-        explores = self.config.project.explores()
+    def list_explores(self, names_only=False, show_hidden: bool = False):
+        explores = self.config.project.explores(show_hidden=show_hidden)
         if names_only:
             return [e.name for e in explores]
         return explores

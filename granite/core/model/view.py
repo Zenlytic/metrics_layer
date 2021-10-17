@@ -25,11 +25,11 @@ class View(GraniteBase):
     def primary_key(self):
         return next((f for f in self.fields() if f.primary_key == "yes"), None)
 
-    def fields(self, exclude_hidden: bool = False) -> list:
+    def fields(self, show_hidden: bool = True) -> list:
         all_fields = self._valid_fields()
-        if exclude_hidden:
-            return [field for field in all_fields if field.hidden == "yes"]
-        return all_fields
+        if show_hidden:
+            return all_fields
+        return [field for field in all_fields if field.hidden == "no" or not field.hidden]
 
     def _valid_fields(self):
         ALL_FIELDS = "ALL_FIELDS*"
