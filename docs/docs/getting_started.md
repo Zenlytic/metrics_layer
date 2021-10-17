@@ -12,9 +12,9 @@ Make sure that your data warehouse is one of the supported types. Granite curren
 
 Install granite with the appropriate extra for your warehouse
 
-For Snowflake run `pip install granite-metrics[snowflake]`
+For Snowflake run `pip install git+https://github.com/Zenlytic/granite.git#egg=granite[snowflake]`
 
-For BigQuery run `pip install granite-metrics[bigquery]`
+For BigQuery run `pip install git+https://github.com/Zenlytic/granite.git#egg=granite[bigquery]`
 
 
 ## Profile set up

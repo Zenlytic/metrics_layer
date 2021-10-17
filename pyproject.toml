@@ -8,6 +8,7 @@ readme = "README.md"
 license = "Apache 2.0"
 homepage = "https://github.com/Zenlytic/granite"
 repository = "https://github.com/Zenlytic/granite"
+documentation = "https://zenlytic.github.io/granite"
 
 [tool.poetry.dependencies]
 python = ">=3.7.1, <3.10"

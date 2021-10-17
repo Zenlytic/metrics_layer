@@ -78,7 +78,8 @@ class QueryRunner:
             raise ModuleNotFoundError(
                 "Granite could not find the Snowflake modules it needs to run the query. "
                 "Make sure that you have those modules installed or reinstall Granite with "
-                "the [snowflake] option e.g. pip install granite[snowflake]"
+                "the [snowflake] option e.g. "
+                "pip install git+https://github.com/Zenlytic/granite.git#egg=granite[snowflake]"
             )
 
     @staticmethod
@@ -92,6 +93,7 @@ class QueryRunner:
             raise ModuleNotFoundError(
                 "Granite could not find the BigQuery modules it needs to run the query. "
                 "Make sure that you have those modules installed or reinstall Granite with "
-                "the [bigquery] option e.g. pip install granite[bigquery]"
+                "the [bigquery] option e.g. "
+                "pip install git+https://github.com/Zenlytic/granite.git#egg=granite[bigquery]"
             )
         return connection
