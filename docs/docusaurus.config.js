@@ -8,13 +8,14 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 const config = {
   title: 'Granite Documentation',
   tagline: 'The open source metrics layer',
-  url: 'https://granite.zenlytic.com',
-  baseUrl: '/',
+  url: 'https://zenlytic.github.io',
+  baseUrl: '/granite/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
   organizationName: 'Zenlytic', // Usually your GitHub org/user name.
   projectName: 'granite', // Usually your repo name.
+  trailingSlash: false,
 
   presets: [
     [
