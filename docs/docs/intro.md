@@ -2,22 +2,22 @@
 sidebar_position: 1
 ---
 
-# What is Granite?
+# What is Metrics Layer?
 
-Granite is an open source metrics layer. It's goal is to make access of metrics consistent throughout an organization. We believe you should be able to access consistent metrics from any tool you use to access data.
+Metrics Layer is an open source project with the goal of making access to metrics consistent throughout an organization. We believe you should be able to access consistent metrics from any tool you use to access data.
 
 ## How does it work?
 
-Right now, the only supported BI tool is Looker. Granite will read your LookML and give you the ability to access those metrics and dimensions in a python client library, or through SQL with a special `MQL` tag.
+Right now, the only supported BI tool is Looker. Metrics Layer will read your LookML and give you the ability to access those metrics and dimensions in a python client library, or through SQL with a special `MQL` tag.
 
 The python client library looks like this:
 
 
 ```
-from granite import GraniteConnection
+from metrics_layer import MetricsLayerConnection
 
 # References a profile defining where to find the LookML and how to connect to the data warehouse
-conn = GraniteConnection("demo")
+conn = MetricsLayerConnection("demo")
 
 # Generates the SQL query and runs it against the warehouse, returns a pandas dataframe
 df = conn.query(
@@ -52,15 +52,15 @@ These queries reference the measures and dimensions by name exactly like you wou
 
 ## What is the workflow like?
 
-Since Granite references existing resources, it's easy to set up.
+Since Metrics Layer references existing resources, it's easy to set up.
 
-1. **[Install granite](./getting_started.md#installation)**
+1. **[Install metrics_layer](./getting_started.md#installation)**
 2. **[Set up a profile](./getting_started.md#profile-set-up)** to connect to your data model and warehouse
 3. Execute commands in python
 
 
-## Who should use Granite?
+## Who should use Metrics Layer?
 
-Granite is appropriate for anyone who wants to query consistent metrics defined in LookML using more technical tools like SQL or python.
+Metrics Layer is appropriate for anyone who wants to query consistent metrics defined in LookML using more technical tools like SQL or python.
 
-To make full use of Granite, it's helpful to be comfortable in either SQL or python.
+To make full use of Metrics Layer, it's helpful to be comfortable in either SQL or python.

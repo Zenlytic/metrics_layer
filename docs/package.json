@@ -1,5 +1,5 @@
 {
-  "name": "granite",
+  "name": "metrics_layer",
   "version": "0.0.0",
   "private": true,
   "scripts": {

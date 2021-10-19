@@ -4,32 +4,32 @@ sidebar_position: 2
 
 # Getting Started
 
-Set granite up and start querying your metrics in **in under 2 minutes**.
+Set metrics_layer up and start querying your metrics in **in under 2 minutes**.
 
 ## Installation
 
-Make sure that your data warehouse is one of the supported types. Granite currently supports Snowflake and BigQuery, and only works with `python >= 3.7`.
+Make sure that your data warehouse is one of the supported types. Metrics Layer currently supports Snowflake and BigQuery, and only works with `python >= 3.7`.
 
-Install granite with the appropriate extra for your warehouse
+Install metrics_layer with the appropriate extra for your warehouse
 
-For Snowflake run `pip install git+https://github.com/Zenlytic/granite.git#egg=granite[snowflake]`
+For Snowflake run `pip install metrics-layer[snowflake]`
 
-For BigQuery run `pip install git+https://github.com/Zenlytic/granite.git#egg=granite[bigquery]`
+For BigQuery run `pip install metrics-layer[bigquery]`
 
 
 ## Profile set up
 
 There are several ways to set up a profile, we're going to look at the fastest one here, but look at [other connection options](./3_connection_setup/connecting.md) if you want more robust connection methods.
 
-The fastest way to get connected is to pass the necessary information directly into Granite. Once you've installed the library with the warehouse you need, you should be able to run the code snippet below and start querying.
+The fastest way to get connected is to pass the necessary information directly into Metrics Layer. Once you've installed the library with the warehouse you need, you should be able to run the code snippet below and start querying.
 
 You'll need to pull the repo with your LookML locally for this example or look at [other connection options](./3_connection_setup/connecting.md) for connections through GitHub directly or the Looker API.
 
 
 ```
-from granite import GraniteConnection
+from metrics_layer import MetricsLayerConnection
 
-# Give granite the info to connect to your data model and warehouse
+# Give metrics_layer the info to connect to your data model and warehouse
 config = {
   "repo_path": "~/Desktop/my-looker-repo",
   "connections": [
@@ -44,7 +44,7 @@ config = {
     }
   ],
 }
-conn = GraniteConnection(config)
+conn = MetricsLayerConnection(config)
 
 # You're off to the races. Query away!
 df = conn.query(metrics=["total_revenue"], dimensions=["channel", "region"])

@@ -1,8 +1,8 @@
 import pytest
 
-from granite import GraniteConnection
-from granite.core.model.project import Project
-from granite.core.sql.query_errors import ArgumentError
+from metrics_layer import MetricsLayerConnection
+from metrics_layer.core.model.project import Project
+from metrics_layer.core.sql.query_errors import ArgumentError
 
 simple_model = {
     "type": "model",
@@ -72,7 +72,7 @@ simple_view = {
 def test_simple_query(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["order_id", "channel"])
 
     correct = "SELECT simple.order_id as order_id,simple.sales_channel as channel,simple.revenue "
@@ -83,7 +83,7 @@ def test_simple_query(config):
 def test_query_complex_metric(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(metrics=["revenue_per_aov"], dimensions=["order_id", "channel"])
 
     correct = "SELECT simple.order_id as order_id,simple.sales_channel as channel,simple.revenue as "
@@ -94,7 +94,7 @@ def test_query_complex_metric(config):
 def test_query_complex_metric_having_error(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     with pytest.raises(ArgumentError) as exc_info:
         conn.get_sql_query(
             metrics=["revenue_per_aov"],
@@ -108,7 +108,7 @@ def test_query_complex_metric_having_error(config):
 def test_query_complex_metric_order_by_error(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     with pytest.raises(ArgumentError) as exc_info:
         conn.get_sql_query(
             metrics=["revenue_per_aov"],
@@ -122,7 +122,7 @@ def test_query_complex_metric_order_by_error(config):
 def test_query_complex_metric_all(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(
         metrics=["revenue_per_aov"],
         dimensions=["order_id", "channel"],

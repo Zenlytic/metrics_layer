@@ -1,6 +1,6 @@
 import pytest
 
-from granite.core.model.definitions import Definitions
+from metrics_layer.core.model.definitions import Definitions
 
 
 def test_query_count_no_sql(connection):

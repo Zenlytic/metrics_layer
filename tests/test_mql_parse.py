@@ -1,6 +1,6 @@
 import pytest
 
-from granite.core.sql.query_errors import ParseError
+from metrics_layer.core.sql.query_errors import ParseError
 
 
 def test_query_no_join_mql(connection):

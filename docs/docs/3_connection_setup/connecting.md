@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # Connecting
 
-First, we'll go through how to set up a `profiles.yml` file, which is the best solution for an individual using Granite on his or her local machine. Second, we'll look at other ways of passing the configuration into granite.
+First, we'll go through how to set up a `profiles.yml` file, which is the best solution for an individual using Metrics Layer on his or her local machine. Second, we'll look at other ways of passing the configuration into Metrics Layer.
 
 ## Profile set up
 
@@ -14,7 +14,7 @@ There are three ways to set up a profile, that is access the data model and find
 2. Github repo
 3. Looker API
 
-Granite gets this information by looking for a `profiles.yml` file (similar to [dbt](https://www.getdbt.com)) in the `~/.granite/` directory by default. You can change this directory by specifying the `GRANITE_PROFILES_DIR` environment variable. Now let's look at examples of each type
+Metrics Layer gets this information by looking for a `profiles.yml` file (similar to [dbt](https://www.getdbt.com)) in the `~/.metrics_layer/` directory by default. You can change this directory by specifying the `METRICS_LAYER_PROFILES_DIR` environment variable. Now let's look at examples of each type
 
 ### Local repo
 
@@ -41,9 +41,9 @@ demo_connection:
 You will be able to connect with the following python code.
 
 ```
-from granite import GraniteConnection
+from metrics_layer import MetricsLayerConnection
 
-conn = GraniteConnection("demo_connection")
+conn = MetricsLayerConnection("demo_connection")
 
 df = conn.query(metrics=["total_revenue"], dimensions=["channel", "region"])
 ```
@@ -76,12 +76,12 @@ demo_connection:
           credentials: ./my-company-prod-service-account-credentials.json
 ```
 
-You will be able to connect with the following python code. You can explicitly specify the target you want to connect to, to tell Granite to use something besides the default.
+You will be able to connect with the following python code. You can explicitly specify the target you want to connect to, to tell Metrics Layer to use something besides the default.
 
 ```
-from granite import GraniteConnection
+from metrics_layer import MetricsLayerConnection
 
-conn = GraniteConnection("demo_connection", target="prod")
+conn = MetricsLayerConnection("demo_connection", target="prod")
 
 df = conn.query(metrics=["total_revenue"], dimensions=["channel", "region"])
 ```
@@ -114,9 +114,9 @@ demo_api_connection:
 You will be able to connect with the following python code.
 
 ```
-from granite import GraniteConnection
+from metrics_layer import MetricsLayerConnection
 
-conn = GraniteConnection("demo_api_connection")
+conn = MetricsLayerConnection("demo_api_connection")
 
 df = conn.query(metrics=["total_revenue"], dimensions=["channel", "region"])
 ```
@@ -124,7 +124,7 @@ df = conn.query(metrics=["total_revenue"], dimensions=["channel", "region"])
 
 ## Other ways to connect
 
-Using `profiles.yml` is a good solution for local work but doesn't work for all situations. These are the ways to connect (ranked in the order that Granite will respect them):
+Using `profiles.yml` is a good solution for local work but doesn't work for all situations. These are the ways to connect (ranked in the order that Metrics Layer will respect them):
 
 1. Explicitly pass a `dict` with the values in the `profiles.yml` file.
 2. Use `profiles.yml`

@@ -1,7 +1,7 @@
 from flask import current_app
 
-from granite.api import db
-from granite.api.models import User
+from metrics_layer.api import db
+from metrics_layer.api.models import User
 
 
 def test_add_user(test_app, test_database, add_user):

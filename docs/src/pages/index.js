@@ -17,7 +17,7 @@ function HomepageHeader() {
           <Link
             className="button button--secondary button--lg"
             to="/docs/getting_started">
-            Granite Tutorial - 2min ⏱️
+            Metrics Layer Tutorial - 2min ⏱️
           </Link>
         </div>
       </div>
@@ -29,8 +29,8 @@ export default function Home() {
   const { siteConfig } = useDocusaurusContext();
   return (
     <Layout
-      title={`Granite - OSS Metrics Layer`}
-      description="Granite is the open source metrics layer. Keep your metrics consistent and governed, across all your tools.">
+      title={`Metrics Layer - OSS Metrics Layer`}
+      description="Metrics Layer is the open source metrics layer. Keep your metrics consistent and governed, across all your tools.">
       <HomepageHeader />
       <main>
         <HomepageFeatures />

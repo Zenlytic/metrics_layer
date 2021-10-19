@@ -1,8 +1,8 @@
-from granite import GraniteConnection
+from metrics_layer import MetricsLayerConnection
 
 
 def test_define_call(config):
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     metric_definition = conn.define(metric="total_item_revenue")
     assert metric_definition == "SUM(order_lines.revenue)"
 

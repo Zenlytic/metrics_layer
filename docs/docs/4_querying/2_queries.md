@@ -4,13 +4,13 @@ sidebar_position: 2
 
 # Getting SQL and running queries
 
-There are two main methods for interacting with SQL in granite `get_sql_query`, which gets the SQL necessary to calculate your request, but doesn't run it, and `query`, which gets that SQL and runs it against your warehouse.
+There are two main methods for interacting with SQL in Metrics Layer `get_sql_query`, which gets the SQL necessary to calculate your request, but doesn't run it, and `query`, which gets that SQL and runs it against your warehouse.
 
-In both of these methods there are two ways to use Granite, using SQL with a `MQL` tag for metrics, or specifying lists of metrics and dimensions.
+In both of these methods there are two ways to use Metrics Layer, using SQL with a `MQL` tag for metrics, or specifying lists of metrics and dimensions.
 
 :::tip Query speed
 
-In all cases, Granite generates the SQL query locally, then sends it directly to your warehouse. This is an order of magnitude faster than using the Looker API or similar.
+In all cases, Metrics Layer generates the SQL query locally, then sends it directly to your warehouse. This is an order of magnitude faster than using the Looker API or similar.
 
 :::
 
@@ -19,9 +19,9 @@ In all cases, Granite generates the SQL query locally, then sends it directly to
 Here's an example of specifying metrics and dimensions to query:
 
 ```
-from granite import GraniteConnection
+from metrics_layer import MetricsLayerConnection
 
-conn = GraniteConnection("demo")
+conn = MetricsLayerConnection("demo")
 
 # Generates the SQL query and returns it as a string
 sql_query = conn.get_sql_query(
@@ -38,7 +38,7 @@ df = conn.query(
 
 ## MQL queries
 
-Here's an example of using the `MQL` syntax to compose queries to run against the warehouse. You can include queries with only `MQL`, queries that compose `MQL` with other SQL, or queries that are only SQL (in this case you'll have to pass a `connection_name` argument because granite will not be able to determine which connection to use).
+Here's an example of using the `MQL` syntax to compose queries to run against the warehouse. You can include queries with only `MQL`, queries that compose `MQL` with other SQL, or queries that are only SQL (in this case you'll have to pass a `connection_name` argument because Metrics Layer will not be able to determine which connection to use).
 
 
 ### MQL only

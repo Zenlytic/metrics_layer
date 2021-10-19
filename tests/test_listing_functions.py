@@ -1,8 +1,8 @@
-from granite import GraniteConnection
+from metrics_layer import MetricsLayerConnection
 
 
 def test_list_metrics(config):
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     metrics = conn.list_metrics()
     assert len(metrics) == 15
 
@@ -20,7 +20,7 @@ def test_list_metrics(config):
 
 
 def test_list_dimensions(config):
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     dimensions = conn.list_dimensions(show_hidden=True)
     assert len(dimensions) == 31
 

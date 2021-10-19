@@ -2,39 +2,39 @@ import pickle
 
 import pytest
 
-from granite.core.parse.config import ConfigError, GraniteConfiguration
-from granite.core.parse.connections import BigQueryConnection, SnowflakeConnection
-from granite.core.parse.github_repo import LookerGithubRepo
+from metrics_layer.core.parse.config import ConfigError, MetricsLayerConfiguration
+from metrics_layer.core.parse.connections import BigQueryConnection, SnowflakeConnection
+from metrics_layer.core.parse.github_repo import LookerGithubRepo
 
 
-def test_config_explicit_granite_single_local():
-    repo_config = {"repo_path": "./tests/config/granite_config/", "repo_type": "granite"}
-    config = GraniteConfiguration(repo_config=repo_config)
+def test_config_explicit_metrics_layer_single_local():
+    repo_config = {"repo_path": "./tests/config/metrics_layer_config/", "repo_type": "metrics_layer"}
+    config = MetricsLayerConfiguration(repo_config=repo_config)
 
-    assert config.repo.repo_type == "granite"
-    assert config.repo.repo_path == "./tests/config/granite_config/"
+    assert config.repo.repo_type == "metrics_layer"
+    assert config.repo.repo_path == "./tests/config/metrics_layer_config/"
 
 
-def test_config_explicit_granite_single():
-    repo_config = {"repo_url": "https://github.com", "branch": "dev", "repo_type": "granite"}
-    config = GraniteConfiguration(repo_config=repo_config)
+def test_config_explicit_metrics_layer_single():
+    repo_config = {"repo_url": "https://github.com", "branch": "dev", "repo_type": "metrics_layer"}
+    config = MetricsLayerConfiguration(repo_config=repo_config)
 
-    assert config.repo.repo_type == "granite"
+    assert config.repo.repo_type == "metrics_layer"
     assert config.repo.branch == "dev"
     assert config.repo.repo_url == "https://github.com"
 
 
-def test_config_explicit_granite_pickle(project):
-    repo_config = {"repo_url": "https://github.com", "branch": "dev", "repo_type": "granite"}
-    config = GraniteConfiguration(repo_config=repo_config)
+def test_config_explicit_metrics_layer_pickle(project):
+    repo_config = {"repo_url": "https://github.com", "branch": "dev", "repo_type": "metrics_layer"}
+    config = MetricsLayerConfiguration(repo_config=repo_config)
     config._project = project
 
     # We should be able to pickle the config
     pickle.dumps(config)
 
 
-def test_config_explicit_granite_single_with_connections():
-    repo_config = {"repo_url": "https://github.com", "branch": "dev", "repo_type": "granite"}
+def test_config_explicit_metrics_layer_single_with_connections():
+    repo_config = {"repo_url": "https://github.com", "branch": "dev", "repo_type": "metrics_layer"}
     connections = [
         {
             "type": "SNOWFLAKE",
@@ -49,9 +49,9 @@ def test_config_explicit_granite_single_with_connections():
             "credentials": '{"key": "value", "project_id": "test-1234"}',
         },
     ]
-    config = GraniteConfiguration(repo_config=repo_config, connections=connections)
+    config = MetricsLayerConfiguration(repo_config=repo_config, connections=connections)
 
-    assert config.repo.repo_type == "granite"
+    assert config.repo.repo_type == "metrics_layer"
     assert config.repo.branch == "dev"
     assert config.repo.repo_url == "https://github.com"
 
@@ -77,15 +77,19 @@ def test_config_explicit_granite_single_with_connections():
     assert exc_info.value
 
 
-def test_config_explicit_granite_multiple():
-    repo_config = {"repo_url": "https://github.com", "branch": "dev", "repo_type": "granite"}
-    additional_repo_config = {"repo_url": "https://example.com", "branch": "master", "repo_type": "granite"}
-    config = GraniteConfiguration(repo_config=repo_config, additional_repo_config=additional_repo_config)
+def test_config_explicit_metrics_layer_multiple():
+    repo_config = {"repo_url": "https://github.com", "branch": "dev", "repo_type": "metrics_layer"}
+    additional_repo_config = {
+        "repo_url": "https://example.com",
+        "branch": "master",
+        "repo_type": "metrics_layer",
+    }
+    config = MetricsLayerConfiguration(repo_config=repo_config, additional_repo_config=additional_repo_config)
 
-    assert config.repo.repo_type == "granite"
+    assert config.repo.repo_type == "metrics_layer"
     assert config.repo.branch == "dev"
     assert config.repo.repo_url == "https://github.com"
-    assert config.additional_repo.repo_type == "granite"
+    assert config.additional_repo.repo_type == "metrics_layer"
     assert config.additional_repo.branch == "master"
     assert config.additional_repo.repo_url == "https://example.com"
 
@@ -103,7 +107,7 @@ def test_config_explicit_lookml(monkeypatch):
         "project_name": "example",
         "repo_type": "lookml",
     }
-    config = GraniteConfiguration(repo_config=repo_config)
+    config = MetricsLayerConfiguration(repo_config=repo_config)
 
     assert config.repo.repo_type == "lookml"
     assert config.repo.looker_url == "https://looker.com"
@@ -114,13 +118,13 @@ def test_config_explicit_lookml(monkeypatch):
     assert config.repo.repo.branch == "dev"
 
 
-def test_config_env_granite(monkeypatch):
-    monkeypatch.setenv("GRANITE_REPO_URL", "https://github.com")
-    monkeypatch.setenv("GRANITE_BRANCH", "dev")
-    monkeypatch.setenv("GRANITE_REPO_TYPE", "granite")
-    config = GraniteConfiguration()
+def test_config_env_metrics_layer(monkeypatch):
+    monkeypatch.setenv("METRICS_LAYER_REPO_URL", "https://github.com")
+    monkeypatch.setenv("METRICS_LAYER_BRANCH", "dev")
+    monkeypatch.setenv("METRICS_LAYER_REPO_TYPE", "metrics_layer")
+    config = MetricsLayerConfiguration()
 
-    assert config.repo.repo_type == "granite"
+    assert config.repo.repo_type == "metrics_layer"
     assert config.repo.branch == "dev"
     assert config.repo.repo_url == "https://github.com"
 
@@ -132,13 +136,13 @@ def test_config_env_lookml(monkeypatch):
     monkeypatch.setattr(LookerGithubRepo, "get_looker_github_info", mock_looker_api)
 
     monkeypatch.setenv("SECRET", "top_secret")
-    monkeypatch.setenv("GRANITE_LOOKER_URL", "https://looker.com")
-    monkeypatch.setenv("GRANITE_CLIENT_ID", "blah")
-    monkeypatch.setenv("GRANITE_CLIENT_SECRET", "bloop")
-    monkeypatch.setenv("GRANITE_PROJECT_NAME", "example")
-    monkeypatch.setenv("GRANITE_REPO_TYPE", "lookml")
+    monkeypatch.setenv("METRICS_LAYER_LOOKER_URL", "https://looker.com")
+    monkeypatch.setenv("METRICS_LAYER_CLIENT_ID", "blah")
+    monkeypatch.setenv("METRICS_LAYER_CLIENT_SECRET", "bloop")
+    monkeypatch.setenv("METRICS_LAYER_PROJECT_NAME", "example")
+    monkeypatch.setenv("METRICS_LAYER_REPO_TYPE", "lookml")
 
-    config = GraniteConfiguration()
+    config = MetricsLayerConfiguration()
 
     assert config.repo.repo_type == "lookml"
     assert config.repo.looker_url == "https://looker.com"
@@ -151,22 +155,22 @@ def test_config_env_lookml(monkeypatch):
 
 def test_config_explicit_env_config(monkeypatch):
     # Explicit should take priority
-    monkeypatch.setenv("GRANITE_REPO_URL", "https://github.com")
-    monkeypatch.setenv("GRANITE_BRANCH", "dev")
-    monkeypatch.setenv("GRANITE_REPO_TYPE", "granite")
-    repo_config = {"repo_url": "https://correct.com", "branch": "master", "repo_type": "granite"}
-    config = GraniteConfiguration(repo_config=repo_config)
+    monkeypatch.setenv("METRICS_LAYER_REPO_URL", "https://github.com")
+    monkeypatch.setenv("METRICS_LAYER_BRANCH", "dev")
+    monkeypatch.setenv("METRICS_LAYER_REPO_TYPE", "metrics_layer")
+    repo_config = {"repo_url": "https://correct.com", "branch": "master", "repo_type": "metrics_layer"}
+    config = MetricsLayerConfiguration(repo_config=repo_config)
 
-    assert config.repo.repo_type == "granite"
+    assert config.repo.repo_type == "metrics_layer"
     assert config.repo.branch == "master"
     assert config.repo.repo_url == "https://correct.com"
 
 
-def test_config_file_granite(monkeypatch):
-    monkeypatch.setenv("GRANITE_PROFILES_DIR", "./tests/config/granite_config/profiles")
-    config = GraniteConfiguration("test_warehouse")
+def test_config_file_metrics_layer(monkeypatch):
+    monkeypatch.setenv("METRICS_LAYER_PROFILES_DIR", "./tests/config/metrics_layer_config/profiles")
+    config = MetricsLayerConfiguration("test_warehouse")
 
-    assert "granite/tests/config/granite_config" in config.repo.repo_path
+    assert "tests/config/metrics_layer_config" in config.repo.repo_path
     assert len(config.connections()) == 2
     assert all(c.name in {"sf_creds", "bq_creds"} for c in config.connections())
 
@@ -179,7 +183,7 @@ def test_config_file_granite(monkeypatch):
     bq = config.get_connection("bq_creds")
     assert bq.project_id == "test-data-warehouse"
     assert bq.credentials == {
-        "client_email": "granite@testing.iam.gserviceaccount.com",
+        "client_email": "metrics_layer@testing.iam.gserviceaccount.com",
         "project_id": "test-data-warehouse",
         "type": "service_account",
     }
@@ -188,6 +192,6 @@ def test_config_file_granite(monkeypatch):
 def test_config_does_not_exist():
     # Should raise ConfigError
     with pytest.raises(ConfigError) as exc_info:
-        GraniteConfiguration()
+        MetricsLayerConfiguration()
 
     assert exc_info.value

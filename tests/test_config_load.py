@@ -7,7 +7,7 @@ BASE_PATH = os.path.dirname(__file__)
 
 
 def test_config_load_yaml_model():
-    model_path = os.path.join(BASE_PATH, "config/granite_config/models/model_with_all_fields.yml")
+    model_path = os.path.join(BASE_PATH, "config/metrics_layer_config/models/model_with_all_fields.yml")
     with open(model_path, "r") as f:
         model_dict = yaml.safe_load(f)
     assert isinstance(model_dict, dict)
@@ -15,7 +15,7 @@ def test_config_load_yaml_model():
 
 
 def test_config_load_yaml_view():
-    view_path = os.path.join(BASE_PATH, "config/granite_config/views/view_with_all_fields.yml")
+    view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/view_with_all_fields.yml")
     with open(view_path, "r") as f:
         view_dict = yaml.safe_load(f)
     assert isinstance(view_dict, dict)
