@@ -12,9 +12,9 @@ Make sure that your data warehouse is one of the supported types. Metrics Layer 
 
 Install metrics_layer with the appropriate extra for your warehouse
 
-For Snowflake run `pip install git+https://github.com/Zenlytic/metrics_layer.git#egg=metrics_layer[snowflake]`
+For Snowflake run `pip install metrics-layer[snowflake]`
 
-For BigQuery run `pip install git+https://github.com/Zenlytic/metrics_layer.git#egg=metrics_layer[bigquery]`
+For BigQuery run `pip install metrics-layer[bigquery]`
 
 
 ## Profile set up

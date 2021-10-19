@@ -78,8 +78,7 @@ class QueryRunner:
             raise ModuleNotFoundError(
                 "MetricsLayer could not find the Snowflake modules it needs to run the query. "
                 "Make sure that you have those modules installed or reinstall MetricsLayer with "
-                "the [snowflake] option e.g. "
-                "pip install git+https://github.com/Zenlytic/metrics_layer.git#egg=metrics_layer[snowflake]"
+                "the [snowflake] option e.g. pip install metrics-layer[snowflake]"
             )
 
     @staticmethod
@@ -93,7 +92,6 @@ class QueryRunner:
             raise ModuleNotFoundError(
                 "MetricsLayer could not find the BigQuery modules it needs to run the query. "
                 "Make sure that you have those modules installed or reinstall MetricsLayer with "
-                "the [bigquery] option e.g. "
-                "pip install git+https://github.com/Zenlytic/metrics_layer.git#egg=metrics_layer[bigquery]"
+                "the [bigquery] option e.g. pip install metrics-layer[bigquery]"
             )
         return connection

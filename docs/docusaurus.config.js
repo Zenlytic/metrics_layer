@@ -40,7 +40,7 @@ const config = {
         title: 'Metrics Layer',
         logo: {
           alt: 'Metrics Layer Logo',
-          src: 'img/metrics_layer-logo.png',
+          src: 'img/metrics-layer-logo.png',
         },
         items: [
           {
