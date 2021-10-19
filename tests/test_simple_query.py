@@ -1,7 +1,7 @@
 import pytest
 
-from granite import GraniteConnection
-from granite.core.model import Definitions, Project
+from metrics_layer import MetricsLayerConnection
+from metrics_layer.core.model import Definitions, Project
 
 simple_model = {
     "type": "model",
@@ -75,7 +75,7 @@ simple_view = {
 def test_simple_query(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"])
 
     correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
@@ -86,7 +86,7 @@ def test_simple_query(config):
 def test_simple_query_single_metric(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(metrics=["total_revenue"])
 
     correct = "SELECT SUM(simple.revenue) as total_revenue FROM analytics.orders simple;"
@@ -96,7 +96,7 @@ def test_simple_query_single_metric(config):
 def test_simple_query_single_dimension(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(dimensions=["channel"])
 
     correct = "SELECT simple.sales_channel as channel FROM "
@@ -107,7 +107,7 @@ def test_simple_query_single_dimension(config):
 def test_simple_query_count(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(metrics=["count"], dimensions=["channel"])
 
     correct = "SELECT simple.sales_channel as channel,COUNT(*) as count FROM "
@@ -139,7 +139,7 @@ def test_simple_query_count(config):
 def test_simple_query_dimension_group(config, group: str, query_type: str):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(
         metrics=["total_revenue"], dimensions=[f"order_{group}"], query_type=query_type
     )
@@ -196,7 +196,7 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
 def test_simple_query_dimension_group_interval(config, interval: str, query_type: str):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     raises_error = interval == "hour" and query_type == Definitions.bigquery
     if raises_error:
         with pytest.raises(KeyError) as exc_info:
@@ -247,7 +247,7 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
 def test_simple_query_two_group_by(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel", "new_vs_repeat"])
 
     correct = "SELECT simple.sales_channel as channel,simple.new_vs_repeat as new_vs_repeat,"
@@ -259,7 +259,7 @@ def test_simple_query_two_group_by(config):
 def test_simple_query_two_metric(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(
         metrics=["total_revenue", "average_order_value"],
         dimensions=["channel", "new_vs_repeat"],
@@ -274,7 +274,7 @@ def test_simple_query_two_metric(config):
 def test_simple_query_custom_dimension(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["is_valid_order"])
 
     correct = "SELECT CASE WHEN simple.sales_channel != 'fraud' THEN TRUE ELSE FALSE END as is_valid_order,"
@@ -286,7 +286,7 @@ def test_simple_query_custom_dimension(config):
 def test_simple_query_custom_metric(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(metrics=["revenue_per_aov"], dimensions=["channel"])
 
     correct = "SELECT simple.sales_channel as channel,CASE WHEN AVG(simple.revenue) = 0 THEN 0 ELSE SUM(simple.revenue) / AVG(simple.revenue) END as revenue_per_aov FROM "  # noqa
@@ -298,7 +298,7 @@ def test_simple_query_custom_metric(config):
 def test_simple_query_with_where_dim_group(config, query_type):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=["channel"],
@@ -321,7 +321,7 @@ def test_simple_query_with_where_dim_group(config, query_type):
 def test_simple_query_with_where_dict(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=["channel"],
@@ -336,7 +336,7 @@ def test_simple_query_with_where_dict(config):
 def test_simple_query_with_where_literal(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(
         metrics=["total_revenue"], dimensions=["simple.channel"], where="simple.channel != 'Email'"
     )
@@ -349,7 +349,7 @@ def test_simple_query_with_where_literal(config):
 def test_simple_query_with_having_dict(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=["channel"],
@@ -364,7 +364,7 @@ def test_simple_query_with_having_dict(config):
 def test_simple_query_with_having_literal(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"], having="total_revenue > 12")
 
     correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
@@ -375,7 +375,7 @@ def test_simple_query_with_having_literal(config):
 def test_simple_query_with_order_by_dict(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(
         metrics=["total_revenue", "average_order_value"],
         dimensions=["channel"],
@@ -390,7 +390,7 @@ def test_simple_query_with_order_by_dict(config):
 def test_simple_query_with_order_by_literal(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(
         metrics=["total_revenue"], dimensions=["channel"], order_by="total_revenue asc"
     )
@@ -403,7 +403,7 @@ def test_simple_query_with_order_by_literal(config):
 def test_simple_query_with_all(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=["channel"],
@@ -423,7 +423,7 @@ def test_simple_query_sql_always_where(config):
 
     project = Project(models=[{**simple_model, "explores": [modified_explore]}], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"])
 
     correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
@@ -440,7 +440,7 @@ def test_simple_query_invalid_sql_always_where(config):
 
     project = Project(models=[{**simple_model, "explores": [modified_explore]}], views=[simple_view])
     config.project = project
-    conn = GraniteConnection(config=config)
+    conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"], suppress_warnings=True)
 
     correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "

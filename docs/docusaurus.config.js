@@ -6,15 +6,15 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'Granite Documentation',
+  title: 'Metrics Layer Documentation',
   tagline: 'The open source metrics layer',
   url: 'https://zenlytic.github.io',
-  baseUrl: '/granite/',
+  baseUrl: '/metrics_layer/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
   organizationName: 'Zenlytic', // Usually your GitHub org/user name.
-  projectName: 'granite', // Usually your repo name.
+  projectName: 'metrics_layer', // Usually your repo name.
   trailingSlash: false,
 
   presets: [
@@ -24,7 +24,7 @@ const config = {
       ({
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
-          editUrl: 'https://github.com/Zenlytic/granite/docs/',
+          editUrl: 'https://github.com/Zenlytic/metrics_layer/docs/',
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
@@ -37,10 +37,10 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       navbar: {
-        title: 'Granite',
+        title: 'Metrics Layer',
         logo: {
-          alt: 'Granite Logo',
-          src: 'img/granite-logo.png',
+          alt: 'Metrics Layer Logo',
+          src: 'img/metrics_layer-logo.png',
         },
         items: [
           {
@@ -56,7 +56,7 @@ const config = {
             label: 'Documentation',
           },
           {
-            href: 'https://github.com/Zenlytic/granite',
+            href: 'https://github.com/Zenlytic/metrics_layer',
             label: 'GitHub',
             position: 'right',
           },
@@ -83,7 +83,7 @@ const config = {
             items: [
               {
                 label: 'Stack Overflow',
-                href: 'https://stackoverflow.com/questions/tagged/granite',
+                href: 'https://stackoverflow.com/questions/tagged/metrics_layer',
               },
               {
                 label: 'Twitter',
@@ -96,7 +96,7 @@ const config = {
             items: [
               {
                 label: 'GitHub',
-                href: 'https://github.com/Zenlytic/granite',
+                href: 'https://github.com/Zenlytic/metrics_layer',
               },
             ],
           },

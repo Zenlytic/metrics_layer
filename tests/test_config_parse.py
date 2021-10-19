@@ -2,8 +2,8 @@ import os
 
 import pytest
 
-from granite.core.parse.github_repo import BaseRepo
-from granite.core.parse.project_reader import ProjectReader
+from metrics_layer.core.parse.github_repo import BaseRepo
+from metrics_layer.core.parse.project_reader import ProjectReader
 
 BASE_PATH = os.path.dirname(__file__)
 
@@ -21,8 +21,8 @@ class repo_mock(BaseRepo):
         elif pattern == "*.view.*":
             return [os.path.join(BASE_PATH, "config/lookml/views/view_with_all_fields.view.lkml")]
         elif pattern == "*.yml":
-            view = os.path.join(BASE_PATH, "config/granite_config/views/view_with_all_fields.yml")
-            model = os.path.join(BASE_PATH, "config/granite_config/models/model_with_all_fields.yml")
+            view = os.path.join(BASE_PATH, "config/metrics_layer_config/views/view_with_all_fields.yml")
+            model = os.path.join(BASE_PATH, "config/metrics_layer_config/models/model_with_all_fields.yml")
             return [model, view]
         return []
 
@@ -31,7 +31,7 @@ class repo_mock(BaseRepo):
 
 
 def test_config_load_yaml():
-    reader = ProjectReader(repo=repo_mock(repo_type="granite"))
+    reader = ProjectReader(repo=repo_mock(repo_type="metrics_layer"))
     reader.load()
 
     model = reader.models[0]
@@ -121,7 +121,7 @@ def test_config_load_lkml():
 def test_automatic_choosing():
     reader = ProjectReader(repo=repo_mock())
     reader.load()
-    assert reader.base_repo.get_repo_type() == "granite"
+    assert reader.base_repo.get_repo_type() == "metrics_layer"
 
 
 def test_bad_repo_type():
@@ -135,7 +135,7 @@ def test_bad_repo_type():
 def test_config_load_multiple():
 
     base_mock = repo_mock(repo_type="lookml")
-    additional_mock = repo_mock(repo_type="granite")
+    additional_mock = repo_mock(repo_type="metrics_layer")
     reader = ProjectReader(repo=base_mock, additional_repo=additional_mock)
 
     model = reader.models[0]

@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # Exploring the Data model
 
-There are several options in Granite for exploring a data model. Here are some examples of their usage:
+There are several options in Metrics Layer for exploring a data model. Here are some examples of their usage:
 
 
 ### Explores
@@ -12,9 +12,9 @@ There are several options in Granite for exploring a data model. Here are some e
 When listing explores, the default is to return a list of `Explore` [objects](../5_project/3_explore.md). If you're not very familiar with the concept of an explore, it is essentially a grouping of tables that can be joined together. More information is available in Looker's [docs](https://docs.looker.com/reference/explore-params/explore).
 
 ```
-from granite import GraniteConnection
+from metrics_layer import MetricsLayerConnection
 
-conn = GraniteConnection("demo_connection")
+conn = MetricsLayerConnection("demo_connection")
 
 # Lists of *all* the explores in your data model
 explores = conn.list_explores()
@@ -29,9 +29,9 @@ explore = conn.get_explore("order_lines")
 When listing metrics, the default is to return a list of `Field` [objects](../5_project/5_field.md). Listing metrics will return all measures associated with your LookML project.
 
 ```
-from granite import GraniteConnection
+from metrics_layer import MetricsLayerConnection
 
-conn = GraniteConnection("demo_connection")
+conn = MetricsLayerConnection("demo_connection")
 
 # Lists of *all* the metrics in your data model
 metrics = conn.list_metrics()

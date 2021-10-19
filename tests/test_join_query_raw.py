@@ -1,6 +1,6 @@
 import pytest
 
-from granite.core.sql.query_errors import ArgumentError
+from metrics_layer.core.sql.query_errors import ArgumentError
 
 
 def test_query_no_join_raw(connection):

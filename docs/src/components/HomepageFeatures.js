@@ -7,7 +7,7 @@ const FeatureList = [
     title: 'Easy to Use',
     description: (
       <>
-        Granite was designed from the ground up to be easily installed and
+        Metrics Layer was designed from the ground up to be easily installed and
         used to start querying your metrics as soon as possible.
       </>
     ),
@@ -16,7 +16,7 @@ const FeatureList = [
     title: 'Fast',
     description: (
       <>
-        Granite resolves the correct query to run locally, then runs it
+        Metrics Layer resolves the correct query to run locally, then runs it
         directly against your warehouse. It's orders of magnitude faster than the Looker SDK.
       </>
     ),
@@ -25,7 +25,7 @@ const FeatureList = [
     title: 'Reads LookML',
     description: (
       <>
-        Granite uses your existing data model. Just point it to your LookML and
+        Metrics Layer uses your existing data model. Just point it to your LookML and
         you'll have access to your important metrics in python.
       </>
     ),

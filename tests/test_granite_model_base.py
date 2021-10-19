@@ -1,6 +1,6 @@
-from granite.core.model.base import GraniteBase
+from metrics_layer.core.model.base import MetricsLayerBase
 
 
 def test_base():
-    obj = GraniteBase({"name": "testing"})
+    obj = MetricsLayerBase({"name": "testing"})
     assert obj.name == "testing"

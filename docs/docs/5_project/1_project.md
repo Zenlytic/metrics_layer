@@ -9,9 +9,9 @@ The project object is the class you use to interact with your project as a whole
 Once you create a connection, you can access the project like this:
 
 ```
-from granite import GraniteConnection
+from metrics_layer import MetricsLayerConnection
 
-conn = GraniteConnection("demo")
+conn = MetricsLayerConnection("demo")
 
 project = conn.project
 ```

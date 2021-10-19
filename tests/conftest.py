@@ -2,21 +2,25 @@ import os
 
 import pytest
 
-from granite import GraniteConnection
-from granite.api import create_app, db
-from granite.api.models import User
-from granite.core.model.project import Project
-from granite.core.parse.project_reader import ProjectReader
+from metrics_layer import MetricsLayerConnection
+from metrics_layer.api import create_app, db
+from metrics_layer.api.models import User
+from metrics_layer.core.model.project import Project
+from metrics_layer.core.parse.project_reader import ProjectReader
 
 BASE_PATH = os.path.dirname(__file__)
 
-model_path = os.path.join(BASE_PATH, "config/granite_config/models/commerce_test_model.yml")
-order_lines_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_order_lines.yml")
-orders_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_orders.yml")
-customers_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_customers.yml")
-discounts_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_discounts.yml")
-discount_detail_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_discount_detail.yml")
-country_detail_view_path = os.path.join(BASE_PATH, "config/granite_config/views/test_country_detail.yml")
+model_path = os.path.join(BASE_PATH, "config/metrics_layer_config/models/commerce_test_model.yml")
+order_lines_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_order_lines.yml")
+orders_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_orders.yml")
+customers_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_customers.yml")
+discounts_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_discounts.yml")
+discount_detail_view_path = os.path.join(
+    BASE_PATH, "config/metrics_layer_config/views/test_discount_detail.yml"
+)
+country_detail_view_path = os.path.join(
+    BASE_PATH, "config/metrics_layer_config/views/test_country_detail.yml"
+)
 view_paths = [
     order_lines_view_path,
     orders_view_path,
@@ -29,7 +33,7 @@ view_paths = [
 
 @pytest.fixture(scope="module")
 def test_app():
-    app = create_app(config="granite.api.api_config.TestingConfig")
+    app = create_app(config="metrics_layer.api.api_config.TestingConfig")
     with app.app_context():
         yield app  # testing happens here
 
@@ -105,4 +109,4 @@ def config(project):
 
 @pytest.fixture(scope="module")
 def connection(config):
-    return GraniteConnection(config=config)
+    return MetricsLayerConnection(config=config)
