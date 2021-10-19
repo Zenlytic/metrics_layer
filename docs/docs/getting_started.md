@@ -4,13 +4,13 @@ sidebar_position: 2
 
 # Getting Started
 
-Set metrics_layer up and start querying your metrics in **in under 2 minutes**.
+Set Metrics Layer up and start querying your metrics in **in under 2 minutes**.
 
 ## Installation
 
 Make sure that your data warehouse is one of the supported types. Metrics Layer currently supports Snowflake and BigQuery, and only works with `python >= 3.7`.
 
-Install metrics_layer with the appropriate extra for your warehouse
+Install Metrics Layer with the appropriate extra for your warehouse
 
 For Snowflake run `pip install metrics-layer[snowflake]`
 
