@@ -4,7 +4,7 @@ sidebar_position: 2
 
 # Getting SQL and running queries
 
-There are two main methods for interacting with SQL in metrics_layer `get_sql_query`, which gets the SQL necessary to calculate your request, but doesn't run it, and `query`, which gets that SQL and runs it against your warehouse.
+There are two main methods for interacting with SQL in Metrics Layer `get_sql_query`, which gets the SQL necessary to calculate your request, but doesn't run it, and `query`, which gets that SQL and runs it against your warehouse.
 
 In both of these methods there are two ways to use Metrics Layer, using SQL with a `MQL` tag for metrics, or specifying lists of metrics and dimensions.
 
@@ -38,7 +38,7 @@ df = conn.query(
 
 ## MQL queries
 
-Here's an example of using the `MQL` syntax to compose queries to run against the warehouse. You can include queries with only `MQL`, queries that compose `MQL` with other SQL, or queries that are only SQL (in this case you'll have to pass a `connection_name` argument because metrics_layer will not be able to determine which connection to use).
+Here's an example of using the `MQL` syntax to compose queries to run against the warehouse. You can include queries with only `MQL`, queries that compose `MQL` with other SQL, or queries that are only SQL (in this case you'll have to pass a `connection_name` argument because Metrics Layer will not be able to determine which connection to use).
 
 
 ### MQL only

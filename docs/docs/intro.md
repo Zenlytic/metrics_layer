@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # What is Metrics Layer?
 
-Metrics Layer is an open source metrics layer. It's goal is to make access of metrics consistent throughout an organization. We believe you should be able to access consistent metrics from any tool you use to access data.
+Metrics Layer is an open source project with the goal of making access to metrics consistent throughout an organization. We believe you should be able to access consistent metrics from any tool you use to access data.
 
 ## How does it work?
 

@@ -43,8 +43,8 @@ pytest-mock = "^3.6.1"
 [tool.poetry.extras]
 snowflake = ["snowflake-connector-python", "pyarrow", "pandas"]
 bigquery = ["google-cloud-bigquery", "pyarrow", "pandas"]
-flask = ["Flask", "Flask-RESTful", "Flask-SQLAlchemy", "Flask-Bcrypt", "PyJWT", "gunicorn"]
-all = ["snowflake-connector-python", "google-cloud-bigquery", "pyarrow", "pandas", "Flask", "Flask-RESTful", "Flask-SQLAlchemy", "Flask-Bcrypt", "PyJWT", "gunicorn"]
+flask = ["Flask", "Flask-RESTful", "Flask-SQLAlchemy", "Flask-Bcrypt", "Flask-Migrate", "PyJWT", "gunicorn"]
+all = ["snowflake-connector-python", "google-cloud-bigquery", "pyarrow", "pandas", "Flask", "Flask-RESTful", "Flask-SQLAlchemy", "Flask-Bcrypt", "Flask-Migrate", "PyJWT", "gunicorn"]
 
 [tool.black]
 line-length = 110

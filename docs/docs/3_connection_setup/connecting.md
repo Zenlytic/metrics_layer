@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # Connecting
 
-First, we'll go through how to set up a `profiles.yml` file, which is the best solution for an individual using Metrics Layer on his or her local machine. Second, we'll look at other ways of passing the configuration into metrics_layer.
+First, we'll go through how to set up a `profiles.yml` file, which is the best solution for an individual using Metrics Layer on his or her local machine. Second, we'll look at other ways of passing the configuration into Metrics Layer.
 
 ## Profile set up
 
