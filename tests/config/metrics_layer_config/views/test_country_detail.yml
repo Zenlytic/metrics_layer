@@ -1,7 +1,10 @@
 version: 1
 type: view
 name: country_detail
-sql_table_name: analytics.country_detail
+# sql_table_name: analytics.country_detail
+derived_table:
+  sql: SELECT * FROM ANALYTICS.COUNTRY_DETAIL
+  datagroup_trigger: country_detail_datagroup
 
 fields:
   - name: country_id

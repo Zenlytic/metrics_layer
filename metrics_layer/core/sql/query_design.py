@@ -22,6 +22,8 @@ class MetricsLayerDesign:
     def joins(self) -> List[MetricsLayerBase]:
         fields_in_query = list(self.field_lookup.values())
         required_views = list(set([v for field in fields_in_query for v in field.required_views()]))
+        if self.explore.always_join:
+            required_views.extend(self.explore.always_join)
 
         joins_needed_for_query = []
         for view_name in reversed(sorted(required_views)):

@@ -65,9 +65,6 @@ def test_query_single_join_metric_with_sub_field(connection):
     assert query == correct
 
 
-# TODO have a test for symmetric for a one_to_many or many_to_many join e.g. discounts
-
-
 def test_query_single_join_with_forced_additional_join(connection):
     query = connection.get_sql_query(
         metrics=["avg_rainfall"],
@@ -85,8 +82,8 @@ def test_query_single_join_with_forced_additional_join(connection):
         "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
         "LEFT JOIN analytics_live.discounts discounts ON orders.order_id=discounts.order_id "
         "LEFT JOIN analytics.discount_detail discount_detail ON discounts.discount_id=discount_detail.discount_id "  # noqa
-        "LEFT JOIN analytics.country_detail country_detail ON discounts.country=country_detail.country "
-        "GROUP BY discount_detail.promo_name;"
+        "LEFT JOIN (SELECT * FROM ANALYTICS.COUNTRY_DETAIL) as country_detail "
+        "ON discounts.country=country_detail.country GROUP BY discount_detail.promo_name;"
     )
     assert query == correct
 
