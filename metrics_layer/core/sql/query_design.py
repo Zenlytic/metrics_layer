@@ -36,6 +36,8 @@ class MetricsLayerDesign:
         join_already_added = any(view_name == j.name for j in joins_already_added)
         if not join_already_added and view_name != self.explore.from_:
             join = self.explore.get_join(view_name)
+            if join is None:
+                raise ValueError(f"Could not locate join named {view_name} for explore {self.explore.name}")
             joins_to_add.append(join)
             for view_name in join.required_views():
                 joins_to_add.extend(self._find_needed_joins(view_name, joins_already_added + [join]))
