@@ -61,6 +61,12 @@ class Field(MetricsLayerBase, SQLReplacement):
             definition["sql"] = self._clean_sql_for_case(definition["sql"])
         return definition.get("sql")
 
+    @property
+    def label(self):
+        if "label" in self._definition:
+            return self._definition["label"]
+        return self.alias().replace("_", " ").title()
+
     def alias(self):
         if self.field_type == "dimension_group":
             if self.type == "time":
