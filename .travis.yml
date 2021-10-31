@@ -1,0 +1,31 @@
+jobs:
+  include:
+  - language: python
+    python:
+      - 3.7
+      # - 3.8
+      # - 3.9
+    before_install:
+      - python --version
+      - pip install -U pip
+      - pip install -U pytest
+      - pip install codecov
+    install:
+      - pip install ".[all]"
+    script: pytest
+    after_success:
+      - codecov
+
+  - language: node_js
+    node_js:
+      - '12.13.0'
+    branches:
+      only:
+        - master
+    cache:
+      yarn: true
+    script:
+      - git config --global user.name "${GH_NAME}"
+      - git config --global user.email "${GH_EMAIL}"
+      - echo "machine github.com login ${GH_NAME} password ${GH_TOKEN}" > ~/.netrc
+      - yarn && GIT_USER="${GH_NAME}" yarn deploy
