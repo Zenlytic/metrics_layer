@@ -64,7 +64,12 @@ class Field(MetricsLayerBase, SQLReplacement):
     @property
     def label(self):
         if "label" in self._definition:
-            return self._definition["label"]
+            label = self._definition["label"]
+            if self.type == "time" and self.dimension_group:
+                return f"{label} {self.dimension_group.replace('_', ' ').title()}"
+            elif self.type == "duration" and self.dimension_group:
+                return f"{self.dimension_group.replace('_', ' ').title()} {label}"
+            return label
         return self.alias().replace("_", " ").title()
 
     def alias(self):

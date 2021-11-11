@@ -52,6 +52,7 @@ simple_view = {
                 "day_of_week",
                 "hour_of_day",
             ],
+            "label": "Order Created",
             "name": "order",
         },
         {
@@ -61,6 +62,7 @@ simple_view = {
             "sql_end": "${TABLE}.order_date",
             "intervals": ["second", "minute", "hour", "day", "week", "month", "quarter", "year"],
             "name": "waiting",
+            "label": "Between view and order",
         },
         {
             "field_type": "dimension",
@@ -143,6 +145,7 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
     query = conn.get_sql_query(
         metrics=["total_revenue"], dimensions=[f"order_{group}"], query_type=query_type
     )
+    field = project.get_field(f"order_{group}")
 
     if query_type == Definitions.snowflake:
         result_lookup = {
@@ -172,6 +175,9 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
     correct = f"SELECT {date_result} as order_{group},SUM(simple.revenue) as "
     correct += f"total_revenue FROM analytics.orders simple GROUP BY {date_result};"
     assert query == correct
+
+    correct_label = f"Order Created {group.replace('_', ' ').title()}"
+    assert field.label == correct_label
 
 
 @pytest.mark.parametrize(
@@ -211,6 +217,7 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
             dimensions=[f"{interval}s_waiting"],
             query_type=query_type,
         )
+        field = project.get_field(f"{interval}s_waiting")
 
     if query_type == Definitions.snowflake:
         result_lookup = {
@@ -242,6 +249,9 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
         )
         correct += f"analytics.orders simple GROUP BY {interval_result};"
         assert query == correct
+
+        correct_label = f"{interval.replace('_', ' ').title()}s Between view and order"
+        assert field.label == correct_label
 
 
 def test_simple_query_two_group_by(config):
