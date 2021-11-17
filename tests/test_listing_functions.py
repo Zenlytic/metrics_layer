@@ -22,16 +22,16 @@ def test_list_metrics(config):
 def test_list_dimensions(config):
     conn = MetricsLayerConnection(config=config)
     dimensions = conn.list_dimensions(show_hidden=True)
-    assert len(dimensions) == 31
+    assert len(dimensions) == 32
 
     dimensions = conn.list_dimensions()
-    assert len(dimensions) == 21
+    assert len(dimensions) == 22
 
     dimensions = conn.list_dimensions(explore_name="order_lines", show_hidden=True)
-    assert len(dimensions) == 30
+    assert len(dimensions) == 31
 
     dimensions = conn.list_dimensions(explore_name="order_lines")
-    assert len(dimensions) == 20
+    assert len(dimensions) == 21
 
     dimensions = conn.list_dimensions(view_name="order_lines", names_only=True, show_hidden=True)
     dimensions_present = {
@@ -41,10 +41,11 @@ def test_list_dimensions(config):
         "order",
         "waiting",
         "channel",
+        "parent_channel",
         "product_name",
         "is_on_sale_sql",
         "is_on_sale_case",
         "order_tier",
     }
-    assert len(dimensions) == 10
+    assert len(dimensions) == 11
     assert set(dimensions) == dimensions_present

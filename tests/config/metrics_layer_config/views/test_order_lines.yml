@@ -57,6 +57,16 @@ fields:
     type: string
     sql: "${TABLE}.sales_channel"
 
+  - name: parent_channel
+    field_type: "dimension"
+    type: string
+    sql: |
+        CASE
+        --- parent channel
+        WHEN ${channel} ilike '%social%' then 'Social'
+        ELSE 'Not Social'
+        END
+
   - name: product_name
     field_type: "dimension"
     type: string
