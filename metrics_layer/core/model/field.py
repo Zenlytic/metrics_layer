@@ -368,7 +368,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             return None
         clean_sql = self.replace_fields(sql_query)
         clean_sql = re.sub(r"[ ]{2,}", " ", clean_sql)
-        clean_sql = clean_sql.replace("\n", "").replace("'", "'")
+        clean_sql = clean_sql.replace("'", "'")
         return clean_sql
 
     def replace_fields(self, sql, view_name=None):

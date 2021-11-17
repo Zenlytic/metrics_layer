@@ -33,6 +33,18 @@ def test_query_single_dimension(connection):
     assert query == correct
 
 
+def test_query_single_dimension_with_comment(connection):
+    query = connection.get_sql_query(metrics=["total_item_revenue"], dimensions=["parent_channel"])
+
+    correct = (
+        "SELECT CASE\n--- parent channel\nWHEN order_lines.sales_channel ilike '%social%' then "
+        "'Social'\nELSE 'Not Social'\nEND as parent_channel,SUM(order_lines.revenue) as total_item_revenue "
+        "FROM analytics.order_line_items order_lines GROUP BY CASE\n--- parent channel\nWHEN "
+        "order_lines.sales_channel ilike '%social%' then 'Social'\nELSE 'Not Social'\nEND;"
+    )
+    assert query == correct
+
+
 def test_query_single_join_count(connection):
 
     query = connection.get_sql_query(

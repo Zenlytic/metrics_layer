@@ -256,4 +256,12 @@ view: view_name {
     ]
     default_value: "desired default value"
   }
+  dimension: parent_channel {
+    type: string
+    sql: CASE
+        --- parent channel
+        WHEN channel ilike '%social%' then 'Social'
+        ELSE 'Not Social'
+        END ;;
+  }
 }
