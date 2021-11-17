@@ -416,9 +416,42 @@ class Field(MetricsLayerBase, SQLReplacement):
         case_sql = "case when "
         conditions = []
         for f in filters:
-            # TODO add the advanced filter parsing here
+            # TODO more advanced parsing
+            # ref: https://docs.looker.com/reference/field-params/filters
+
             field_reference = "${" + f["field"] + "}"
-            condition = f"{field_reference} = '{f['value']}'"
+            value = f["value"]
+
+            # Handle null conditiona
+            if value == "NULL":
+                condition_value = f"is null"
+            elif value == "-NULL":
+                condition_value = f"is not null"
+
+            # Numeric parsing for less than or equal to, greater than or equal to, not equal to
+            elif value[:2] in {"=<", ">=", "<>", "!="}:
+                condition_value = f"{value[:2]} {value[2:]}"
+
+            # Numeric parsing for equal to, less than, greater than
+            elif value[0] in {"=", ">", "<"}:
+                condition_value = f"{value[0]} {value[1:]}"
+
+            # Not equal to condition for strings
+            elif value[0] == "-":
+                condition_value = f"<> '{value[1:]}'"
+
+            # Not equal to condition for strings
+            elif value[0] == "-":
+                condition_value = f"<> '{value[1:]}'"
+
+            # isin for strings
+            elif len(value.split(", ")) > 1:
+                raise NotImplementedError("TODO: Need to support array syntax in filters")
+
+            else:
+                condition_value = f"= '{value}'"
+
+            condition = f"{field_reference} {condition_value}"
             conditions.append(condition)
 
         # Add the filter conditions AND'd together

@@ -119,14 +119,34 @@ class ProjectReader:
     def _standardize_explore(self, explore: dict):
         if "always_filter" in explore:
             filters = explore["always_filter"].pop("filters__all")
-            explore["always_filter"]["filters"] = filters
+            explore["always_filter"]["filters"] = self._standardize_filters(filters)
         return explore
 
     def _standardize_field(self, field: dict):
         if "filters__all" in field:
             filters = field.pop("filters__all")
-            field["filters"] = filters
+            field["filters"] = self._standardize_filters(filters)
         return field
+
+    def _standardize_filters(self, filters: list):
+        clean_filters = []
+        for f in filters:
+            if isinstance(f, list):
+                for nested_filter in f:
+                    clean_filters.append(self.__clean_filter(nested_filter))
+            else:
+                clean_filters.append(self.__clean_filter(f))
+        return clean_filters
+
+    def __clean_filter(self, filter_dict: dict):
+        # OG looker filter pattern
+        if "field" in filter_dict and "value" in filter_dict:
+            return filter_dict
+
+        # New Looker filter pattern
+        field = list(filter_dict.keys())[0]
+        value = list(filter_dict.values())[0]
+        return {"field": field, "value": value}
 
     def _merge_objects(self, base_objects: list, additional_objects: list):
         results = []

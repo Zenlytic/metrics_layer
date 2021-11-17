@@ -45,6 +45,19 @@ def test_query_single_dimension_with_comment(connection):
     assert query == correct
 
 
+def test_query_single_dimension_with_multi_filter(connection):
+    query = connection.get_sql_query(metrics=["total_item_costs"], dimensions=["channel"])
+
+    correct = (
+        "SELECT order_lines.sales_channel as channel,SUM(case when order_lines.product_name "
+        "= 'Portable Charger' and orders.revenue = 30 then order_lines.item_costs end) "
+        "as total_item_costs FROM analytics.order_line_items order_lines LEFT JOIN "
+        "analytics.orders orders ON order_lines.order_id=orders.order_id "
+        "GROUP BY order_lines.sales_channel;"
+    )
+    assert query == correct
+
+
 def test_query_single_join_count(connection):
 
     query = connection.get_sql_query(

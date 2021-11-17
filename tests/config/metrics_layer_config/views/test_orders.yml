@@ -38,6 +38,11 @@ fields:
     ]
     sql: "${TABLE}.order_date"
 
+  - name: revenue
+    field_type: "dimension"
+    type: number
+    sql: "${TABLE}.revenue"
+
   - name: sub_channel
     field_type: "dimension"
     type: string
@@ -56,7 +61,7 @@ fields:
   - name: total_revenue
     field_type: "measure"
     type: sum
-    sql: "${TABLE}.revenue"
+    sql: ${revenue}
 
   - name: total_modified_revenue
     field_type: "measure"

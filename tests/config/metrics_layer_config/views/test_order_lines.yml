@@ -114,6 +114,11 @@ fields:
     field_type: "measure"
     type: sum
     sql: "${TABLE}.item_costs"
+    filters:
+      - field: product_name
+        value: "Portable Charger"
+      - field: orders.revenue
+        value: "=30"
 
 
   - name: line_item_aov

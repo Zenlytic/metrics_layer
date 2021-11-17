@@ -264,6 +264,11 @@ view: view_name {
       value: "Repeat"
     }
   }
+  measure: filter_testing_new {
+    type: sum
+    sql: ${TABLE}.revenue ;;
+    filters: [new_vs_repeat: "Repeat", order_number: "=1"]
+  }
   dimension: parent_channel {
     type: string
     sql: CASE

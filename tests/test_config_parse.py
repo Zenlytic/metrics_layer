@@ -168,6 +168,7 @@ def test_config_load_multiple():
     field_with_all = next((f for f in view["fields"] if f["name"] == "field_name"))
     field_with_newline = next((f for f in view["fields"] if f["name"] == "parent_channel"))
     field_with_filter = next((f for f in view["fields"] if f["name"] == "filter_testing"))
+    field_with_new_filter = next((f for f in view["fields"] if f["name"] == "filter_testing_new"))
 
     assert isinstance(field_with_all["name"], str)
     assert isinstance(field_with_all["field_type"], str)
@@ -186,6 +187,10 @@ def test_config_load_multiple():
 
     # This is in here to make sure we recognize and adjust the default lkml filter dict label
     assert field_with_filter["filters"][0] == {"field": "new_vs_repeat", "value": "Repeat"}
+
+    print(field_with_new_filter["filters"])
+    assert field_with_new_filter["filters"][0] == {"field": "new_vs_repeat", "value": "Repeat"}
+    assert field_with_new_filter["filters"][-1] == {"field": "order_number", "value": "=1"}
 
 
 def test_config_use_view_name(project):
