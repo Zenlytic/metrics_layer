@@ -165,15 +165,27 @@ def test_config_load_multiple():
     assert isinstance(view["sql_table_name"], str)
     assert isinstance(view["fields"], list)
 
-    field = view["fields"][0]
+    field_with_all = next((f for f in view["fields"] if f["name"] == "field_name"))
+    field_with_newline = next((f for f in view["fields"] if f["name"] == "parent_channel"))
+    field_with_filter = next((f for f in view["fields"] if f["name"] == "filter_testing"))
 
-    assert isinstance(field["name"], str)
-    assert isinstance(field["field_type"], str)
-    assert isinstance(field["type"], str)
-    assert isinstance(field["sql"], str)
-    assert field["view_label"] == "desired looker label name"
-    assert field["parent"] == "parent_field"
-    assert field["extra"]["zenlytic.exclude"] == ["field_name"]
+    assert isinstance(field_with_all["name"], str)
+    assert isinstance(field_with_all["field_type"], str)
+    assert isinstance(field_with_all["type"], str)
+    assert isinstance(field_with_all["sql"], str)
+    assert field_with_all["view_label"] == "desired looker label name"
+    assert field_with_all["parent"] == "parent_field"
+    assert field_with_all["extra"]["zenlytic.exclude"] == ["field_name"]
+
+    # This is in here to make sure we recognize the newlines so the comment is properly ignored
+    correct_sql = (
+        "CASE\n        --- parent channel\n        WHEN channel ilike "
+        "'%social%' then 'Social'\n        ELSE 'Not Social'\n        END"
+    )
+    assert field_with_newline["sql"] == correct_sql
+
+    # This is in here to make sure we recognize and adjust the default lkml filter dict label
+    assert field_with_filter["filters"][0] == {"field": "new_vs_repeat", "value": "Repeat"}
 
 
 def test_config_use_view_name(project):

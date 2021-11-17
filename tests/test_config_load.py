@@ -36,9 +36,3 @@ def test_config_load_lkml_view():
         view_dict = lkml.load(f)
     assert isinstance(view_dict, dict)
     assert view_dict["views"][0]["name"] == "view_name"
-    # This is in here to make sure we recognize the newlines so the comment is properly ignored
-    correct_sql = (
-        "CASE\n        --- parent channel\n        WHEN channel ilike "
-        "'%social%' then 'Social'\n        ELSE 'Not Social'\n        END"
-    )
-    assert view_dict["views"][0]["dimensions"][-1]["sql"] == correct_sql

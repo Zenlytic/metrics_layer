@@ -109,7 +109,7 @@ class ProjectReader:
         dimensions = self._fields_with_type(view.pop("dimensions", []), "dimension")
         dimension_groups = self._fields_with_type(view.pop("dimension_groups", []), "dimension_group")
 
-        fields = measures + dimensions + dimension_groups
+        fields = [self._standardize_field(f) for f in measures + dimensions + dimension_groups]
         return {**view, "type": "view", "fields": fields}
 
     def _standardize_model(self, model: dict):
@@ -121,6 +121,12 @@ class ProjectReader:
             filters = explore["always_filter"].pop("filters__all")
             explore["always_filter"]["filters"] = filters
         return explore
+
+    def _standardize_field(self, field: dict):
+        if "filters__all" in field:
+            filters = field.pop("filters__all")
+            field["filters"] = filters
+        return field
 
     def _merge_objects(self, base_objects: list, additional_objects: list):
         results = []

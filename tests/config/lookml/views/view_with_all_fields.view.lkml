@@ -256,6 +256,14 @@ view: view_name {
     ]
     default_value: "desired default value"
   }
+  measure: filter_testing {
+    type: sum
+    sql: ${TABLE}.revenue ;;
+    filters: {
+      field: new_vs_repeat
+      value: "Repeat"
+    }
+  }
   dimension: parent_channel {
     type: string
     sql: CASE
