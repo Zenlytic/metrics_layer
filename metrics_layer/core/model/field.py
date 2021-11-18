@@ -379,17 +379,19 @@ class Field(MetricsLayerBase, SQLReplacement):
             if to_replace == "TABLE":
                 clean_sql = clean_sql.replace("${TABLE}", view_name)
             else:
-                field = self.get_field_with_view_info(to_replace)
+                field = self.get_field_with_view_info(to_replace, specified_view=view_name)
                 sql_replace = deepcopy(field.sql) if field and field.sql else to_replace
                 clean_sql = clean_sql.replace(
                     "${" + to_replace + "}", self.replace_fields(sql_replace, view_name=field.view.name)
                 )
         return clean_sql.strip()
 
-    def get_field_with_view_info(self, field: str):
+    def get_field_with_view_info(self, field: str, specified_view: str = None):
         _, view_name, field_name = self.field_name_parts(field)
-        if view_name is None:
+        if view_name is None and specified_view is None:
             view_name = self.view.name
+        elif view_name is None and specified_view:
+            view_name = specified_view
 
         if self.view is None:
             raise AttributeError(f"You must specify which view this field is in '{self.name}'")

@@ -22,16 +22,16 @@ def test_list_metrics(config):
 def test_list_dimensions(config):
     conn = MetricsLayerConnection(config=config)
     dimensions = conn.list_dimensions(show_hidden=True)
-    assert len(dimensions) == 33
+    assert len(dimensions) == 34
 
     dimensions = conn.list_dimensions()
-    assert len(dimensions) == 23
+    assert len(dimensions) == 24
 
     dimensions = conn.list_dimensions(explore_name="order_lines", show_hidden=True)
-    assert len(dimensions) == 32
+    assert len(dimensions) == 33
 
     dimensions = conn.list_dimensions(explore_name="order_lines")
-    assert len(dimensions) == 22
+    assert len(dimensions) == 23
 
     dimensions = conn.list_dimensions(view_name="order_lines", names_only=True, show_hidden=True)
     dimensions_present = {

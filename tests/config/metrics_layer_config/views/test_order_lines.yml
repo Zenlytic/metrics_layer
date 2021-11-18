@@ -117,8 +117,8 @@ fields:
     filters:
       - field: product_name
         value: "Portable Charger"
-      - field: orders.revenue
-        value: "=30"
+      - field: orders.revenue_in_cents
+        value: ">100"
 
 
   - name: line_item_aov
