@@ -188,7 +188,6 @@ def test_config_load_multiple():
     # This is in here to make sure we recognize and adjust the default lkml filter dict label
     assert field_with_filter["filters"][0] == {"field": "new_vs_repeat", "value": "Repeat"}
 
-    print(field_with_new_filter["filters"])
     assert field_with_new_filter["filters"][0] == {"field": "new_vs_repeat", "value": "Repeat"}
     assert field_with_new_filter["filters"][-1] == {"field": "order_number", "value": "=1"}
 

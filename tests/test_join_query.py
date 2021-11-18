@@ -58,6 +58,25 @@ def test_query_single_dimension_with_multi_filter(connection):
     assert query == correct
 
 
+def test_query_single_dimension_sa_duration(connection):
+    query = connection.get_sql_query(metrics=["average_days_between_orders"], dimensions=["product_name"])
+
+    correct = (
+        "SELECT order_lines.product_name as product_name,(COALESCE(CAST((SUM(DISTINCT "
+        "(CAST(FLOOR(COALESCE(DATEDIFF('DAY', orders.previous_order_date, orders.order_date), 0) "
+        "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(orders.order_id), "
+        "'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) "
+        "- SUM(DISTINCT (TO_NUMBER(MD5(orders.order_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "
+        "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) / CAST((1000000*1.0) AS DOUBLE PRECISION), 0) "
+        "/ NULLIF(COUNT(DISTINCT CASE WHEN  (DATEDIFF('DAY', orders.previous_order_date, "
+        "orders.order_date))  IS NOT NULL THEN  orders.order_id  "
+        "ELSE NULL END), 0)) as average_days_between_orders "
+        "FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
+        "ON order_lines.order_id=orders.order_id GROUP BY order_lines.product_name;"
+    )
+    assert query == correct
+
+
 def test_query_single_join_count(connection):
 
     query = connection.get_sql_query(
@@ -94,6 +113,7 @@ def test_query_single_join_with_forced_additional_join(connection):
     query = connection.get_sql_query(
         metrics=["avg_rainfall"],
         dimensions=["discount_promo_name"],
+        query_type="BIGQUERY",
     )
 
     correct = (
@@ -240,7 +260,7 @@ def test_query_multiple_join_where_literal(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],
-        where="region != 'West'",
+        where="first_order_week > '2021-07-12'",
     )
 
     correct = (
@@ -249,7 +269,7 @@ def test_query_multiple_join_where_literal(connection):
         "analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
-        "WHERE customers.region != 'West' "
+        "WHERE DATE_TRUNC('WEEK', customers.first_order_date) > '2021-07-12' "
         "GROUP BY customers.region,orders.new_vs_repeat;"
     )
     assert query == correct

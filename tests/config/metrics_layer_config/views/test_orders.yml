@@ -38,6 +38,28 @@ fields:
     ]
     sql: "${TABLE}.order_date"
 
+  - name: previous_order
+    field_type: "dimension_group"
+    type: time
+    timeframes: [
+      raw,
+      time,
+      date,
+      week,
+      month,
+      quarter,
+      year
+    ]
+    sql: "${TABLE}.previous_order_date"
+
+  - name: between_orders
+    field_type: dimension_group
+    type: duration
+    intervals: ["hour", "day", "week", "month", "quarter", "year"]
+    sql_start: ${previous_order_raw}
+    sql_end: ${order_raw}
+    label": "between this and last order"
+
   - name: revenue_dimension
     field_type: "dimension"
     type: number
@@ -62,6 +84,11 @@ fields:
     field_type: measure
     type: count
     sql: "${order_id}"
+
+  - name: average_days_between_orders
+    field_type: measure
+    type: average
+    sql: ${days_between_orders}
 
   - name: total_revenue
     field_type: "measure"

@@ -81,6 +81,8 @@ class Field(MetricsLayerBase, SQLReplacement):
         return self.name
 
     def sql_query(self, query_type: str = None, query_base_view: str = None, joins: list = []):
+        if not query_type:
+            query_type = self._derive_query_type()
         if self.field_type == "measure":
             return self.aggregate_sql_query(query_type, query_base_view, joins)
         return self.raw_sql_query(query_type)
@@ -127,7 +129,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             return self._sum_symmetric_aggregate_bigquery(sql, factor)
 
     def _sum_symmetric_aggregate_bigquery(self, sql: str, factor: int = 1_000_000):
-        primary_key_sql = self.view.primary_key.sql_query()
+        primary_key_sql = self.view.primary_key.sql_query(Definitions.bigquery)
         adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS FLOAT64))"
 
         pk_sum = f"CAST(FARM_FINGERPRINT({primary_key_sql}) AS BIGNUMERIC)"
@@ -140,7 +142,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         return result
 
     def _sum_symmetric_aggregate_snowflake(self, sql: str, factor: int = 1_000_000):
-        primary_key_sql = self.view.primary_key.sql_query()
+        primary_key_sql = self.view.primary_key.sql_query(Definitions.snowflake)
 
         adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS DECIMAL(38,0)))"
 
@@ -162,10 +164,10 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def _count_symmetric_aggregate(self, sql: str, query_type: str, factor: int = 1_000_000):
         # This works for both query types
-        return self._count_symmetric_aggregate_snowflake(sql)
+        return self._count_symmetric_aggregate_snowflake(sql, query_type)
 
-    def _count_symmetric_aggregate_snowflake(self, sql: str):
-        primary_key_sql = self.view.primary_key.sql_query()
+    def _count_symmetric_aggregate_snowflake(self, sql: str, query_type: str):
+        primary_key_sql = self.view.primary_key.sql_query(query_type)
         pk_if_not_null = f"CASE WHEN  ({sql})  IS NOT NULL THEN  {primary_key_sql}  ELSE NULL END"
         result = f"NULLIF(COUNT(DISTINCT {pk_if_not_null}), 0)"
         return result
@@ -212,15 +214,15 @@ class Field(MetricsLayerBase, SQLReplacement):
             if k not in definition:
                 raise ValueError(f"Field missing required key '{k}' The field passed was {definition}")
 
-    def to_dict(self):
+    def to_dict(self, query_type: str = None):
         output = {**self._definition}
         output["sql_raw"] = deepcopy(self.sql)
         if output["field_type"] == "measure" and output["type"] == "number":
             output["sql"] = self.get_referenced_sql_query()
         elif output["field_type"] == "dimension_group" and self.dimension_group is None:
             output["sql"] = deepcopy(self.sql)
-        else:
-            output["sql"] = self.sql_query()
+        elif query_type:
+            output["sql"] = self.sql_query(query_type)
         return output
 
     def equal(self, field_name: str):
@@ -351,27 +353,27 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def get_replaced_sql_query(self, query_type: str):
         if self.sql:
-            clean_sql = self._replace_sql_query(self.sql)
+            clean_sql = self._replace_sql_query(self.sql, query_type)
             if self.field_type == "dimension_group" and self.type == "time":
                 clean_sql = self.apply_dimension_group_time_sql(clean_sql, query_type)
             return clean_sql
 
         if self.sql_start and self.sql_end and self.type == "duration":
-            clean_sql_start = self._replace_sql_query(self.sql_start)
-            clean_sql_end = self._replace_sql_query(self.sql_end)
+            clean_sql_start = self._replace_sql_query(self.sql_start, query_type)
+            clean_sql_end = self._replace_sql_query(self.sql_end, query_type)
             return self.apply_dimension_group_duration_sql(clean_sql_start, clean_sql_end, query_type)
 
         raise ValueError(f"Unknown type of SQL query for field {self.name}")
 
-    def _replace_sql_query(self, sql_query: str):
+    def _replace_sql_query(self, sql_query: str, query_type: str):
         if sql_query is None or "{%" in sql_query or sql_query == "":
             return None
-        clean_sql = self.replace_fields(sql_query)
+        clean_sql = self.replace_fields(sql_query, query_type)
         clean_sql = re.sub(r"[ ]{2,}", " ", clean_sql)
         clean_sql = clean_sql.replace("'", "'")
         return clean_sql
 
-    def replace_fields(self, sql, view_name=None):
+    def replace_fields(self, sql, query_type, view_name=None):
         clean_sql = deepcopy(sql)
         view_name = self.view.name if not view_name else view_name
         fields_to_replace = self.fields_to_replace(sql)
@@ -380,10 +382,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                 clean_sql = clean_sql.replace("${TABLE}", view_name)
             else:
                 field = self.get_field_with_view_info(to_replace, specified_view=view_name)
-                sql_replace = deepcopy(field.sql) if field and field.sql else to_replace
-                clean_sql = clean_sql.replace(
-                    "${" + to_replace + "}", self.replace_fields(sql_replace, view_name=field.view.name)
-                )
+                sql_replace = field.get_replaced_sql_query(query_type) if field else to_replace
+                clean_sql = clean_sql.replace("${" + to_replace + "}", sql_replace)
         return clean_sql.strip()
 
     def get_field_with_view_info(self, field: str, specified_view: str = None):
@@ -395,7 +395,11 @@ class Field(MetricsLayerBase, SQLReplacement):
 
         if self.view is None:
             raise AttributeError(f"You must specify which view this field is in '{self.name}'")
-        return self.view.project.get_field(field_name, view_name=view_name)
+        if self.view.explore:
+            explore_name = self.view.explore.name
+        else:
+            explore_name = None
+        return self.view.project.get_field(field_name, view_name=view_name, explore_name=explore_name)
 
     def _translate_looker_tier_to_sql(self, sql: str, tiers: list):
         case_sql = "case "
@@ -483,6 +487,23 @@ class Field(MetricsLayerBase, SQLReplacement):
             if to_replace != "TABLE":
                 clean_sql = clean_sql.replace("${" + to_replace + "}", "${" + to_replace.lower() + "}")
         return clean_sql
+
+    def _derive_query_type(self):
+        explore = self.view.explore
+        if explore is None:
+            raise ValueError(
+                f"Could not find a explore in field {self.alias()} to use to detect the query type, "
+                "please pass the query type explicitly using the query_type argument"
+                "or pass an explore name using the explore_name argument"
+            )
+        connection_type = self.view.project.connection_lookup.get(explore.model.connection)
+        if connection_type is None:
+            raise ValueError(
+                f"Could not find the connection named {explore.model.connection} "
+                f"in explore {explore.name} to use in detecting the query type, "
+                "please pass the query type explicitly using the query_type argument"
+            )
+        return connection_type
 
     @staticmethod
     def field_name_parts(field_name: str):

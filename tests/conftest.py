@@ -84,7 +84,9 @@ def views():
 
 @pytest.fixture(scope="module")
 def project(models, views):
-    project = Project(models=models, views=views, looker_env="prod")
+    project = Project(
+        models=models, views=views, looker_env="prod", connection_lookup={"connection_name": "SNOWFLAKE"}
+    )
     return project
 
 
@@ -94,7 +96,7 @@ def config(project):
         type = "BIGQUERY"
 
     class sf_mock:
-        type = "BIGQUERY"
+        type = "SNOWFLAKE"
 
     class config_mock:
         def get_connection(name: str):

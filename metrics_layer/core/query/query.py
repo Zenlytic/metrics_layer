@@ -79,9 +79,9 @@ class MetricsLayerConnection:
         df = runner.run_query(**{**self.kwargs, **kwargs})
         return df
 
-    def define(self, metric: str):
-        field = self.config.project.get_field(metric)
-        return field.sql_query()
+    def define(self, metric: str, explore_name: str = None, query_type: str = None):
+        field = self.config.project.get_field(metric, explore_name=explore_name)
+        return field.sql_query(query_type)
 
     def list_metrics(
         self,

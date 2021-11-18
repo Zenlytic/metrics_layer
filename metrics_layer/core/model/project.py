@@ -9,10 +9,11 @@ class Project:
     Higher level abstraction for the whole project
     """
 
-    def __init__(self, models: list, views: list, looker_env: str = None):
+    def __init__(self, models: list, views: list, looker_env: str = None, connection_lookup: dict = {}):
         self._models = models
         self._views = views
         self.looker_env = looker_env
+        self.connection_lookup = connection_lookup
 
     def __repr__(self):
         text = "models" if len(self._models) != 1 else "model"

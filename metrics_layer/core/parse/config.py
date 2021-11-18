@@ -68,7 +68,13 @@ class MetricsLayerConfiguration:
     def _get_project(self):
         reader = ProjectReader(repo=self.repo, additional_repo=self.additional_repo)
         reader.load()
-        project = Project(models=reader.models, views=reader.views, looker_env=self.looker_env)
+        connection_lookup = {c.name: c.type for c in self.connections()}
+        project = Project(
+            models=reader.models,
+            views=reader.views,
+            looker_env=self.looker_env,
+            connection_lookup=connection_lookup,
+        )
         return project
 
     def _resolve_config(self, config: dict, prefix: str, raise_exception: bool = False):
