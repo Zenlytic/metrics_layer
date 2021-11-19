@@ -80,21 +80,25 @@ class Field(MetricsLayerBase, SQLReplacement):
                 return f"{self.dimension_group}_{self.name}"
         return self.name
 
-    def sql_query(self, query_type: str = None, query_base_view: str = None, joins: list = []):
+    def sql_query(
+        self, query_type: str = None, query_base_view: str = None, joins: list = [], alias_only: bool = False
+    ):
         if not query_type:
             query_type = self._derive_query_type()
         if self.field_type == "measure":
-            return self.aggregate_sql_query(query_type, query_base_view, joins)
-        return self.raw_sql_query(query_type)
+            return self.aggregate_sql_query(query_type, query_base_view, joins, alias_only=alias_only)
+        return self.raw_sql_query(query_type, alias_only=alias_only)
 
-    def raw_sql_query(self, query_type: str):
+    def raw_sql_query(self, query_type: str, alias_only: bool = False):
         if self.field_type == "measure" and self.type == "number":
             return self.get_referenced_sql_query()
-        return self.get_replaced_sql_query(query_type)
+        return self.get_replaced_sql_query(query_type, alias_only=alias_only)
 
-    def aggregate_sql_query(self, query_type: str, query_base_view: str, joins: list = []):
+    def aggregate_sql_query(
+        self, query_type: str, query_base_view: str, joins: list = [], alias_only: bool = False
+    ):
         # TODO add median, median_distinct, percentile, max, min, percentile, percentile_distinct
-        sql = self.raw_sql_query(query_type)
+        sql = self.raw_sql_query(query_type, alias_only=alias_only)
         type_lookup = {
             "sum": self._sum_aggregate_sql,
             "sum_distinct": self._sum_distinct_aggregate_sql,
@@ -104,7 +108,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             "average_distinct": self._average_distinct_aggregate_sql,
             "number": self._number_aggregate_sql,
         }
-        return type_lookup[self.type](sql, query_type, query_base_view, joins)
+        return type_lookup[self.type](sql, query_type, query_base_view, joins, alias_only)
 
     def _needs_symmetric_aggregate(self, query_base_view: str, joins: list):
         if query_base_view:
@@ -117,29 +121,44 @@ class Field(MetricsLayerBase, SQLReplacement):
             blow_out_joins = False
         return different_view or blow_out_joins
 
-    def _count_distinct_aggregate_sql(self, sql: str, query_type: str, query_base_view: str, joins: list):
+    def _count_distinct_aggregate_sql(
+        self, sql: str, query_type: str, query_base_view: str, joins: list, alias_only: bool
+    ):
         return f"COUNT(DISTINCT({sql}))"
 
-    def _sum_aggregate_sql(self, sql: str, query_type: str, query_base_view: str, joins: list):
+    def _sum_aggregate_sql(
+        self, sql: str, query_type: str, query_base_view: str, joins: list, alias_only: bool
+    ):
         if self._needs_symmetric_aggregate(query_base_view, joins):
-            return self._sum_symmetric_aggregate(sql, query_type)
+            return self._sum_symmetric_aggregate(sql, query_type, alias_only=alias_only)
         return f"SUM({sql})"
 
-    def _sum_distinct_aggregate_sql(self, sql: str, query_type: str, query_base_view: str, joins: list):
-        sql_distinct_key = self._replace_sql_query(self.sql_distinct_key, query_type)
-        return self._sum_symmetric_aggregate(sql, query_type, primary_key_sql=sql_distinct_key)
+    def _sum_distinct_aggregate_sql(
+        self, sql: str, query_type: str, query_base_view: str, joins: list, alias_only: bool
+    ):
+        sql_distinct_key = self._replace_sql_query(self.sql_distinct_key, query_type, alias_only=alias_only)
+        return self._sum_symmetric_aggregate(
+            sql, query_type, primary_key_sql=sql_distinct_key, alias_only=alias_only
+        )
 
     def _sum_symmetric_aggregate(
-        self, sql: str, query_type: str, primary_key_sql: str = None, factor: int = 1_000_000
+        self,
+        sql: str,
+        query_type: str,
+        primary_key_sql: str = None,
+        alias_only: bool = False,
+        factor: int = 1_000_000,
     ):
         if query_type == Definitions.snowflake:
-            return self._sum_symmetric_aggregate_snowflake(sql, primary_key_sql, factor)
+            return self._sum_symmetric_aggregate_snowflake(sql, primary_key_sql, alias_only, factor)
         elif query_type == Definitions.bigquery:
-            return self._sum_symmetric_aggregate_bigquery(sql, primary_key_sql, factor)
+            return self._sum_symmetric_aggregate_bigquery(sql, primary_key_sql, alias_only, factor)
 
-    def _sum_symmetric_aggregate_bigquery(self, sql: str, primary_key_sql: str, factor: int = 1_000_000):
+    def _sum_symmetric_aggregate_bigquery(
+        self, sql: str, primary_key_sql: str, alias_only: bool, factor: int = 1_000_000
+    ):
         if not primary_key_sql:
-            primary_key_sql = self.view.primary_key.sql_query(Definitions.bigquery)
+            primary_key_sql = self.view.primary_key.sql_query(Definitions.bigquery, alias_only=alias_only)
 
         adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS FLOAT64))"
 
@@ -152,9 +171,11 @@ class Field(MetricsLayerBase, SQLReplacement):
         result = f"{backed_out_cast} / CAST(({factor}*1.0) AS FLOAT64), 0)"
         return result
 
-    def _sum_symmetric_aggregate_snowflake(self, sql: str, primary_key_sql: str, factor: int = 1_000_000):
+    def _sum_symmetric_aggregate_snowflake(
+        self, sql: str, primary_key_sql: str, alias_only: bool, factor: int = 1_000_000
+    ):
         if not primary_key_sql:
-            primary_key_sql = self.view.primary_key.sql_query(Definitions.snowflake)
+            primary_key_sql = self.view.primary_key.sql_query(Definitions.snowflake, alias_only=alias_only)
 
         adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS DECIMAL(38,0)))"
 
@@ -167,51 +188,85 @@ class Field(MetricsLayerBase, SQLReplacement):
         result = f"{backed_out_cast} / CAST(({factor}*1.0) AS DOUBLE PRECISION), 0)"
         return result
 
-    def _count_aggregate_sql(self, sql: str, query_type: str, query_base_view: str, joins: list):
+    def _count_aggregate_sql(
+        self, sql: str, query_type: str, query_base_view: str, joins: list, alias_only: bool
+    ):
         if self._needs_symmetric_aggregate(query_base_view, joins):
             if self.primary_key_count:
-                return self._count_distinct_aggregate_sql(sql, query_type, query_base_view, joins)
-            return self._count_symmetric_aggregate(sql, query_type)
+                return self._count_distinct_aggregate_sql(
+                    sql, query_type, query_base_view, joins, alias_only=alias_only
+                )
+            return self._count_symmetric_aggregate(sql, query_type, alias_only=alias_only)
         return f"COUNT({sql})"
 
     def _count_symmetric_aggregate(
-        self, sql: str, query_type: str, primary_key_sql: str = None, factor: int = 1_000_000
+        self,
+        sql: str,
+        query_type: str,
+        primary_key_sql: str = None,
+        alias_only: bool = False,
+        factor: int = 1_000_000,
     ):
         # This works for both query types
-        return self._count_symmetric_aggregate_snowflake(sql, query_type, primary_key_sql=primary_key_sql)
+        return self._count_symmetric_aggregate_snowflake(
+            sql, query_type, primary_key_sql=primary_key_sql, alias_only=alias_only
+        )
 
-    def _count_symmetric_aggregate_snowflake(self, sql: str, query_type: str, primary_key_sql: str):
+    def _count_symmetric_aggregate_snowflake(
+        self, sql: str, query_type: str, primary_key_sql: str, alias_only: bool
+    ):
         if not primary_key_sql:
-            primary_key_sql = self.view.primary_key.sql_query(query_type)
+            primary_key_sql = self.view.primary_key.sql_query(query_type, alias_only=alias_only)
         pk_if_not_null = f"CASE WHEN  ({sql})  IS NOT NULL THEN  {primary_key_sql}  ELSE NULL END"
         result = f"NULLIF(COUNT(DISTINCT {pk_if_not_null}), 0)"
         return result
 
-    def _average_aggregate_sql(self, sql: str, query_type: str, query_base_view: str, joins: list):
+    def _average_aggregate_sql(
+        self, sql: str, query_type: str, query_base_view: str, joins: list, alias_only: bool
+    ):
         if self._needs_symmetric_aggregate(query_base_view, joins):
-            return self._average_symmetric_aggregate(sql, query_type)
+            return self._average_symmetric_aggregate(sql, query_type, alias_only=alias_only)
         return f"AVG({sql})"
 
-    def _average_distinct_aggregate_sql(self, sql: str, query_type: str, query_base_view: str, joins: list):
+    def _average_distinct_aggregate_sql(
+        self, sql: str, query_type: str, query_base_view: str, joins: list, alias_only: bool
+    ):
         sql_distinct_key = self._replace_sql_query(self.sql_distinct_key, query_type)
-        return self._average_symmetric_aggregate(sql, query_type, primary_key_sql=sql_distinct_key)
+        return self._average_symmetric_aggregate(
+            sql, query_type, primary_key_sql=sql_distinct_key, alias_only=alias_only
+        )
 
-    def _average_symmetric_aggregate(self, sql: str, query_type, primary_key_sql: str = None):
-        sum_symmetric = self._sum_symmetric_aggregate(sql, query_type, primary_key_sql=primary_key_sql)
-        count_symmetric = self._count_symmetric_aggregate(sql, query_type, primary_key_sql=primary_key_sql)
+    def _average_symmetric_aggregate(
+        self, sql: str, query_type, primary_key_sql: str = None, alias_only: bool = False
+    ):
+        sum_symmetric = self._sum_symmetric_aggregate(
+            sql, query_type, primary_key_sql=primary_key_sql, alias_only=alias_only
+        )
+        count_symmetric = self._count_symmetric_aggregate(
+            sql, query_type, primary_key_sql=primary_key_sql, alias_only=alias_only
+        )
         result = f"({sum_symmetric} / {count_symmetric})"
         return result
 
-    def _number_aggregate_sql(self, sql: str, query_type: str, query_base_view: str, joins: list):
+    def _number_aggregate_sql(
+        self, sql: str, query_type: str, query_base_view: str, joins: list, alias_only: bool
+    ):
         if isinstance(sql, list):
             replaced = deepcopy(self.sql)
             for field_name in self.fields_to_replace(self.sql):
+                proper_to_replace = "${" + field_name + "}"
                 if field_name == "TABLE":
-                    to_replace = self.view.name
+                    if alias_only:
+                        proper_to_replace += "."
+                        to_replace = ""
+                    else:
+                        to_replace = self.view.name
                 else:
                     field = self.get_field_with_view_info(field_name)
-                    to_replace = field.aggregate_sql_query(query_type, query_base_view, joins)
-                replaced = replaced.replace("${" + field_name + "}", to_replace)
+                    to_replace = field.aggregate_sql_query(
+                        query_type, query_base_view, joins, alias_only=alias_only
+                    )
+                replaced = replaced.replace(proper_to_replace, to_replace)
         else:
             raise ValueError(f"handle case for sql: {sql}")
         return replaced
@@ -370,38 +425,45 @@ class Field(MetricsLayerBase, SQLReplacement):
 
         return list(set(reference_fields))
 
-    def get_replaced_sql_query(self, query_type: str):
+    def get_replaced_sql_query(self, query_type: str, alias_only: bool = False):
         if self.sql:
-            clean_sql = self._replace_sql_query(self.sql, query_type)
+            clean_sql = self._replace_sql_query(self.sql, query_type, alias_only=alias_only)
             if self.field_type == "dimension_group" and self.type == "time":
                 clean_sql = self.apply_dimension_group_time_sql(clean_sql, query_type)
             return clean_sql
 
         if self.sql_start and self.sql_end and self.type == "duration":
-            clean_sql_start = self._replace_sql_query(self.sql_start, query_type)
-            clean_sql_end = self._replace_sql_query(self.sql_end, query_type)
+            clean_sql_start = self._replace_sql_query(self.sql_start, query_type, alias_only=alias_only)
+            clean_sql_end = self._replace_sql_query(self.sql_end, query_type, alias_only=alias_only)
             return self.apply_dimension_group_duration_sql(clean_sql_start, clean_sql_end, query_type)
 
         raise ValueError(f"Unknown type of SQL query for field {self.name}")
 
-    def _replace_sql_query(self, sql_query: str, query_type: str):
+    def _replace_sql_query(self, sql_query: str, query_type: str, alias_only: bool = False):
         if sql_query is None or "{%" in sql_query or sql_query == "":
             return None
-        clean_sql = self.replace_fields(sql_query, query_type)
+        clean_sql = self.replace_fields(sql_query, query_type, alias_only=alias_only)
         clean_sql = re.sub(r"[ ]{2,}", " ", clean_sql)
         clean_sql = clean_sql.replace("'", "'")
         return clean_sql
 
-    def replace_fields(self, sql, query_type, view_name=None):
+    def replace_fields(self, sql, query_type, view_name=None, alias_only=False):
         clean_sql = deepcopy(sql)
         view_name = self.view.name if not view_name else view_name
         fields_to_replace = self.fields_to_replace(sql)
         for to_replace in fields_to_replace:
             if to_replace == "TABLE":
-                clean_sql = clean_sql.replace("${TABLE}", view_name)
+                if alias_only:
+                    clean_sql = clean_sql.replace("${TABLE}.", "")
+                else:
+                    clean_sql = clean_sql.replace("${TABLE}", view_name)
             else:
                 field = self.get_field_with_view_info(to_replace, specified_view=view_name)
-                sql_replace = field.get_replaced_sql_query(query_type) if field else to_replace
+                if field:
+                    sql_replace = field.get_replaced_sql_query(query_type, alias_only=alias_only)
+                else:
+                    sql_replace = to_replace
+
                 clean_sql = clean_sql.replace("${" + to_replace + "}", sql_replace)
         return clean_sql.strip()
 
