@@ -12,6 +12,36 @@ def test_query_no_join(connection):
     assert query == correct
 
 
+def test_alias_only_query(connection):
+    metric = connection.get_metric(metric_name="total_item_revenue")
+    query = metric.sql_query(query_type="SNOWFLAKE", alias_only=True)
+
+    assert query == "SUM(total_item_revenue)"
+
+
+def test_alias_only_query_number(connection):
+    metric = connection.get_metric(metric_name="line_item_aov")
+    query = metric.sql_query(query_type="SNOWFLAKE", alias_only=True)
+
+    assert query == "SUM(total_item_revenue) / COUNT(number_of_orders)"
+
+
+def test_alias_only_query_symmetric_average_distinct(connection):
+    metric = connection.get_metric(metric_name="average_order_revenue")
+    query = metric.sql_query(query_type="SNOWFLAKE", alias_only=True)
+
+    correct = (
+        "(COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(average_order_revenue, 0) "
+        "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(order_id), "
+        "'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) "
+        "- SUM(DISTINCT (TO_NUMBER(MD5(order_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "
+        "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) / CAST((1000000*1.0) AS "
+        "DOUBLE PRECISION), 0) / NULLIF(COUNT(DISTINCT CASE WHEN  (average_order_revenue)  "
+        "IS NOT NULL THEN  order_id  ELSE NULL END), 0))"
+    )
+    assert query == correct
+
+
 def test_query_no_join_average_distinct(connection):
 
     query = connection.get_sql_query(metrics=["average_order_revenue"], dimensions=["channel"])

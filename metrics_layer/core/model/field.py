@@ -92,6 +92,8 @@ class Field(MetricsLayerBase, SQLReplacement):
     def raw_sql_query(self, query_type: str, alias_only: bool = False):
         if self.field_type == "measure" and self.type == "number":
             return self.get_referenced_sql_query()
+        elif alias_only:
+            return self.alias()
         return self.get_replaced_sql_query(query_type, alias_only=alias_only)
 
     def aggregate_sql_query(
@@ -231,7 +233,7 @@ class Field(MetricsLayerBase, SQLReplacement):
     def _average_distinct_aggregate_sql(
         self, sql: str, query_type: str, query_base_view: str, joins: list, alias_only: bool
     ):
-        sql_distinct_key = self._replace_sql_query(self.sql_distinct_key, query_type)
+        sql_distinct_key = self._replace_sql_query(self.sql_distinct_key, query_type, alias_only=alias_only)
         return self._average_symmetric_aggregate(
             sql, query_type, primary_key_sql=sql_distinct_key, alias_only=alias_only
         )
