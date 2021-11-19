@@ -93,12 +93,15 @@ class Field(MetricsLayerBase, SQLReplacement):
         return self.get_replaced_sql_query(query_type)
 
     def aggregate_sql_query(self, query_type: str, query_base_view: str, joins: list = []):
+        # TODO add median, median_distinct, percentile, max, min, percentile, percentile_distinct
         sql = self.raw_sql_query(query_type)
         type_lookup = {
             "sum": self._sum_aggregate_sql,
-            "count_distinct": self._count_distinct_aggregate_sql,
+            "sum_distinct": self._sum_distinct_aggregate_sql,
             "count": self._count_aggregate_sql,
+            "count_distinct": self._count_distinct_aggregate_sql,
             "average": self._average_aggregate_sql,
+            "average_distinct": self._average_distinct_aggregate_sql,
             "number": self._number_aggregate_sql,
         }
         return type_lookup[self.type](sql, query_type, query_base_view, joins)
@@ -122,14 +125,22 @@ class Field(MetricsLayerBase, SQLReplacement):
             return self._sum_symmetric_aggregate(sql, query_type)
         return f"SUM({sql})"
 
-    def _sum_symmetric_aggregate(self, sql: str, query_type: str, factor: int = 1_000_000):
-        if query_type == Definitions.snowflake:
-            return self._sum_symmetric_aggregate_snowflake(sql, factor)
-        elif query_type == Definitions.bigquery:
-            return self._sum_symmetric_aggregate_bigquery(sql, factor)
+    def _sum_distinct_aggregate_sql(self, sql: str, query_type: str, query_base_view: str, joins: list):
+        sql_distinct_key = self._replace_sql_query(self.sql_distinct_key, query_type)
+        return self._sum_symmetric_aggregate(sql, query_type, primary_key_sql=sql_distinct_key)
 
-    def _sum_symmetric_aggregate_bigquery(self, sql: str, factor: int = 1_000_000):
-        primary_key_sql = self.view.primary_key.sql_query(Definitions.bigquery)
+    def _sum_symmetric_aggregate(
+        self, sql: str, query_type: str, primary_key_sql: str = None, factor: int = 1_000_000
+    ):
+        if query_type == Definitions.snowflake:
+            return self._sum_symmetric_aggregate_snowflake(sql, primary_key_sql, factor)
+        elif query_type == Definitions.bigquery:
+            return self._sum_symmetric_aggregate_bigquery(sql, primary_key_sql, factor)
+
+    def _sum_symmetric_aggregate_bigquery(self, sql: str, primary_key_sql: str, factor: int = 1_000_000):
+        if not primary_key_sql:
+            primary_key_sql = self.view.primary_key.sql_query(Definitions.bigquery)
+
         adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS FLOAT64))"
 
         pk_sum = f"CAST(FARM_FINGERPRINT({primary_key_sql}) AS BIGNUMERIC)"
@@ -141,8 +152,9 @@ class Field(MetricsLayerBase, SQLReplacement):
         result = f"{backed_out_cast} / CAST(({factor}*1.0) AS FLOAT64), 0)"
         return result
 
-    def _sum_symmetric_aggregate_snowflake(self, sql: str, factor: int = 1_000_000):
-        primary_key_sql = self.view.primary_key.sql_query(Definitions.snowflake)
+    def _sum_symmetric_aggregate_snowflake(self, sql: str, primary_key_sql: str, factor: int = 1_000_000):
+        if not primary_key_sql:
+            primary_key_sql = self.view.primary_key.sql_query(Definitions.snowflake)
 
         adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS DECIMAL(38,0)))"
 
@@ -162,12 +174,15 @@ class Field(MetricsLayerBase, SQLReplacement):
             return self._count_symmetric_aggregate(sql, query_type)
         return f"COUNT({sql})"
 
-    def _count_symmetric_aggregate(self, sql: str, query_type: str, factor: int = 1_000_000):
+    def _count_symmetric_aggregate(
+        self, sql: str, query_type: str, primary_key_sql: str = None, factor: int = 1_000_000
+    ):
         # This works for both query types
-        return self._count_symmetric_aggregate_snowflake(sql, query_type)
+        return self._count_symmetric_aggregate_snowflake(sql, query_type, primary_key_sql=primary_key_sql)
 
-    def _count_symmetric_aggregate_snowflake(self, sql: str, query_type: str):
-        primary_key_sql = self.view.primary_key.sql_query(query_type)
+    def _count_symmetric_aggregate_snowflake(self, sql: str, query_type: str, primary_key_sql: str):
+        if not primary_key_sql:
+            primary_key_sql = self.view.primary_key.sql_query(query_type)
         pk_if_not_null = f"CASE WHEN  ({sql})  IS NOT NULL THEN  {primary_key_sql}  ELSE NULL END"
         result = f"NULLIF(COUNT(DISTINCT {pk_if_not_null}), 0)"
         return result
@@ -177,9 +192,13 @@ class Field(MetricsLayerBase, SQLReplacement):
             return self._average_symmetric_aggregate(sql, query_type)
         return f"AVG({sql})"
 
-    def _average_symmetric_aggregate(self, sql: str, query_type):
-        sum_symmetric = self._sum_symmetric_aggregate(sql, query_type)
-        count_symmetric = self._count_symmetric_aggregate(sql, query_type)
+    def _average_distinct_aggregate_sql(self, sql: str, query_type: str, query_base_view: str, joins: list):
+        sql_distinct_key = self._replace_sql_query(self.sql_distinct_key, query_type)
+        return self._average_symmetric_aggregate(sql, query_type, primary_key_sql=sql_distinct_key)
+
+    def _average_symmetric_aggregate(self, sql: str, query_type, primary_key_sql: str = None):
+        sum_symmetric = self._sum_symmetric_aggregate(sql, query_type, primary_key_sql=primary_key_sql)
+        count_symmetric = self._count_symmetric_aggregate(sql, query_type, primary_key_sql=primary_key_sql)
         result = f"({sum_symmetric} / {count_symmetric})"
         return result
 

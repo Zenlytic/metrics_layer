@@ -104,6 +104,11 @@ fields:
       - field: channel
         value: "Email"
 
+  - name: average_order_revenue
+    field_type: "measure"
+    type: average_distinct
+    sql_distinct_key: ${order_id}
+    sql: ${TABLE}.order_total
 
   - name: total_item_revenue
     field_type: "measure"

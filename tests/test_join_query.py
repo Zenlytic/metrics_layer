@@ -12,6 +12,24 @@ def test_query_no_join(connection):
     assert query == correct
 
 
+def test_query_no_join_average_distinct(connection):
+
+    query = connection.get_sql_query(metrics=["average_order_revenue"], dimensions=["channel"])
+
+    correct = (
+        "SELECT order_lines.sales_channel as channel,(COALESCE(CAST((SUM(DISTINCT "
+        "(CAST(FLOOR(COALESCE(order_lines.order_total, 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) "
+        "+ (TO_NUMBER(MD5(order_lines.order_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "
+        "% 1.0e27)::NUMERIC(38, 0)) - SUM(DISTINCT (TO_NUMBER(MD5(order_lines.order_id), "
+        "'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
+        "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0) / NULLIF(COUNT(DISTINCT CASE WHEN  "
+        "(order_lines.order_total)  IS NOT NULL THEN  order_lines.order_id  ELSE NULL END), 0)) "
+        "as average_order_revenue FROM analytics.order_line_items order_lines "
+        "GROUP BY order_lines.sales_channel;"
+    )
+    assert query == correct
+
+
 def test_query_single_join(connection):
 
     query = connection.get_sql_query(metrics=["total_item_revenue"], dimensions=["channel", "new_vs_repeat"])

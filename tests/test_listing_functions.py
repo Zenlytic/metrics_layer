@@ -4,15 +4,16 @@ from metrics_layer import MetricsLayerConnection
 def test_list_metrics(config):
     conn = MetricsLayerConnection(config=config)
     metrics = conn.list_metrics()
-    assert len(metrics) == 16
+    assert len(metrics) == 17
 
     metrics = conn.list_metrics(explore_name="order_lines")
-    assert len(metrics) == 16
+    assert len(metrics) == 17
 
     metrics = conn.list_metrics(view_name="order_lines", names_only=True)
-    assert len(metrics) == 4
+    assert len(metrics) == 5
     assert set(metrics) == {
         "number_of_email_purchased_items",
+        "average_order_revenue",
         "total_item_revenue",
         "total_item_costs",
         "line_item_aov",
