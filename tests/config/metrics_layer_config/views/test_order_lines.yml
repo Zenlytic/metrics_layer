@@ -21,7 +21,7 @@ fields:
   - name: order_id
     field_type: "dimension"
     hidden: yes
-    sql: "${TABLE}.order_id"
+    sql: "${TABLE}.order_unique_id"
     group_label: "ID's"
 
   - name: customer_id

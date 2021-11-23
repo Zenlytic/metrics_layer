@@ -12,7 +12,7 @@ fields:
     field_type: "dimension"
     primary_key: yes
     hidden: yes
-    sql: "${TABLE}.order_id"
+    sql: "${TABLE}.id"
     group_label: "ID's"
 
   - name: customer_id

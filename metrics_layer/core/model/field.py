@@ -462,7 +462,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             else:
                 field = self.get_field_with_view_info(to_replace, specified_view=view_name)
                 if field:
-                    sql_replace = field.get_replaced_sql_query(query_type, alias_only=alias_only)
+                    sql_replace = field.raw_sql_query(query_type, alias_only=alias_only)
                 else:
                     sql_replace = to_replace
 

@@ -22,9 +22,9 @@ def test_query_sum_with_sql(connection, query_type):
     if query_type == Definitions.snowflake:
         sa = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) "
-            "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(orders.order_id), "
+            "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(orders.id), "
             "'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) "
-            "- SUM(DISTINCT (TO_NUMBER(MD5(orders.order_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "
+            "- SUM(DISTINCT (TO_NUMBER(MD5(orders.id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "
             "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
             "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
         )
@@ -32,15 +32,15 @@ def test_query_sum_with_sql(connection, query_type):
         sa = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) "
             "* (1000000 * 1.0)) AS FLOAT64)) + "
-            "CAST(FARM_FINGERPRINT(orders.order_id) AS BIGNUMERIC)) "
-            "- SUM(DISTINCT CAST(FARM_FINGERPRINT(orders.order_id) AS BIGNUMERIC))) AS FLOAT64) "
+            "CAST(FARM_FINGERPRINT(orders.id) AS BIGNUMERIC)) "
+            "- SUM(DISTINCT CAST(FARM_FINGERPRINT(orders.id) AS BIGNUMERIC))) AS FLOAT64) "
             "/ CAST((1000000*1.0) AS FLOAT64), 0)"
         )
     correct = (
         "SELECT order_lines.sales_channel as channel,"
         f"{sa} as total_revenue "
         "FROM analytics.order_line_items order_lines "
-        "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "GROUP BY order_lines.sales_channel;"
     )
     assert query == correct
@@ -51,9 +51,9 @@ def test_query_count_with_sql(connection):
 
     correct = (
         "SELECT order_lines.sales_channel as channel,NULLIF(COUNT(DISTINCT CASE WHEN  "
-        "(orders.order_id)  IS NOT NULL THEN  orders.order_id  ELSE NULL END), 0)"
+        "(orders.id)  IS NOT NULL THEN  orders.id  ELSE NULL END), 0)"
         " as number_of_orders FROM analytics.order_line_items order_lines "
-        "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "GROUP BY order_lines.sales_channel;"
     )
     assert query == correct
@@ -70,8 +70,8 @@ def test_query_count_with_one_to_many(connection):
         "order_lines.order_id end)  IS NOT NULL THEN  order_lines.order_line_id  ELSE NULL "
         "END), 0) as number_of_email_purchased_items "
         "FROM analytics.order_line_items order_lines "
-        "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
-        "LEFT JOIN analytics_live.discounts discounts ON orders.order_id=discounts.order_id "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
+        "LEFT JOIN analytics_live.discounts discounts ON orders.id=discounts.order_id "
         "GROUP BY discounts.code;"
     )
     assert query == correct
@@ -86,9 +86,9 @@ def test_query_average_with_sql(connection, query_type: str):
     if query_type == Definitions.snowflake:
         sa_sum = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) "
-            "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(orders.order_id), "
+            "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(orders.id), "
             "'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) "
-            "- SUM(DISTINCT (TO_NUMBER(MD5(orders.order_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "
+            "- SUM(DISTINCT (TO_NUMBER(MD5(orders.id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "
             "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
             "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
         )
@@ -96,17 +96,17 @@ def test_query_average_with_sql(connection, query_type: str):
         sa_sum = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) "
             "* (1000000 * 1.0)) AS FLOAT64)) + "
-            "CAST(FARM_FINGERPRINT(orders.order_id) AS BIGNUMERIC)) "
-            "- SUM(DISTINCT CAST(FARM_FINGERPRINT(orders.order_id) AS BIGNUMERIC))) AS FLOAT64) "
+            "CAST(FARM_FINGERPRINT(orders.id) AS BIGNUMERIC)) "
+            "- SUM(DISTINCT CAST(FARM_FINGERPRINT(orders.id) AS BIGNUMERIC))) AS FLOAT64) "
             "/ CAST((1000000*1.0) AS FLOAT64), 0)"
         )
 
     correct = (
         "SELECT order_lines.sales_channel as channel,"
         f"({sa_sum} / NULLIF(COUNT(DISTINCT CASE WHEN  "
-        "(orders.revenue)  IS NOT NULL THEN  orders.order_id  ELSE NULL END), 0))"
+        "(orders.revenue)  IS NOT NULL THEN  orders.id  ELSE NULL END), 0))"
         " as average_order_value FROM analytics.order_line_items order_lines "
-        "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "GROUP BY order_lines.sales_channel;"
     )
     assert query == correct

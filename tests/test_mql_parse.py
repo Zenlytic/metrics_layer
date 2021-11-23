@@ -45,7 +45,7 @@ def test_query_single_join_mql(connection):
 
     correct = "SELECT * FROM (SELECT order_lines.sales_channel as channel,orders.new_vs_repeat as "
     correct += "new_vs_repeat,SUM(order_lines.revenue) as total_item_revenue FROM analytics.order_line_items "
-    correct += "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
+    correct += "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
     correct += "GROUP BY order_lines.sales_channel,orders.new_vs_repeat) as rev_group;"
     assert query == correct
 
@@ -60,7 +60,7 @@ def test_query_multiple_join_mql(connection):
         "SELECT * FROM (SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
         "SUM(order_lines.revenue) as total_item_revenue FROM "
         "analytics.order_line_items order_lines "
-        "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
         "GROUP BY customers.region,orders.new_vs_repeat) as rev_group;"
     )
@@ -76,7 +76,7 @@ def test_query_multiple_join_all_mql(connection):
     correct = (
         "SELECT * FROM (SELECT customers.region as region,orders.new_vs_repeat as new_vs_repeat,"
         "SUM(order_lines.revenue) as total_item_revenue FROM analytics.order_line_items order_lines "
-        "LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
         "WHERE customers.region != 'West' AND orders.new_vs_repeat <>"
         " 'New' GROUP BY customers.region,orders.new_vs_repeat HAVING SUM(order_lines.revenue) > -12 AND "
@@ -100,7 +100,7 @@ def test_query_mql_as_subset(connection):
         "SELECT channelinfo.channel, channelinfo.channel_owner, rev_group.total_item_revenue FROM "
         "(SELECT order_lines.sales_channel as channel,orders.new_vs_repeat as "
         "new_vs_repeat,SUM(order_lines.revenue) as total_item_revenue FROM analytics.order_line_items "
-        "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_id=orders.order_id "
+        "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "GROUP BY order_lines.sales_channel,orders.new_vs_repeat) as rev_group LEFT JOIN "
         "analytics.channeldata channelinfo on rev_group.channel = channelinfo.channel;"
     )
