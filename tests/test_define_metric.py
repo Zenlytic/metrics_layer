@@ -1,4 +1,4 @@
-from metrics_layer import MetricsLayerConnection
+from metrics_layer.core import MetricsLayerConnection
 
 
 def test_define_call(config):

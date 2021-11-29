@@ -1,6 +1,6 @@
 import pytest
 
-from metrics_layer import MetricsLayerConnection
+from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.model.project import Project
 from metrics_layer.core.sql.query_errors import ArgumentError
 

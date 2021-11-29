@@ -1,8 +1,8 @@
 from flask import Blueprint, request
 from flask_restful import Api, Resource
 
-from metrics_layer import MetricsLayerConnection
 from metrics_layer.api.auth_utils import authenticate_restful
+from metrics_layer.core import MetricsLayerConnection
 
 sql_blueprint = Blueprint("sql", __name__, url_prefix="/api/v1")
 api = Api(sql_blueprint)

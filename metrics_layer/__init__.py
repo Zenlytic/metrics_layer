@@ -1,4 +1,6 @@
-from metrics_layer.core import MetricsLayerConnection  # noqa
+from metrics_layer.cli import cli  # noqa
+
+# from metrics_layer.core import MetricsLayerConnection  # noqa
 
 try:
     import importlib.metadata as importlib_metadata

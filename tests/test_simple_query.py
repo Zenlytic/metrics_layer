@@ -1,6 +1,6 @@
 import pytest
 
-from metrics_layer import MetricsLayerConnection
+from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.model import Definitions, Project
 
 simple_model = {
