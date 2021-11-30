@@ -111,7 +111,7 @@ def test_cli_validate(config, project, mocker):
     result = runner.invoke(validate, ["demo"])
 
     assert result.exit_code == 0
-    assert result.output == "Project passed!\n"
+    assert result.output == "Project passed (checked 2 explores)!\n"
 
     # Break something so validation fails
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])

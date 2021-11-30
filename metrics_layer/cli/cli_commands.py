@@ -34,7 +34,8 @@ def validate(profile):
     errors = metrics_layer.config.project.validate()
 
     if len(errors) == 0:
-        click.echo("Project passed!")
+        n_explores = len(metrics_layer.config.project.explores())
+        click.echo(f"Project passed (checked {n_explores} explore{'s' if n_explores > 1 else ''})!")
     else:
         click.echo(f"Found {len(errors)} error{'s' if len(errors)> 1 else ''} in the project:\n")
         for error in errors:
