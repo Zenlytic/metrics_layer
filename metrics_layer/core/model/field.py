@@ -434,7 +434,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
                 if to_replace_type == "number":
                     reference_fields.extend(field.get_referenced_sql_query(strings_only=False))
-                elif to_replace_type is None:
+                elif to_replace_type is None and field is None:
                     reference_fields.append(to_replace)
                 else:
                     reference_fields.append(field)

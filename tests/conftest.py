@@ -232,9 +232,11 @@ def project(models, views):
 @pytest.fixture(scope="module")
 def config(project):
     class bq_mock:
+        name = "testing_bigquery"
         type = "BIGQUERY"
 
     class sf_mock:
+        name = "testing_snowflake"
         type = "SNOWFLAKE"
 
     class config_mock:
@@ -243,6 +245,9 @@ def config(project):
                 return bq_mock
             else:
                 return sf_mock
+
+        def connections():
+            return [sf_mock]
 
     config_mock.project = project
     return config_mock

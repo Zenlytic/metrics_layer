@@ -20,7 +20,7 @@ def test_cli_init(mocker):
         os.mkdir.assert_any_call(call)
 
 
-def test_cli_seed(mocker, monkeypatch, seed_tables_data, seed_views_data, get_seed_columns_data):
+def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_data, get_seed_columns_data):
     mocker.patch("os.mkdir")
     yaml_dump_called = False
 
@@ -41,7 +41,7 @@ def test_cli_seed(mocker, monkeypatch, seed_tables_data, seed_views_data, get_se
         yaml_dump_called = True
         if data["type"] == "model":
             assert data["name"] == "base_model"
-            assert data["connection"] == "demo_snowflake"
+            assert data["connection"] == "testing_snowflake"
             assert len(data["explores"]) == 2
         elif data["type"] == "view" and data["name"] == "orders":
             assert data["sql_table_name"] == "ANALYTICS.ORDERS"
@@ -93,6 +93,7 @@ def test_cli_seed(mocker, monkeypatch, seed_tables_data, seed_views_data, get_se
         else:
             raise AssertionError("undefined model type for seeding")
 
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
     monkeypatch.setattr(SeedMetricsLayer, "run_query", query_runner_mock)
     monkeypatch.setattr(yaml, "dump", yaml_dump_assert)
     runner = CliRunner()
@@ -106,7 +107,9 @@ def test_cli_seed(mocker, monkeypatch, seed_tables_data, seed_views_data, get_se
     assert yaml_dump_called
 
 
-def test_cli_validate(config, project, mocker):
+def test_cli_validate(config, connection, project, mocker):
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
+
     runner = CliRunner()
     result = runner.invoke(validate, ["demo"])
 
@@ -126,8 +129,7 @@ def test_cli_validate(config, project, mocker):
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 3 errors in the project:\n\n"
-        "\nCould not locate reference order_id in view orders in explore order_lines\n\n"
+        "Found 2 errors in the project:\n\n"
         "\nCould not locate reference revenue_dimension in view order_lines in explore order_lines\n\n"
         "\nCould not locate reference revenue_dimension in view orders in explore order_lines\n\n"
     )
