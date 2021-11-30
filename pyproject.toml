@@ -58,5 +58,5 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 # command_name = module_for_handler : function_for_handler
-metrics_layer = 'metrics_layer:cli'
-ml = 'metrics_layer:cli'
+metrics_layer = 'metrics_layer:cli_group'
+ml = 'metrics_layer:cli_group'

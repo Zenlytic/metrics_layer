@@ -25,6 +25,14 @@ class View(MetricsLayerBase):
     def primary_key(self):
         return next((f for f in self.fields() if f.primary_key == "yes"), None)
 
+    def referenced_fields(self):
+        fields = self.fields(show_hidden=True)
+        result = []
+        for field in fields:
+            all_fields = [field] + field.get_referenced_sql_query(strings_only=False)
+            result.extend(all_fields)
+        return result
+
     def fields(self, show_hidden: bool = True) -> list:
         all_fields = self._valid_fields()
         if show_hidden:

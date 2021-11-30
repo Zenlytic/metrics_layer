@@ -27,6 +27,21 @@ class Explore(MetricsLayerBase):
             if k not in definition:
                 raise ValueError(f"Explore missing required key {k}")
 
+    def validate_fields(self):
+        errors = []
+        for view_name in self.view_names():
+            view = self.project.get_view(view_name)
+            referenced_fields = view.referenced_fields()
+
+            errors.extend(
+                [
+                    f"Could not locate reference {field} in view {view_name} in explore {self.name}"
+                    for field in referenced_fields
+                    if isinstance(field, str)
+                ]
+            )
+        return list(sorted(list(set(errors))))
+
     def view_names(self):
         return [self.from_] + [j.name for j in self.joins()]
 

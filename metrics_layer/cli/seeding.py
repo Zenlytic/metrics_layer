@@ -133,9 +133,8 @@ class SeedMetricsLayer:
 
     @staticmethod
     def _init_connection(profile_name: str, connection_name: str = None):
-        from metrics_layer.core import MetricsLayerConnection
+        metrics_layer = SeedMetricsLayer._init_profile(profile_name)
 
-        metrics_layer = MetricsLayerConnection(profile_name)
         if connection_name:
             connection = metrics_layer.config.get_connection(connection_name)
         else:
@@ -148,6 +147,13 @@ class SeedMetricsLayer:
                     "please pass the connection name with the --connection arg"
                 )
         return metrics_layer, connection
+
+    @staticmethod
+    def _init_profile(profile_name: str):
+        from metrics_layer.core import MetricsLayerConnection
+
+        metrics_layer = MetricsLayerConnection(profile_name)
+        return metrics_layer
 
     @staticmethod
     def _init_directories():

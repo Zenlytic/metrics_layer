@@ -1,11 +1,12 @@
+# import pytest
 import os
 
-import pytest
 import yaml
 from click.testing import CliRunner
 
 from metrics_layer.cli import init, seed, validate
 from metrics_layer.cli.seeding import SeedMetricsLayer
+from metrics_layer.core import MetricsLayerConnection
 
 
 def test_cli_init(mocker):
@@ -95,7 +96,7 @@ def test_cli_seed(mocker, monkeypatch, seed_tables_data, seed_views_data, get_se
     monkeypatch.setattr(SeedMetricsLayer, "run_query", query_runner_mock)
     monkeypatch.setattr(yaml, "dump", yaml_dump_assert)
     runner = CliRunner()
-    result = runner.invoke(seed, ["--profile", "demo", "--database", "demo", "--schema", "analytics"])
+    result = runner.invoke(seed, ["--database", "demo", "--schema", "analytics", "demo"])
 
     assert result.exit_code == 0
     calls = [os.path.join(os.getcwd(), dir_path) for dir_path in ["views/", "models/"]]
@@ -105,11 +106,28 @@ def test_cli_seed(mocker, monkeypatch, seed_tables_data, seed_views_data, get_se
     assert yaml_dump_called
 
 
-# TODO implement
-@pytest.mark.mm
-def test_cli_validate():
+def test_cli_validate(config, project, mocker):
     runner = CliRunner()
-    result = runner.invoke(validate, ["--opt", "An Option", "An Arg"])
+    result = runner.invoke(validate, ["demo"])
 
     assert result.exit_code == 0
-    assert result.output == "Opt: An Option  Arg: An Arg\n"
+    assert result.output == "Project passed!\n"
+
+    # Break something so validation fails
+    sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
+    sorted_fields[9]["name"] = "rev_broken_dim"
+    project._views[1]["fields"] = sorted_fields
+    config.project = project
+    conn = MetricsLayerConnection(config=config)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+
+    runner = CliRunner()
+    result = runner.invoke(validate, ["demo"])
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 3 errors in the project:\n\n"
+        "\nCould not locate reference order_id in view orders in explore order_lines\n\n"
+        "\nCould not locate reference revenue_dimension in view order_lines in explore order_lines\n\n"
+        "\nCould not locate reference revenue_dimension in view orders in explore order_lines\n\n"
+    )
