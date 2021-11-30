@@ -406,26 +406,40 @@ class Field(MetricsLayerBase, SQLReplacement):
         elif Definitions.bigquery == query_type:
             return f"DATE_TRUNC({sql}, WEEK)"
 
-    def get_referenced_sql_query(self):
-        if "{%" in self.sql or self.sql == "":
+    def get_referenced_sql_query(self, strings_only=True):
+        if self.sql and ("{%" in self.sql or self.sql == ""):
             return None
-        return self.reference_fields(self.sql)
 
-    def reference_fields(self, sql):
+        if self.sql_start and self.sql_end and self.type == "duration":
+            start_fields = self.referenced_fields(self.sql_start)
+            end_fields = self.referenced_fields(self.sql_end)
+            referenced_fields = start_fields + end_fields
+        else:
+            referenced_fields = self.referenced_fields(self.sql)
+
+        if strings_only:
+            valid_references = [f for f in referenced_fields if not isinstance(f, str)]
+            return list(set(f"{f.view.name}.{f.name}" for f in valid_references))
+        return referenced_fields
+
+    def referenced_fields(self, sql):
         reference_fields = []
         for to_replace in self.fields_to_replace(sql):
             if to_replace != "TABLE":
-                field = self.get_field_with_view_info(to_replace)
+                try:
+                    field = self.get_field_with_view_info(to_replace)
+                except Exception:
+                    field = None
                 to_replace_type = None if field is None else field.type
 
                 if to_replace_type == "number":
-                    sql_replace = deepcopy(field.sql)
-                    sql_replace = to_replace if sql_replace is None else sql_replace
-                    reference_fields.extend(self.reference_fields(sql_replace))
-                else:
+                    reference_fields.extend(field.get_referenced_sql_query(strings_only=False))
+                elif to_replace_type is None and field is None:
                     reference_fields.append(to_replace)
+                else:
+                    reference_fields.append(field)
 
-        return list(set(reference_fields))
+        return reference_fields
 
     def get_replaced_sql_query(self, query_type: str, alias_only: bool = False):
         if self.sql:

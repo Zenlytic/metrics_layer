@@ -19,6 +19,13 @@ class Project:
         text = "models" if len(self._models) != 1 else "model"
         return f"<Project {len(self._models)} {text}>"
 
+    def validate(self):
+        all_errors = []
+        for explore in self.explores():
+            errors = explore.validate_fields()
+            all_errors.extend(errors)
+        return all_errors
+
     def models(self) -> list:
         return [Model(m) for m in self._models]
 

@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from metrics_layer import MetricsLayerConnection
+from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.model.project import Project
 from metrics_layer.core.parse.config import ConfigError, MetricsLayerConfiguration
 from metrics_layer.core.sql import QueryRunner
