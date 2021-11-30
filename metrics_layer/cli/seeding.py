@@ -1,10 +1,6 @@
 import json
 import os
 
-import pandas as pd
-
-from metrics_layer.core.parse.project_reader import ProjectReader
-
 
 class SeedMetricsLayer:
     def __init__(self, profile, connection=None, database=None, schema=None):
@@ -35,7 +31,15 @@ class SeedMetricsLayer:
         }
 
     def seed(self):
-        # TODO raise error if connection is not snowflake
+        import pandas as pd
+
+        from metrics_layer.core.model.definitions import Definitions
+        from metrics_layer.core.parse.project_reader import ProjectReader
+
+        if self.connection.type != Definitions.snowflake:
+            raise NotImplementedError(
+                "The only data warehouse supported for seeding at this time is Snowflake"
+            )
         table_query = self.table_query(type="tables")
         table_data = self.run_query(table_query)
         view_query = self.table_query(type="views")
@@ -80,7 +84,7 @@ class SeedMetricsLayer:
         }
         return [model]
 
-    def make_view(self, column_data: pd.DataFrame, table_name: str, schema_name: str):
+    def make_view(self, column_data, table_name: str, schema_name: str):
         view_name = self.clean_name(table_name)
         count_measure = {"field_type": "measure", "name": "count", "type": "count"}
         fields = self.make_fields(column_data) + [count_measure]

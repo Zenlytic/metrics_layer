@@ -1,9 +1,10 @@
 from typing import List
 
-import networkx as nx
-
 from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.sql.query_errors import ParseError
+from metrics_layer.core.utils import lazy_import
+
+lazy_networkx = lazy_import("networkx")
 
 
 class MetricsLayerDesign:
@@ -47,11 +48,11 @@ class MetricsLayerDesign:
         if len(joins_needed) == 0:
             return []
 
-        G = nx.DiGraph()
+        G = lazy_networkx.DiGraph()
         for join in joins_needed:
             for view_name in join.required_views():
                 G.add_edge(view_name, join.name)
-        ordered_names = list(nx.bfs_tree(G, source=self.base_view_name))
+        ordered_names = list(lazy_networkx.bfs_tree(G, source=self.base_view_name))
         # Skip the first one because that's *always* the base of the explore
         return [self.explore.get_join(name) for name in ordered_names[1:]]
 
