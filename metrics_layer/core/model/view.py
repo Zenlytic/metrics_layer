@@ -21,9 +21,30 @@ class View(MetricsLayerBase):
             if k not in definition:
                 raise ValueError(f"View missing required key {k}")
 
+    def printable_attributes(self):
+        to_print = ["name", "type", "label", "group_label", "sql_table_name", "number_of_fields"]
+        attributes = self.to_dict()
+        attributes["number_of_fields"] = f'{len(attributes.get("fields", []))}'
+        return {key: attributes.get(key) for key in to_print if attributes.get(key) is not None}
+
     @property
     def primary_key(self):
         return next((f for f in self.fields() if f.primary_key == "yes"), None)
+
+    def collect_errors(self):
+        fields = self.fields(show_hidden=True)
+        field_errors = []
+        for field in fields:
+            field_errors.extend(field.collect_errors())
+
+        if self.primary_key is None:
+            primary_key_error = (
+                f"Warning: The view {self.name} does not have a primary key, "
+                "specify one using the tag primary_key: yes"
+            )
+            field_errors += [primary_key_error]
+
+        return field_errors
 
     def referenced_fields(self):
         fields = self.fields(show_hidden=True)

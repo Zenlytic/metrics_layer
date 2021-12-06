@@ -35,12 +35,22 @@ class ProjectReader:
     def dump(self, path: str):
         for model in self.models:
             file_name = model["name"] + "_model.yml"
-            with open(os.path.join(path, file_name), "w") as f:
+            models_folder = os.path.join(path, "models/")
+            if os.path.exists(models_folder):
+                file_path = os.path.join(models_folder, file_name)
+            else:
+                file_path = os.path.join(path, file_name)
+            with open(file_path, "w") as f:
                 lazy_yaml.dump(model, f)
 
         for view in self.views:
             file_name = view["name"] + "_view.yml"
-            with open(os.path.join(path, file_name), "w") as f:
+            views_folder = os.path.join(path, "views/")
+            if os.path.exists(views_folder):
+                file_path = os.path.join(views_folder, file_name)
+            else:
+                file_path = os.path.join(path, file_name)
+            with open(file_path, "w") as f:
                 lazy_yaml.dump(view, f)
 
     def load(self) -> None:

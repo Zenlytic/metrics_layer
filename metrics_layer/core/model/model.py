@@ -12,3 +12,9 @@ class Model(MetricsLayerBase):
         for k in required_keys:
             if k not in definition:
                 raise ValueError(f"Explore missing required key {k}")
+
+    def printable_attributes(self):
+        to_print = ["name", "type", "label", "group_label", "connection", "explore_names"]
+        attributes = self.to_dict()
+        attributes["explore_names"] = [e["name"] for e in attributes["explores"]]
+        return {key: attributes.get(key) for key in to_print if attributes.get(key) is not None}

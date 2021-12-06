@@ -55,6 +55,13 @@ class SnowflakeConnection(BaseConnection):
             base["role"] = self.role
         return base
 
+    def printable_attributes(self):
+        attributes = deepcopy(self.to_dict())
+        attributes.pop("password")
+        attributes["name"] = self.name
+        sort_order = ["name", "account", "user", "database", "schema", "warehouse", "role"]
+        return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
+
 
 class BigQueryConnection(BaseConnection):
     def __init__(self, name: str, credentials: str, **kwargs) -> None:
@@ -66,6 +73,13 @@ class BigQueryConnection(BaseConnection):
     def to_dict(self):
         """Dict for use with the BigQuery connector"""
         return {"credentials": self.credentials, "project_id": self.project_id}
+
+    def printable_attributes(self):
+        attributes = deepcopy(self.to_dict())
+        attributes.pop("credentials")
+        attributes["name"] = self.name
+        sort_order = ["name", "project_id"]
+        return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
 
     @staticmethod
     def _convert_json_if_needed(creds: dict, kwargs: dict):

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "metrics_layer"
-version = "0.1.17"
+version = "0.1.18"
 description = "The open source metrics layer."
 authors = ["Paul Blankley <paul@zenlytic.com>"]
 keywords = ["Metrics Layer", "Looker", "Analytics"]
@@ -32,6 +32,7 @@ PyJWT = {version = "^2.1.0", optional = true}
 networkx = "^2.6.3"
 click = "<8.0"
 importlib-metadata = "^4.8.2"
+colorama = "^0.4.4"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"

@@ -83,6 +83,29 @@ class MetricsLayerConnection:
         field = self.config.project.get_field(metric, explore_name=explore_name)
         return field.sql_query(query_type)
 
+    def list_fields(
+        self,
+        explore_name: str = None,
+        view_name: str = None,
+        names_only: bool = False,
+        show_hidden: bool = False,
+    ):
+        all_fields = self.config.project.fields(
+            explore_name=explore_name, view_name=view_name, show_hidden=show_hidden
+        )
+        if names_only:
+            return [m.name for m in all_fields]
+        return all_fields
+
+    def get_field(self, field_name: str, explore_name: str = None, view_name: str = None):
+
+        fields = self.list_fields(explore_name=explore_name, view_name=view_name, show_hidden=True)
+        try:
+            field = next((m for m in fields if m.equal(field_name)))
+            return field
+        except ParseError as e:
+            raise e(f"Could not find field {field_name} in the project config")
+
     def list_metrics(
         self,
         explore_name: str = None,
@@ -129,6 +152,17 @@ class MetricsLayerConnection:
         except ParseError as e:
             raise e(f"Could not find dimension {dimension_name} in the project config")
 
+    def list_views(self, names_only=False, explore_name: str = None, show_hidden: bool = False):
+        views = self.config.project.views(explore_name=explore_name)
+        if names_only:
+            return [v.name for v in views]
+        return views
+
+    def get_view(self, view_name: str, explore_name: str = None):
+        if explore_name:
+            explore = self.get_explore(explore_name)
+        return self.config.project.get_view(view_name, explore=explore)
+
     def list_explores(self, names_only=False, show_hidden: bool = False):
         explores = self.config.project.explores(show_hidden=show_hidden)
         if names_only:
@@ -137,3 +171,21 @@ class MetricsLayerConnection:
 
     def get_explore(self, explore_name: str):
         return self.config.project.get_explore(explore_name=explore_name)
+
+    def list_connections(self, names_only=False, show_hidden: bool = False):
+        connections = self.config.connections()
+        if names_only:
+            return [c.name for c in connections]
+        return connections
+
+    def get_connection(self, connection_name: str):
+        return self.config.get_connection(connection_name)
+
+    def list_models(self, names_only=False, show_hidden: bool = False):
+        models = self.config.project.models()
+        if names_only:
+            return [m.name for m in models]
+        return models
+
+    def get_model(self, model_name: str):
+        return self.config.project.get_model(model_name)

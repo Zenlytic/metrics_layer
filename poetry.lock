@@ -243,7 +243,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 name = "colorama"
 version = "0.4.4"
 description = "Cross-platform colored terminal text."
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 
@@ -1350,7 +1350,7 @@ snowflake = ["snowflake-connector-python", "pyarrow", "pandas"]
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7.1, <3.10"
-content-hash = "3fa340a93d39f4311d587c858daf1bfe5ddb1ba126d4594d2ed2ef1628e42da0"
+content-hash = "b2b8c2f48d2abcbaa077bd2d91f08a3afe8c14f094b0f29f46f5dfc720af192a"
 
 [metadata.files]
 alembic = [

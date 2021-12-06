@@ -1,6 +1,5 @@
 import os
 
-import pandas as pd
 import pytest
 
 from metrics_layer.api import create_app, db
@@ -53,18 +52,17 @@ def test_database(test_app):
 
 
 @pytest.fixture(scope="function")
-def seed_tables_data():
-    df = pd.DataFrame({"NAME": [], "DATABASE_NAME": [], "SCHEMA_NAME": []})
-    return df
+def seed_views_data():
+    return []
 
 
 @pytest.fixture(scope="function")
-def seed_views_data():
+def seed_tables_data():
     raw_data = [
-        {"NAME": "ORDERS", "DATABASE_NAME": "DEMO", "SCHEMA_NAME": "ANALYTICS"},
-        {"NAME": "SESSIONS", "DATABASE_NAME": "DEMO", "SCHEMA_NAME": "ANALYTICS"},
+        (None, "ORDERS", "DEMO", "ANALYTICS"),
+        (None, "SESSIONS", "DEMO", "ANALYTICS"),
     ]
-    return pd.DataFrame(raw_data)
+    return raw_data
 
 
 @pytest.fixture(scope="function")
@@ -72,118 +70,140 @@ def get_seed_columns_data():
     def _get_seed_columns_data(table_name):
         if table_name == "ORDERS":
             order_records = [
-                {
-                    "DATA_TYPE": '{"type":"FIXED","precision":38,"scale":0,"nullable":true}',
-                    "COLUMN_NAME": "ORDER_ID",
-                },
-                {"DATA_TYPE": '{"type":"DATE","nullable":true}', "COLUMN_NAME": "ORDER_CREATED_AT"},
-                {
-                    "DATA_TYPE": '{"type":"FIXED","precision":38,"scale":0,"nullable":true}',
-                    "COLUMN_NAME": "REVENUE",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TIMESTAMP_NTZ","nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "ACQUISITION_DATE",
-                },
-                {
-                    "DATA_TYPE": '{"type":"BOOLEAN","nullable":true}',  # noqa
-                    "COLUMN_NAME": "ON_SOCIAL_NETWORK",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "CAMPAIGN",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "NEW_VS_REPEAT",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "PRODUCT",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "DAY_OF_WEEK",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "TWITTER",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "EMAILS_FROM_US_IN_THE_LAST_WEEK",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "LAST_VIEWED_PAGE",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "CUSTOMER_ID",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "TOP_CUSTOMERS",
-                },
+                (None, None, "ORDER_ID", '{"type":"FIXED","precision":38,"scale":0,"nullable":true}'),
+                (None, None, "ORDER_CREATED_AT", '{"type":"DATE","nullable":true}'),
+                (None, None, "REVENUE", '{"type":"FIXED","precision":38,"scale":0,"nullable":true}'),
+                (None, None, "ACQUISITION_DATE", '{"type":"TIMESTAMP_NTZ","nullable":true,"fixed":false}'),
+                (None, None, "ON_SOCIAL_NETWORK", '{"type":"BOOLEAN","nullable":true}'),
+                (
+                    None,
+                    None,
+                    "CAMPAIGN",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
+                (
+                    None,
+                    None,
+                    "NEW_VS_REPEAT",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
+                (
+                    None,
+                    None,
+                    "PRODUCT",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
+                (
+                    None,
+                    None,
+                    "DAY_OF_WEEK",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
+                (
+                    None,
+                    None,
+                    "TWITTER",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
+                (
+                    None,
+                    None,
+                    "EMAILS_FROM_US_IN_THE_LAST_WEEK",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
+                (
+                    None,
+                    None,
+                    "LAST_VIEWED_PAGE",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
+                (
+                    None,
+                    None,
+                    "CUSTOMER_ID",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
+                (
+                    None,
+                    None,
+                    "TOP_CUSTOMERS",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
             ]
-            return pd.DataFrame(order_records)
+            return order_records
         elif table_name == "SESSIONS":
             session_records = [
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "SESSION_ID",
-                },
-                {"DATA_TYPE": '{"type":"DATE","nullable":true}', "COLUMN_NAME": "SESSION_DATE"},
-                {
-                    "DATA_TYPE": '{"type":"FIXED","precision":38,"scale":0,"nullable":true}',
-                    "COLUMN_NAME": "ADD_TO_CART",
-                },
-                {
-                    "DATA_TYPE": '{"type":"REAL","precision":38,"scale":0,"nullable":true}',
-                    "COLUMN_NAME": "CONVERSION",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "CROSSSELL_PRODUCT",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "ACQUISITION_CHANNEL",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "SOCIAL_NETWORK",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "CAMPAIGN",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "NEW_VS_REPEAT",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "PRODUCT",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "DAY_OF_WEEK",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "TWITTER",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "EMAILS_FROM_US_IN_THE_LAST_WEEK",
-                },
-                {
-                    "DATA_TYPE": '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',  # noqa
-                    "COLUMN_NAME": "LAST_VIEWED_PAGE",
-                },
+                (
+                    None,
+                    None,
+                    "SESSION_ID",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
+                (None, None, "SESSION_DATE", '{"type":"DATE","nullable":true}'),
+                (None, None, "ADD_TO_CART", '{"type":"FIXED","precision":38,"scale":0,"nullable":true}'),
+                (None, None, "CONVERSION", '{"type":"REAL","precision":38,"scale":0,"nullable":true}'),
+                (
+                    None,
+                    None,
+                    "CROSSSELL_PRODUCT",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
+                (
+                    None,
+                    None,
+                    "ACQUISITION_CHANNEL",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
+                (
+                    None,
+                    None,
+                    "SOCIAL_NETWORK",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
+                (
+                    None,
+                    None,
+                    "CAMPAIGN",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
+                (
+                    None,
+                    None,
+                    "NEW_VS_REPEAT",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
+                (
+                    None,
+                    None,
+                    "PRODUCT",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
+                (
+                    None,
+                    None,
+                    "DAY_OF_WEEK",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
+                (
+                    None,
+                    None,
+                    "TWITTER",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
+                (
+                    None,
+                    None,
+                    "EMAILS_FROM_US_IN_THE_LAST_WEEK",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
+                (
+                    None,
+                    None,
+                    "LAST_VIEWED_PAGE",
+                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
+                ),
             ]
-            return pd.DataFrame(session_records)
+            return session_records
         else:
             raise NotImplementedError(f"This should never be hit in testing with table: {table_name}")
 
@@ -239,7 +259,19 @@ def config(project):
         name = "testing_snowflake"
         type = "SNOWFLAKE"
 
+        def printable_attributes():
+            return {
+                "name": "testing_snowflake",
+                "account": "blahblah.us-east-1",
+                "user": "paul",
+                "database": "analytics",
+                "warehouse": "compute_wh",
+                "role": "reporting",
+            }
+
     class config_mock:
+        profiles_path = "test_profiles_file.yml"
+
         def get_connection(name: str):
             if name == "bq_creds":
                 return bq_mock

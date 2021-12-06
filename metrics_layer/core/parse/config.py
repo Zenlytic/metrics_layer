@@ -23,6 +23,7 @@ class MetricsLayerConfiguration:
         connections: list = [],
         target: str = None,
     ):
+        self.profiles_path = None
         self.env_name = target
         self.looker_env = self.env_name
         self.repo, conns = self._resolve_config(repo_config, prefix="METRICS_LAYER", raise_exception=True)
@@ -156,18 +157,18 @@ class MetricsLayerConfiguration:
         clean_prefix = "additional_" if "additional" in prefix.lower() else ""
 
         metrics_layer_directory = self.get_metrics_layer_directory()
-        profiles_path = os.path.join(metrics_layer_directory, "profiles.yml")
+        self.profiles_path = os.path.join(metrics_layer_directory, "profiles.yml")
 
-        if not os.path.exists(profiles_path):
+        if not os.path.exists(self.profiles_path):
             raise ConfigError(
                 f"""MetricsLayer could not find the profiles.yml file in the directory
-             {profiles_path}, please check that path to ensure the file exists.
+             {self.profiles_path}, please check that path to ensure the file exists.
              If this does not look like the path you specified, make sure you haven't set
              the environment variable METRICS_LAYER_PROFILES_DIR to another value
              which may be overriding the default (~, your home directory)"""
             )
 
-        all_profiles = ProjectReader.read_yaml_file(profiles_path)
+        all_profiles = ProjectReader.read_yaml_file(self.profiles_path)
 
         try:
             profile = all_profiles[config_profile_name]
@@ -175,13 +176,13 @@ class MetricsLayerConfiguration:
             raise ConfigError(
                 f"MetricsLayer could not find the profile "
                 f"{config_profile_name} in options {list(all_profiles.keys())} "
-                f"located in the profiles.yml file at {profiles_path}"
+                f"located in the profiles.yml file at {self.profiles_path}"
             )
 
         if "target" not in profile:
             raise ConfigError(
                 "You need to specify a default target in the "
-                f"file {profiles_path} for profile {config_profile_name}"
+                f"file {self.profiles_path} for profile {config_profile_name}"
             )
 
         if "outputs" not in profile:
@@ -197,7 +198,7 @@ class MetricsLayerConfiguration:
             raise ConfigError(
                 f"MetricsLayer could not find the target "
                 f"{target_name} in outputs {list(profile['outputs'].keys())} "
-                f"located in the profiles.yml file at {profiles_path}"
+                f"located in the profiles.yml file at {self.profiles_path}"
             )
 
         if "looker_env" in target:
@@ -237,6 +238,13 @@ class MetricsLayerConfiguration:
 
         connections = [{**c, "directory": metrics_layer_directory} for c in target.get("connections", [])]
         return repo, MetricsLayerConfiguration._parse_connections(connections)
+
+    @staticmethod
+    def get_all_profiles(directory, names_only: bool = False):
+        all_profiles = ProjectReader.read_yaml_file(directory)
+        if names_only:
+            return list(all_profiles.keys())
+        return all_profiles
 
     @staticmethod
     def get_metrics_layer_directory():

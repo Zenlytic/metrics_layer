@@ -107,3 +107,8 @@ fields:
     field_type: "measure"
     type: average
     sql: "${TABLE}.revenue"
+
+  - name: average_order_value_custom
+    field_type: "measure"
+    type: number
+    sql: "${total_revenue} / ${number_of_orders}"

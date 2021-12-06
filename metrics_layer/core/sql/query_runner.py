@@ -1,9 +1,9 @@
 from metrics_layer.core.utils import lazy_import
 
-try:
-    lazy_snowflake_connector = lazy_import("snowflake.connector")
-except ModuleNotFoundError:
-    pass
+# try:
+#     import snowflake.connector
+# except ModuleNotFoundError:
+#     pass
 
 try:
     lazy_bigquery = lazy_import("google.cloud.bigquery")
@@ -35,24 +35,29 @@ class QueryRunner:
     # 3 min timeout default set in seconds (aborts query after timeout)
     def run_query(self, timeout: int = 180, **kwargs):
         query_runner = self._query_runner_lookup[self.connection.type]
-        df = query_runner(timeout=timeout)
+        df = query_runner(timeout=timeout, raw_cursor=kwargs.get("raw_cursor", False))
         return df
 
-    def _run_snowflake_query(self, timeout: int):
+    def _run_snowflake_query(self, timeout: int, raw_cursor: bool):
         snowflake_connection = self._get_snowflake_connection(self.connection)
         self._run_snowflake_pre_queries(snowflake_connection)
 
         cursor = snowflake_connection.cursor()
         cursor.execute(self.query, timeout=timeout)
 
-        df = cursor.fetch_pandas_all()
         snowflake_connection.close()
+        if raw_cursor:
+            return cursor
+        df = cursor.fetch_pandas_all()
         return df
 
-    def _run_bigquery_query(self, timeout: int):
+    def _run_bigquery_query(self, timeout: int, raw_cursor: bool):
         bigquery_connection = self._get_bigquery_connection(self.connection)
-        df = bigquery_connection.query(self.query, timeout=timeout, job_retry=None).to_dataframe()
+        result = bigquery_connection.query(self.query, timeout=timeout, job_retry=None)
         bigquery_connection.close()
+        if raw_cursor:
+            return result
+        df = result.to_dataframe()
         return df
 
     def _run_snowflake_pre_queries(self, snowflake_connection):
@@ -70,7 +75,9 @@ class QueryRunner:
     @staticmethod
     def _get_snowflake_connection(connection: BaseConnection):
         try:
-            return lazy_snowflake_connector.connect(
+            import snowflake.connector
+
+            return snowflake.connector.connect(
                 account=connection.account,
                 user=connection.username,
                 password=connection.password,

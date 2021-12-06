@@ -301,6 +301,22 @@ class Field(MetricsLayerBase, SQLReplacement):
             output["sql"] = self.sql_query(query_type)
         return output
 
+    def printable_attributes(self):
+        to_print = [
+            "name",
+            "field_type",
+            "type",
+            "label",
+            "group_label",
+            "hidden",
+            "primary_key",
+            "timeframes",
+            "datatype",
+            "sql",
+        ]
+        attributes = self.to_dict()
+        return {key: attributes.get(key) for key in to_print if attributes.get(key) is not None}
+
     def equal(self, field_name: str):
         # Determine if the field name passed in references this field
         if self.field_type == "dimension_group":
@@ -405,6 +421,19 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"DATE_TRUNC('WEEK', {sql})"
         elif Definitions.bigquery == query_type:
             return f"DATE_TRUNC({sql}, WEEK)"
+
+    def collect_errors(self):
+        if self.field_type == "measure" and self.type == "number":
+            contains_dim = any(
+                field.field_type != "measure" for field in self.get_referenced_sql_query(strings_only=False)
+            )
+            if contains_dim:
+                error_text = (
+                    f"The field {self.name} is a measure with type number, but it's sql references "
+                    "another field that is not a measure. Please correct this reference to the right measure."
+                )
+                return [error_text]
+        return []
 
     def get_referenced_sql_query(self, strings_only=True):
         if self.sql and ("{%" in self.sql or self.sql == ""):
