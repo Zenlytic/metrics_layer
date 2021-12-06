@@ -9,7 +9,7 @@ There are several options in Metrics Layer for exploring a data model. Here are 
 
 ### Explores
 
-When listing explores, the default is to return a list of `Explore` [objects](../5_project/3_explore.md). If you're not very familiar with the concept of an explore, it is essentially a grouping of tables that can be joined together. More information is available in Looker's [docs](https://docs.looker.com/reference/explore-params/explore).
+When listing explores, the default is to return a list of `Explore` [objects](../6_project/3_explore.md). If you're not very familiar with the concept of an explore, it is essentially a grouping of tables that can be joined together. More information is available in Looker's [docs](https://docs.looker.com/reference/explore-params/explore).
 
 ```
 from metrics_layer import MetricsLayerConnection
@@ -26,7 +26,7 @@ explore = conn.get_explore("order_lines")
 
 ### Metrics
 
-When listing metrics, the default is to return a list of `Field` [objects](../5_project/5_field.md). Listing metrics will return all measures associated with your LookML project.
+When listing metrics, the default is to return a list of `Field` [objects](../6_project/5_field.md). Listing metrics will return all measures associated with your LookML project.
 
 ```
 from metrics_layer import MetricsLayerConnection
@@ -58,7 +58,7 @@ metric = conn.get_metric("order_lines.orders.total_revenue")
 
 ### Dimensions
 
-When listing dimensions, like listing metrics, the default is to return a list of `Field` [objects/](../5_project/5_field.md). Listing dimensions will return all dimensions and dimension_groups associated with your LookML project.
+When listing dimensions, like listing metrics, the default is to return a list of `Field` [objects/](../6_project/5_field.md). Listing dimensions will return all dimensions and dimension_groups associated with your LookML project.
 
 ```
 # Lists of *all* the dimensions in your data model

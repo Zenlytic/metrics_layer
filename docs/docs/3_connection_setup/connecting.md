@@ -18,7 +18,7 @@ Metrics Layer gets this information by looking for a `profiles.yml` file (simila
 
 ### Local repo
 
-This is the best method when the repo with your LookML is on your local machine. Your `profiles.yml` will looks like this with a connection to Snowflake.
+This is the best method when the repo with your LookML or [metrics layer data model](../5_data_model/1_data_model.md) is on your local machine. Your `profiles.yml` will looks like this with a connection to Snowflake.
 
 ```
 demo_connection:
@@ -27,7 +27,7 @@ demo_connection:
     dev:
       repo_path: ~/Desktop/my_company_lookml/
       connections:
-        - name: my_company                  # This references the connection string in the LookML model argument 'connection'
+        - name: my_company                  # This references the connection string in the LookML or yaml model argument 'connection'
           type: snowflake
           account: 123p0iwe.us-east-1
           username: demo_user
@@ -50,7 +50,7 @@ df = conn.query(metrics=["total_revenue"], dimensions=["channel", "region"])
 
 ### Github repo
 
-This is the best method when the repo with your LookML is in a GitHub repo you have access to. Your `profiles.yml` will looks like this with a connection to BigQuery. We've also added multiple targets. If you need help creating a GitHub personal access token, check out [their docs](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token).
+This is the best method when the repo with your LookML or [metrics layer data model](../5_data_model/1_data_model.md) is in a GitHub repo you have access to. Your `profiles.yml` will looks like this with a connection to BigQuery. We've also added multiple targets. If you need help creating a GitHub personal access token, check out [their docs](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token).
 
 ```
 demo_connection:
@@ -59,9 +59,9 @@ demo_connection:
     dev:
       repo_url: https://{YOUR_GITHUB_USERNAME}:{YOUR_GITHUB_ACCESS_TOKEN}@github.com/my_company/my_company_lookml
       branch: dev
-      looker_env: dev           # This sets the Looker environment when reading your LookML
+      looker_env: dev           # This sets the Looker environment when reading your LookML or yaml
       connections:
-        - name: my_company_bq   # This references the connection string in the LookML model argument 'connection'
+        - name: my_company_bq   # This references the connection string in the LookML or yaml model argument 'connection'
           type: bigquery
           project: my-company-development
           credentials: ./my-company-dev-service-account-credentials.json

@@ -17,16 +17,16 @@ const FeatureList = [
     description: (
       <>
         Metrics Layer resolves the correct query to run locally, then runs it
-        directly against your warehouse. It's orders of magnitude faster than the Looker SDK.
+        directly against your warehouse. It's an order of magnitude faster than the Looker SDK.
       </>
     ),
   },
   {
-    title: 'Reads LookML',
+    title: 'Interoperable',
     description: (
       <>
-        Metrics Layer uses your existing data model. Just point it to your LookML and
-        you'll have access to your important metrics in python.
+        Metrics Layer uses your existing data model. Just point it to your LookML or your data model specified in Metrics Layer yaml
+        and you'll have access to key metrics in python.
       </>
     ),
   },

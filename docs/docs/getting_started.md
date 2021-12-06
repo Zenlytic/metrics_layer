@@ -23,7 +23,7 @@ There are several ways to set up a profile, we're going to look at the fastest o
 
 The fastest way to get connected is to pass the necessary information directly into Metrics Layer. Once you've installed the library with the warehouse you need, you should be able to run the code snippet below and start querying.
 
-You'll need to pull the repo with your LookML locally for this example or look at [other connection options](./3_connection_setup/connecting.md) for connections through GitHub directly or the Looker API.
+You'll need to pull the repo with your LookML or [metrics layer data model](./5_data_model/1_data_model.md) locally for this example or look at [other connection options](./3_connection_setup/connecting.md) for connections through GitHub directly or the Looker API.
 
 
 ```
@@ -31,10 +31,10 @@ from metrics_layer import MetricsLayerConnection
 
 # Give metrics_layer the info to connect to your data model and warehouse
 config = {
-  "repo_path": "~/Desktop/my-looker-repo",
+  "repo_path": "~/Desktop/my-lookml-repo",
   "connections": [
     {
-      "name": "mycompany",              # The name of the connection in LookML (you'll see this in model files)
+      "name": "mycompany",              # The name of the connection in LookML or yaml (you'll see this in model files)
       "type": "snowflake",
       "account": "2e12ewdq.us-east-1",
       "username": "demo_user",
