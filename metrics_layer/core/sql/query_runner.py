@@ -1,13 +1,11 @@
-from metrics_layer.core.utils import lazy_import
-
-# try:
-#     import snowflake.connector
-# except ModuleNotFoundError:
-#     pass
+try:
+    import snowflake.connector
+except ModuleNotFoundError:
+    pass
 
 try:
-    lazy_bigquery = lazy_import("google.cloud.bigquery")
-    lazy_service_account = lazy_import("google.oauth2.service_account")
+    from google.cloud import bigquery
+    from google.oauth2 import service_account
 except ModuleNotFoundError:
     pass
 
@@ -75,8 +73,6 @@ class QueryRunner:
     @staticmethod
     def _get_snowflake_connection(connection: BaseConnection):
         try:
-            import snowflake.connector
-
             return snowflake.connector.connect(
                 account=connection.account,
                 user=connection.username,
@@ -93,12 +89,10 @@ class QueryRunner:
     @staticmethod
     def _get_bigquery_connection(connection: BaseConnection):
         try:
-            service_account_creds = lazy_service_account.Credentials.from_service_account_info(
+            service_account_creds = service_account.Credentials.from_service_account_info(
                 connection.credentials
             )
-            connection = lazy_bigquery.Client(
-                project=connection.project_id, credentials=service_account_creds
-            )
+            connection = bigquery.Client(project=connection.project_id, credentials=service_account_creds)
         except (ModuleNotFoundError, NameError):
             raise ModuleNotFoundError(
                 "MetricsLayer could not find the BigQuery modules it needs to run the query. "

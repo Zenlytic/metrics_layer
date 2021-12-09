@@ -1,9 +1,7 @@
 import json
 import os
 
-from metrics_layer.core.utils import lazy_import
-
-lazy_pandas = lazy_import("pandas")
+import pandas as pd
 
 
 class SeedMetricsLayer:
@@ -139,14 +137,14 @@ class SeedMetricsLayer:
 
     @staticmethod
     def table_result_to_dataframe(table_data):
-        table_df = lazy_pandas.DataFrame(
+        table_df = pd.DataFrame(
             [{"NAME": i[1], "DATABASE_NAME": i[2], "SCHEMA_NAME": i[3], "TYPE": "table"} for i in table_data]
         )
         return table_df
 
     @staticmethod
     def view_result_to_dataframe(view_data):
-        view_df = lazy_pandas.DataFrame(
+        view_df = pd.DataFrame(
             [{"NAME": i[1], "DATABASE_NAME": i[3], "SCHEMA_NAME": i[4], "TYPE": "view"} for i in view_data]
         )
         return view_df
@@ -161,14 +159,14 @@ class SeedMetricsLayer:
             return table_df[columns]
         if table_df.empty:
             return view_df[columns]
-        return lazy_pandas.concat([table_df[columns], view_df[columns]], sort=False)
+        return pd.concat([table_df[columns], view_df[columns]], sort=False)
 
     def columns_query(self, table_name: str, schema_name: str, database_name: str):
         return f'show columns in "{database_name}"."{schema_name}"."{table_name}";'
 
     @staticmethod
     def column_result_to_dataframe(column_data):
-        column_df = lazy_pandas.DataFrame([{"COLUMN_NAME": i[2], "DATA_TYPE": i[3]} for i in column_data])
+        column_df = pd.DataFrame([{"COLUMN_NAME": i[2], "DATA_TYPE": i[3]} for i in column_data])
         return column_df
 
     def run_query(self, query: str):

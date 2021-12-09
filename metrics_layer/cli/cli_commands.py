@@ -1,21 +1,19 @@
 import sys
 
-from metrics_layer.core.utils import lazy_import
-
-lazy_click = lazy_import("click")
+import click
 
 from .seeding import SeedMetricsLayer
 
 
 def echo(text: str, color: str = None, bold: bool = True):
     if color:
-        lazy_click.secho(text, fg=color, bold=bold)
+        click.secho(text, fg=color, bold=bold)
     else:
-        lazy_click.echo(text)
+        click.echo(text)
 
 
-@lazy_click.group()
-# @lazy_click.version_option(version="0.22")
+@click.group()
+# @click.version_option(version="0.22")
 def cli_group():
     pass
 
@@ -33,10 +31,10 @@ def init(arg=None, opt={}):
 
 
 @cli_group.command()
-@lazy_click.option("--connection", default=None, help="The name of the connection to use for the database")
-@lazy_click.option("--database", help="The name of the database to use for seeding")
-@lazy_click.option("--schema", default=None, help="The name of the schema to use for seeding")
-@lazy_click.argument("profile")
+@click.option("--connection", default=None, help="The name of the connection to use for the database")
+@click.option("--database", help="The name of the database to use for seeding")
+@click.option("--schema", default=None, help="The name of the schema to use for seeding")
+@click.argument("profile")
 def seed(profile, connection, database, schema):
     """Seed a metrics layer project by referencing the existing database"""
     SeedMetricsLayer._init_directories()
@@ -45,7 +43,7 @@ def seed(profile, connection, database, schema):
 
 
 @cli_group.command()
-@lazy_click.argument("profile")
+@click.argument("profile")
 def validate(profile):
     """Validate a metrics layer project, internally, without hitting the database"""
     metrics_layer = SeedMetricsLayer._init_profile(profile)
@@ -61,7 +59,7 @@ def validate(profile):
 
 
 @cli_group.command()
-@lazy_click.argument("profile")
+@click.argument("profile")
 def debug(profile):
     """Debug a metrics layer project. Pass your profile name as the sole argument.
 
@@ -120,24 +118,24 @@ def debug(profile):
 
 
 @cli_group.command("list")
-@lazy_click.option("--profile", help="The name of the profile you are using (in profiles.yml)")
-@lazy_click.option(
+@click.option("--profile", help="The name of the profile you are using (in profiles.yml)")
+@click.option(
     "--explore",
     default=None,
     help="The name of the explore (only applicable for fields, dimensions, metrics, and views)",
 )
-@lazy_click.option(
+@click.option(
     "--view", default=None, help="The name of the view (only applicable for fields, dimensions, and metrics)"
 )
-@lazy_click.option("--show-hidden", is_flag=True, help="Set this flag if you want to see hidden fields")
-@lazy_click.argument("type")
+@click.option("--show-hidden", is_flag=True, help="Set this flag if you want to see hidden fields")
+@click.argument("type")
 def list_(profile, type, explore, view, show_hidden):
     """List attributes in a metrics layer project,
     i.e. models, connections, explores, views, fields, metrics, dimensions"""
     if profile:
         metrics_layer = SeedMetricsLayer._init_profile(profile)
     elif not profile and type != "profiles":
-        lazy_click.echo(
+        click.echo(
             f"Could not find profile in environment, please pass the "
             "name of your profile with the --profile flag"
         )
@@ -173,35 +171,35 @@ def list_(profile, type, explore, view, show_hidden):
             default_directory = MetricsLayerConfiguration.get_metrics_layer_directory() + "profiles.yml"
             items = MetricsLayerConfiguration.get_all_profiles(default_directory, names_only=True)
     else:
-        lazy_click.echo(
+        click.echo(
             f"Could not find the type {type}, please use one of the options: "
             "models, connections, explores, views, fields, metrics, dimensions"
         )
 
     if items:
-        lazy_click.echo(f"Found {len(items)} {type if len(items) > 1 else type[:-1]}:\n")
+        click.echo(f"Found {len(items)} {type if len(items) > 1 else type[:-1]}:\n")
         for name in items:
-            lazy_click.echo(name)
+            click.echo(name)
 
     if items is not None and len(items) == 0:
-        lazy_click.echo(f"Could not find any {type}")
+        click.echo(f"Could not find any {type}")
 
 
 @cli_group.command()
-@lazy_click.option("--profile", help="The name of the profile you are using (in profiles.yml)")
-@lazy_click.option(
+@click.option("--profile", help="The name of the profile you are using (in profiles.yml)")
+@click.option(
     "--type",
     help="The type of object to show. One of: model, connection, explore, view, field, metric, dimension",  # noqa
 )
-@lazy_click.option(
+@click.option(
     "--explore",
     default=None,
     help="The name of the explore (only applicable for fields, dimensions, metrics, and views)",
 )
-@lazy_click.option(
+@click.option(
     "--view", default=None, help="The name of the view (only applicable for fields, dimensions, and metrics)"
 )
-@lazy_click.argument("name")
+@click.argument("name")
 def show(profile, type, name, explore, view):
     """Show information on an attribute in a metrics layer project, by name"""
     metrics_layer = SeedMetricsLayer._init_profile(profile)
@@ -222,20 +220,20 @@ def show(profile, type, name, explore, view):
     elif type == "metric":
         attributes = metrics_layer.get_metric(name, view_name=view, explore_name=explore)
     else:
-        lazy_click.echo(
+        click.echo(
             f"Could not find the type {type}, please use one of the options: "
             "models, connections, explores, views, fields, metrics, dimensions"
         )
 
     if attributes:
-        lazy_click.echo(f"Attributes in {type} {name}:\n")
+        click.echo(f"Attributes in {type} {name}:\n")
         for key, value in attributes.printable_attributes().items():
             if isinstance(value, list) and len(value) > 0:
-                lazy_click.echo(f"  {key}:")
+                click.echo(f"  {key}:")
                 for item in value:
-                    lazy_click.echo(f"    {item}")
+                    click.echo(f"    {item}")
             else:
-                lazy_click.echo(f"  {key}: {value}")
+                click.echo(f"  {key}: {value}")
 
 
 if __name__ == "__main__":

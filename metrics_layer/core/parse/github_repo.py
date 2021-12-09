@@ -2,11 +2,10 @@ import os
 import shutil
 from glob import glob
 
+import git
+import requests
+
 from metrics_layer.core import utils
-
-lazy_git = utils.lazy_import("git")
-lazy_requests = utils.lazy_import("requests")
-
 
 BASE_PATH = os.path.dirname(__file__)
 
@@ -82,7 +81,7 @@ class GithubRepo(BaseRepo):
     def fetch_github_repo(repo_url: str, repo_destination: str, branch: str):
         if os.path.exists(repo_destination) and os.path.isdir(repo_destination):
             shutil.rmtree(repo_destination)
-        lazy_git.Repo.clone_from(repo_url, to_path=repo_destination, branch=branch, depth=1)
+        git.Repo.clone_from(repo_url, to_path=repo_destination, branch=branch, depth=1)
 
 
 class LookerGithubRepo(BaseRepo):
@@ -115,13 +114,13 @@ class LookerGithubRepo(BaseRepo):
     def get_looker_projects(self):
         token = self.get_looker_oauth_token(self.looker_url, self.client_id, self.client_secret)
         headers = {"Authorization": f"token {token}"}
-        response = lazy_requests.get(f"{self.looker_url}/api/3.1/projects", headers=headers)
+        response = requests.get(f"{self.looker_url}/api/3.1/projects", headers=headers)
         return response.json()
 
     @staticmethod
     def get_looker_oauth_token(looker_url, client_id, client_secret):
         data = {"client_id": client_id, "client_secret": client_secret}
-        response = lazy_requests.post(f"{looker_url}/api/3.1/login", data=data)
+        response = requests.post(f"{looker_url}/api/3.1/login", data=data)
         if response.status_code == 403:
             raise ValueError("Looker credentials not valid, please check your credentials")
         return response.json()["access_token"]

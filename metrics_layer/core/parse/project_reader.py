@@ -1,11 +1,10 @@
 import os
 from copy import deepcopy
 
-from metrics_layer.core.utils import lazy_import, merge_nested_dict
+import lkml
+import yaml
 
-lazy_lkml = lazy_import("lkml")
-lazy_yaml = lazy_import("yaml")
-
+from metrics_layer.core.utils import merge_nested_dict
 
 from .github_repo import BaseRepo
 
@@ -41,7 +40,7 @@ class ProjectReader:
             else:
                 file_path = os.path.join(path, file_name)
             with open(file_path, "w") as f:
-                lazy_yaml.dump(model, f)
+                yaml.dump(model, f)
 
         for view in self.views:
             file_name = view["name"] + "_view.yml"
@@ -51,7 +50,7 @@ class ProjectReader:
             else:
                 file_path = os.path.join(path, file_name)
             with open(file_path, "w") as f:
-                lazy_yaml.dump(view, f)
+                yaml.dump(view, f)
 
     def load(self) -> None:
         base_models, base_views = self._load_repo(self.base_repo)
@@ -177,7 +176,7 @@ class ProjectReader:
     @staticmethod
     def read_lkml_file(path: str):
         with open(path, "r") as file:
-            lkml_dict = lazy_lkml.load(file)
+            lkml_dict = lkml.load(file)
         return lkml_dict
 
     @staticmethod
@@ -191,5 +190,5 @@ class ProjectReader:
     @staticmethod
     def read_yaml_file(path: str):
         with open(path, "r") as file:
-            yaml_dict = lazy_yaml.safe_load(file)
+            yaml_dict = yaml.safe_load(file)
         return yaml_dict
