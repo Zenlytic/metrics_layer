@@ -24,6 +24,14 @@ class MetricsLayerFilterExpressionType(str, Enum):
     GreaterOrEqualThan = "greater_or_equal_than"
     GreaterThan = "greater_than"
     Like = "like"
+    Contains = "contains"
+    DoesNotContain = "does_not_contain"
+    ContainsCaseInsensitive = "contains_case_insensitive"
+    DoesNotContainCaseInsensitive = "does_not_contain_case_insensitive"
+    StartsWith = "starts_with"
+    EndsWith = "ends_with"
+    DoesNotStartWith = "does_not_start_with"
+    DoesNotEndWith = "does_not_end_with"
     IsNull = "is_null"
     IsNotNull = "is_not_null"
     IsIn = "isin"
@@ -159,7 +167,7 @@ class MetricsLayerFilter(MetricsLayerBase):
         """
         Generate the Pypika Criterion for this filter
 
-        field: Pypika Field as we don't know the base table this filter is
+        field: Pypika Field as we do not know the base table this filter is
                 evaluated against (is it the base table or an intermediary table?)
 
         We have to use the following cases as PyPika does not allow an str
@@ -173,6 +181,16 @@ class MetricsLayerFilter(MetricsLayerBase):
             MetricsLayerFilterExpressionType.GreaterOrEqualThan: lambda f: f >= self.value,
             MetricsLayerFilterExpressionType.GreaterThan: lambda f: f > self.value,
             MetricsLayerFilterExpressionType.Like: lambda f: f.like(self.value),
+            MetricsLayerFilterExpressionType.Contains: lambda f: f.like(f"%{self.value}%"),
+            MetricsLayerFilterExpressionType.DoesNotContain: lambda f: f.not_like(f"%{self.value}%"),
+            MetricsLayerFilterExpressionType.ContainsCaseInsensitive: lambda f: f.ilike(f"%{self.value}%"),
+            MetricsLayerFilterExpressionType.DoesNotContainCaseInsensitive: lambda f: f.not_ilike(
+                f"%{self.value}%"
+            ),
+            MetricsLayerFilterExpressionType.StartsWith: lambda f: f.like(f"{self.value}%"),
+            MetricsLayerFilterExpressionType.EndsWith: lambda f: f.like(f"%{self.value}"),
+            MetricsLayerFilterExpressionType.DoesNotStartWith: lambda f: f.not_like(f"{self.value}%"),
+            MetricsLayerFilterExpressionType.DoesNotEndWith: lambda f: f.not_like(f"%{self.value}"),
             MetricsLayerFilterExpressionType.IsNull: lambda f: f.isnull(),
             MetricsLayerFilterExpressionType.IsNotNull: lambda f: f.notnull(),
             MetricsLayerFilterExpressionType.IsIn: lambda f: f.isin(self.value),

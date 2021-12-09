@@ -328,18 +328,48 @@ def test_simple_query_with_where_dim_group(config, query_type):
     assert query == correct
 
 
-def test_simple_query_with_where_dict(config):
+@pytest.mark.parametrize(
+    "filter_type",
+    [
+        "equal_to",
+        "not_equal_to",
+        "contains",
+        "does_not_contain",
+        "contains_case_insensitive",
+        "does_not_contain_case_insensitive",
+        "starts_with",
+        "ends_with",
+        "does_not_start_with",
+        "does_not_end_with",
+    ],
+)
+def test_simple_query_with_where_dict(config, filter_type):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
     conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(
         metrics=["total_revenue"],
-        dimensions=["channel"],
-        where=[{"field": "channel", "expression": "not_equal_to", "value": "Email"}],
+        dimensions=["simple.channel"],
+        where=[{"field": "channel", "expression": filter_type, "value": "Email"}],
     )
 
-    correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
-    correct += "analytics.orders simple WHERE simple.sales_channel<>'Email' GROUP BY simple.sales_channel;"
+    result_lookup = {
+        "equal_to": "='Email'",
+        "not_equal_to": "<>'Email'",
+        "contains": " LIKE '%Email%'",
+        "does_not_contain": " NOT LIKE '%Email%'",
+        "contains_case_insensitive": " ILIKE '%Email%'",
+        "does_not_contain_case_insensitive": " NOT ILIKE '%Email%'",
+        "starts_with": " LIKE 'Email%'",
+        "ends_with": " LIKE '%Email'",
+        "does_not_start_with": " NOT LIKE 'Email%'",
+        "does_not_end_with": " NOT LIKE '%Email'",
+    }
+    filter_expr = result_lookup[filter_type]
+    correct = (
+        "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
+        f"analytics.orders simple WHERE simple.sales_channel{filter_expr} GROUP BY simple.sales_channel;"
+    )
     assert query == correct
 
 
@@ -356,18 +386,47 @@ def test_simple_query_with_where_literal(config):
     assert query == correct
 
 
-def test_simple_query_with_having_dict(config):
+@pytest.mark.parametrize(
+    "filter_type",
+    [
+        "equal_to",
+        "not_equal_to",
+        "less_than",
+        "less_or_equal_than",
+        "greater_or_equal_than",
+        "greater_than",
+        "is_null",
+        "is_not_null",
+    ],
+)
+def test_simple_query_with_having_dict(config, filter_type):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
     conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=["channel"],
-        having=[{"field": "total_revenue", "expression": "greater_than", "value": 12}],
+        having=[{"field": "total_revenue", "expression": filter_type, "value": 12}],
     )
 
-    correct = "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
-    correct += "analytics.orders simple GROUP BY simple.sales_channel HAVING SUM(simple.revenue)>12;"
+    result_lookup = {
+        "equal_to": "=12",
+        "not_equal_to": "<>12",
+        "less_than": "<12",
+        "less_or_equal_than": "<=12",
+        "greater_or_equal_than": ">=12",
+        "greater_than": ">12",
+        "is_null": " IS NULL",
+        "is_not_null": " IS NULL",
+    }
+    filter_expr = result_lookup[filter_type]
+    full_expr = f"SUM(simple.revenue){filter_expr}"
+    if filter_type == "is_not_null":
+        full_expr = "NOT " + full_expr
+    correct = (
+        "SELECT simple.sales_channel as channel,SUM(simple.revenue) as total_revenue FROM "
+        f"analytics.orders simple GROUP BY simple.sales_channel HAVING {full_expr};"
+    )
     assert query == correct
 
 
