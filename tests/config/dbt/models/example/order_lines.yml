@@ -4,6 +4,8 @@ version: 2
 models:
   - name: order_lines
     description: "Shopify Order Lines with order and customer information"
+    meta:
+      row_label: "Order line"
     columns:
       - name: order_line_id
         description: "The primary key for this table"

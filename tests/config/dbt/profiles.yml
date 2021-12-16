@@ -1,15 +1,13 @@
+config:
+  send_anonymous_usage_stats: false
 test_dbt_project:
-  target: dev
   outputs:
-    dev:
-      type: snowflake
+    temp:
       account: fake-url.us-east-1
-      user: testing
-      password: blahdablah
-
-      role: transform
-      database: test
-      warehouse: transform_wh
-      schema: prod
-      client_session_keep_alive: False
-
+      database: fake
+      password: fake
+      schema: fake
+      type: snowflake
+      user: fake
+      warehouse: fake
+  target: temp

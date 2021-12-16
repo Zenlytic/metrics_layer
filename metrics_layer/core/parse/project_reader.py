@@ -1,3 +1,4 @@
+import json
 import os
 from copy import deepcopy
 
@@ -95,8 +96,170 @@ class ProjectReader:
         return models, views
 
     def _load_dbt(self, repo: BaseRepo):
-        print(repo)
-        raise NotImplementedError()
+        self.project_name = self._get_dbt_project_name(repo.folder)
+        self._dump_profiles_file(repo.folder, self.project_name, repo.warehouse_type)
+        self._generate_manifest_json(repo.folder)
+
+        manifest_files = repo.search(pattern="manifest.json")
+        if len(manifest_files) > 1:
+            raise ValueError("found multiple manifest.json files for your dbt project")
+        if len(manifest_files) == 0:
+            raise ValueError("could not find a manifest.json file for your dbt project")
+
+        with open(manifest_files[0], "r") as f:
+            manifest = json.load(f)
+
+        models, views = self._parse_dbt_manifest(manifest)
+        print(models)
+        print(views)
+        return models, views
+
+    def _parse_dbt_manifest(self, manifest: dict):
+        views = self._make_dbt_views(manifest)
+        models = self._make_dbt_models([v["name"] for v in views])
+        return models, views
+
+    def _make_dbt_views(self, manifest: dict):
+        metrics = [self._make_dbt_metric(m) for m in manifest["metrics"].values()]
+        view_keys = [k for k in manifest["nodes"].keys() if "model." in k]
+
+        views = []
+        for view_key in view_keys:
+            view_raw = manifest["nodes"][view_key]
+            view_metrics = [m for m in metrics if view_raw["name"] == m.get("model")]
+            if len(view_metrics) > 0:
+                view = self._make_dbt_view(view_raw, view_metrics)
+                views.append(view)
+
+        return views
+
+    def _make_dbt_view(self, view: dict, view_metrics: list):
+        unique_timestamps = list({m["timestamp"] for m in view_metrics})
+        # Pick the longest time grain
+        time_grains = list(sorted(view_metrics, key=lambda x: len(x["time_grains"])))[-1]
+
+        if len(unique_timestamps) > 1:
+            raise ValueError(
+                "cannot handle dbt metrics with different primary timestamps in a view / dbt model"
+            )
+        dimension_group = self._make_dbt_dimension_group(unique_timestamps[0], time_grains)
+        metrics = []
+        for m in view_metrics:
+            m.pop("model", None)
+            m.pop("timestamp", None)
+            m.pop("time_grains", None)
+            metrics.append(m)
+
+        extra = view["meta"] if view["meta"] != {} else view.get("config", {}).get("meta", {})
+        dimensions = [
+            self._make_dbt_dimension(d) for d in view.get("columns").values() if d.get("is_dimension")
+        ]
+        default_date = unique_timestamps[0]
+        fields = dimensions + [dimension_group] + metrics
+        view_dict = {
+            "version": 1,
+            "type": "view",
+            "name": view["name"],
+            "description": view.get("description"),
+            "row_label": extra.get("row_label"),
+            "sql_table_name": f"{view['schema']}.{view['name']}",
+            "default_date": default_date,
+            "extra": extra,
+            "fields": fields,
+        }
+        return view_dict
+
+    @staticmethod
+    def _make_dbt_dimension_group(name: str, time_grains: list):
+        return {
+            "field_type": "dimension_group",
+            "name": name,
+            "type": "time",
+            "datatype": "date",
+            "timeframes": [t if t != "day" else "date" for t in time_grains],
+            "sql": "${TABLE}." + name,
+        }
+
+    @staticmethod
+    def _make_dbt_dimension(dimension: dict):
+        return {
+            "field_type": "dimension",
+            "name": dimension["name"],
+            "type": "string",
+            "label": dimension.get("label"),
+            "sql": "${TABLE}." + dimension["name"],
+            "description": dimension.get("description"),
+            "extra": dimension.get("meta", {}),
+            "value_format_name": dimension.get("meta", {}).get("value_format_name"),
+        }
+
+    @staticmethod
+    def _make_dbt_metric(metric: dict):
+        if len(metric["sql"].split(" ")) > 1:
+            raise ValueError(
+                "We do not currently support dbt sql statements that are more than an identifier"
+            )
+        if any(f["operator"] != "equal_to" for f in metric.get("filters", [])):
+            raise ValueError("We do not currently support dbt filter statements that are not equal_to")
+        metric_dict = {
+            "name": metric["name"],
+            "model": metric["model"].replace("ref('", "").replace("')", ""),
+            "timestamp": metric["timestamp"],
+            "time_grains": metric["time_grains"],
+            "field_type": "measure",
+            "type": metric["type"],
+            "label": metric.get("label"),
+            "description": metric.get("description"),
+            "sql": "${TABLE}." + metric["sql"],
+            "extra": metric.get("meta", {}),
+            "filters": [{"field": f["field"], "value": f["value"]} for f in metric.get("filters", [])],
+        }
+        return metric_dict
+
+    def _make_dbt_models(self, view_names: list):
+        model = {"version": 1, "type": "model", "name": self.project_name, "connection": self.project_name}
+        model["explores"] = [{"name": view_name} for view_name in view_names]
+        return [model]
+
+    def _get_dbt_project_name(self, project_dir: str):
+        dbt_project = self.read_yaml_file(os.path.join(project_dir, "dbt_project.yml"))
+        return dbt_project["name"]
+
+    @staticmethod
+    def _dump_profiles_file(project_dir: str, project_name: str, warehouse_type: str):
+        if warehouse_type == "SNOWFLAKE":
+            params = {
+                "type": "snowflake",
+                "account": "fake-url.us-east-1",
+                "user": "fake",
+                "password": "fake",
+                "warehouse": "fake",
+                "database": "fake",
+                "schema": "fake",
+            }
+        elif warehouse_type == "BIGQUERY":
+            params = {
+                "type": "bigquery",
+                "method": "service-account",
+                "project": "fake",
+                "dataset": "fake",
+                "keyfile": "fake",
+            }
+        else:
+            raise NotImplementedError()
+
+        profiles = {
+            project_name: {"target": "temp", "outputs": {"temp": {**params}}},
+            "config": {"send_anonymous_usage_stats": False},
+        }
+        with open(os.path.join(project_dir, "profiles.yml"), "w") as f:
+            yaml.dump(profiles, f)
+
+    @staticmethod
+    def _generate_manifest_json(project_dir: str):
+        from dbt.main import handle_and_check
+
+        handle_and_check(["ls", "--project-dir", project_dir, "--profiles-dir", project_dir])
 
     def _load_metrics_layer(self, repo: BaseRepo):
         models, views = [], []

@@ -122,20 +122,28 @@ class MetricsLayerConfiguration:
             or through the Looker API with the following arguments:
             'looker_url': https://company.cloud.looker.com, 'client_id': aefafasdasd,
             'client_secret': adfawdada, 'project_name': yourcompany
+
+            Note: dbt repos require an additional 'warehouse_type' argument
             """
         )
 
     @staticmethod
     def _get_repo_from_environment(prefix: str):
+        warehouse_type = os.getenv(f"{prefix}_WAREHOUSE_TYPE")
         local_repo_param = os.getenv(f"{prefix}_REPO_PATH")
         if local_repo_param:
             repo_type = os.getenv(f"{prefix}_REPO_TYPE")
-            return LocalRepo(repo_path=local_repo_param, repo_type=repo_type)
+            return LocalRepo(repo_path=local_repo_param, repo_type=repo_type, warehouse_type=warehouse_type)
 
         repo_params = [os.getenv(f"{prefix}_{a}") for a in ["REPO_URL", "BRANCH"]]
         if all(repo_params):
             repo_type = os.getenv(f"{prefix}_REPO_TYPE")
-            return GithubRepo(repo_url=repo_params[0], branch=repo_params[1], repo_type=repo_type)
+            return GithubRepo(
+                repo_url=repo_params[0],
+                branch=repo_params[1],
+                repo_type=repo_type,
+                warehouse_type=warehouse_type,
+            )
 
         looker_repo_params = [
             os.getenv(f"{prefix}_{a}") for a in ["LOOKER_URL", "CLIENT_ID", "CLIENT_SECRET", "PROJECT_NAME"]
@@ -157,7 +165,9 @@ class MetricsLayerConfiguration:
         clean_prefix = "additional_" if "additional" in prefix.lower() else ""
 
         metrics_layer_directory = self.get_metrics_layer_directory()
+        print(metrics_layer_directory)
         self.profiles_path = os.path.join(metrics_layer_directory, "profiles.yml")
+        print(self.profiles_path)
 
         if not os.path.exists(self.profiles_path):
             raise ConfigError(
@@ -205,6 +215,8 @@ class MetricsLayerConfiguration:
             self.looker_env = target["looker_env"]
 
         repo_type = target.get(f"{clean_prefix}repo_type")
+        raw_connections = target.get("connections", [])
+        warehouse_type = raw_connections[0]["type"] if len(raw_connections) > 0 else None
 
         # Local repo
         path_arg = f"{clean_prefix}repo_path"
@@ -215,7 +227,7 @@ class MetricsLayerConfiguration:
                 path = os.path.abspath(
                     os.path.join(metrics_layer_directory, os.path.expanduser(target[path_arg]))
                 )
-            repo = LocalRepo(repo_path=path, repo_type=repo_type)
+            repo = LocalRepo(repo_path=path, repo_type=repo_type, warehouse_type=warehouse_type)
 
         # Github repo
         if all(k in target for k in [f"{clean_prefix}repo_url", f"{clean_prefix}branch"]):
@@ -223,6 +235,7 @@ class MetricsLayerConfiguration:
                 repo_url=target[f"{clean_prefix}repo_url"],
                 branch=target[f"{clean_prefix}branch"],
                 repo_type=repo_type,
+                warehouse_type=warehouse_type,
             )
 
         # Looker API
@@ -236,7 +249,7 @@ class MetricsLayerConfiguration:
             looker_args = {k: target[k] for k in looker_keys}
             repo = LookerGithubRepo(**looker_args, repo_type="lookml")
 
-        connections = [{**c, "directory": metrics_layer_directory} for c in target.get("connections", [])]
+        connections = [{**c, "directory": metrics_layer_directory} for c in raw_connections]
         return repo, MetricsLayerConfiguration._parse_connections(connections)
 
     @staticmethod
@@ -249,10 +262,15 @@ class MetricsLayerConfiguration:
     @staticmethod
     def get_metrics_layer_directory():
         env_specified_location = os.getenv(f"METRICS_LAYER_PROFILES_DIR")
+        print(env_specified_location)
         if env_specified_location:
             if os.path.isabs(env_specified_location):
+
                 return env_specified_location
             else:
+                print("bro")
+                print(os.getcwd())
+                print(os.path.abspath(env_specified_location))
                 return os.path.join(os.getcwd(), os.path.abspath(env_specified_location))
 
         # System default home directory

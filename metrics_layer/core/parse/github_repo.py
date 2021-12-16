@@ -19,10 +19,11 @@ class BaseRepo:
         looker_files += list(self.search(pattern="*.view.*"))
         n_looker_files = len(looker_files)
 
+        print(n_looker_files)
         yaml_files = list(self.search(pattern="*.yml"))
         yaml_files += list(self.search(pattern="*.yaml"))
         n_yaml_files = len(yaml_files)
-
+        print(n_yaml_files)
         dbt_files = list(self.search(pattern="dbt_project.yml"))
         dbt_files += list(self.search(pattern="dbt_project.yml"))
         n_dbt_files = len(dbt_files)
@@ -44,9 +45,10 @@ class BaseRepo:
 
 
 class LocalRepo(BaseRepo):
-    def __init__(self, repo_path: str, repo_type: str = None) -> None:
+    def __init__(self, repo_path: str, repo_type: str = None, warehouse_type: str = None) -> None:
         self.repo_path = repo_path
         self.repo_type = repo_type
+        self.warehouse_type = warehouse_type
         self.folder = f"{os.path.join(BASE_PATH, self.repo_path)}/"
 
     def search(self, pattern: str):
@@ -61,9 +63,10 @@ class LocalRepo(BaseRepo):
 
 
 class GithubRepo(BaseRepo):
-    def __init__(self, repo_url: str, branch: str, repo_type: str = None) -> None:
+    def __init__(self, repo_url: str, branch: str, repo_type: str = None, warehouse_type: str = None) -> None:
         self.repo_url = repo_url
         self.repo_type = repo_type
+        self.warehouse_type = warehouse_type
         self.repo_name = utils.generate_uuid()
         self.repo_destination = os.path.join(BASE_PATH, self.repo_name)
         self.folder = f"{self.repo_destination}/"

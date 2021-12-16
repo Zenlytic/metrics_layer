@@ -189,7 +189,6 @@ def test_cli_debug(connection, mocker, monkeypatch):
     assert non_workstation_dependent_output == non_workstation_dependent_correct
 
 
-@pytest.mark.mm
 @pytest.mark.parametrize(
     "object_type,extra_args",
     [
