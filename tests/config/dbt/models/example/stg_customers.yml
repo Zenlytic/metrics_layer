@@ -1,0 +1,12 @@
+
+version: 2
+
+models:
+  - name: stg_customers
+    description: "Shopify customers"
+    columns:
+      - name: customer_id
+        description: "The primary key for this table"
+        tests:
+          - unique
+          - not_null

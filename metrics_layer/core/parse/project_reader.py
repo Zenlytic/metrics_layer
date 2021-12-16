@@ -69,10 +69,14 @@ class ProjectReader:
         repo_type = repo.get_repo_type()
         if repo_type == "lookml":
             models, views = self._load_lookml(repo)
+        elif repo_type == "dbt":
+            models, views = self._load_dbt(repo)
         elif repo_type == "metrics_layer":
             models, views = self._load_metrics_layer(repo)
         else:
-            raise TypeError(f"Unknown repo type: {repo_type}, valid values are 'metrics_layer', 'lookml'")
+            raise TypeError(
+                f"Unknown repo type: {repo_type}, valid values are 'metrics_layer', 'lookml', 'dbt'"
+            )
         repo.delete()
         return models, views
 
@@ -89,6 +93,10 @@ class ProjectReader:
             views.extend([self._standardize_view(v) for v in file_views])
 
         return models, views
+
+    def _load_dbt(self, repo: BaseRepo):
+        print(repo)
+        raise NotImplementedError()
 
     def _load_metrics_layer(self, repo: BaseRepo):
         models, views = [], []

@@ -1,0 +1,15 @@
+test_dbt_project:
+  target: dev
+  outputs:
+    dev:
+      type: snowflake
+      account: fake-url.us-east-1
+      user: testing
+      password: blahdablah
+
+      role: transform
+      database: test
+      warehouse: transform_wh
+      schema: prod
+      client_session_keep_alive: False
+

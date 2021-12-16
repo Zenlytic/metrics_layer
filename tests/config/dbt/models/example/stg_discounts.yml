@@ -1,0 +1,12 @@
+
+version: 2
+
+models:
+  - name: stg_discounts
+    description: "Shopify discounts"
+    columns:
+      - name: discount_id
+        description: "The primary key for this table"
+        tests:
+          - unique
+          - not_null

@@ -1,0 +1,12 @@
+
+version: 2
+
+models:
+  - name: stg_orders
+    description: "Shopify orders"
+    columns:
+      - name: order_id
+        description: "The primary key for this table"
+        tests:
+          - unique
+          - not_null

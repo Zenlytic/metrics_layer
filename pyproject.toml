@@ -22,15 +22,19 @@ pandas = {version = "^1.2.2", optional = true}
 snowflake-connector-python = {version = "~2.5.1", optional = true}
 pyarrow = {version = "3.0.0", optional = true}
 google-cloud-bigquery = {version = "^2.24.1", optional = true}
-Flask = {version = "~1.1.4", optional = true}
+Flask = {version = "~<2.0.0", optional = true}
 Flask-RESTful = {version = "^0.3.9", optional = true}
 Flask-SQLAlchemy = {version = "^2.5.1", optional = true}
 Flask-Migrate = {version = "^3.1.0", optional = true}
 gunicorn = {version = "^20.1.0", optional = true}
 Flask-Bcrypt = {version = "^0.7.1", optional = true}
 PyJWT = {version = "^2.1.0", optional = true}
+dbt-core = {version = "^1.0.0", optional = true}
+dbt-extractor = {version = "^0.4.0", optional = true}
+dbt-snowflake = {version = "^1.0.0", optional = true}
+dbt-bigquery = {version = "^1.0.0", optional = true}
 networkx = "^2.6.3"
-click = "<8.0"
+click = "^8.0"
 importlib-metadata = "^4.8.2"
 colorama = "^0.4.4"
 
@@ -44,10 +48,11 @@ pytest-cov = "^2.12.1"
 pytest-mock = "^3.6.1"
 
 [tool.poetry.extras]
-snowflake = ["snowflake-connector-python", "pyarrow", "pandas"]
-bigquery = ["google-cloud-bigquery", "pyarrow", "pandas"]
+snowflake = ["snowflake-connector-python", "pyarrow", "pandas", "dbt-snowflake"]
+bigquery = ["google-cloud-bigquery", "pyarrow", "pandas", "dbt-bigquery"]
 flask = ["Flask", "Flask-RESTful", "Flask-SQLAlchemy", "Flask-Bcrypt", "Flask-Migrate", "PyJWT", "gunicorn"]
-all = ["snowflake-connector-python", "google-cloud-bigquery", "pyarrow", "pandas", "Flask", "Flask-RESTful", "Flask-SQLAlchemy", "Flask-Bcrypt", "Flask-Migrate", "PyJWT", "gunicorn"]
+dbt = ["dbt-core", "dbt-extractor"]
+all = ["snowflake-connector-python", "google-cloud-bigquery", "pyarrow", "pandas", "Flask", "Flask-RESTful", "Flask-SQLAlchemy", "Flask-Bcrypt", "Flask-Migrate", "PyJWT", "gunicorn", "dbt-core", "dbt-extractor", "dbt-snowflake", "dbt-bigquery"]
 
 [tool.black]
 line-length = 110
