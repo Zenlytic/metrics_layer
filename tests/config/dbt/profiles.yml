@@ -1,0 +1,13 @@
+config:
+  send_anonymous_usage_stats: false
+test_dbt_project:
+  outputs:
+    temp:
+      account: fake-url.us-east-1
+      database: fake
+      password: fake
+      schema: fake
+      type: snowflake
+      user: fake
+      warehouse: fake
+  target: temp

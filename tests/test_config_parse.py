@@ -12,6 +12,18 @@ class repo_mock(BaseRepo):
     def __init__(self, repo_type: str = None):
         self.repo_type = repo_type
 
+    @property
+    def folder(self):
+        if self.repo_type == "dbt":
+            return os.path.join(BASE_PATH, "config/dbt/")
+        raise NotImplementedError()
+
+    @property
+    def warehouse_type(self):
+        if self.repo_type == "dbt":
+            return "SNOWFLAKE"
+        raise NotImplementedError()
+
     def fetch(self):
         return
 
@@ -24,6 +36,8 @@ class repo_mock(BaseRepo):
             view = os.path.join(BASE_PATH, "config/metrics_layer_config/views/view_with_all_fields.yml")
             model = os.path.join(BASE_PATH, "config/metrics_layer_config/models/model_with_all_fields.yml")
             return [model, view]
+        elif pattern == "manifest.json":
+            return [os.path.join(BASE_PATH, "config/dbt/target/manifest.json")]
         return []
 
     def delete(self):
@@ -195,3 +209,41 @@ def test_config_load_multiple():
 def test_config_use_view_name(project):
     explore = project.get_explore("discounts_only")
     assert explore.from_ == "discounts"
+
+
+def test_config_load_dbt():
+    reader = ProjectReader(repo=repo_mock(repo_type="dbt"))
+    reader.load()
+
+    model = reader.models[0]
+
+    assert model["type"] == "model"
+    assert isinstance(model["name"], str)
+    assert isinstance(model["connection"], str)
+    assert isinstance(model["explores"], list)
+
+    explore = model["explores"][0]
+
+    assert isinstance(explore["name"], str)
+
+    view = reader.views[0]
+
+    assert view["type"] == "view"
+    assert isinstance(view["name"], str)
+    assert view["sql_table_name"] == "fake.order_lines"
+    assert isinstance(view["default_date"], str)
+    assert view["row_label"] == "Order line"
+    assert isinstance(view["fields"], list)
+
+    total_revenue_measure = next((f for f in view["fields"] if f["name"] == "new_customer_revenue"))
+
+    assert total_revenue_measure["name"] == "new_customer_revenue"
+    assert total_revenue_measure["field_type"] == "measure"
+    assert total_revenue_measure["type"] == "sum"
+    assert total_revenue_measure["label"] == "New customer revenue"
+    assert total_revenue_measure["description"] == "Total revenue from new customers"
+    assert total_revenue_measure["sql"] == "${TABLE}.product_revenue"
+    assert total_revenue_measure["extra"] == {"team": "Finance"}
+    assert total_revenue_measure["filters"] == [{"field": "new_vs_repeat", "value": "New"}]
+
+    os.chdir("../../..")

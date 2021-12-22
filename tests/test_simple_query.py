@@ -341,6 +341,10 @@ def test_simple_query_with_where_dim_group(config, query_type):
         "ends_with",
         "does_not_start_with",
         "does_not_end_with",
+        "starts_with_case_insensitive",
+        "ends_with_case_insensitive",
+        "does_not_start_with_case_insensitive",
+        "does_not_end_with_case_insensitive",
     ],
 )
 def test_simple_query_with_where_dict(config, filter_type):
@@ -364,6 +368,10 @@ def test_simple_query_with_where_dict(config, filter_type):
         "ends_with": " LIKE '%Email'",
         "does_not_start_with": " NOT LIKE 'Email%'",
         "does_not_end_with": " NOT LIKE '%Email'",
+        "starts_with_case_insensitive": " ILIKE 'Email%'",
+        "ends_with_case_insensitive": " ILIKE '%Email'",
+        "does_not_start_with_case_insensitive": " NOT ILIKE 'Email%'",
+        "does_not_end_with_case_insensitive": " NOT ILIKE '%Email'",
     }
     filter_expr = result_lookup[filter_type]
     correct = (

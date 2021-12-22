@@ -32,6 +32,10 @@ class MetricsLayerFilterExpressionType(str, Enum):
     EndsWith = "ends_with"
     DoesNotStartWith = "does_not_start_with"
     DoesNotEndWith = "does_not_end_with"
+    StartsWithCaseInsensitive = "starts_with_case_insensitive"
+    EndsWithCaseInsensitive = "ends_with_case_insensitive"
+    DoesNotStartWithCaseInsensitive = "does_not_start_with_case_insensitive"
+    DoesNotEndWithCaseInsensitive = "does_not_end_with_case_insensitive"
     IsNull = "is_null"
     IsNotNull = "is_not_null"
     IsIn = "isin"
@@ -191,6 +195,14 @@ class MetricsLayerFilter(MetricsLayerBase):
             MetricsLayerFilterExpressionType.EndsWith: lambda f: f.like(f"%{self.value}"),
             MetricsLayerFilterExpressionType.DoesNotStartWith: lambda f: f.not_like(f"{self.value}%"),
             MetricsLayerFilterExpressionType.DoesNotEndWith: lambda f: f.not_like(f"%{self.value}"),
+            MetricsLayerFilterExpressionType.StartsWithCaseInsensitive: lambda f: f.ilike(f"{self.value}%"),
+            MetricsLayerFilterExpressionType.EndsWithCaseInsensitive: lambda f: f.ilike(f"%{self.value}"),
+            MetricsLayerFilterExpressionType.DoesNotStartWithCaseInsensitive: lambda f: f.not_ilike(
+                f"{self.value}%"
+            ),
+            MetricsLayerFilterExpressionType.DoesNotEndWithCaseInsensitive: lambda f: f.not_ilike(
+                f"%{self.value}"
+            ),
             MetricsLayerFilterExpressionType.IsNull: lambda f: f.isnull(),
             MetricsLayerFilterExpressionType.IsNotNull: lambda f: f.notnull(),
             MetricsLayerFilterExpressionType.IsIn: lambda f: f.isin(self.value),
