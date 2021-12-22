@@ -74,7 +74,8 @@ class View(MetricsLayerBase):
                         if name:
                             fields = [f for f in fields if not f.equal(name)]
             else:
-                raise NotImplementedError("TODO handle single field inclusions")
+                pass
+                # raise NotImplementedError("TODO handle single field inclusions")
         return fields
 
     def _field_name_to_remove(self, field_expr: str):
