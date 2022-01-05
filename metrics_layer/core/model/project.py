@@ -45,8 +45,9 @@ class Project:
             pass
         raise ValueError(f"Could not find explore {explore_name} in config")
 
-    def views_with_explore(self, explore_name: str):
-        explore = self.get_explore(explore_name)
+    def views_with_explore(self, explore_name: str = None, explore: Explore = None):
+        if explore_name and explore is None:
+            explore = self.get_explore(explore_name)
         view_names = [explore.from_] + [j.name for j in explore.joins()]
         return [v for v in self.views(explore=explore) if v.name in view_names]
 
@@ -58,31 +59,78 @@ class Project:
     def get_view(self, view_name: str, explore: Explore = None) -> View:
         return next((v for v in self.views(explore=explore) if v.name == view_name), None)
 
-    def fields(self, explore_name: str = None, view_name: str = None, show_hidden: bool = True) -> list:
+    def sets(self, view_name: str = None, explore_name: str = None):
+        if explore_name:
+            views = self.views(explore_name=explore_name)
+        elif view_name:
+            views = [self.get_view(view_name)]
+        else:
+            views = self.views()
+
+        all_sets = []
+        for view in views:
+            all_sets.extend(view.list_sets())
+        return all_sets
+
+    def get_set(self, set_name: str, view_name: str = None):
+        if view_name:
+            sets = self.sets(view_name=view_name)
+        else:
+            sets = self.sets()
+        return next((s for s in sets if s.name == set_name), None)
+
+    def fields(
+        self,
+        explore_name: str = None,
+        view_name: str = None,
+        show_hidden: bool = True,
+        expand_dimension_groups: bool = False,
+        show_excluded: bool = False,
+    ) -> list:
         if explore_name is None and view_name is None:
-            return self._all_fields(show_hidden)
+            return self._all_fields(show_hidden, expand_dimension_groups)
         elif view_name and explore_name:
             return self._view_fields(
-                view_name, explore=self.get_explore(explore_name), show_hidden=show_hidden
+                view_name, self.get_explore(explore_name), show_hidden, expand_dimension_groups
             )
         elif view_name:
-            return self._view_fields(view_name, show_hidden=show_hidden)
+            return self._view_fields(
+                view_name, show_hidden=show_hidden, expand_dimension_groups=expand_dimension_groups
+            )
         else:
-            return self._explore_fields(explore_name, show_hidden=show_hidden)
+            return self._explore_fields(explore_name, show_hidden, expand_dimension_groups, show_excluded)
 
-    def _all_fields(self, show_hidden: bool):
-        return [f for v in self.views() for f in v.fields(show_hidden=show_hidden)]
+    def _all_fields(self, show_hidden: bool, expand_dimension_groups: bool):
+        return [f for v in self.views() for f in v.fields(show_hidden, expand_dimension_groups)]
 
-    def _view_fields(self, view_name: str, explore: Explore = None, show_hidden: bool = True):
+    def _view_fields(
+        self,
+        view_name: str,
+        explore: Explore = None,
+        show_hidden: bool = True,
+        expand_dimension_groups: bool = False,
+    ):
         view = self.get_view(view_name, explore=explore)
         if not view:
             plus_explore = f" in explore {explore.name}" if explore else ""
             raise ValueError(f"Could not find a view matching the name {view_name}{plus_explore}")
-        return [field for field in view.fields(show_hidden=show_hidden)]
+        return view.fields(show_hidden, expand_dimension_groups)
 
-    def _explore_fields(self, explore_name: str, show_hidden: bool):
-        valid_views = self.views_with_explore(explore_name)
-        return [f for v in valid_views for f in v.fields(show_hidden=show_hidden)]
+    def _explore_fields(
+        self, explore_name: str, show_hidden: bool, expand_dimension_groups: bool, show_excluded: bool
+    ):
+        explore = self.get_explore(explore_name)
+        valid_views = self.views_with_explore(explore=explore)
+        fields = [f for v in valid_views for f in v.fields(show_hidden, expand_dimension_groups)]
+
+        if explore.fields and not show_excluded:
+            field_names = explore.field_names()
+            fields_in_explore = []
+            for field in fields:
+                if any(field.equal(fn) for fn in field_names):
+                    fields_in_explore.append(field)
+            return fields_in_explore
+        return fields
 
     def get_field(self, field_name: str, explore_name: str = None, view_name: str = None) -> Field:
         # Handle the case where the explore syntax is passed: explore_name.field_name

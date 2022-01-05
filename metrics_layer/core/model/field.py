@@ -319,12 +319,16 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def equal(self, field_name: str):
         # Determine if the field name passed in references this field
+        _, view_name, field_name_only = self.field_name_parts(field_name)
+        if view_name and view_name != self.view.name:
+            return False
+
         if self.field_type == "dimension_group":
-            if field_name in self.dimension_group_names():
-                self.dimension_group = self.get_dimension_group_name(field_name)
+            if field_name_only in self.dimension_group_names():
+                self.dimension_group = self.get_dimension_group_name(field_name_only)
                 return True
             return False
-        return self.name == field_name
+        return self.name == field_name_only
 
     def dimension_group_names(self):
         if self.field_type == "dimension_group" and self.type == "time":

@@ -118,7 +118,7 @@ def test_cli_validate(config, connection, project, mocker):
 
     # Break something so validation fails
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
-    sorted_fields[10]["name"] = "rev_broken_dim"
+    sorted_fields[11]["name"] = "rev_broken_dim"
     project._views[1]["fields"] = sorted_fields
     config.project = project
     conn = MetricsLayerConnection(config=config)
@@ -139,7 +139,7 @@ def test_cli_validate_dimension(config, project, mocker):
     # Break something so validation fails
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
 
-    sorted_fields[10]["name"] = "revenue_dimension"
+    sorted_fields[11]["name"] = "revenue_dimension"
     sorted_fields[2]["sql"] = "${customer_id}"
     project._views[1]["fields"] = sorted_fields
     config.project = project
@@ -223,6 +223,7 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
     else:
         correct = result_lookup[object_type]
 
+    print(result.output)
     assert result.exit_code == 0
     assert result.output == correct
 

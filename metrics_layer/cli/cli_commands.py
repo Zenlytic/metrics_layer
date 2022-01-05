@@ -175,7 +175,6 @@ def list_(profile, type, explore, view, show_hidden):
             f"Could not find the type {type}, please use one of the options: "
             "models, connections, explores, views, fields, metrics, dimensions"
         )
-
     if items:
         click.echo(f"Found {len(items)} {type if len(items) > 1 else type[:-1]}:\n")
         for name in items:

@@ -1,5 +1,6 @@
 from .base import MetricsLayerBase
 from .join import Join
+from .view import Set
 
 
 class Explore(MetricsLayerBase):
@@ -55,6 +56,15 @@ class Explore(MetricsLayerBase):
 
     def view_names(self):
         return [self.from_] + [j.name for j in self.joins()]
+
+    def field_names(self):
+        # This function is for the explore `fields` parameter, to resolve all the sets into field names
+        if self.fields is None:
+            return self.fields
+
+        set_definition = {"name": "NA", "fields": self.fields, "explore_name": self.name}
+        explore_set = Set(set_definition, project=self.project)
+        return explore_set.field_names()
 
     def get_join(self, join_name: str):
         return next((j for j in self.joins() if j.name == join_name), None)

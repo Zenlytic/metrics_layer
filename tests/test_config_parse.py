@@ -77,6 +77,9 @@ def test_config_load_yaml():
 
     assert view["type"] == "view"
     assert isinstance(view["name"], str)
+    assert isinstance(view["sets"], list)
+    assert isinstance(view["sets"][0], dict)
+    assert view["sets"][0]["name"] == "set_name"
     assert isinstance(view["sql_table_name"], str)
     assert isinstance(view["fields"], list)
 
@@ -121,6 +124,9 @@ def test_config_load_lkml():
 
     assert view["type"] == "view"
     assert isinstance(view["name"], str)
+    assert isinstance(view["sets"], list)
+    assert isinstance(view["sets"][0], dict)
+    assert view["sets"][0]["name"] == "set_name"
     assert isinstance(view["sql_table_name"], str)
     assert isinstance(view["fields"], list)
 
@@ -175,6 +181,9 @@ def test_config_load_multiple():
     view = reader.views[0]
 
     assert view["type"] == "view"
+    assert isinstance(view["sets"], list)
+    assert isinstance(view["sets"][0], dict)
+    assert view["sets"][0]["name"] == "set_name"
     assert isinstance(view["name"], str)
     assert isinstance(view["sql_table_name"], str)
     assert isinstance(view["fields"], list)

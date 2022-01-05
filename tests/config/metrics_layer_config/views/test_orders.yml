@@ -22,6 +22,11 @@ fields:
     sql: "${TABLE}.customer_id"
     group_label: "ID's"
 
+  - name: do_not_use
+    field_type: "dimension"
+    type: string
+    sql: "${TABLE}.for_set_testing"
+
   - name: order
     field_type: "dimension_group"
     type: time
@@ -112,3 +117,19 @@ fields:
     field_type: "measure"
     type: number
     sql: "${total_revenue} / ${number_of_orders}"
+
+sets:
+  - name: test_set
+    fields: [order_id, customer_id, total_revenue]
+
+  - name: test_set2
+    fields: [order_id, new_vs_repeat, sub_channel, average_order_value]
+
+  - name: test_set_composed
+    fields: [test_set*, test_set2*, -new_vs_repeat, -sub_channel]
+
+  - name: test_set_all_fields
+    fields: [ALL_FIELDS*, -test_set2*, -new_vs_repeat, -revenue_dimension]
+
+  - name: test_removal
+    fields: [do_not_use]
