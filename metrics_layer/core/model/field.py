@@ -3,6 +3,7 @@ from copy import deepcopy
 
 from .base import MetricsLayerBase, SQLReplacement
 from .definitions import Definitions
+from .set import Set
 
 
 class Field(MetricsLayerBase, SQLReplacement):
@@ -71,6 +72,14 @@ class Field(MetricsLayerBase, SQLReplacement):
                 return f"{self.dimension_group.replace('_', ' ').title()} {label}"
             return label
         return self.alias().replace("_", " ").title()
+
+    @property
+    def drill_fields(self):
+        drill_fields = self._definition.get("drill_fields")
+        if drill_fields:
+            set_definition = {"name": "drill_fields", "fields": drill_fields, "view_name": self.view.name}
+            return Set(set_definition, project=self.view.project).field_names()
+        return drill_fields
 
     def alias(self):
         if self.field_type == "dimension_group":
@@ -634,14 +643,3 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "please pass the query type explicitly using the query_type argument"
             )
         return connection_type
-
-    @staticmethod
-    def field_name_parts(field_name: str):
-        explore_name, view_name = None, None
-        if field_name.count(".") == 2:
-            explore_name, view_name, name = field_name.split(".")
-        elif field_name.count(".") == 1:
-            view_name, name = field_name.split(".")
-        else:
-            name = field_name
-        return explore_name, view_name, name

@@ -1,7 +1,6 @@
 import pytest
 
 
-@pytest.mark.mm
 def test_sets(connection):
     sets = connection.config.project.sets()
     assert len(sets) == 5
@@ -56,3 +55,19 @@ def test_explore_sets(connection):
     explore_field_names = explore.field_names()
     excluded = ["discounts.country", "orders.do_not_use"]
     assert not any(fn in explore_field_names for fn in excluded)
+
+
+@pytest.mark.mm
+def test_drill_fields(connection):
+    field = connection.config.project.get_field("orders.number_of_orders")
+
+    drill_field_names = field.drill_fields
+    assert drill_field_names == [
+        "orders.order_id",
+        "orders.customer_id",
+        "orders.total_revenue",
+        "orders.new_vs_repeat",
+    ]
+
+    field = connection.config.project.get_field("orders.total_revenue")
+    assert field.drill_fields is None

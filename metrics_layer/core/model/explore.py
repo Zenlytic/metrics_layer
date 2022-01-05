@@ -1,6 +1,6 @@
 from .base import MetricsLayerBase
 from .join import Join
-from .view import Set
+from .set import Set
 
 
 class Explore(MetricsLayerBase):

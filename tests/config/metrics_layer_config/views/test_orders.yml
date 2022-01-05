@@ -87,6 +87,7 @@ fields:
 
   - name: number_of_orders
     field_type: measure
+    drill_fields: [test_set*, new_vs_repeat]
     type: count
     sql: "${order_id}"
 

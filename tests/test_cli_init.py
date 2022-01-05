@@ -223,7 +223,6 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
     else:
         correct = result_lookup[object_type]
 
-    print(result.output)
     assert result.exit_code == 0
     assert result.output == correct
 
