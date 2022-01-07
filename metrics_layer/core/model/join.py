@@ -10,6 +10,10 @@ class Join(MetricsLayerBase, SQLReplacement):
         self.explore = explore
         if definition.get("from") is not None:
             definition["from_"] = definition["from"]
+        elif definition.get("view_name") is not None:
+            definition["from_"] = definition["view_name"]
+        else:
+            definition["from_"] = definition["name"]
 
         self.validate(definition)
         super().__init__(definition)

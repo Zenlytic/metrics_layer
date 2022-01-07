@@ -40,6 +40,9 @@ class Explore(MetricsLayerBase):
         errors = []
         for view_name in self.view_names():
             view = self.project.get_view(view_name)
+            if view is None:
+                print(f"ERROR: View {view_name} cannot be found in explore {self.name}")
+                continue
             referenced_fields = view.referenced_fields()
             view_errors = view.collect_errors()
 
@@ -55,7 +58,7 @@ class Explore(MetricsLayerBase):
         return list(sorted(list(set(errors))))
 
     def view_names(self):
-        return [self.from_] + [j.name for j in self.joins()]
+        return [self.from_] + [j.from_ for j in self.joins()]
 
     def field_names(self):
         # This function is for the explore `fields` parameter, to resolve all the sets into field names
@@ -66,7 +69,9 @@ class Explore(MetricsLayerBase):
         explore_set = Set(set_definition, project=self.project)
         return explore_set.field_names()
 
-    def get_join(self, join_name: str):
+    def get_join(self, join_name: str, by_view_name: bool = False):
+        if by_view_name:
+            return next((j for j in self.joins() if j.from_ == join_name), None)
         return next((j for j in self.joins() if j.name == join_name), None)
 
     def joins(self):

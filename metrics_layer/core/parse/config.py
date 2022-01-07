@@ -165,9 +165,7 @@ class MetricsLayerConfiguration:
         clean_prefix = "additional_" if "additional" in prefix.lower() else ""
 
         metrics_layer_directory = self.get_metrics_layer_directory()
-        print(metrics_layer_directory)
         self.profiles_path = os.path.join(metrics_layer_directory, "profiles.yml")
-        print(self.profiles_path)
 
         if not os.path.exists(self.profiles_path):
             raise ConfigError(
@@ -262,15 +260,11 @@ class MetricsLayerConfiguration:
     @staticmethod
     def get_metrics_layer_directory():
         env_specified_location = os.getenv(f"METRICS_LAYER_PROFILES_DIR")
-        print(env_specified_location)
         if env_specified_location:
             if os.path.isabs(env_specified_location):
 
                 return env_specified_location
             else:
-                print("bro")
-                print(os.getcwd())
-                print(os.path.abspath(env_specified_location))
                 return os.path.join(os.getcwd(), os.path.abspath(env_specified_location))
 
         # System default home directory

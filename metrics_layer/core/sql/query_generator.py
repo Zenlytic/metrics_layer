@@ -222,7 +222,7 @@ class MetricsLayerQuery(MetricsLayerBase):
 
         # Start By building the Join
         for join in self.design.joins():
-            table = self.design.get_view(join.name)
+            table = self.design.get_view(join.from_)
 
             # Create a pypika Table based on the Table's name
             db_table = self._table_expression(table)

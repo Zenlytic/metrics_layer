@@ -19,11 +19,10 @@ class BaseRepo:
         looker_files += list(self.search(pattern="*.view.*"))
         n_looker_files = len(looker_files)
 
-        print(n_looker_files)
         yaml_files = list(self.search(pattern="*.yml"))
         yaml_files += list(self.search(pattern="*.yaml"))
         n_yaml_files = len(yaml_files)
-        print(n_yaml_files)
+
         dbt_files = list(self.search(pattern="dbt_project.yml"))
         dbt_files += list(self.search(pattern="dbt_project.yml"))
         n_dbt_files = len(dbt_files)

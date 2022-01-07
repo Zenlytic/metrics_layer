@@ -33,11 +33,13 @@ class MetricsLayerDesign:
     def _find_needed_joins(self, view_name: str, joins_already_added: list):
         joins_to_add = []
 
-        join_already_added = any(view_name == j.name for j in joins_already_added)
+        join_already_added = any(view_name == j.from_ for j in joins_already_added)
         if not join_already_added and view_name != self.explore.from_:
-            join = self.explore.get_join(view_name)
+            join = self.explore.get_join(view_name, by_view_name=True)
             if join is None:
-                raise ValueError(f"Could not locate join named {view_name} for explore {self.explore.name}")
+                raise ValueError(
+                    f"Could not locate join from view {view_name} for explore {self.explore.name}"
+                )
             joins_to_add.append(join)
             for view_name in join.required_views():
                 joins_to_add.extend(self._find_needed_joins(view_name, joins_already_added + [join]))
@@ -50,10 +52,10 @@ class MetricsLayerDesign:
         G = networkx.DiGraph()
         for join in joins_needed:
             for view_name in join.required_views():
-                G.add_edge(view_name, join.name)
+                G.add_edge(view_name, join.from_)
         ordered_names = list(networkx.bfs_tree(G, source=self.base_view_name))
         # Skip the first one because that's *always* the base of the explore
-        return [self.explore.get_join(name) for name in ordered_names[1:]]
+        return [self.explore.get_join(name, by_view_name=True) for name in ordered_names[1:]]
 
     def get_view(self, name: str) -> MetricsLayerBase:
         try:

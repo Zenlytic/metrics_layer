@@ -48,7 +48,7 @@ class Project:
     def views_with_explore(self, explore_name: str = None, explore: Explore = None):
         if explore_name and explore is None:
             explore = self.get_explore(explore_name)
-        view_names = [explore.from_] + [j.name for j in explore.joins()]
+        view_names = [explore.from_] + [j.from_ for j in explore.joins()]
         return [v for v in self.views(explore=explore) if v.name in view_names]
 
     def views(self, explore_name: str = None, explore: Explore = None) -> list:

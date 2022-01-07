@@ -13,7 +13,8 @@ explores:
     join_for_analysis: [orders, customers]
 
     joins:
-      - name: orders
+      - name: all_orders
+        from: orders
         type: left_outer
         relationship: many_to_one
         sql_on: "${order_lines.order_id}=${orders.order_id}"

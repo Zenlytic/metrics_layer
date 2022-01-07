@@ -110,8 +110,6 @@ class ProjectReader:
             manifest = json.load(f)
 
         models, views = self._parse_dbt_manifest(manifest)
-        print(models)
-        print(views)
         return models, views
 
     def _parse_dbt_manifest(self, manifest: dict):
