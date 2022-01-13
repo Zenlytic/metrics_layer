@@ -45,9 +45,16 @@ class Join(MetricsLayerBase, SQLReplacement):
             # The join isn't valid if we can't find an existing view with that name
             for field in fields_to_replace:
                 _, view_name, _ = Field.field_name_parts(field)
-                view = self._get_view_internal(view_name)
-                if view is None:
+                if view_name not in self.explore.join_names():
+                    err_msg = (
+                        f"Could not find view {view_name} for join {self.name} in explore {self.explore.name}"
+                    )
+                    print(err_msg)
                     return False
+
+                # view = self._get_view_internal(view_name)
+                # if view is None:
+                # return False
             return True
         return self.foreign_key is not None
 
@@ -57,8 +64,12 @@ class Join(MetricsLayerBase, SQLReplacement):
 
         views = []
         for field in self.fields_to_replace(self.sql_on):
-            _, view_name, _ = Field.field_name_parts(field)
-            views.append(view_name)
+            _, join_name, _ = Field.field_name_parts(field)
+            if join_name == self.explore.name:
+                views.append(self.explore.from_)
+            else:
+                join = self.explore.get_join(join_name)
+                views.append(join.from_)
         return list(set(views))
 
     def to_dict(self):
@@ -70,7 +81,12 @@ class Join(MetricsLayerBase, SQLReplacement):
         fields_to_replace = self.fields_to_replace(sql_on)
 
         for field in fields_to_replace:
-            _, view_name, column_name = Field.field_name_parts(field)
+            _, join_name, column_name = Field.field_name_parts(field)
+            if join_name == self.explore.name:
+                view_name = self.explore.from_
+            else:
+                join = self.explore.get_join(join_name)
+                view_name = join.from_
             view = self._get_view_internal(view_name)
 
             if view is None:

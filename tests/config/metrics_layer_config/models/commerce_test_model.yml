@@ -5,19 +5,20 @@ label: "Test commerce data"
 connection: "connection_name"
 
 explores:
-  - name: order_lines
+  - name: order_lines_all
+    from: order_lines
     description: "Description for order lines"
     label: "Description for order lines"
     group_label: "Purchases"
     fields: [ALL_FIELDS*, -orders.test_removal*, -discounts.country]
-    join_for_analysis: [orders, customers]
+    join_for_analysis: [all_orders, customers]
 
     joins:
       - name: all_orders
         from: orders
         type: left_outer
         relationship: many_to_one
-        sql_on: "${order_lines.order_id}=${orders.order_id}"
+        sql_on: "${order_lines_all.order_id}=${all_orders.order_id}"
 
       - name: country_detail
         type: left_outer
@@ -33,7 +34,7 @@ explores:
       - name: discounts
         type: left_outer
         relationship: one_to_many
-        sql_on: "${orders.order_id}=${discounts.order_id}"
+        sql_on: "${all_orders.order_id}=${discounts.order_id}"
 
       - name: discount_detail
         type: left_outer

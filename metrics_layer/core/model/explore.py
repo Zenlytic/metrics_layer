@@ -13,6 +13,7 @@ class Explore(MetricsLayerBase):
             definition["from_"] = definition["name"]
 
         self.project = project
+        self._view_names = []
         self.validate(definition)
         super().__init__(definition)
 
@@ -58,7 +59,13 @@ class Explore(MetricsLayerBase):
         return list(sorted(list(set(errors))))
 
     def view_names(self):
-        return [self.from_] + [j.from_ for j in self.joins()]
+        if self._view_names:
+            return self._view_names
+        self._view_names = [self.from_] + [j.from_ for j in self.joins()]
+        return self._view_names
+
+    def join_names(self):
+        return [self.name] + [j["name"] for j in self._definition.get("joins", [])]
 
     def field_names(self):
         # This function is for the explore `fields` parameter, to resolve all the sets into field names

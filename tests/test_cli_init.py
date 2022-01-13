@@ -9,6 +9,7 @@ from metrics_layer.cli.seeding import SeedMetricsLayer
 from metrics_layer.core import MetricsLayerConnection
 
 
+@pytest.mark.cli
 def test_cli_init(mocker):
     mocker.patch("os.mkdir")
     runner = CliRunner()
@@ -20,6 +21,7 @@ def test_cli_init(mocker):
         os.mkdir.assert_any_call(call)
 
 
+@pytest.mark.cli
 def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_data, get_seed_columns_data):
     mocker.patch("os.mkdir")
     yaml_dump_called = False
@@ -107,6 +109,7 @@ def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_
     assert yaml_dump_called
 
 
+@pytest.mark.cli
 def test_cli_validate(config, connection, project, mocker):
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
 
@@ -130,11 +133,12 @@ def test_cli_validate(config, connection, project, mocker):
     assert result.exit_code == 0
     assert result.output == (
         "Found 2 errors in the project:\n\n"
-        "\nCould not locate reference revenue_dimension in view order_lines in explore order_lines\n\n"
-        "\nCould not locate reference revenue_dimension in view orders in explore order_lines\n\n"
+        "\nCould not locate reference revenue_dimension in view order_lines in explore order_lines_all\n\n"
+        "\nCould not locate reference revenue_dimension in view orders in explore order_lines_all\n\n"
     )
 
 
+@pytest.mark.cli
 def test_cli_validate_dimension(config, project, mocker):
     # Break something so validation fails
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
@@ -157,6 +161,7 @@ def test_cli_validate_dimension(config, project, mocker):
     )
 
 
+@pytest.mark.cli
 def test_cli_debug(connection, mocker, monkeypatch):
     def query_runner_mock(query, connection):
         assert query == "select 1 as id;"
@@ -202,6 +207,7 @@ def test_cli_debug(connection, mocker, monkeypatch):
         ("metrics", ["--explore", "discounts_only"]),
     ],
 )
+@pytest.mark.cli
 def test_cli_list(connection, mocker, object_type: str, extra_args: list):
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
 
@@ -211,7 +217,7 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
     result_lookup = {
         "models": "Found 1 model:\n\ntest_model\n",
         "connections": "Found 1 connection:\n\ntesting_snowflake\n",
-        "explores": "Found 2 explores:\n\norder_lines\ndiscounts_only\n",
+        "explores": "Found 2 explores:\n\norder_lines_all\ndiscounts_only\n",
         "views": "Found 1 view:\n\ndiscounts\n",
         "fields": "Found 4 fields:\n\ncountry\norder\ndiscount_code\ntotal_discount_amt\n",
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
@@ -239,6 +245,7 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
         ("total_discount_amt", ["--type", "metric", "--explore", "discounts_only"]),
     ],
 )
+@pytest.mark.cli
 def test_cli_show(connection, mocker, name, extra_args):
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
 
@@ -253,7 +260,7 @@ def test_cli_show(connection, mocker, name, extra_args):
             "  label: Test commerce data\n"
             "  connection: connection_name\n"
             "  explore_names:\n"
-            "    order_lines\n"
+            "    order_lines_all\n"
             "    discounts_only\n"
         ),
         "testing_snowflake": (

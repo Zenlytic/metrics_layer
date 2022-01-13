@@ -5,7 +5,7 @@ def test_sets(connection):
     sets = connection.config.project.sets()
     assert len(sets) == 5
 
-    sets = connection.config.project.sets(explore_name="order_lines")
+    sets = connection.config.project.sets(explore_name="order_lines_all")
     assert len(sets) == 5
 
     sets = connection.config.project.sets(view_name="orders")
@@ -50,7 +50,7 @@ def test_sets(connection):
 
 
 def test_explore_sets(connection):
-    explore = connection.config.project.get_explore("order_lines")
+    explore = connection.config.project.get_explore("order_lines_all")
 
     explore_field_names = explore.field_names()
     excluded = ["discounts.country", "orders.do_not_use"]

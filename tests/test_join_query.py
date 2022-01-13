@@ -132,7 +132,7 @@ def test_query_single_join_count(connection):
     query = connection.get_sql_query(
         metrics=["order_lines.count"],
         dimensions=["channel", "new_vs_repeat"],
-        explore_name="order_lines",
+        explore_name="order_lines_all",
     )
 
     correct = "SELECT order_lines.sales_channel as channel,orders.new_vs_repeat as new_vs_repeat,"

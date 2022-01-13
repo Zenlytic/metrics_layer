@@ -6,7 +6,7 @@ def test_list_metrics(config):
     metrics = conn.list_metrics()
     assert len(metrics) == 18
 
-    metrics = conn.list_metrics(explore_name="order_lines")
+    metrics = conn.list_metrics(explore_name="order_lines_all")
     assert len(metrics) == 18
 
     metrics = conn.list_metrics(view_name="order_lines", names_only=True)
@@ -28,10 +28,10 @@ def test_list_dimensions(config):
     dimensions = conn.list_dimensions()
     assert len(dimensions) == 27
 
-    dimensions = conn.list_dimensions(explore_name="order_lines", show_hidden=True)
+    dimensions = conn.list_dimensions(explore_name="order_lines_all", show_hidden=True)
     assert len(dimensions) == 34
 
-    dimensions = conn.list_dimensions(explore_name="order_lines")
+    dimensions = conn.list_dimensions(explore_name="order_lines_all")
     assert len(dimensions) == 24
 
     dimensions = conn.list_dimensions(view_name="order_lines", names_only=True, show_hidden=True)
