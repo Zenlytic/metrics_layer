@@ -26,8 +26,6 @@ explores:
         sql_on: "${discounts.country}=${country_detail.country_id}"
 
       - name: customers
-        type: left_outer
-        relationship: many_to_one
         from: customers
         foreign_key: customer_id
 

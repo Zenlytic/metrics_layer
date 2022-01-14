@@ -15,6 +15,12 @@ class Join(MetricsLayerBase, SQLReplacement):
         else:
             definition["from_"] = definition["name"]
 
+        if "type" not in definition:
+            definition["type"] = "left_outer"
+
+        if "relationship" not in definition:
+            definition["relationship"] = "many_to_one"
+
         self.validate(definition)
         super().__init__(definition)
 
