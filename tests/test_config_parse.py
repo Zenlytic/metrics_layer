@@ -220,6 +220,7 @@ def test_config_use_view_name(project):
     assert explore.from_ == "discounts"
 
 
+@pytest.mark.skip("slow")
 def test_config_load_dbt():
     reader = ProjectReader(repo=repo_mock(repo_type="dbt"))
     reader.load()

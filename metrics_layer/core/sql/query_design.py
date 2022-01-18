@@ -26,7 +26,6 @@ class MetricsLayerDesign:
             required_views.extend(self.explore.always_join)
 
         joins_needed_for_query = []
-        print(reversed(sorted(required_views)))
         for view_name in reversed(sorted(required_views)):
             joins_needed_for_query.extend(self._find_needed_joins(view_name, joins_needed_for_query))
         return self._sort_joins(joins_needed_for_query)

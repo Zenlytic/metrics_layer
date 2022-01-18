@@ -57,10 +57,6 @@ class Join(MetricsLayerBase, SQLReplacement):
                     )
                     print(err_msg)
                     return False
-
-                # view = self._get_view_internal(view_name)
-                # if view is None:
-                # return False
             return True
         return self.foreign_key is not None
 
@@ -99,7 +95,9 @@ class Join(MetricsLayerBase, SQLReplacement):
                 return
 
             table_name = view.name
-            field_obj = self.project.get_field(column_name, view_name=table_name)
+            field_obj = self.project.get_field(
+                column_name, view_name=table_name, explore_name=self.explore.name
+            )
 
             if field_obj and table_name:
                 sql_condition = field_obj.sql_query(query_type)

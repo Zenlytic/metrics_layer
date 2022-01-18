@@ -178,7 +178,9 @@ def test_query_single_join_with_forced_additional_join(connection):
         "0)) as avg_rainfall FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics_live.discounts discounts ON orders.id=discounts.order_id "
-        "LEFT JOIN analytics.discount_detail discount_detail ON discounts.discount_id=discount_detail.discount_id "  # noqa
+        "LEFT JOIN analytics.discount_detail discount_detail "
+        "ON discounts.discount_id=discount_detail.discount_id "
+        "AND DATE_TRUNC(discounts.order_date, WEEK) is not null "
         "LEFT JOIN (SELECT * FROM ANALYTICS.COUNTRY_DETAIL) as country_detail "
         "ON discounts.country=country_detail.country GROUP BY discount_detail.promo_name;"
     )
