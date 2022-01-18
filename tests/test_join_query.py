@@ -171,8 +171,8 @@ def test_query_single_join_with_forced_additional_join(connection):
     correct = (
         "SELECT discount_detail.promo_name as discount_promo_name,(COALESCE(CAST((SUM(DISTINCT "
         "(CAST(FLOOR(COALESCE(country_detail.rain, 0) * (1000000 * 1.0)) AS FLOAT64))"
-        " + CAST(FARM_FINGERPRINT(country_detail.country) AS BIGNUMERIC)) - SUM(DISTINCT "
-        "CAST(FARM_FINGERPRINT(country_detail.country) AS BIGNUMERIC))) AS FLOAT64) "
+        " + CAST(FARM_FINGERPRINT(CAST(country_detail.country AS STRING)) AS BIGNUMERIC)) - SUM(DISTINCT "
+        "CAST(FARM_FINGERPRINT(CAST(country_detail.country AS STRING)) AS BIGNUMERIC))) AS FLOAT64) "
         "/ CAST((1000000*1.0) AS FLOAT64), 0) / NULLIF(COUNT(DISTINCT CASE WHEN  "
         "(country_detail.rain)  IS NOT NULL THEN  country_detail.country  ELSE NULL END), "
         "0)) as avg_rainfall FROM analytics.order_line_items order_lines "

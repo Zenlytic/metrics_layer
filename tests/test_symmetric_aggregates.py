@@ -32,8 +32,8 @@ def test_query_sum_with_sql(connection, query_type):
         sa = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) "
             "* (1000000 * 1.0)) AS FLOAT64)) + "
-            "CAST(FARM_FINGERPRINT(orders.id) AS BIGNUMERIC)) "
-            "- SUM(DISTINCT CAST(FARM_FINGERPRINT(orders.id) AS BIGNUMERIC))) AS FLOAT64) "
+            "CAST(FARM_FINGERPRINT(CAST(orders.id AS STRING)) AS BIGNUMERIC)) "
+            "- SUM(DISTINCT CAST(FARM_FINGERPRINT(CAST(orders.id AS STRING)) AS BIGNUMERIC))) AS FLOAT64) "
             "/ CAST((1000000*1.0) AS FLOAT64), 0)"
         )
     correct = (
@@ -96,8 +96,8 @@ def test_query_average_with_sql(connection, query_type: str):
         sa_sum = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) "
             "* (1000000 * 1.0)) AS FLOAT64)) + "
-            "CAST(FARM_FINGERPRINT(orders.id) AS BIGNUMERIC)) "
-            "- SUM(DISTINCT CAST(FARM_FINGERPRINT(orders.id) AS BIGNUMERIC))) AS FLOAT64) "
+            "CAST(FARM_FINGERPRINT(CAST(orders.id AS STRING)) AS BIGNUMERIC)) "
+            "- SUM(DISTINCT CAST(FARM_FINGERPRINT(CAST(orders.id AS STRING)) AS BIGNUMERIC))) AS FLOAT64) "
             "/ CAST((1000000*1.0) AS FLOAT64), 0)"
         )
 
@@ -131,8 +131,8 @@ def test_query_number_with_sql(connection, query_type):
         sa_sum = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(customers.total_sessions, 0) "
             "* (1000000 * 1.0)) AS FLOAT64)) + "
-            "CAST(FARM_FINGERPRINT(customers.customer_id) AS BIGNUMERIC)) "
-            "- SUM(DISTINCT CAST(FARM_FINGERPRINT(customers.customer_id) AS BIGNUMERIC))) AS FLOAT64) "
+            "CAST(FARM_FINGERPRINT(CAST(customers.customer_id AS STRING)) AS BIGNUMERIC)) "
+            "- SUM(DISTINCT CAST(FARM_FINGERPRINT(CAST(customers.customer_id AS STRING)) AS BIGNUMERIC))) AS FLOAT64) "  # noqa
             "/ CAST((1000000*1.0) AS FLOAT64), 0)"
         )
 

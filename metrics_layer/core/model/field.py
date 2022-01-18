@@ -173,7 +173,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
         adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS FLOAT64))"
 
-        pk_sum = f"CAST(FARM_FINGERPRINT({primary_key_sql}) AS BIGNUMERIC)"
+        pk_sum = f"CAST(FARM_FINGERPRINT(CAST({primary_key_sql} AS STRING)) AS BIGNUMERIC)"
 
         sum_with_pk_backout = f"SUM(DISTINCT {adjusted_sum} + {pk_sum}) - SUM(DISTINCT {pk_sum})"
 
