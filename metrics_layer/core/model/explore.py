@@ -73,7 +73,7 @@ class Explore(MetricsLayerBase):
             return self.fields
 
         set_definition = {"name": "NA", "fields": self.fields, "explore_name": self.name}
-        explore_set = Set(set_definition, project=self.project)
+        explore_set = Set(set_definition, project=self.project, explore=self)
         return explore_set.field_names()
 
     def get_join(self, join_name: str, by_view_name: bool = False):

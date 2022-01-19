@@ -37,6 +37,7 @@ simple_view = {
             "sql": "${TABLE}.new_vs_repeat",
             "name": "new_vs_repeat",
         },
+        {"field_type": "dimension", "sql": "${TABLE}.group_name", "name": "group"},
         {
             "field_type": "dimension_group",
             "type": "time",
@@ -114,6 +115,17 @@ def test_simple_query_count(config):
 
     correct = "SELECT simple.sales_channel as channel,COUNT(*) as count FROM "
     correct += "analytics.orders simple GROUP BY simple.sales_channel;"
+    assert query == correct
+
+
+def test_simple_query_alias_keyword(config):
+    project = Project(models=[simple_model], views=[simple_view])
+    config.project = project
+    conn = MetricsLayerConnection(config=config)
+    query = conn.get_sql_query(metrics=["count"], dimensions=["group"])
+
+    correct = "SELECT simple.group_name as _group,COUNT(*) as count FROM "
+    correct += "analytics.orders simple GROUP BY simple.group_name;"
     assert query == correct
 
 

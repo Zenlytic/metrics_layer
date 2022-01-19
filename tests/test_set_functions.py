@@ -59,9 +59,10 @@ def test_explore_sets(connection):
 
 @pytest.mark.mm
 def test_drill_fields(connection):
-    field = connection.config.project.get_field("orders.number_of_orders")
+    field = connection.config.project.get_field("orders.number_of_orders", explore_name="order_lines_all")
 
     drill_field_names = field.drill_fields
+    assert field.id() == "order_lines_all.orders.number_of_orders"
     assert drill_field_names == [
         "orders.order_id",
         "orders.customer_id",
@@ -71,3 +72,4 @@ def test_drill_fields(connection):
 
     field = connection.config.project.get_field("orders.total_revenue")
     assert field.drill_fields is None
+    assert field.id() == "orders.total_revenue"

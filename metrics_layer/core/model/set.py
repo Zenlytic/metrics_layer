@@ -2,10 +2,11 @@ from .base import MetricsLayerBase
 
 
 class Set(MetricsLayerBase):
-    def __init__(self, definition: dict = {}, project=None) -> None:
+    def __init__(self, definition: dict = {}, project=None, explore=None) -> None:
         self.validate(definition)
 
         self.project = project
+        self.explore = explore
         super().__init__(definition)
 
     def validate(self, definition: dict):
@@ -60,6 +61,14 @@ class Set(MetricsLayerBase):
         _, view_name, set_name = self.field_name_parts(set_name)
         _set = self.project.get_set(set_name, view_name=view_name)
         if _set is None:
+            if self.explore:
+                join_set = next((j for j in self.explore.joins() if j.name == set_name), None)
+                if join_set:
+                    view = self.project.get_view(join_set.from_, explore=self.explore)
+                    return [
+                        f.id(view_only=True)
+                        for f in view.fields(show_hidden=True, expand_dimension_groups=True)
+                    ]
             raise ValueError(f"Could not find set with name {set_name}")
         return _set.field_names()
 

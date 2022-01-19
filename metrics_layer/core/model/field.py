@@ -5,6 +5,8 @@ from .base import MetricsLayerBase, SQLReplacement
 from .definitions import Definitions
 from .set import Set
 
+SQL_KEYWORDS = {"order", "group", "by", "as", "from", "select", "on", "with"}
+
 
 class Field(MetricsLayerBase, SQLReplacement):
     def __init__(self, definition: dict = {}, view=None) -> None:
@@ -28,13 +30,15 @@ class Field(MetricsLayerBase, SQLReplacement):
             and definition.get("type") == "count"
         ):
             definition["primary_key_count"] = True
-        # TODO figure out how to handle this weird case
-        # if definition["name"][0] in {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}:
-        #     definition["name"] = "_" + definition["name"]
 
         self.view = view
         self.validate(definition)
         super().__init__(definition)
+
+    def id(self, view_only=False):
+        if self.view.explore and not view_only:
+            return f"{self.view.explore.name}.{self.view.name}.{self.name}"
+        return f"{self.view.name}.{self.name}"
 
     @property
     def sql(self):
@@ -87,6 +91,9 @@ class Field(MetricsLayerBase, SQLReplacement):
                 return f"{self.name}_{self.dimension_group}"
             elif self.type == "duration":
                 return f"{self.dimension_group}_{self.name}"
+
+        if self._name_is_not_valid_sql(self.name):
+            return f"_{self.name}"
         return self.name
 
     def sql_query(
@@ -643,3 +650,9 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "please pass the query type explicitly using the query_type argument"
             )
         return connection_type
+
+    @staticmethod
+    def _name_is_not_valid_sql(name: str):
+        name_is_keyword = name is not None and name.lower() in SQL_KEYWORDS
+        digit_first_char = name[0] in {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
+        return name_is_keyword or digit_first_char
