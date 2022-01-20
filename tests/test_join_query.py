@@ -1,4 +1,4 @@
-# import pytest
+import pytest
 
 
 def test_query_no_join(connection):
@@ -161,6 +161,7 @@ def test_query_single_join_metric_with_sub_field(connection):
     assert query == correct
 
 
+@pytest.mark.mmm
 def test_query_single_join_with_forced_additional_join(connection):
     query = connection.get_sql_query(
         metrics=["avg_rainfall"],

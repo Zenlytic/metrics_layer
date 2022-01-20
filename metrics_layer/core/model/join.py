@@ -74,6 +74,16 @@ class Join(MetricsLayerBase, SQLReplacement):
                 views.append(join.from_)
         return list(set(views))
 
+    def required_joins(self):
+        if not self.sql_on:
+            return [self.explore.name, self.name]
+
+        joins = []
+        for field in self.fields_to_replace(self.sql_on):
+            _, join_name, _ = Field.field_name_parts(field)
+            joins.append(join_name)
+        return list(set(joins))
+
     def to_dict(self):
         output = {**self._definition}
         return output
