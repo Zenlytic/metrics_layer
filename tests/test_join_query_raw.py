@@ -9,8 +9,11 @@ def test_query_no_join_raw(connection):
         dimensions=["order_lines.order_line_id", "channel"],
     )
 
-    correct = "SELECT order_lines.order_line_id as order_line_id,order_lines.sales_channel as channel"
-    correct += ",order_lines.revenue as total_item_revenue FROM analytics.order_line_items order_lines;"
+    correct = (
+        "SELECT order_lines.order_line_id as order_lines_order_line_id,"
+        "order_lines.sales_channel as order_lines_channel"
+        ",order_lines.revenue as order_lines_total_item_revenue FROM analytics.order_line_items order_lines;"
+    )
     assert query == correct
 
 
@@ -20,11 +23,14 @@ def test_query_single_join_non_base_primary_key(connection):
         dimensions=["orders.order_id", "channel", "new_vs_repeat"],
     )
 
-    correct = "SELECT orders.id as order_id,order_lines.sales_channel as channel,"
-    correct += "orders.new_vs_repeat as new_vs_repeat,SUM(order_lines.revenue) as total_item_revenue FROM "
-    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
-    correct += "order_lines.order_unique_id=orders.id GROUP BY orders.id,order_lines.sales_channel,"
-    correct += "orders.new_vs_repeat;"
+    correct = (
+        "SELECT orders.id as orders_order_id,order_lines.sales_channel as order_lines_channel,"
+        "orders.new_vs_repeat as orders_new_vs_repeat,"
+        "SUM(order_lines.revenue) as order_lines_total_item_revenue FROM "
+        "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
+        "order_lines.order_unique_id=orders.id GROUP BY orders.id,order_lines.sales_channel,"
+        "orders.new_vs_repeat;"
+    )
     assert query == correct
 
 
@@ -34,10 +40,14 @@ def test_query_single_join_raw(connection):
         dimensions=["order_lines.order_line_id", "channel", "new_vs_repeat"],
     )
 
-    correct = "SELECT order_lines.order_line_id as order_line_id,order_lines.sales_channel as channel,"
-    correct += "orders.new_vs_repeat as new_vs_repeat,order_lines.revenue as total_item_revenue FROM "
-    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
-    correct += "order_lines.order_unique_id=orders.id;"
+    correct = (
+        "SELECT order_lines.order_line_id as order_lines_order_line_id,"
+        "order_lines.sales_channel as order_lines_channel,"
+        "orders.new_vs_repeat as orders_new_vs_repeat,"
+        "order_lines.revenue as order_lines_total_item_revenue FROM "
+        "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
+        "order_lines.order_unique_id=orders.id;"
+    )
     assert query == correct
 
 
@@ -51,13 +61,16 @@ def test_query_single_join_raw_select_args(connection):
         ],
     )
 
-    correct = "SELECT order_lines.order_line_id as order_line_id,order_lines.sales_channel as channel,"
-    correct += "orders.new_vs_repeat as new_vs_repeat,"
-    correct += "order_lines.revenue as total_item_revenue,"
-    correct += "CAST(new_vs_repeat = 'Repeat' AS INT) as group_1,"
-    correct += "CAST(date_created > '2021-04-02' AS INT) as period FROM "
-    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
-    correct += "order_lines.order_unique_id=orders.id;"
+    correct = (
+        "SELECT order_lines.order_line_id as order_lines_order_line_id,"
+        "order_lines.sales_channel as order_lines_channel,"
+        "orders.new_vs_repeat as orders_new_vs_repeat,"
+        "order_lines.revenue as order_lines_total_item_revenue,"
+        "CAST(new_vs_repeat = 'Repeat' AS INT) as group_1,"
+        "CAST(date_created > '2021-04-02' AS INT) as period FROM "
+        "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
+        "order_lines.order_unique_id=orders.id;"
+    )
 
     assert query == correct
 
@@ -91,8 +104,12 @@ def test_query_single_join_raw_all(connection):
         where=[{"field": "new_vs_repeat", "expression": "equal_to", "value": "Repeat"}],
     )
 
-    correct = "SELECT order_lines.order_line_id as order_line_id,order_lines.sales_channel as channel,"
-    correct += "orders.new_vs_repeat as new_vs_repeat,order_lines.revenue as total_item_revenue FROM "
-    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
-    correct += "order_lines.order_unique_id=orders.id WHERE orders.new_vs_repeat='Repeat';"
+    correct = (
+        "SELECT order_lines.order_line_id as order_lines_order_line_id,"
+        "order_lines.sales_channel as order_lines_channel,"
+        "orders.new_vs_repeat as orders_new_vs_repeat,"
+        "order_lines.revenue as order_lines_total_item_revenue FROM "
+        "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
+        "order_lines.order_unique_id=orders.id WHERE orders.new_vs_repeat='Repeat';"
+    )
     assert query == correct

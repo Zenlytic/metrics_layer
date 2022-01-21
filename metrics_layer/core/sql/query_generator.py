@@ -171,7 +171,7 @@ class MetricsLayerQuery(MetricsLayerBase):
         select = []
         for field_name in self.dimensions + self.metrics:
             field = self.design.get_field(field_name)
-            select.append(self.get_sql(field, alias=field.alias(), use_symmetric=True))
+            select.append(self.get_sql(field, alias=field.alias(with_view=True), use_symmetric=True))
         return select
 
     def _get_no_group_by_select_columns(self):
@@ -187,7 +187,7 @@ class MetricsLayerQuery(MetricsLayerBase):
         sql = field.raw_sql_query(self.query_type)
 
         if isinstance(sql, str):
-            return [self.sql(sql, alias=field.alias())]
+            return [self.sql(sql, alias=field.alias(with_view=True))]
 
         # This handles the special case where the measure is made up of multiple references
         elif isinstance(sql, list):
