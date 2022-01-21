@@ -35,10 +35,13 @@ class Field(MetricsLayerBase, SQLReplacement):
         self.validate(definition)
         super().__init__(definition)
 
-    def id(self, view_only=False):
+    def id(self, view_only=False, capitalize_alias=False):
+        alias = self.alias()
+        if capitalize_alias:
+            alias = alias.upper()
         if self.view.explore and not view_only:
-            return f"{self.view.explore.name}.{self.view.name}.{self.name}"
-        return f"{self.view.name}.{self.name}"
+            return f"{self.view.explore.name}.{self.view.name}.{alias}"
+        return f"{self.view.name}.{alias}"
 
     @property
     def sql(self):
