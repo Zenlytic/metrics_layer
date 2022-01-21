@@ -88,16 +88,17 @@ class Field(MetricsLayerBase, SQLReplacement):
             return Set(set_definition, project=self.view.project).field_names()
         return drill_fields
 
-    def alias(self):
+    def alias(self, with_view: bool = False):
         if self.field_type == "dimension_group":
             if self.type == "time":
-                return f"{self.name}_{self.dimension_group}"
+                alias = f"{self.name}_{self.dimension_group}"
             elif self.type == "duration":
-                return f"{self.dimension_group}_{self.name}"
-
-        if self._name_is_not_valid_sql(self.name):
-            return f"_{self.name}"
-        return self.name
+                alias = f"{self.dimension_group}_{self.name}"
+        else:
+            alias = self.name
+        if with_view:
+            return f"{self.view.name}_{alias}"
+        return alias
 
     def sql_query(
         self, query_type: str = None, query_base_view: str = None, joins: list = [], alias_only: bool = False

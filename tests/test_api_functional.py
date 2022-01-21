@@ -76,8 +76,9 @@ def test_api_convert_sql(client, monkeypatch, models, views, add_user_and_get_au
     data = response.get_json()
 
     correct = (
-        "SELECT * FROM (SELECT order_lines.sales_channel as channel,SUM(order_lines.revenue) as "
-        "total_item_revenue FROM analytics.order_line_items order_lines GROUP BY order_lines.sales_channel);"
+        "SELECT * FROM (SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) as "
+        "order_lines_total_item_revenue FROM analytics.order_line_items order_lines "
+        "GROUP BY order_lines.sales_channel);"
     )
 
     assert data["data"] == correct

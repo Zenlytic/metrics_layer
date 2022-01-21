@@ -75,8 +75,10 @@ def test_simple_query(config):
     conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["order_id", "channel"])
 
-    correct = "SELECT simple.order_id as order_id,simple.sales_channel as channel,simple.revenue "
-    correct += "as total_revenue FROM analytics.orders simple;"
+    correct = (
+        "SELECT simple.order_id as simple_order_id,simple.sales_channel as simple_channel,simple.revenue "
+    )
+    correct += "as simple_total_revenue FROM analytics.orders simple;"
     assert query == correct
 
 
@@ -86,8 +88,12 @@ def test_query_complex_metric(config):
     conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(metrics=["revenue_per_aov"], dimensions=["order_id", "channel"])
 
-    correct = "SELECT simple.order_id as order_id,simple.sales_channel as channel,simple.revenue as "
-    correct += "average_order_value,simple.revenue as total_revenue FROM analytics.orders simple;"
+    correct = (
+        "SELECT simple.order_id as simple_order_id,simple.sales_channel as simple_channel,simple.revenue as "
+    )
+    correct += (
+        "simple_average_order_value,simple.revenue as simple_total_revenue FROM analytics.orders simple;"
+    )
     assert query == correct
 
 
@@ -129,7 +135,11 @@ def test_query_complex_metric_all(config):
         where=[{"field": "channel", "expression": "not_equal_to", "value": "Email"}],
     )
 
-    correct = "SELECT simple.order_id as order_id,simple.sales_channel as channel,simple.revenue as "
-    correct += "average_order_value,simple.revenue as total_revenue FROM analytics.orders simple"
+    correct = (
+        "SELECT simple.order_id as simple_order_id,simple.sales_channel as simple_channel,simple.revenue as "
+    )
+    correct += (
+        "simple_average_order_value,simple.revenue as simple_total_revenue FROM analytics.orders simple"
+    )
     correct += " WHERE simple.sales_channel<>'Email';"
     assert query == correct
