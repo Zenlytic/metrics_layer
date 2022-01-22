@@ -113,7 +113,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         if self.field_type == "measure" and self.type == "number":
             return self.get_referenced_sql_query()
         elif alias_only:
-            return self.alias()
+            return self.alias(with_view=True)
         return self.get_replaced_sql_query(query_type, alias_only=alias_only)
 
     def aggregate_sql_query(
