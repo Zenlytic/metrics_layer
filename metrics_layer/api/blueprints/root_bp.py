@@ -7,7 +7,7 @@ api = Api(root_blueprint)
 
 class Root(Resource):
     def get(self):
-        return {"status": "success", "message": "TODO react app"}
+        return {"status": "success", "message": "react app"}
 
 
 api.add_resource(Root, "/")

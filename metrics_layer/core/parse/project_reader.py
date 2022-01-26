@@ -267,18 +267,16 @@ class ProjectReader:
 
             # Handle keyerror
             if "type" not in yaml_dict:
-                raise ValueError("All MetricsLayer config files must have a type")
+                print(f"WARN: file {fn} is missing a type")
 
-            yaml_type = yaml_dict["type"]
+            yaml_type = yaml_dict.get("type")
 
             if yaml_type == "model":
                 models.append(yaml_dict)
             elif yaml_type == "view":
                 views.append(yaml_dict)
-            else:
-                raise ValueError(
-                    f"Unknown MetricsLayer file type '{yaml_type}' options are 'model' or 'view'"
-                )
+            elif yaml_type:
+                print(f"WARN: Unknown file type '{yaml_type}' options are 'model', 'view', or 'dashboard'")
 
         return models, views
 
