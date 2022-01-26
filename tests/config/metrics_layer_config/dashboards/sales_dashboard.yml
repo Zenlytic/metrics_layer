@@ -1,0 +1,24 @@
+version: 1
+type: dashboard
+name: sales_dashboard
+label: Sales Dashboard (with campaigns)
+description: Sales data broken out by campaign and repurchasing behavior
+layout: grid
+
+elements:
+  - title: First element
+    type: plot
+    model: demo
+    explore: orders
+    metric: orders.total_revenue
+    slice_by: [orders.new_vs_repeat, orders.product]
+
+  - title: Campaign stats
+    type: table
+    model: demo
+    explore: orders
+    metrics:
+      - orders.total_revenue
+      - orders.average_order_value
+      - orders.number_of_orders
+    slice_by: [orders.campaign]
