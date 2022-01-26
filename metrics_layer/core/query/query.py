@@ -189,3 +189,12 @@ class MetricsLayerConnection:
 
     def get_model(self, model_name: str):
         return self.config.project.get_model(model_name)
+
+    def list_dashboards(self, names_only=False, show_hidden: bool = False):
+        dashboards = self.config.project.dashboards()
+        if names_only:
+            return [d.name for d in dashboards]
+        return dashboards
+
+    def get_dashboard(self, dashboard_name: str):
+        return self.config.project.get_dashboard(dashboard_name)

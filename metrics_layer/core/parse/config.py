@@ -73,6 +73,7 @@ class MetricsLayerConfiguration:
         project = Project(
             models=reader.models,
             views=reader.views,
+            dashboards=reader.dashboards,
             looker_env=self.looker_env,
             connection_lookup=connection_lookup,
         )

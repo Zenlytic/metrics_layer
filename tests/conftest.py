@@ -11,6 +11,7 @@ from metrics_layer.core.parse.project_reader import ProjectReader
 BASE_PATH = os.path.dirname(__file__)
 
 model_path = os.path.join(BASE_PATH, "config/metrics_layer_config/models/commerce_test_model.yml")
+sales_dashboard_path = os.path.join(BASE_PATH, "config/metrics_layer_config/dashboards/sales_dashboard.yml")
 order_lines_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_order_lines.yml")
 orders_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_orders.yml")
 customers_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_customers.yml")
@@ -29,6 +30,7 @@ view_paths = [
     discount_detail_view_path,
     country_detail_view_path,
 ]
+dashboard_paths = [sales_dashboard_path]
 
 
 @pytest.fixture(scope="module")
@@ -242,9 +244,19 @@ def views():
 
 
 @pytest.fixture(scope="module")
-def project(models, views):
+def dashboards():
+    dashboards = [ProjectReader.read_yaml_file(path) for path in dashboard_paths]
+    return dashboards
+
+
+@pytest.fixture(scope="module")
+def project(models, views, dashboards):
     project = Project(
-        models=models, views=views, looker_env="prod", connection_lookup={"connection_name": "SNOWFLAKE"}
+        models=models,
+        views=views,
+        dashboards=dashboards,
+        looker_env="prod",
+        connection_lookup={"connection_name": "SNOWFLAKE"},
     )
     return project
 

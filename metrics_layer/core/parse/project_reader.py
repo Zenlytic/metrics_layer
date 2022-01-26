@@ -19,6 +19,7 @@ class ProjectReader:
         self.unloaded = True
         self._models = []
         self._views = []
+        self._dashboards = []
 
     @property
     def models(self):
@@ -31,6 +32,12 @@ class ProjectReader:
         if self.unloaded:
             self.load()
         return self._views
+
+    @property
+    def dashboards(self):
+        if self.unloaded:
+            self.load()
+        return self._dashboards
 
     def dump(self, path: str):
         for model in self.models:
@@ -54,14 +61,16 @@ class ProjectReader:
                 yaml.dump(view, f)
 
     def load(self) -> None:
-        base_models, base_views = self._load_repo(self.base_repo)
+        base_models, base_views, base_dashboards = self._load_repo(self.base_repo)
         if self.multiple_repos:
-            additional_models, additional_views = self._load_repo(self.additional_repo)
+            additional_models, additional_views, additional_dashboards = self._load_repo(self.additional_repo)
             self._models = self._merge_objects(base_models, additional_models)
             self._views = self._merge_objects(base_views, additional_views)
+            self._dashboards = base_dashboards + additional_dashboards
         else:
             self._models = base_models
             self._views = base_views
+            self._dashboards = base_dashboards
 
         self.unloaded = False
 
@@ -93,7 +102,8 @@ class ProjectReader:
             file_views = self.read_lkml_file(fn).get("views", [])
             views.extend([self._standardize_view(v) for v in file_views])
 
-        return models, views
+        # Empty list is for currently unsupported dashboards when using the lookml mode
+        return models, views, []
 
     def _load_dbt(self, repo: BaseRepo):
         self.project_name = self._get_dbt_project_name(repo.folder)
@@ -110,7 +120,8 @@ class ProjectReader:
             manifest = json.load(f)
 
         models, views = self._parse_dbt_manifest(manifest)
-        return models, views
+        # Empty list is for currently unsupported dashboards when using the dbt mode
+        return models, views, []
 
     def _parse_dbt_manifest(self, manifest: dict):
         views = self._make_dbt_views(manifest)
@@ -260,7 +271,7 @@ class ProjectReader:
         handle_and_check(["ls", "--project-dir", project_dir, "--profiles-dir", project_dir])
 
     def _load_metrics_layer(self, repo: BaseRepo):
-        models, views = [], []
+        models, views, dashboards = [], [], []
         file_names = repo.search(pattern="*.yml") + repo.search(pattern="*.yaml")
         for fn in file_names:
             yaml_dict = self.read_yaml_file(fn)
@@ -275,10 +286,12 @@ class ProjectReader:
                 models.append(yaml_dict)
             elif yaml_type == "view":
                 views.append(yaml_dict)
+            elif yaml_type == "dashboard":
+                dashboards.append(yaml_dict)
             elif yaml_type:
                 print(f"WARN: Unknown file type '{yaml_type}' options are 'model', 'view', or 'dashboard'")
 
-        return models, views
+        return models, views, dashboards
 
     def _standardize_view(self, view: dict):
         # Get all fields under the same key "fields"

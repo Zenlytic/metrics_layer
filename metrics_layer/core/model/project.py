@@ -1,3 +1,4 @@
+from .dashboard import Dashboard
 from .explore import Explore
 from .field import Field
 from .model import Model
@@ -9,9 +10,17 @@ class Project:
     Higher level abstraction for the whole project
     """
 
-    def __init__(self, models: list, views: list, looker_env: str = None, connection_lookup: dict = {}):
+    def __init__(
+        self,
+        models: list,
+        views: list,
+        dashboards: list = [],
+        looker_env: str = None,
+        connection_lookup: dict = {},
+    ):
         self._models = models
         self._views = views
+        self._dashboards = dashboards
         self.looker_env = looker_env
         self.connection_lookup = connection_lookup
 
@@ -25,6 +34,12 @@ class Project:
             errors = explore.validate_fields()
             all_errors.extend(errors)
         return all_errors
+
+    def dashboards(self) -> list:
+        return [Dashboard(d, project=self) for d in self._dashboards]
+
+    def get_dashboard(self, dashboard_name: str) -> Model:
+        return next((d for d in self.dashboards() if d.name == dashboard_name), None)
 
     def models(self) -> list:
         return [Model(m) for m in self._models]
