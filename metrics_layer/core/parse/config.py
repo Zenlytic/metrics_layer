@@ -32,6 +32,12 @@ class MetricsLayerConfiguration:
         )
         self._connections = self._parse_connections(connections) + conns + addtl_conns
         self._project = None
+        self._user = None
+
+    def set_user(self, user: dict):
+        self._user = user
+        if self._project is not None:
+            self._project.set_user(self._user)
 
     @staticmethod
     def get_metrics_layer_configuration(config=None, target: str = None):
@@ -60,6 +66,7 @@ class MetricsLayerConfiguration:
 
     def load(self):
         self._project = self._get_project()
+        self._project.set_user(self._user)
 
     def dump(self, path: str = "./"):
         reader = ProjectReader(repo=self.repo, additional_repo=self.additional_repo)

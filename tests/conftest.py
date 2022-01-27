@@ -272,6 +272,9 @@ def config(project):
     class config_mock:
         profiles_path = "test_profiles_file.yml"
 
+        def set_user(user: dict):
+            pass
+
         def get_connection(name: str):
             if name == "bq_creds":
                 return bq_mock

@@ -1,6 +1,6 @@
 from .explore import Explore
 from .field import Field
-from .model import Model
+from .model import AccessGrant, Model
 from .view import View
 
 
@@ -14,10 +14,14 @@ class Project:
         self._views = views
         self.looker_env = looker_env
         self.connection_lookup = connection_lookup
+        self._user = None
 
     def __repr__(self):
         text = "models" if len(self._models) != 1 else "model"
         return f"<Project {len(self._models)} {text}>"
+
+    def set_user(self, user: dict):
+        self._user = user
 
     def validate(self):
         all_errors = []
@@ -32,8 +36,56 @@ class Project:
     def get_model(self, model_name: str) -> Model:
         return next((m for m in self.models() if m.name == model_name), None)
 
+    def access_grants(self):
+        return [AccessGrant(g) for m in self.models() for g in m.access_grants]
+
+    def get_access_grant(self, grant_name: str):
+        return next((ag for ag in self.access_grants() if ag.name == grant_name), None)
+
+    def can_access_explore(self, explore: Explore):
+        return self._can_access_object(explore)
+
+    def can_access_join(self, join, explore: Explore):
+        can_access_explore = self.can_access_explore(explore)
+        return self._can_access_object(join) and can_access_explore
+
+    def can_access_view(self, view: View):
+        return self._can_access_object(view)
+
+    def can_access_field(self, field):
+        can_access_view = self.can_access_view(field.view)
+        return self._can_access_object(field) and can_access_view
+
+    def _can_access_object(self, obj):
+        if self._user is not None:
+            if obj.required_access_grants:
+                decisions = []
+                for grant_name in obj.required_access_grants:
+                    grant = self.get_access_grant(grant_name)
+                    user_attribute_value = self._user.get(grant.user_attribute)
+
+                    if user_attribute_value is None:
+                        decision = True
+                    else:
+                        decision = user_attribute_value in grant.allowed_values
+                    decisions.append(decision)
+
+                # We use all here because the condition between access conditions is AND
+                return all(decisions)
+        return True
+
+    def _all_explores(self):
+        explores = []
+        for m in self.models():
+            for e in m.explores:
+                explore = Explore({**e, "model": m}, project=self)
+                user_allowed = self.can_access_explore(explore)
+                if user_allowed:
+                    explores.append(explore)
+        return explores
+
     def explores(self, show_hidden: bool = True) -> list:
-        explores = [Explore({**e, "model": m}, project=self) for m in self.models() for e in m.explores]
+        explores = self._all_explores()
         if show_hidden:
             return explores
         return [e for e in explores if e.hidden == "no" or not e.hidden]
@@ -42,8 +94,20 @@ class Project:
         try:
             return next((e for e in self.explores() if e.name == explore_name))
         except StopIteration:
-            pass
-        raise ValueError(f"Could not find explore {explore_name} in config")
+            raise ValueError(f"Could not find or you do not have access to explore {explore_name}")
+
+    def _all_views(self, explore):
+        views = []
+        for v in self._views:
+            view = View({**v, "explore": explore}, project=self)
+            if self.can_access_view(view):
+                views.append(view)
+        return views
+
+    def views(self, explore_name: str = None, explore: Explore = None) -> list:
+        if explore_name:
+            return self.views_with_explore(explore_name=explore_name)
+        return self._all_views(explore)
 
     def views_with_explore(self, explore_name: str = None, explore: Explore = None):
         if explore_name and explore is None:
@@ -51,13 +115,11 @@ class Project:
         view_names = [explore.from_] + [j.from_ for j in explore.joins()]
         return [v for v in self.views(explore=explore) if v.name in view_names]
 
-    def views(self, explore_name: str = None, explore: Explore = None) -> list:
-        if explore_name:
-            return self.views_with_explore(explore_name=explore_name)
-        return [View({**v, "explore": explore}, project=self) for v in self._views]
-
     def get_view(self, view_name: str, explore: Explore = None) -> View:
-        return next((v for v in self.views(explore=explore) if v.name == view_name), None)
+        try:
+            return next((v for v in self.views(explore=explore) if v.name == view_name))
+        except StopIteration:
+            raise ValueError(f"Could not find or you do not have access to view {view_name}")
 
     def sets(self, view_name: str = None, explore_name: str = None):
         if explore_name:
@@ -199,7 +261,7 @@ class Project:
                 err_msg += f" in explore {explore_name}"
             if view_name:
                 err_msg += f" in view {view_name}"
-            err_msg += ", please check that this field exists. \n\n"
+            err_msg += ", please check that this field exists AND that you have access to it. \n\n"
             err_msg += "If this is a dimension group specify the group parameter, if not already specified, "
             err_msg += "for example, with a dimension group named 'order' with timeframes: [raw, date, month]"
             err_msg += " specify 'order_raw' or 'order_date' or 'order_month'"
