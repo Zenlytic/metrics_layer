@@ -1,12 +1,12 @@
 import os
 
 import pytest
-import yaml
 from click.testing import CliRunner
 
 from metrics_layer.cli import debug, init, list_, seed, show, validate
 from metrics_layer.cli.seeding import SeedMetricsLayer
 from metrics_layer.core import MetricsLayerConnection
+from metrics_layer.core.parse.project_reader import ProjectReader
 
 
 @pytest.mark.cli
@@ -38,7 +38,7 @@ def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_
             return get_seed_columns_data("SESSIONS")
         raise ValueError("Query error, does not match expected")
 
-    def yaml_dump_assert(data, file):
+    def yaml_dump_assert(slf, data, file):
         nonlocal yaml_dump_called
         yaml_dump_called = True
         if data["type"] == "model":
@@ -97,7 +97,7 @@ def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_
 
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
     monkeypatch.setattr(SeedMetricsLayer, "run_query", query_runner_mock)
-    monkeypatch.setattr(yaml, "dump", yaml_dump_assert)
+    monkeypatch.setattr(ProjectReader, "_dump_yaml_file", yaml_dump_assert)
     runner = CliRunner()
     result = runner.invoke(seed, ["--database", "demo", "--schema", "analytics", "demo"])
 

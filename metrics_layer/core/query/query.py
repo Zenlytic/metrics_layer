@@ -9,7 +9,11 @@ from metrics_layer.core.sql.query_errors import ParseError
 
 class MetricsLayerConnection:
     def __init__(
-        self, config: Union[MetricsLayerConfiguration, str, dict] = None, target: str = None, **kwargs
+        self,
+        config: Union[MetricsLayerConfiguration, str, dict] = None,
+        target: str = None,
+        user: dict = None,
+        **kwargs,
     ):
         if isinstance(config, str):
             self.config = MetricsLayerConfiguration(config, target=target)
@@ -19,6 +23,11 @@ class MetricsLayerConnection:
         else:
             self.config = MetricsLayerConfiguration.get_metrics_layer_configuration(config, target=target)
         self.kwargs = kwargs
+        self._user = user
+
+    def set_user(self, user: dict):
+        self._user = user
+        self.config.set_user(user)
 
     def query(
         self,
@@ -98,13 +107,7 @@ class MetricsLayerConnection:
         return all_fields
 
     def get_field(self, field_name: str, explore_name: str = None, view_name: str = None):
-
-        fields = self.list_fields(explore_name=explore_name, view_name=view_name, show_hidden=True)
-        try:
-            field = next((m for m in fields if m.equal(field_name)))
-            return field
-        except ParseError as e:
-            raise e(f"Could not find field {field_name} in the project config")
+        return self.config.project.get_field(field_name, explore_name=explore_name, view_name=view_name)
 
     def list_metrics(
         self,
@@ -161,6 +164,8 @@ class MetricsLayerConnection:
     def get_view(self, view_name: str, explore_name: str = None):
         if explore_name:
             explore = self.get_explore(explore_name)
+        else:
+            explore = None
         return self.config.project.get_view(view_name, explore=explore)
 
     def list_explores(self, names_only=False, show_hidden: bool = False):

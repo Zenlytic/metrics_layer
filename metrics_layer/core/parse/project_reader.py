@@ -47,8 +47,7 @@ class ProjectReader:
                 file_path = os.path.join(models_folder, file_name)
             else:
                 file_path = os.path.join(path, file_name)
-            with open(file_path, "w") as f:
-                yaml.dump(model, f)
+            self._dump_yaml_file(model, file_path)
 
         for view in self.views:
             file_name = view["name"] + "_view.yml"
@@ -57,8 +56,12 @@ class ProjectReader:
                 file_path = os.path.join(views_folder, file_name)
             else:
                 file_path = os.path.join(path, file_name)
-            with open(file_path, "w") as f:
-                yaml.dump(view, f)
+            self._dump_yaml_file(view, file_path)
+
+    @staticmethod
+    def _dump_yaml_file(data: dict, path: str):
+        with open(path, "w") as f:
+            yaml.dump(data, f)
 
     def load(self) -> None:
         base_models, base_views, base_dashboards = self._load_repo(self.base_repo)
@@ -78,17 +81,17 @@ class ProjectReader:
         repo.fetch()
         repo_type = repo.get_repo_type()
         if repo_type == "lookml":
-            models, views = self._load_lookml(repo)
+            models, views, dashboards = self._load_lookml(repo)
         elif repo_type == "dbt":
-            models, views = self._load_dbt(repo)
+            models, views, dashboards = self._load_dbt(repo)
         elif repo_type == "metrics_layer":
-            models, views = self._load_metrics_layer(repo)
+            models, views, dashboards = self._load_metrics_layer(repo)
         else:
             raise TypeError(
                 f"Unknown repo type: {repo_type}, valid values are 'metrics_layer', 'lookml', 'dbt'"
             )
         repo.delete()
-        return models, views
+        return models, views, dashboards
 
     def _load_lookml(self, repo: BaseRepo):
         models = []

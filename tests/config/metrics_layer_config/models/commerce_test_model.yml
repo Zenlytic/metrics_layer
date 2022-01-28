@@ -4,6 +4,20 @@ name: test_model
 label: "Test commerce data"
 connection: "connection_name"
 
+access_grants:
+  - name: test_access_grant_department_explore
+    user_attribute: department
+    allowed_values: ["finance", "executive", "marketing"]
+  - name: test_access_grant_department_view
+    user_attribute: department
+    allowed_values: ["finance", "executive", "sales"]
+  - name: test_access_grant_department_join
+    user_attribute: department
+    allowed_values: ["executive"]
+  - name: test_access_grant_department_field
+    user_attribute: department
+    allowed_values: ["executive", "engineering", 'sales']
+
 explores:
   - name: order_lines_all
     from: order_lines
@@ -11,7 +25,12 @@ explores:
     label: "Description for order lines"
     group_label: "Purchases"
     fields: [ALL_FIELDS*, all_orders*, -orders.test_removal*, -discounts.country]
+    required_access_grants: [test_access_grant_department_explore]
     join_for_analysis: [all_orders, customers]
+
+    access_filter:
+      field: all_orders.sub_channel
+      user_attribute: owned_channel
 
     joins:
       - name: all_orders
@@ -26,6 +45,7 @@ explores:
         sql_on: "${discounts.country}=${country_detail.country_id}"
 
       - name: customers
+        required_access_grants: [test_access_grant_department_join]
         from: customers
         foreign_key: customer_id
 
