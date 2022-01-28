@@ -28,9 +28,9 @@ explores:
     required_access_grants: [test_access_grant_department_explore]
     join_for_analysis: [all_orders, customers]
 
-    access_filter:
-      field: all_orders.sub_channel
-      user_attribute: owned_channel
+    access_filters:
+      - field: customers.region
+        user_attribute: owned_region
 
     joins:
       - name: all_orders

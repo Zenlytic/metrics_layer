@@ -20,7 +20,8 @@ class MetricsLayerDesign:
         return self.project.views(explore_name=self.explore.name)
 
     def joins(self) -> List[MetricsLayerBase]:
-        fields_in_query = list(self.field_lookup.values())
+        _, access_filter_fields = self.get_access_filter()
+        fields_in_query = list(self.field_lookup.values()) + access_filter_fields
         required_views = list(set([v for field in fields_in_query for v in field.required_views()]))
         if self.explore.always_join:
             required_views.extend(self.explore.always_join)
@@ -68,6 +69,22 @@ class MetricsLayerDesign:
 
     def get_field(self, field_name: str, view_name: str = None) -> MetricsLayerBase:
         return self.project.get_field(field_name, view_name=view_name, explore_name=self.explore.name)
+
+    def get_access_filter(self):
+        if self.explore.access_filters:
+            conditions, fields = [], []
+            for condition_set in self.explore.access_filters:
+                field = self.project.get_field(condition_set["field"], explore_name=self.explore.name)
+                sql = field.sql_query(self.query_type)
+                user_attribute_value = condition_set["user_attribute"]
+
+                if self.project._user and self.project._user.get(user_attribute_value):
+                    condition = f"{sql} = '{self.project._user[user_attribute_value]}'"
+                    conditions.append(condition)
+                    fields.append(field)
+            print(conditions)
+            return " and ".join(conditions), fields
+        return None, []
 
     @property
     def base_view_name(self):

@@ -44,8 +44,14 @@ class MetricsLayerQuery(MetricsLayerBase):
         order_by = definition.get("order_by", None)
 
         always_where = self.design.explore.sql_always_where
-        if where or always_where:
-            self.where_filters.extend(self._parse_filter_object(where, "where", always_where=always_where))
+        access_filter_literal, _ = self.design.get_access_filter()
+        if where or always_where or access_filter_literal:
+            wheres = where
+            self.where_filters.extend(
+                self._parse_filter_object(
+                    wheres, "where", always_where=always_where, access_filter=access_filter_literal
+                )
+            )
 
         if having and self.no_group_by:
             raise ArgumentError(
@@ -66,7 +72,9 @@ class MetricsLayerQuery(MetricsLayerBase):
         if order_by:
             self.order_by_args.extend(self._parse_order_by_object(order_by))
 
-    def _parse_filter_object(self, filter_object, filter_type: str, always_where: str = None):
+    def _parse_filter_object(
+        self, filter_object, filter_type: str, always_where: str = None, access_filter: str = None
+    ):
         results = []
         extra_kwargs = dict(filter_type=filter_type, design=self.design)
 
@@ -83,6 +91,10 @@ class MetricsLayerQuery(MetricsLayerBase):
                     f" the argument 'suppress_warnings=True' to the function):\n\n {always_where}"
                 )
             )
+
+        if access_filter:
+            filter_literal = MetricsLayerFilter(definition={"literal": access_filter}, **extra_kwargs)
+            results.append(filter_literal)
 
         # Handle literal filter
         if isinstance(filter_object, str):
