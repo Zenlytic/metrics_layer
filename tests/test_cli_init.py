@@ -1,7 +1,6 @@
 import os
 
 import pytest
-import yaml
 from click.testing import CliRunner
 
 from metrics_layer.cli import debug, init, list_, seed, show, validate
