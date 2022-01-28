@@ -63,11 +63,18 @@ class View(MetricsLayerBase):
             return all_fields
         return [field for field in all_fields if field.hidden == "no" or not field.hidden]
 
+    def _all_fields(self):
+        fields = []
+        for f in self._definition.get("fields", []):
+            field = Field(f, view=self)
+            if self.project.can_access_field(field):
+                fields.append(field)
+        return fields
+
     def _valid_fields(self, expand_dimension_groups: bool):
         if expand_dimension_groups:
             fields = []
-            for f in self._definition.get("fields", []):
-                field = Field(f, view=self)
+            for field in self._all_fields():
                 if field.field_type == "dimension_group" and field.timeframes:
                     for timeframe in field.timeframes:
                         if timeframe == "raw":
@@ -81,7 +88,7 @@ class View(MetricsLayerBase):
                 else:
                     fields.append(field)
         else:
-            fields = [Field(f, view=self) for f in self._definition.get("fields", [])]
+            fields = self._all_fields()
 
         return fields
 
