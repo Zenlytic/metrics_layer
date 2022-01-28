@@ -1,6 +1,16 @@
 import re
 
 
+class AccessDeniedOrDoesNotExistException(Exception):
+    def __init__(self, message: str, object_name: str, object_type: str):
+        self.message = message
+        self.object_name = object_name
+        self.object_type = object_type
+
+    def __str__(self):
+        return self.message
+
+
 class MetricsLayerBase:
     def __init__(self, definition: dict = {}) -> None:
         self._definition = definition

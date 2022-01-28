@@ -17,7 +17,7 @@ class MetricsLayerDesign:
         self.project = project
 
     def views(self) -> List[MetricsLayerBase]:
-        return [self.project.get_view(name, explore=self.explore) for name in self.explore.view_names()]
+        return self.project.views(explore_name=self.explore.name)
 
     def joins(self) -> List[MetricsLayerBase]:
         fields_in_query = list(self.field_lookup.values())

@@ -1,7 +1,8 @@
 import pytest
 
+from metrics_layer.core.model.project import AccessDeniedOrDoesNotExistException
 
-@pytest.mark.mmm
+
 def test_access_grants_exist(connection):
     model = connection.get_model("test_model")
     connection.config.project.set_user({"email": "user@example.com"})
@@ -12,7 +13,6 @@ def test_access_grants_exist(connection):
     assert model.access_grants[0]["allowed_values"] == ["finance", "executive", "marketing"]
 
 
-@pytest.mark.mmm
 def test_access_grants_explore_visible(connection):
     # No set user has access to everything
     connection.config.project.set_user(None)
@@ -37,13 +37,14 @@ def test_access_grants_explore_visible(connection):
 
     assert len(explores) == 1
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
         connection.get_explore("order_lines_all")
 
     assert exc_info.value
+    assert exc_info.value.object_name == "order_lines_all"
+    assert exc_info.value.object_type == "explore"
 
 
-@pytest.mark.mmm
 def test_access_grants_joins_visible(connection):
     n_joins = 5
     # No set user has access to everything
@@ -62,7 +63,6 @@ def test_access_grants_joins_visible(connection):
     assert explore.get_join("customers") is None
 
 
-@pytest.mark.mmm
 def test_access_grants_view_visible(connection):
     connection.config.project.set_user(None)
     connection.get_view("orders")
@@ -74,13 +74,14 @@ def test_access_grants_view_visible(connection):
     # Just because the user has access to the explore doesn't mean they have access to all views
     connection.config.project.set_user({"department": "marketing"})
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
         connection.get_view("orders")
 
     assert exc_info.value
+    assert exc_info.value.object_name == "orders"
+    assert exc_info.value.object_type == "view"
 
 
-@pytest.mark.mmm
 def test_access_grants_field_visible(connection):
     # None always allows access
     connection.config.project.set_user({"department": None})
@@ -96,14 +97,27 @@ def test_access_grants_field_visible(connection):
     # Having permissions on the field isn't enough, you must also have permissions on the view to see field
     connection.config.project.set_user({"department": "engineering"})
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
         connection.get_field("orders.total_revenue")
 
     assert exc_info.value
+    assert exc_info.value.object_name == "orders"
+    assert exc_info.value.object_type == "view"
 
     connection.config.project.set_user({"department": "operations"})
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
         connection.get_field("orders.total_revenue")
 
     assert exc_info.value
+    assert exc_info.value.object_name == "orders"
+    assert exc_info.value.object_type == "view"
+
+    connection.config.project.set_user({"department": "finance"})
+
+    with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
+        connection.get_field("orders.total_revenue")
+
+    assert exc_info.value
+    assert exc_info.value.object_name == "total_revenue"
+    assert exc_info.value.object_type == "field"

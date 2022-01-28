@@ -1,3 +1,4 @@
+from .base import AccessDeniedOrDoesNotExistException
 from .explore import Explore
 from .field import Field
 from .model import AccessGrant, Model
@@ -94,7 +95,11 @@ class Project:
         try:
             return next((e for e in self.explores() if e.name == explore_name))
         except StopIteration:
-            raise ValueError(f"Could not find or you do not have access to explore {explore_name}")
+            raise AccessDeniedOrDoesNotExistException(
+                f"Could not find or you do not have access to explore {explore_name}",
+                object_name=explore_name,
+                object_type="explore",
+            )
 
     def _all_views(self, explore):
         views = []
@@ -119,13 +124,20 @@ class Project:
         try:
             return next((v for v in self.views(explore=explore) if v.name == view_name))
         except StopIteration:
-            raise ValueError(f"Could not find or you do not have access to view {view_name}")
+            raise AccessDeniedOrDoesNotExistException(
+                f"Could not find or you do not have access to view {view_name}",
+                object_name=view_name,
+                object_type="view",
+            )
 
     def sets(self, view_name: str = None, explore_name: str = None):
         if explore_name:
             views = self.views(explore_name=explore_name)
         elif view_name:
-            views = [self.get_view(view_name)]
+            try:
+                views = [self.get_view(view_name)]
+            except AccessDeniedOrDoesNotExistException:
+                views = []
         else:
             views = self.views()
 
@@ -265,7 +277,7 @@ class Project:
             err_msg += "If this is a dimension group specify the group parameter, if not already specified, "
             err_msg += "for example, with a dimension group named 'order' with timeframes: [raw, date, month]"
             err_msg += " specify 'order_raw' or 'order_date' or 'order_month'"
-            raise ValueError(err_msg)
+            raise AccessDeniedOrDoesNotExistException(err_msg, object_name=field_name, object_type="field")
 
     @staticmethod
     def _fully_qualified_name(field: Field):
