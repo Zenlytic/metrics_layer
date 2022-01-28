@@ -110,3 +110,30 @@ def test_access_grants_field_permission_block(connection):
     assert exc_info.value
     assert exc_info.value.object_name == "total_revenue"
     assert exc_info.value.object_type == "field"
+
+
+@pytest.mark.mmm
+def test_access_filter(connection):
+    connection.config.project.set_user({"department": "executive"})
+
+    query = connection.get_sql_query(metrics=["total_revenue"], dimensions=["new_vs_repeat"])
+
+    assert "sub_channel" not in query
+
+    connection.config.project.set_user({"department": "executive", "owned_region": "US-West"})
+
+    query = connection.get_sql_query(metrics=["total_revenue"], dimensions=["new_vs_repeat"])
+
+    correct = (
+        "SELECT orders.new_vs_repeat as orders_new_vs_repeat,COALESCE(CAST((SUM(DISTINCT "
+        "(CAST(FLOOR(COALESCE(orders.revenue, 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) + "
+        "(TO_NUMBER(MD5(orders.id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) "
+        "- SUM(DISTINCT (TO_NUMBER(MD5(orders.id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % "
+        "1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) / CAST((1000000*1.0) AS DOUBLE PRECISION),"
+        " 0) as orders_total_revenue FROM analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
+        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        "WHERE customers.region = 'US-West' "
+        "GROUP BY orders.new_vs_repeat;"
+    )
+    assert correct == query
