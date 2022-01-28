@@ -40,8 +40,7 @@ class ProjectReader:
                 file_path = os.path.join(models_folder, file_name)
             else:
                 file_path = os.path.join(path, file_name)
-            with open(file_path, "w") as f:
-                yaml.dump(model, f)
+            self._dump_yaml_file(model, file_path)
 
         for view in self.views:
             file_name = view["name"] + "_view.yml"
@@ -50,8 +49,12 @@ class ProjectReader:
                 file_path = os.path.join(views_folder, file_name)
             else:
                 file_path = os.path.join(path, file_name)
-            with open(file_path, "w") as f:
-                yaml.dump(view, f)
+            self._dump_yaml_file(view, file_path)
+
+    @staticmethod
+    def _dump_yaml_file(data: dict, path: str):
+        with open(path, "w") as f:
+            yaml.dump(data, f)
 
     def load(self) -> None:
         base_models, base_views = self._load_repo(self.base_repo)
