@@ -2,8 +2,6 @@ import os
 
 import pytest
 
-from metrics_layer.api import create_app, db
-from metrics_layer.api.models import User
 from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.model.project import Project
 from metrics_layer.core.parse.project_reader import ProjectReader
@@ -31,26 +29,6 @@ view_paths = [
     country_detail_view_path,
 ]
 dashboard_paths = [sales_dashboard_path]
-
-
-@pytest.fixture(scope="module")
-def test_app():
-    app = create_app(config="metrics_layer.api.api_config.TestingConfig")
-    with app.app_context():
-        yield app  # testing happens here
-
-
-@pytest.fixture(scope="module")
-def client(test_app):
-    return test_app.test_client()
-
-
-@pytest.fixture(scope="module")
-def test_database(test_app):
-    db.create_all()
-    yield db  # testing happens here
-    db.session.remove()
-    db.drop_all()
 
 
 @pytest.fixture(scope="function")
@@ -210,25 +188,6 @@ def get_seed_columns_data():
             raise NotImplementedError(f"This should never be hit in testing with table: {table_name}")
 
     return _get_seed_columns_data
-
-
-@pytest.fixture(scope="function")
-def add_user():
-    def _add_user(email, password):
-        user = User.create(email=email, password=password)
-        return user
-
-    return _add_user
-
-
-@pytest.fixture(scope="function")
-def add_user_and_get_auth(client, test_database, add_user):
-    def _add_user_and_get_auth(email, password):
-        user = add_user(email, password)
-        response = client.post("/api/v1/login", json={"email": email, "password": password})
-        return user, response.get_json()["auth_token"]
-
-    return _add_user_and_get_auth
 
 
 @pytest.fixture(scope="module")
