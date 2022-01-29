@@ -10,15 +10,24 @@ from metrics_layer.core.parse.project_reader import ProjectReader
 
 
 @pytest.mark.cli
-def test_cli_init(mocker):
+def test_cli_init(mocker, monkeypatch):
+    yaml_dump_called = False
+
+    def assert_called(data, path):
+        nonlocal yaml_dump_called
+        yaml_dump_called = True
+        assert isinstance(data, dict)
+
     mocker.patch("os.mkdir")
+    monkeypatch.setattr(ProjectReader, "_dump_yaml_file", assert_called)
     runner = CliRunner()
-    result = runner.invoke(init, [])
+    result = runner.invoke(init)
 
     assert result.exit_code == 0
     calls = [os.path.join(os.getcwd(), dir_path) for dir_path in ["views/", "models/"]]
     for call in calls:
         os.mkdir.assert_any_call(call)
+    assert yaml_dump_called
 
 
 @pytest.mark.cli
@@ -96,10 +105,11 @@ def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_
             raise AssertionError("undefined model type for seeding")
 
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
     monkeypatch.setattr(SeedMetricsLayer, "run_query", query_runner_mock)
     monkeypatch.setattr(ProjectReader, "_dump_yaml_file", yaml_dump_assert)
     runner = CliRunner()
-    result = runner.invoke(seed, ["--database", "demo", "--schema", "analytics", "demo"])
+    result = runner.invoke(seed, ["--database", "demo", "--schema", "analytics"])
 
     assert result.exit_code == 0
     calls = [os.path.join(os.getcwd(), dir_path) for dir_path in ["views/", "models/"]]
@@ -112,9 +122,9 @@ def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_
 @pytest.mark.cli
 def test_cli_validate(config, connection, project, mocker):
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
-
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
     runner = CliRunner()
-    result = runner.invoke(validate, ["demo"])
+    result = runner.invoke(validate)
 
     assert result.exit_code == 0
     assert result.output == "Project passed (checked 2 explores)!\n"
@@ -126,9 +136,10 @@ def test_cli_validate(config, connection, project, mocker):
     config.project = project
     conn = MetricsLayerConnection(config=config)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
     runner = CliRunner()
-    result = runner.invoke(validate, ["demo"])
+    result = runner.invoke(validate)
 
     assert result.exit_code == 0
     assert result.output == (
@@ -149,9 +160,10 @@ def test_cli_validate_dimension(config, project, mocker):
     config.project = project
     conn = MetricsLayerConnection(config=config)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
     runner = CliRunner()
-    result = runner.invoke(validate, ["demo"])
+    result = runner.invoke(validate)
 
     assert result.exit_code == 0
     assert result.output == (
@@ -170,8 +182,10 @@ def test_cli_debug(connection, mocker, monkeypatch):
 
     connection.run_query = query_runner_mock
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
     runner = CliRunner()
-    result = runner.invoke(debug, ["demo"])
+    result = runner.invoke(debug)
 
     assert result.exit_code == 0
     non_workstation_dependent_correct = (
@@ -210,9 +224,10 @@ def test_cli_debug(connection, mocker, monkeypatch):
 @pytest.mark.cli
 def test_cli_list(connection, mocker, object_type: str, extra_args: list):
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
     runner = CliRunner()
-    result = runner.invoke(list_, extra_args + ["--profile", "demo", object_type])
+    result = runner.invoke(list_, extra_args + [object_type])
 
     result_lookup = {
         "models": "Found 1 model:\n\ntest_model\n",
@@ -248,9 +263,10 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
 @pytest.mark.cli
 def test_cli_show(connection, mocker, name, extra_args):
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
     runner = CliRunner()
-    result = runner.invoke(show, extra_args + ["--profile", "demo", name])
+    result = runner.invoke(show, extra_args + [name])
 
     result_lookup = {
         "test_model": (

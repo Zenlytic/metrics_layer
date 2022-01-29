@@ -1,3 +1,4 @@
+import os
 import pickle
 
 import pytest
@@ -166,19 +167,26 @@ def test_config_explicit_env_config(monkeypatch):
     assert config.repo.repo_url == "https://correct.com"
 
 
+@pytest.mark.ll
 def test_config_file_metrics_layer(monkeypatch):
     monkeypatch.setenv("METRICS_LAYER_PROFILES_DIR", "./tests/config/metrics_layer_config/profiles")
-    config = MetricsLayerConfiguration("test_warehouse")
+    config = MetricsLayerConfiguration("sf_creds")
 
-    assert "tests/config/metrics_layer_config" in config.repo.repo_path
-    assert len(config.connections()) == 2
-    assert all(c.name in {"sf_creds", "bq_creds"} for c in config.connections())
+    assert config.repo.repo_path == os.getcwd()
+    assert len(config.connections()) == 1
+    assert all(c.name in {"sf_creds"} for c in config.connections())
 
     sf = config.get_connection("sf_creds")
     assert sf.account == "xyz.us-east-1"
     assert sf.username == "test_user"
     assert sf.password == "test_password"
     assert sf.role == "test_role"
+
+    config = MetricsLayerConfiguration("bq_creds")
+
+    assert config.repo.repo_path == os.getcwd()
+    assert len(config.connections()) == 1
+    assert all(c.name in {"bq_creds"} for c in config.connections())
 
     bq = config.get_connection("bq_creds")
     assert bq.project_id == "test-data-warehouse"

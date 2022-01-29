@@ -1,4 +1,5 @@
 import os
+from copy import deepcopy
 
 from metrics_layer.core.model.project import Project
 from metrics_layer.core.parse.connections import (
@@ -172,8 +173,8 @@ class MetricsLayerConfiguration:
 
         clean_prefix = "additional_" if "additional" in prefix.lower() else ""
 
-        metrics_layer_directory = self.get_metrics_layer_directory()
-        self.profiles_path = os.path.join(metrics_layer_directory, "profiles.yml")
+        metrics_layer_profiles_directory = self.get_metrics_layer_profiles_directory()
+        self.profiles_path = os.path.join(metrics_layer_profiles_directory, "profiles.yml")
 
         if not os.path.exists(self.profiles_path):
             raise ConfigError(
@@ -221,19 +222,8 @@ class MetricsLayerConfiguration:
             self.looker_env = target["looker_env"]
 
         repo_type = target.get(f"{clean_prefix}repo_type")
-        raw_connections = target.get("connections", [])
-        warehouse_type = raw_connections[0]["type"] if len(raw_connections) > 0 else None
-
-        # Local repo
-        path_arg = f"{clean_prefix}repo_path"
-        if path_arg in target:
-            if os.path.isabs(target[path_arg]):
-                path = target[path_arg]
-            else:
-                path = os.path.abspath(
-                    os.path.join(metrics_layer_directory, os.path.expanduser(target[path_arg]))
-                )
-            repo = LocalRepo(repo_path=path, repo_type=repo_type, warehouse_type=warehouse_type)
+        raw_connection = deepcopy(target)
+        warehouse_type = raw_connection.get("type")
 
         # Github repo
         if all(k in target for k in [f"{clean_prefix}repo_url", f"{clean_prefix}branch"]):
@@ -255,8 +245,25 @@ class MetricsLayerConfiguration:
             looker_args = {k: target[k] for k in looker_keys}
             repo = LookerGithubRepo(**looker_args, repo_type="lookml")
 
-        connections = [{**c, "directory": metrics_layer_directory} for c in raw_connections]
-        return repo, MetricsLayerConfiguration._parse_connections(connections)
+        # Local repo
+        path_arg = f"{clean_prefix}repo_path"
+        if path_arg in target:
+            if os.path.isabs(target[path_arg]):
+                path = target[path_arg]
+            else:
+                path = os.path.abspath(
+                    os.path.join(metrics_layer_profiles_directory, os.path.expanduser(target[path_arg]))
+                )
+        else:
+            path = os.getcwd()
+        repo = LocalRepo(repo_path=path, repo_type=repo_type, warehouse_type=warehouse_type)
+
+        connection = {
+            **raw_connection,
+            "name": config_profile_name,
+            "directory": metrics_layer_profiles_directory,
+        }
+        return repo, MetricsLayerConfiguration._parse_connections([connection])
 
     @staticmethod
     def get_all_profiles(directory, names_only: bool = False):
@@ -266,18 +273,17 @@ class MetricsLayerConfiguration:
         return all_profiles
 
     @staticmethod
-    def get_metrics_layer_directory():
+    def get_metrics_layer_profiles_directory():
         env_specified_location = os.getenv(f"METRICS_LAYER_PROFILES_DIR")
         if env_specified_location:
             if os.path.isabs(env_specified_location):
-
                 return env_specified_location
             else:
                 return os.path.join(os.getcwd(), os.path.abspath(env_specified_location))
 
-        # System default home directory
+        # System default home directory to dbt profiles dir
         home = os.path.expanduser("~")
-        location = os.path.join(home, ".metrics_layer/")
+        location = os.path.join(home, ".dbt/")
         return location
 
     @staticmethod
