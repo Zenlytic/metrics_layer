@@ -191,26 +191,26 @@ def get_seed_columns_data():
     return _get_seed_columns_data
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def models():
     models = [ProjectReader.read_yaml_file(model_path)]
     return models
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def views():
     views = [ProjectReader.read_yaml_file(path) for path in view_paths]
     return views
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def dashboards():
     dashboards = [ProjectReader.read_yaml_file(path) for path in dashboard_paths]
     return dashboards
 
 
-@pytest.fixture(scope="module")
-def project(models, views, dashboards):
+@pytest.fixture(scope="function")
+def manifest():
     mock_manifest = {
         "nodes": {
             "models.test_project.customers": {
@@ -220,18 +220,23 @@ def project(models, views, dashboards):
             }
         }
     }
+    return Manifest(mock_manifest)
+
+
+@pytest.fixture(scope="function")
+def project(models, views, dashboards, manifest):
     project = Project(
         models=models,
         views=views,
         dashboards=dashboards,
         looker_env="prod",
         connection_lookup={"connection_name": "SNOWFLAKE"},
-        manifest=Manifest(mock_manifest),
+        manifest=manifest,
     )
     return project
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def config(project):
     class bq_mock:
         name = "testing_bigquery"
@@ -270,6 +275,6 @@ def config(project):
     return config_mock
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def connection(config):
     return MetricsLayerConnection(config=config)

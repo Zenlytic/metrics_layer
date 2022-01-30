@@ -8,17 +8,17 @@ layout: grid
 elements:
   - title: First element
     type: plot
-    model: demo
-    explore: orders
+    model: test_model
+    explore: order_lines_all
     metric: orders.total_revenue
-    slice_by: [orders.new_vs_repeat, orders.product]
+    slice_by: [orders.new_vs_repeat, order_lines.product_name]
 
-  - title: Campaign stats
+  - title: Customer sales stats (by gender)
     type: table
-    model: demo
-    explore: orders
+    model: test_model
+    explore: order_lines_all
     metrics:
       - orders.total_revenue
       - orders.average_order_value
       - orders.number_of_orders
-    slice_by: [orders.campaign]
+    slice_by: [customers.gender]

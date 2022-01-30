@@ -44,6 +44,42 @@ class Join(MetricsLayerBase, SQLReplacement):
 
         super().__init__(definition)
 
+    def collect_errors(self):
+        errors = []
+        if self.foreign_key:
+            for view_name in [self.from_, self.explore.from_]:
+                try:
+                    self.project.get_field(
+                        self.foreign_key, view_name=view_name, explore_name=self.explore.name
+                    )
+                except Exception:
+                    errors.append(
+                        f"Could not find field {self.foreign_key} in join {self.name} "
+                        f"referencing view {view_name} in explore {self.explore.name}"
+                    )
+            return errors
+
+        fields_to_replace = self.fields_to_replace(self.sql_on)
+
+        for field in fields_to_replace:
+            _, join_name, column_name = Field.field_name_parts(field)
+            view_name = self._resolve_view_name(join_name)
+            try:
+                view = self._get_view_internal(view_name)
+            except Exception:
+                err_msg = f"Could not find view {view_name} in join {self.name}"
+                errors.append(err_msg)
+                continue
+
+            try:
+                self.project.get_field(column_name, view_name=view.name, explore_name=self.explore.name)
+            except Exception:
+                errors.append(
+                    f"Could not find field {column_name} in join {self.name} "
+                    f"referencing view {view_name} in explore {self.explore.name}"
+                )
+        return errors
+
     def is_valid(self):
         if self.sql_on:
             fields_to_replace = self.fields_to_replace(self.sql_on)
@@ -58,7 +94,8 @@ class Join(MetricsLayerBase, SQLReplacement):
                     print(err_msg)
                     return False
             return True
-        return self.foreign_key is not None
+        is_valid = self.foreign_key is not None
+        return is_valid
 
     def required_views(self):
         if not self.sql_on:
@@ -84,11 +121,7 @@ class Join(MetricsLayerBase, SQLReplacement):
 
         for field in fields_to_replace:
             _, join_name, column_name = Field.field_name_parts(field)
-            if join_name == self.explore.name:
-                view_name = self.explore.from_
-            else:
-                join = self.explore.get_join(join_name)
-                view_name = join.from_
+            view_name = self._resolve_view_name(join_name)
             view = self._get_view_internal(view_name)
 
             if view is None:
@@ -111,6 +144,14 @@ class Join(MetricsLayerBase, SQLReplacement):
             sql_on = sql_on.replace(replace_text, replace_with)
 
         return sql_on
+
+    def _resolve_view_name(self, join_name: str):
+        if join_name == self.explore.name:
+            view_name = self.explore.from_
+        else:
+            join = self.explore.get_join(join_name)
+            view_name = join.from_
+        return view_name
 
     def _get_view_internal(self, view_name: str):
         if self.from_ is not None and view_name == self.from_:

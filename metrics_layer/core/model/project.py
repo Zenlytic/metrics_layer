@@ -41,6 +41,10 @@ class Project:
         for explore in self.explores():
             errors = explore.validate_fields()
             all_errors.extend(errors)
+
+        for dashboard in self.dashboards():
+            errors = dashboard.collect_errors()
+            all_errors.extend(errors)
         return all_errors
 
     def dashboards(self) -> list:
@@ -297,10 +301,11 @@ class Project:
             err_msg += " specify 'order_raw' or 'order_date' or 'order_month'"
             raise AccessDeniedOrDoesNotExistException(err_msg, object_name=field_name, object_type="field")
 
-    def resolve_dbt_ref(self, ref_name: str):
+    def resolve_dbt_ref(self, ref_name: str, view_name: str = None):
         if not self.manifest_exists:
             raise ValueError(
-                "Could not find a dbt project co-located with this project to resolve the dbt ref()"
+                f"Could not find a dbt project co-located with this "
+                f"project to resolve the dbt ref('{ref_name}') in view {view_name}"
             )
         return self.manifest.resolve_name(ref_name)
 

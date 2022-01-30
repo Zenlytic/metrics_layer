@@ -174,6 +174,121 @@ def test_cli_validate_dimension(config, project, mocker):
 
 
 @pytest.mark.cli
+def test_cli_validate_dbt_refs(config, project, mocker, manifest):
+    # Break something so validation fails
+    project.manifest = {}
+    project.manifest_exists = False
+
+    sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
+    sorted_fields[2]["sql"] = "${total_revenue} / ${number_of_orders}"
+    project._views[1]["fields"] = sorted_fields
+    config.project = project
+    conn = MetricsLayerConnection(config=config)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nCould not find a dbt project co-located with this project to resolve the dbt ref('customers') "
+        "in view customers in explore order_lines_all\n\n"
+    )
+    project.manifest = manifest
+    project.manifest_exists = True
+
+
+@pytest.mark.cli
+def test_cli_validate_joins(config, project, mocker):
+    # Break something so validation fails
+    explores = sorted(project._models[0]["explores"], key=lambda x: x["name"])
+    joins = sorted(explores[-1]["joins"], key=lambda x: x["name"])
+    joins[0]["sql_on"] = "${order_lines_all.order_id}=${all_orders.wrong_name_order_id}"
+
+    explores[-1]["joins"] = joins
+
+    project._models[0]["explores"] = explores
+    config.project = project
+    conn = MetricsLayerConnection(config=config)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nCould not find field wrong_name_order_id in join all_orders "
+        "referencing view orders in explore order_lines_all\n\n"
+    )
+
+    joins[0]["sql_on"] = "${order_lines_all.order_id}=${all_orders.order_id}"
+    explores[-1]["joins"] = joins
+    project._models[0]["explores"] = explores
+
+
+@pytest.mark.cli
+def test_cli_validate_explores(config, project, mocker):
+    # Break something so validation fails
+    explores = sorted(project._models[0]["explores"], key=lambda x: x["name"])
+
+    explores[-1]["from"] = "missing_view"
+    project._models[0]["explores"] = explores
+    config.project = project
+    conn = MetricsLayerConnection(config=config)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 3 errors in the project:\n\n"
+        "\nCould not find field customer_id in join customers referencing view "
+        "missing_view in explore order_lines_all\n\n"
+        "\nCould not find view missing_view in join all_orders\n\n"
+        "\nView missing_view cannot be found in explore order_lines_all\n\n"
+    )
+
+    explores[-1]["from"] = "order_lines"
+    project._models[0]["explores"] = explores
+
+
+@pytest.mark.cli
+def test_cli_validate_dashboards(config, project, mocker):
+    # Break something so validation fails
+    dashboards = sorted(project._dashboards, key=lambda x: x["name"])
+    print(dashboards[0])
+
+    dashboards[0]["elements"][0]["explore"] = "orders"
+    dashboards[0]["elements"][0]["slice_by"][0] = "missing_campaign"
+    project._dashboards = dashboards
+    config.project = project
+    conn = MetricsLayerConnection(config=config)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 3 errors in the project:\n\n"
+        "\nCould not find explore orders in model test_model referenced in dashboard sales_dashboard\n\n"
+        "\nCould not find field missing_campaign in explore orders referenced in dashboard sales_dashboard\n\n"  # noqa
+        "\nCould not find field order_lines.product_name in explore orders referenced in dashboard sales_dashboard\n\n"  # noqa
+    )
+
+    dashboards[0]["elements"][0]["explore"] = "order_lines_all"
+    dashboards[0]["elements"][0]["slice_by"][0] = "orders.new_vs_repeat"
+    project._dashboards = dashboards
+
+
+@pytest.mark.cli
 def test_cli_debug(connection, mocker, monkeypatch):
     def query_runner_mock(query, connection):
         assert query == "select 1 as id;"

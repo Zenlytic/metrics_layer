@@ -1,7 +1,3 @@
-import pytest
-
-
-@pytest.mark.mm
 def test_dashboard_located(connection):
     dash = connection.get_dashboard("sales_dashboard")
 
@@ -14,7 +10,7 @@ def test_dashboard_located(connection):
     first_element = dash.elements()[0]
     assert first_element.title == "First element"
     assert first_element.type == "plot"
-    assert first_element.model == "demo"
-    assert first_element.explore == "orders"
+    assert first_element.model == "test_model"
+    assert first_element.explore == "order_lines_all"
     assert first_element.metric == "orders.total_revenue"
-    assert first_element.slice_by == ["orders.new_vs_repeat", "orders.product"]
+    assert first_element.slice_by == ["orders.new_vs_repeat", "order_lines.product_name"]

@@ -114,7 +114,7 @@ class View(MetricsLayerBase):
     def _resolve_dbt_ref_sql_table_name(self, sql_table_name: str):
         ref_arguments = sql_table_name[sql_table_name.find("ref(") + 4 : sql_table_name.find(")")]
         ref_value = ref_arguments.replace("'", "")
-        return self.project.resolve_dbt_ref(ref_value)
+        return self.project.resolve_dbt_ref(ref_value, self.name)
 
     @staticmethod
     def _resolve_conditional_sql_table_name(sql_table_name: str, looker_env: str):
