@@ -1,5 +1,6 @@
 import json
 import os
+from argparse import ArgumentError
 from copy import deepcopy
 
 from metrics_layer.core.model.definitions import Definitions
@@ -24,9 +25,10 @@ class SnowflakeConnection(BaseConnection):
         self,
         name: str,
         account: str,
-        username: str,
         password: str,
         role: str = None,
+        username: str = None,
+        user: str = None,
         warehouse: str = None,
         database: str = None,
         schema: str = None,
@@ -35,7 +37,17 @@ class SnowflakeConnection(BaseConnection):
         self.type = ConnectionType.snowflake
         self.name = name
         self.account = account
-        self.username = username
+        if user and username:
+            raise ArgumentError(
+                "Received arguments for both user and username, "
+                "please send only one argument for the Snowflake user"
+            )
+        elif username:
+            self.username = username
+        elif user:
+            self.username = user
+        else:
+            raise ArgumentError("Received no argument for the Snowflake user, pass either user or username")
         self.password = password
         self.role = role
         self.warehouse = warehouse

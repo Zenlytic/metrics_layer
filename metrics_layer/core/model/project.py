@@ -18,12 +18,15 @@ class Project:
         dashboards: list = [],
         looker_env: str = None,
         connection_lookup: dict = {},
+        manifest=None,
     ):
         self._models = models
         self._views = views
         self._dashboards = dashboards
         self.looker_env = looker_env
         self.connection_lookup = connection_lookup
+        self.manifest = manifest
+        self.manifest_exists = manifest and manifest.exists()
         self._user = None
 
     def __repr__(self):
@@ -293,6 +296,13 @@ class Project:
             err_msg += "for example, with a dimension group named 'order' with timeframes: [raw, date, month]"
             err_msg += " specify 'order_raw' or 'order_date' or 'order_month'"
             raise AccessDeniedOrDoesNotExistException(err_msg, object_name=field_name, object_type="field")
+
+    def resolve_dbt_ref(self, ref_name: str):
+        if not self.manifest_exists:
+            raise ValueError(
+                "Could not find a dbt project co-located with this project to resolve the dbt ref()"
+            )
+        return self.manifest.resolve_name(ref_name)
 
     @staticmethod
     def _fully_qualified_name(field: Field):

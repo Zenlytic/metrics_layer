@@ -11,12 +11,15 @@ from .github_repo import BaseRepo
 
 
 class ProjectReader:
-    def __init__(self, repo: BaseRepo, additional_repo: BaseRepo = None):
+    def __init__(self, repo: BaseRepo, additional_repo: BaseRepo = None, profiles_dir: str = None):
         self.base_repo = repo
         self.additional_repo = additional_repo
         self.multiple_repos = self.additional_repo is not None
+        self.profiles_dir = profiles_dir
         self.version = 1
         self.unloaded = True
+        self.has_dbt_project = False
+        self.manifest = {}
         self._models = []
         self._views = []
         self._dashboards = []
@@ -111,8 +114,16 @@ class ProjectReader:
     def _load_dbt(self, repo: BaseRepo):
         self.project_name = self._get_dbt_project_name(repo.folder)
         self._dump_profiles_file(repo.folder, self.project_name, repo.warehouse_type)
-        self._generate_manifest_json(repo.folder)
+        self._generate_manifest_json(repo.folder, self.profiles_dir)
 
+        self.manifest = self._load_manifest_json(repo)
+        models, views = self._parse_dbt_manifest(self.manifest)
+
+        # Empty list is for currently unsupported dashboards when using the dbt mode
+        return models, views, []
+
+    @staticmethod
+    def _load_manifest_json(repo):
         manifest_files = repo.search(pattern="manifest.json")
         if len(manifest_files) > 1:
             raise ValueError("found multiple manifest.json files for your dbt project")
@@ -121,10 +132,7 @@ class ProjectReader:
 
         with open(manifest_files[0], "r") as f:
             manifest = json.load(f)
-
-        models, views = self._parse_dbt_manifest(manifest)
-        # Empty list is for currently unsupported dashboards when using the dbt mode
-        return models, views, []
+        return manifest
 
     def _parse_dbt_manifest(self, manifest: dict):
         views = self._make_dbt_views(manifest)
@@ -268,13 +276,24 @@ class ProjectReader:
             yaml.dump(profiles, f)
 
     @staticmethod
-    def _generate_manifest_json(project_dir: str):
+    def _generate_manifest_json(project_dir: str, profiles_dir: str):
         from dbt.main import handle_and_check
 
-        handle_and_check(["ls", "--project-dir", project_dir, "--profiles-dir", project_dir])
+        if profiles_dir is None:
+            profiles_dir = project_dir
+        print("RUNN")
+        print(project_dir)
+        print(profiles_dir)
+        handle_and_check(["ls", "--project-dir", project_dir, "--profiles-dir", profiles_dir])
 
     def _load_metrics_layer(self, repo: BaseRepo):
         models, views, dashboards = [], [], []
+        self.has_dbt_project = len(list(repo.search(pattern="dbt_project.yml"))) > 0
+        print(self.has_dbt_project)
+        if self.has_dbt_project:
+            self._generate_manifest_json(repo.folder, self.profiles_dir)
+            self.manifest = self._load_manifest_json(repo)
+
         file_names = repo.search(pattern="*.yml") + repo.search(pattern="*.yaml")
         for fn in file_names:
             yaml_dict = self.read_yaml_file(fn)

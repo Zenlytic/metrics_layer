@@ -167,11 +167,15 @@ def test_config_explicit_env_config(monkeypatch):
     assert config.repo.repo_url == "https://correct.com"
 
 
-@pytest.mark.ll
 def test_config_file_metrics_layer(monkeypatch):
-    monkeypatch.setenv("METRICS_LAYER_PROFILES_DIR", "./tests/config/metrics_layer_config/profiles")
+    test_repo_path = os.path.abspath("./tests/config/metrics_layer_config")
+
+    monkeypatch.setenv("METRICS_LAYER_PROFILES_DIR", "./profiles")
+    monkeypatch.setattr(os, "getcwd", lambda *args: test_repo_path)
     config = MetricsLayerConfiguration("sf_creds")
 
+    assert config.project
+    assert len(config.project.models()) == 2
     assert config.repo.repo_path == os.getcwd()
     assert len(config.connections()) == 1
     assert all(c.name in {"sf_creds"} for c in config.connections())

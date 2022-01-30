@@ -9,6 +9,7 @@ from metrics_layer.core.parse.connections import (
 )
 
 from .github_repo import GithubRepo, LocalRepo, LookerGithubRepo
+from .manifest import Manifest
 from .project_reader import ProjectReader
 
 
@@ -75,7 +76,13 @@ class MetricsLayerConfiguration:
         reader.dump(path)
 
     def _get_project(self):
-        reader = ProjectReader(repo=self.repo, additional_repo=self.additional_repo)
+        if self.profiles_path:
+            profiles_dir = os.path.dirname(self.profiles_path)
+        else:
+            profiles_dir = None
+        reader = ProjectReader(
+            repo=self.repo, additional_repo=self.additional_repo, profiles_dir=profiles_dir
+        )
         reader.load()
         connection_lookup = {c.name: c.type for c in self.connections()}
         project = Project(
@@ -84,6 +91,7 @@ class MetricsLayerConfiguration:
             dashboards=reader.dashboards,
             looker_env=self.looker_env,
             connection_lookup=connection_lookup,
+            manifest=Manifest(reader.manifest),
         )
         return project
 

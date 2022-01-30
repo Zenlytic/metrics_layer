@@ -4,6 +4,7 @@ import pytest
 
 from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.model.project import Project
+from metrics_layer.core.parse.manifest import Manifest
 from metrics_layer.core.parse.project_reader import ProjectReader
 
 BASE_PATH = os.path.dirname(__file__)
@@ -210,12 +211,22 @@ def dashboards():
 
 @pytest.fixture(scope="module")
 def project(models, views, dashboards):
+    mock_manifest = {
+        "nodes": {
+            "models.test_project.customers": {
+                "database": "transformed",
+                "schema": "analytics",
+                "alias": "customers",
+            }
+        }
+    }
     project = Project(
         models=models,
         views=views,
         dashboards=dashboards,
         looker_env="prod",
         connection_lookup={"connection_name": "SNOWFLAKE"},
+        manifest=Manifest(mock_manifest),
     )
     return project
 

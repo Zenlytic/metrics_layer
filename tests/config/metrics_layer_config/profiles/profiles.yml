@@ -4,9 +4,11 @@ sf_creds:
     dev:
       type: snowflake
       account: 'xyz.us-east-1'
-      username: test_user
+      user: test_user
       password: test_password
       role: test_role
+      database: transformed
+      schema: analytics
 
 bq_creds:
   target: prod
