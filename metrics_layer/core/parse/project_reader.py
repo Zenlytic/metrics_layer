@@ -11,14 +11,18 @@ from .github_repo import BaseRepo
 
 
 class ProjectReader:
-    def __init__(self, repo: BaseRepo, additional_repo: BaseRepo = None):
+    def __init__(self, repo: BaseRepo, additional_repo: BaseRepo = None, profiles_dir: str = None):
         self.base_repo = repo
         self.additional_repo = additional_repo
         self.multiple_repos = self.additional_repo is not None
+        self.profiles_dir = profiles_dir
         self.version = 1
         self.unloaded = True
+        self.has_dbt_project = False
+        self.manifest = {}
         self._models = []
         self._views = []
+        self._dashboards = []
 
     @property
     def models(self):
@@ -31,6 +35,12 @@ class ProjectReader:
         if self.unloaded:
             self.load()
         return self._views
+
+    @property
+    def dashboards(self):
+        if self.unloaded:
+            self.load()
+        return self._dashboards
 
     def dump(self, path: str):
         for model in self.models:
@@ -57,14 +67,16 @@ class ProjectReader:
             yaml.dump(data, f)
 
     def load(self) -> None:
-        base_models, base_views = self._load_repo(self.base_repo)
+        base_models, base_views, base_dashboards = self._load_repo(self.base_repo)
         if self.multiple_repos:
-            additional_models, additional_views = self._load_repo(self.additional_repo)
+            additional_models, additional_views, additional_dashboards = self._load_repo(self.additional_repo)
             self._models = self._merge_objects(base_models, additional_models)
             self._views = self._merge_objects(base_views, additional_views)
+            self._dashboards = base_dashboards + additional_dashboards
         else:
             self._models = base_models
             self._views = base_views
+            self._dashboards = base_dashboards
 
         self.unloaded = False
 
@@ -72,17 +84,17 @@ class ProjectReader:
         repo.fetch()
         repo_type = repo.get_repo_type()
         if repo_type == "lookml":
-            models, views = self._load_lookml(repo)
+            models, views, dashboards = self._load_lookml(repo)
         elif repo_type == "dbt":
-            models, views = self._load_dbt(repo)
+            models, views, dashboards = self._load_dbt(repo)
         elif repo_type == "metrics_layer":
-            models, views = self._load_metrics_layer(repo)
+            models, views, dashboards = self._load_metrics_layer(repo)
         else:
             raise TypeError(
                 f"Unknown repo type: {repo_type}, valid values are 'metrics_layer', 'lookml', 'dbt'"
             )
         repo.delete()
-        return models, views
+        return models, views, dashboards
 
     def _load_lookml(self, repo: BaseRepo):
         models = []
@@ -96,13 +108,22 @@ class ProjectReader:
             file_views = self.read_lkml_file(fn).get("views", [])
             views.extend([self._standardize_view(v) for v in file_views])
 
-        return models, views
+        # Empty list is for currently unsupported dashboards when using the lookml mode
+        return models, views, []
 
     def _load_dbt(self, repo: BaseRepo):
         self.project_name = self._get_dbt_project_name(repo.folder)
         self._dump_profiles_file(repo.folder, self.project_name, repo.warehouse_type)
-        self._generate_manifest_json(repo.folder)
+        self._generate_manifest_json(repo.folder, self.profiles_dir)
 
+        self.manifest = self._load_manifest_json(repo)
+        models, views = self._parse_dbt_manifest(self.manifest)
+
+        # Empty list is for currently unsupported dashboards when using the dbt mode
+        return models, views, []
+
+    @staticmethod
+    def _load_manifest_json(repo):
         manifest_files = repo.search(pattern="manifest.json")
         if len(manifest_files) > 1:
             raise ValueError("found multiple manifest.json files for your dbt project")
@@ -111,9 +132,7 @@ class ProjectReader:
 
         with open(manifest_files[0], "r") as f:
             manifest = json.load(f)
-
-        models, views = self._parse_dbt_manifest(manifest)
-        return models, views
+        return manifest
 
     def _parse_dbt_manifest(self, manifest: dict):
         views = self._make_dbt_views(manifest)
@@ -257,33 +276,44 @@ class ProjectReader:
             yaml.dump(profiles, f)
 
     @staticmethod
-    def _generate_manifest_json(project_dir: str):
+    def _generate_manifest_json(project_dir: str, profiles_dir: str):
         from dbt.main import handle_and_check
 
-        handle_and_check(["ls", "--project-dir", project_dir, "--profiles-dir", project_dir])
+        if profiles_dir is None:
+            profiles_dir = project_dir
+        print("RUNN")
+        print(project_dir)
+        print(profiles_dir)
+        handle_and_check(["ls", "--project-dir", project_dir, "--profiles-dir", profiles_dir])
 
     def _load_metrics_layer(self, repo: BaseRepo):
-        models, views = [], []
+        models, views, dashboards = [], [], []
+        self.has_dbt_project = len(list(repo.search(pattern="dbt_project.yml"))) > 0
+        print(self.has_dbt_project)
+        if self.has_dbt_project:
+            self._generate_manifest_json(repo.folder, self.profiles_dir)
+            self.manifest = self._load_manifest_json(repo)
+
         file_names = repo.search(pattern="*.yml") + repo.search(pattern="*.yaml")
         for fn in file_names:
             yaml_dict = self.read_yaml_file(fn)
 
             # Handle keyerror
             if "type" not in yaml_dict:
-                raise ValueError("All MetricsLayer config files must have a type")
+                print(f"WARN: file {fn} is missing a type")
 
-            yaml_type = yaml_dict["type"]
+            yaml_type = yaml_dict.get("type")
 
             if yaml_type == "model":
                 models.append(yaml_dict)
             elif yaml_type == "view":
                 views.append(yaml_dict)
-            else:
-                raise ValueError(
-                    f"Unknown MetricsLayer file type '{yaml_type}' options are 'model' or 'view'"
-                )
+            elif yaml_type == "dashboard":
+                dashboards.append(yaml_dict)
+            elif yaml_type:
+                print(f"WARN: Unknown file type '{yaml_type}' options are 'model', 'view', or 'dashboard'")
 
-        return models, views
+        return models, views, dashboards
 
     def _standardize_view(self, view: dict):
         # Get all fields under the same key "fields"

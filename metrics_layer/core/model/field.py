@@ -602,7 +602,8 @@ class Field(MetricsLayerBase, SQLReplacement):
 
             # isin for strings
             elif len(value.split(", ")) > 1:
-                raise NotImplementedError("TODO: Need to support array syntax in filters")
+                categories = ",".join([f"'{category.strip()}'" for category in value.split(", ")])
+                condition_value = f"is in ({categories})"
 
             else:
                 condition_value = f"= '{value}'"

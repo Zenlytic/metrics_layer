@@ -1,4 +1,5 @@
 from .base import AccessDeniedOrDoesNotExistException
+from .dashboard import Dashboard
 from .explore import Explore
 from .field import Field
 from .model import AccessGrant, Model
@@ -10,11 +11,22 @@ class Project:
     Higher level abstraction for the whole project
     """
 
-    def __init__(self, models: list, views: list, looker_env: str = None, connection_lookup: dict = {}):
+    def __init__(
+        self,
+        models: list,
+        views: list,
+        dashboards: list = [],
+        looker_env: str = None,
+        connection_lookup: dict = {},
+        manifest=None,
+    ):
         self._models = models
         self._views = views
+        self._dashboards = dashboards
         self.looker_env = looker_env
         self.connection_lookup = connection_lookup
+        self.manifest = manifest
+        self.manifest_exists = manifest and manifest.exists()
         self._user = None
 
     def __repr__(self):
@@ -29,7 +41,17 @@ class Project:
         for explore in self.explores():
             errors = explore.validate_fields()
             all_errors.extend(errors)
+
+        for dashboard in self.dashboards():
+            errors = dashboard.collect_errors()
+            all_errors.extend(errors)
         return all_errors
+
+    def dashboards(self) -> list:
+        return [Dashboard(d, project=self) for d in self._dashboards]
+
+    def get_dashboard(self, dashboard_name: str) -> Model:
+        return next((d for d in self.dashboards() if d.name == dashboard_name), None)
 
     def models(self) -> list:
         return [Model(m) for m in self._models]
@@ -278,6 +300,14 @@ class Project:
             err_msg += "for example, with a dimension group named 'order' with timeframes: [raw, date, month]"
             err_msg += " specify 'order_raw' or 'order_date' or 'order_month'"
             raise AccessDeniedOrDoesNotExistException(err_msg, object_name=field_name, object_type="field")
+
+    def resolve_dbt_ref(self, ref_name: str, view_name: str = None):
+        if not self.manifest_exists:
+            raise ValueError(
+                f"Could not find a dbt project co-located with this "
+                f"project to resolve the dbt ref('{ref_name}') in view {view_name}"
+            )
+        return self.manifest.resolve_name(ref_name)
 
     @staticmethod
     def _fully_qualified_name(field: Field):

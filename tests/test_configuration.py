@@ -1,3 +1,4 @@
+import os
 import pickle
 
 import pytest
@@ -167,18 +168,29 @@ def test_config_explicit_env_config(monkeypatch):
 
 
 def test_config_file_metrics_layer(monkeypatch):
-    monkeypatch.setenv("METRICS_LAYER_PROFILES_DIR", "./tests/config/metrics_layer_config/profiles")
-    config = MetricsLayerConfiguration("test_warehouse")
+    test_repo_path = os.path.abspath("./tests/config/metrics_layer_config")
 
-    assert "tests/config/metrics_layer_config" in config.repo.repo_path
-    assert len(config.connections()) == 2
-    assert all(c.name in {"sf_creds", "bq_creds"} for c in config.connections())
+    monkeypatch.setenv("METRICS_LAYER_PROFILES_DIR", "./profiles")
+    monkeypatch.setattr(os, "getcwd", lambda *args: test_repo_path)
+    config = MetricsLayerConfiguration("sf_creds")
+
+    assert config.project
+    assert len(config.project.models()) == 2
+    assert config.repo.repo_path == os.getcwd()
+    assert len(config.connections()) == 1
+    assert all(c.name in {"sf_creds"} for c in config.connections())
 
     sf = config.get_connection("sf_creds")
     assert sf.account == "xyz.us-east-1"
     assert sf.username == "test_user"
     assert sf.password == "test_password"
     assert sf.role == "test_role"
+
+    config = MetricsLayerConfiguration("bq_creds")
+
+    assert config.repo.repo_path == os.getcwd()
+    assert len(config.connections()) == 1
+    assert all(c.name in {"bq_creds"} for c in config.connections())
 
     bq = config.get_connection("bq_creds")
     assert bq.project_id == "test-data-warehouse"

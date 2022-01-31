@@ -197,6 +197,24 @@ class SeedMetricsLayer:
         return metrics_layer
 
     @staticmethod
+    def get_profile():
+        from metrics_layer.core.parse.project_reader import ProjectReader
+
+        zenlytic_project_path = os.path.join(os.getcwd(), "zenlytic_project.yml")
+        dbt_project_path = os.path.join(os.getcwd(), "dbt_project.yml")
+
+        if os.path.exists(zenlytic_project_path):
+            zenlytic_project = ProjectReader.read_yaml_file(zenlytic_project_path)
+            return zenlytic_project["profile"]
+        elif os.path.exists(dbt_project_path):
+            dbt_project = ProjectReader.read_yaml_file(dbt_project_path)
+            return dbt_project["profile"]
+        raise ValueError(
+            """Could not find a profile for the metrics layer in either the zenlytic_project.yml file or in
+         the dbt_project.yml file, if neither of those files exist, please create the file"""
+        )
+
+    @staticmethod
     def _init_directories():
         models_dir = "models/"
         views_dir = "views/"
@@ -204,6 +222,13 @@ class SeedMetricsLayer:
             fully_qualified_path = os.path.join(os.getcwd(), directory)
             if not os.path.exists(fully_qualified_path):
                 os.mkdir(fully_qualified_path)
+
+    @staticmethod
+    def _init_project_file():
+        from metrics_layer.core.parse.project_reader import ProjectReader
+
+        default_profile = {"name": "zenlytic_project_name", "profile": "my_dbt_profile", "folder": "./"}
+        ProjectReader._dump_yaml_file(default_profile, "zenlytic_project.yml")
 
     @staticmethod
     def _test_git():

@@ -82,7 +82,6 @@ class MetricsLayerDesign:
                     condition = f"{sql} = '{self.project._user[user_attribute_value]}'"
                     conditions.append(condition)
                     fields.append(field)
-            print(conditions)
             return " and ".join(conditions), fields
         return None, []
 

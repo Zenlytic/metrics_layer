@@ -3,7 +3,6 @@ import pytest
 from metrics_layer.core.model.project import AccessDeniedOrDoesNotExistException
 
 
-@pytest.mark.mmm
 def test_access_grants_explore_permission_block(connection):
     connection.config.project.set_user({"department": "marketing"})
 
@@ -33,7 +32,6 @@ def test_access_grants_explore_permission_block(connection):
     assert exc_info.value.object_type == "field"
 
 
-@pytest.mark.mmm
 def test_access_grants_join_permission_block(connection):
     connection.config.project.set_user({"department": "executive"})
     connection.get_sql_query(sql="SELECT * FROM MQL(total_item_revenue BY gender)")
@@ -58,7 +56,6 @@ def test_access_grants_join_permission_block(connection):
     assert exc_info.value.object_type == "field"
 
 
-@pytest.mark.mmm
 def test_access_grants_view_permission_block(connection):
     connection.config.project.set_user({"department": "finance"})
 
@@ -85,7 +82,6 @@ def test_access_grants_view_permission_block(connection):
     assert exc_info.value.object_type == "field"
 
 
-@pytest.mark.mmm
 def test_access_grants_field_permission_block(connection):
     connection.config.project.set_user({"department": "executive"})
 
@@ -112,7 +108,6 @@ def test_access_grants_field_permission_block(connection):
     assert exc_info.value.object_type == "field"
 
 
-@pytest.mark.mmm
 def test_access_filter(connection):
     connection.config.project.set_user({"department": "executive"})
 

@@ -23,14 +23,15 @@ class BaseRepo:
         yaml_files += list(self.search(pattern="*.yaml"))
         n_yaml_files = len(yaml_files)
 
-        dbt_files = list(self.search(pattern="dbt_project.yml"))
-        dbt_files += list(self.search(pattern="dbt_project.yml"))
-        n_dbt_files = len(dbt_files)
+        # TODO Need to decide if we will support this
+        # dbt_files = list(self.search(pattern="dbt_project.yml"))
+        # dbt_files += list(self.search(pattern="dbt_project.yml"))
+        # n_dbt_files = len(dbt_files)
 
+        # if n_dbt_files > 0:
+        #     return "dbt"
         if n_looker_files > n_yaml_files:
             return "lookml"
-        if n_dbt_files > 0:
-            return "dbt"
         return "metrics_layer"
 
     def delete(self):

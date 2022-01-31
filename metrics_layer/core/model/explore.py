@@ -39,11 +39,21 @@ class Explore(MetricsLayerBase):
 
     def validate_fields(self):
         errors = []
+
+        for join in self.joins():
+            errors.extend(join.collect_errors())
+
         for view_name in self.view_names():
-            view = self.project.get_view(view_name)
-            if view is None:
-                print(f"ERROR: View {view_name} cannot be found in explore {self.name}")
+            try:
+                view = self.project.get_view(view_name)
+            except Exception:
+                errors.append(f"View {view_name} cannot be found in explore {self.name}")
                 continue
+            try:
+                view.sql_table_name
+            except ValueError as e:
+                errors.append(f"{str(e)} in explore {self.name}")
+
             referenced_fields = view.referenced_fields()
             view_errors = view.collect_errors()
 

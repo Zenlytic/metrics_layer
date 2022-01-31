@@ -60,4 +60,4 @@ df = conn.query(metrics=["total_revenue"], dimensions=["channel", "region"])
 
 That's it.
 
-For more advanced methods of connection and more information about the project check out [the docs](https://zenlytic.github.io/metrics_layer/).
+For more advanced methods of connection and more information about the project check out [the docs](https://zenlytic.github.io/zenlytic-docs/).

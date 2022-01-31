@@ -10,15 +10,24 @@ from metrics_layer.core.parse.project_reader import ProjectReader
 
 
 @pytest.mark.cli
-def test_cli_init(mocker):
+def test_cli_init(mocker, monkeypatch):
+    yaml_dump_called = False
+
+    def assert_called(data, path):
+        nonlocal yaml_dump_called
+        yaml_dump_called = True
+        assert isinstance(data, dict)
+
     mocker.patch("os.mkdir")
+    monkeypatch.setattr(ProjectReader, "_dump_yaml_file", assert_called)
     runner = CliRunner()
-    result = runner.invoke(init, [])
+    result = runner.invoke(init)
 
     assert result.exit_code == 0
     calls = [os.path.join(os.getcwd(), dir_path) for dir_path in ["views/", "models/"]]
     for call in calls:
         os.mkdir.assert_any_call(call)
+    assert yaml_dump_called
 
 
 @pytest.mark.cli
@@ -96,10 +105,11 @@ def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_
             raise AssertionError("undefined model type for seeding")
 
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
     monkeypatch.setattr(SeedMetricsLayer, "run_query", query_runner_mock)
     monkeypatch.setattr(ProjectReader, "_dump_yaml_file", yaml_dump_assert)
     runner = CliRunner()
-    result = runner.invoke(seed, ["--database", "demo", "--schema", "analytics", "demo"])
+    result = runner.invoke(seed, ["--database", "demo", "--schema", "analytics"])
 
     assert result.exit_code == 0
     calls = [os.path.join(os.getcwd(), dir_path) for dir_path in ["views/", "models/"]]
@@ -110,25 +120,27 @@ def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_
 
 
 @pytest.mark.cli
-def test_cli_validate(config, connection, project, mocker):
+def test_cli_validate(config, connection, fresh_project, mocker):
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
-
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
     runner = CliRunner()
-    result = runner.invoke(validate, ["demo"])
+    result = runner.invoke(validate)
 
     assert result.exit_code == 0
     assert result.output == "Project passed (checked 2 explores)!\n"
 
     # Break something so validation fails
+    project = fresh_project
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
     sorted_fields[11]["name"] = "rev_broken_dim"
     project._views[1]["fields"] = sorted_fields
     config.project = project
     conn = MetricsLayerConnection(config=config)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
     runner = CliRunner()
-    result = runner.invoke(validate, ["demo"])
+    result = runner.invoke(validate)
 
     assert result.exit_code == 0
     assert result.output == (
@@ -139,19 +151,20 @@ def test_cli_validate(config, connection, project, mocker):
 
 
 @pytest.mark.cli
-def test_cli_validate_dimension(config, project, mocker):
+def test_cli_validate_dimension(config, fresh_project, mocker):
     # Break something so validation fails
+    project = fresh_project
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
 
-    sorted_fields[11]["name"] = "revenue_dimension"
     sorted_fields[2]["sql"] = "${customer_id}"
     project._views[1]["fields"] = sorted_fields
     config.project = project
     conn = MetricsLayerConnection(config=config)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
     runner = CliRunner()
-    result = runner.invoke(validate, ["demo"])
+    result = runner.invoke(validate)
 
     assert result.exit_code == 0
     assert result.output == (
@@ -162,7 +175,117 @@ def test_cli_validate_dimension(config, project, mocker):
 
 
 @pytest.mark.cli
-def test_cli_debug(connection, mocker, monkeypatch):
+def test_cli_validate_dbt_refs(config, fresh_project, mocker, manifest):
+    # Break something so validation fails
+    project = fresh_project
+    project.manifest = {}
+    project.manifest_exists = False
+
+    config.project = project
+    conn = MetricsLayerConnection(config=config)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nCould not find a dbt project co-located with this project to resolve the dbt ref('customers') "
+        "in view customers in explore order_lines_all\n\n"
+    )
+
+
+@pytest.mark.cli
+def test_cli_validate_joins(config, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    explores = sorted(project._models[0]["explores"], key=lambda x: x["name"])
+    joins = sorted(explores[-1]["joins"], key=lambda x: x["name"])
+    joins[0]["sql_on"] = "${order_lines_all.order_id}=${all_orders.wrong_name_order_id}"
+
+    explores[-1]["joins"] = joins
+
+    project._models[0]["explores"] = explores
+    config.project = project
+    conn = MetricsLayerConnection(config=config)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nCould not find field wrong_name_order_id in join all_orders "
+        "referencing view orders in explore order_lines_all\n\n"
+    )
+
+
+@pytest.mark.cli
+def test_cli_validate_explores(config, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    explores = sorted(project._models[0]["explores"], key=lambda x: x["name"])
+
+    explores[-1]["from"] = "missing_view"
+    project._models[0]["explores"] = explores
+    config.project = project
+    conn = MetricsLayerConnection(config=config)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 3 errors in the project:\n\n"
+        "\nCould not find field customer_id in join customers referencing view "
+        "missing_view in explore order_lines_all\n\n"
+        "\nCould not find view missing_view in join all_orders\n\n"
+        "\nView missing_view cannot be found in explore order_lines_all\n\n"
+    )
+
+    explores[-1]["from"] = "order_lines"
+    project._models[0]["explores"] = explores
+
+
+@pytest.mark.cli
+def test_cli_validate_dashboards(config, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    dashboards = sorted(project._dashboards, key=lambda x: x["name"])
+    print(dashboards[0])
+
+    dashboards[0]["elements"][0]["explore"] = "orders"
+    dashboards[0]["elements"][0]["slice_by"][0] = "missing_campaign"
+    project._dashboards = dashboards
+    config.project = project
+    conn = MetricsLayerConnection(config=config)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 3 errors in the project:\n\n"
+        "\nCould not find explore orders in model test_model referenced in dashboard sales_dashboard\n\n"
+        "\nCould not find field missing_campaign in explore orders referenced in dashboard sales_dashboard\n\n"  # noqa
+        "\nCould not find field order_lines.product_name in explore orders referenced in dashboard sales_dashboard\n\n"  # noqa
+    )
+
+    dashboards[0]["elements"][0]["explore"] = "order_lines_all"
+    dashboards[0]["elements"][0]["slice_by"][0] = "orders.new_vs_repeat"
+    project._dashboards = dashboards
+
+
+@pytest.mark.cli
+def test_cli_debug(connection, mocker):
     def query_runner_mock(query, connection):
         assert query == "select 1 as id;"
         assert connection.name == "testing_snowflake"
@@ -170,8 +293,10 @@ def test_cli_debug(connection, mocker, monkeypatch):
 
     connection.run_query = query_runner_mock
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
     runner = CliRunner()
-    result = runner.invoke(debug, ["demo"])
+    result = runner.invoke(debug)
 
     assert result.exit_code == 0
     non_workstation_dependent_correct = (
@@ -210,9 +335,10 @@ def test_cli_debug(connection, mocker, monkeypatch):
 @pytest.mark.cli
 def test_cli_list(connection, mocker, object_type: str, extra_args: list):
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
     runner = CliRunner()
-    result = runner.invoke(list_, extra_args + ["--profile", "demo", object_type])
+    result = runner.invoke(list_, extra_args + [object_type])
 
     result_lookup = {
         "models": "Found 1 model:\n\ntest_model\n",
@@ -248,9 +374,10 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
 @pytest.mark.cli
 def test_cli_show(connection, mocker, name, extra_args):
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
     runner = CliRunner()
-    result = runner.invoke(show, extra_args + ["--profile", "demo", name])
+    result = runner.invoke(show, extra_args + [name])
 
     result_lookup = {
         "test_model": (

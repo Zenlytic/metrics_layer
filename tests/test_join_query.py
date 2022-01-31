@@ -103,7 +103,8 @@ def test_query_single_dimension_with_multi_filter(connection):
 
     correct = (
         "SELECT order_lines.sales_channel as order_lines_channel,SUM(case when order_lines.product_name "
-        "= 'Portable Charger' and orders.revenue * 100 > 100 then order_lines.item_costs end) "
+        "= 'Portable Charger' and order_lines.product_name is in ('Portable Charger','Dual Charger') "
+        "and orders.revenue * 100 > 100 then order_lines.item_costs end) "
         "as order_lines_total_item_costs FROM analytics.order_line_items order_lines LEFT JOIN "
         "analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "GROUP BY order_lines.sales_channel;"
