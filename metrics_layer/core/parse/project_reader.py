@@ -247,7 +247,7 @@ class ProjectReader:
 
     @staticmethod
     def _dump_profiles_file(project_dir: str, project_name: str, warehouse_type: str):
-        if warehouse_type == "SNOWFLAKE":
+        if warehouse_type.upper() == "SNOWFLAKE":
             params = {
                 "type": "snowflake",
                 "account": "fake-url.us-east-1",
@@ -257,7 +257,7 @@ class ProjectReader:
                 "database": "fake",
                 "schema": "fake",
             }
-        elif warehouse_type == "BIGQUERY":
+        elif warehouse_type.upper() == "BIGQUERY":
             params = {
                 "type": "bigquery",
                 "method": "service-account",
@@ -266,7 +266,7 @@ class ProjectReader:
                 "keyfile": "fake",
             }
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(f"We do not currently support warehouse type {warehouse_type}")
 
         profiles = {
             project_name: {"target": "temp", "outputs": {"temp": {**params}}},
