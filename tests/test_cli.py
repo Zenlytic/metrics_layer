@@ -120,7 +120,7 @@ def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_
 
 
 @pytest.mark.cli
-def test_cli_validate(config, connection, project, mocker):
+def test_cli_validate(config, connection, fresh_project, mocker):
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
     runner = CliRunner()
@@ -130,6 +130,7 @@ def test_cli_validate(config, connection, project, mocker):
     assert result.output == "Project passed (checked 2 explores)!\n"
 
     # Break something so validation fails
+    project = fresh_project
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
     sorted_fields[11]["name"] = "rev_broken_dim"
     project._views[1]["fields"] = sorted_fields
@@ -150,11 +151,11 @@ def test_cli_validate(config, connection, project, mocker):
 
 
 @pytest.mark.cli
-def test_cli_validate_dimension(config, project, mocker):
+def test_cli_validate_dimension(config, fresh_project, mocker):
     # Break something so validation fails
+    project = fresh_project
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
 
-    sorted_fields[11]["name"] = "revenue_dimension"
     sorted_fields[2]["sql"] = "${customer_id}"
     project._views[1]["fields"] = sorted_fields
     config.project = project
@@ -174,14 +175,12 @@ def test_cli_validate_dimension(config, project, mocker):
 
 
 @pytest.mark.cli
-def test_cli_validate_dbt_refs(config, project, mocker, manifest):
+def test_cli_validate_dbt_refs(config, fresh_project, mocker, manifest):
     # Break something so validation fails
+    project = fresh_project
     project.manifest = {}
     project.manifest_exists = False
 
-    sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
-    sorted_fields[2]["sql"] = "${total_revenue} / ${number_of_orders}"
-    project._views[1]["fields"] = sorted_fields
     config.project = project
     conn = MetricsLayerConnection(config=config)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
@@ -196,13 +195,12 @@ def test_cli_validate_dbt_refs(config, project, mocker, manifest):
         "\nCould not find a dbt project co-located with this project to resolve the dbt ref('customers') "
         "in view customers in explore order_lines_all\n\n"
     )
-    project.manifest = manifest
-    project.manifest_exists = True
 
 
 @pytest.mark.cli
-def test_cli_validate_joins(config, project, mocker):
+def test_cli_validate_joins(config, fresh_project, mocker):
     # Break something so validation fails
+    project = fresh_project
     explores = sorted(project._models[0]["explores"], key=lambda x: x["name"])
     joins = sorted(explores[-1]["joins"], key=lambda x: x["name"])
     joins[0]["sql_on"] = "${order_lines_all.order_id}=${all_orders.wrong_name_order_id}"
@@ -225,14 +223,11 @@ def test_cli_validate_joins(config, project, mocker):
         "referencing view orders in explore order_lines_all\n\n"
     )
 
-    joins[0]["sql_on"] = "${order_lines_all.order_id}=${all_orders.order_id}"
-    explores[-1]["joins"] = joins
-    project._models[0]["explores"] = explores
-
 
 @pytest.mark.cli
-def test_cli_validate_explores(config, project, mocker):
+def test_cli_validate_explores(config, fresh_project, mocker):
     # Break something so validation fails
+    project = fresh_project
     explores = sorted(project._models[0]["explores"], key=lambda x: x["name"])
 
     explores[-1]["from"] = "missing_view"
@@ -259,8 +254,9 @@ def test_cli_validate_explores(config, project, mocker):
 
 
 @pytest.mark.cli
-def test_cli_validate_dashboards(config, project, mocker):
+def test_cli_validate_dashboards(config, fresh_project, mocker):
     # Break something so validation fails
+    project = fresh_project
     dashboards = sorted(project._dashboards, key=lambda x: x["name"])
     print(dashboards[0])
 
@@ -289,7 +285,7 @@ def test_cli_validate_dashboards(config, project, mocker):
 
 
 @pytest.mark.cli
-def test_cli_debug(connection, mocker, monkeypatch):
+def test_cli_debug(connection, mocker):
     def query_runner_mock(query, connection):
         assert query == "select 1 as id;"
         assert connection.name == "testing_snowflake"

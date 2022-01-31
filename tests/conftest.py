@@ -192,24 +192,42 @@ def get_seed_columns_data():
 
 
 @pytest.fixture(scope="function")
-def models():
+def fresh_models():
     models = [ProjectReader.read_yaml_file(model_path)]
     return models
 
 
 @pytest.fixture(scope="function")
-def views():
+def fresh_views():
     views = [ProjectReader.read_yaml_file(path) for path in view_paths]
     return views
 
 
 @pytest.fixture(scope="function")
+def fresh_dashboards():
+    dashboards = [ProjectReader.read_yaml_file(path) for path in dashboard_paths]
+    return dashboards
+
+
+@pytest.fixture(scope="module")
+def models():
+    models = [ProjectReader.read_yaml_file(model_path)]
+    return models
+
+
+@pytest.fixture(scope="module")
+def views():
+    views = [ProjectReader.read_yaml_file(path) for path in view_paths]
+    return views
+
+
+@pytest.fixture(scope="module")
 def dashboards():
     dashboards = [ProjectReader.read_yaml_file(path) for path in dashboard_paths]
     return dashboards
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def manifest():
     mock_manifest = {
         "nodes": {
@@ -224,6 +242,19 @@ def manifest():
 
 
 @pytest.fixture(scope="function")
+def fresh_project(fresh_models, fresh_views, fresh_dashboards, manifest):
+    project = Project(
+        models=fresh_models,
+        views=fresh_views,
+        dashboards=fresh_dashboards,
+        looker_env="prod",
+        connection_lookup={"connection_name": "SNOWFLAKE"},
+        manifest=manifest,
+    )
+    return project
+
+
+@pytest.fixture(scope="module")
 def project(models, views, dashboards, manifest):
     project = Project(
         models=models,
@@ -236,7 +267,7 @@ def project(models, views, dashboards, manifest):
     return project
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def config(project):
     class bq_mock:
         name = "testing_bigquery"
@@ -275,6 +306,6 @@ def config(project):
     return config_mock
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def connection(config):
     return MetricsLayerConnection(config=config)
