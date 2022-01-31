@@ -114,7 +114,7 @@ class ProjectReader:
     def _load_dbt(self, repo: BaseRepo):
         self.project_name = self._get_dbt_project_name(repo.folder)
         self._dump_profiles_file(repo.folder, self.project_name, repo.warehouse_type)
-        self._generate_manifest_json(repo.folder, self.profiles_dir)
+        self._generate_manifest_json(repo.folder, self.profiles_dir, repo.warehouse_type)
 
         self.manifest = self._load_manifest_json(repo)
         models, views = self._parse_dbt_manifest(self.manifest)
@@ -275,19 +275,21 @@ class ProjectReader:
         with open(os.path.join(project_dir, "profiles.yml"), "w") as f:
             yaml.dump(profiles, f)
 
-    @staticmethod
-    def _generate_manifest_json(project_dir: str, profiles_dir: str):
+    def _generate_manifest_json(self, project_dir: str, profiles_dir: str, warehouse_type: str):
         from dbt.main import handle_and_check
 
         if profiles_dir is None:
             profiles_dir = project_dir
+            if not os.path.exists(os.path.join(profiles_dir, "profiles.yml")):
+                project_name = self._get_dbt_project_name(project_dir)
+                self._dump_profiles_file(profiles_dir, project_name, warehouse_type)
         handle_and_check(["ls", "--project-dir", project_dir, "--profiles-dir", profiles_dir])
 
     def _load_metrics_layer(self, repo: BaseRepo):
         models, views, dashboards = [], [], []
         self.has_dbt_project = len(list(repo.search(pattern="dbt_project.yml"))) > 0
         if self.has_dbt_project:
-            self._generate_manifest_json(repo.folder, self.profiles_dir)
+            self._generate_manifest_json(repo.folder, self.profiles_dir, repo.warehouse_type)
             self.manifest = self._load_manifest_json(repo)
 
         file_names = repo.search(pattern="*.yml") + repo.search(pattern="*.yaml")
