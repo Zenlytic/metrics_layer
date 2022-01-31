@@ -281,15 +281,11 @@ class ProjectReader:
 
         if profiles_dir is None:
             profiles_dir = project_dir
-        print("RUNN")
-        print(project_dir)
-        print(profiles_dir)
         handle_and_check(["ls", "--project-dir", project_dir, "--profiles-dir", profiles_dir])
 
     def _load_metrics_layer(self, repo: BaseRepo):
         models, views, dashboards = [], [], []
         self.has_dbt_project = len(list(repo.search(pattern="dbt_project.yml"))) > 0
-        print(self.has_dbt_project)
         if self.has_dbt_project:
             self._generate_manifest_json(repo.folder, self.profiles_dir)
             self.manifest = self._load_manifest_json(repo)

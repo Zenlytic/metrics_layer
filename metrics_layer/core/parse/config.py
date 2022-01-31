@@ -263,7 +263,13 @@ class MetricsLayerConfiguration:
                     os.path.join(metrics_layer_profiles_directory, os.path.expanduser(target[path_arg]))
                 )
         else:
-            path = os.getcwd()
+            config_path = os.path.join(os.getcwd(), "zenlytic_project.yml")
+            if os.path.exists(config_path):
+                config = ProjectReader.read_yaml_file(config_path)
+                relative_path = config.get("folder", "./")
+                path = os.path.abspath(relative_path)
+            else:
+                path = os.getcwd()
         repo = LocalRepo(repo_path=path, repo_type=repo_type, warehouse_type=warehouse_type)
 
         connection = {
