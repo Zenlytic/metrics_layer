@@ -112,9 +112,9 @@ class ProjectReader:
         return models, views, []
 
     def _load_dbt(self, repo: BaseRepo):
-        self.project_name = self._get_dbt_project_name(repo.folder)
-        self._dump_profiles_file(repo.folder, self.project_name, repo.warehouse_type)
-        self._generate_manifest_json(repo.folder, self.profiles_dir, repo.warehouse_type)
+        self.project_name = self._get_dbt_project_file(repo.folder)["name"]
+        self._dump_profiles_file(repo.folder, self.project_name)
+        self._generate_manifest_json(repo.folder, self.profiles_dir)
 
         self.manifest = self._load_manifest_json(repo)
         models, views = self._parse_dbt_manifest(self.manifest)
@@ -241,55 +241,49 @@ class ProjectReader:
         model["explores"] = [{"name": view_name} for view_name in view_names]
         return [model]
 
-    def _get_dbt_project_name(self, project_dir: str):
+    def _get_dbt_project_file(self, project_dir: str):
         dbt_project = self.read_yaml_file(os.path.join(project_dir, "dbt_project.yml"))
-        return dbt_project["name"]
+        return dbt_project
 
-    @staticmethod
-    def _dump_profiles_file(project_dir: str, project_name: str, warehouse_type: str):
-        if warehouse_type.upper() == "SNOWFLAKE":
-            params = {
-                "type": "snowflake",
-                "account": "fake-url.us-east-1",
-                "user": "fake",
-                "password": "fake",
-                "warehouse": "fake",
-                "database": "fake",
-                "schema": "fake",
-            }
-        elif warehouse_type.upper() == "BIGQUERY":
-            params = {
-                "type": "bigquery",
-                "method": "service-account",
-                "project": "fake",
-                "dataset": "fake",
-                "keyfile": "fake",
-            }
-        else:
-            raise NotImplementedError(f"We do not currently support warehouse type {warehouse_type}")
+    def _dump_profiles_file(self, project_dir: str, project_name: str):
+        # It doesn't matter the warehouse type here because we're just compiling the models
+        params = {
+            "type": "snowflake",
+            "account": "fake-url.us-east-1",
+            "user": "fake",
+            "password": "fake",
+            "warehouse": "fake",
+            "database": "fake",
+            "schema": "fake",
+        }
 
         profiles = {
             project_name: {"target": "temp", "outputs": {"temp": {**params}}},
             "config": {"send_anonymous_usage_stats": False},
         }
-        with open(os.path.join(project_dir, "profiles.yml"), "w") as f:
-            yaml.dump(profiles, f)
+        self._dump_yaml_file(profiles, os.path.join(project_dir, "profiles.yml"))
 
-    def _generate_manifest_json(self, project_dir: str, profiles_dir: str, warehouse_type: str):
-        from dbt.main import handle_and_check
+    def _generate_manifest_json(self, project_dir: str, profiles_dir: str):
 
         if profiles_dir is None:
             profiles_dir = project_dir
             if not os.path.exists(os.path.join(profiles_dir, "profiles.yml")):
-                project_name = self._get_dbt_project_name(project_dir)
-                self._dump_profiles_file(profiles_dir, project_name, warehouse_type)
-        handle_and_check(["ls", "--project-dir", project_dir, "--profiles-dir", profiles_dir])
+                project = self._get_dbt_project_file(project_dir)
+                self._dump_profiles_file(profiles_dir, project["profile"])
+
+        self._run_dbt("ls", project_dir=project_dir, profiles_dir=profiles_dir)
+
+    @staticmethod
+    def _run_dbt(cmd: str, project_dir: str, profiles_dir: str):
+        from dbt.main import handle_and_check
+
+        handle_and_check([cmd, "--project-dir", project_dir, "--profiles-dir", profiles_dir])
 
     def _load_metrics_layer(self, repo: BaseRepo):
         models, views, dashboards = [], [], []
         self.has_dbt_project = len(list(repo.search(pattern="dbt_project.yml"))) > 0
         if self.has_dbt_project:
-            self._generate_manifest_json(repo.folder, self.profiles_dir, repo.warehouse_type)
+            self._generate_manifest_json(repo.folder, self.profiles_dir)
             self.manifest = self._load_manifest_json(repo)
 
         file_names = repo.search(pattern="*.yml") + repo.search(pattern="*.yaml")

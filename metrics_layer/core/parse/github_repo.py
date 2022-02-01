@@ -46,10 +46,12 @@ class BaseRepo:
 
 class LocalRepo(BaseRepo):
     def __init__(self, repo_path: str, repo_type: str = None, warehouse_type: str = None) -> None:
+        print(repo_path)
         self.repo_path = repo_path
         self.repo_type = repo_type
         self.warehouse_type = warehouse_type
-        self.folder = f"{os.path.join(BASE_PATH, self.repo_path)}/"
+        self.folder = f"{os.path.join(os.getcwd(), self.repo_path)}/"
+        print(self.folder)
 
     def search(self, pattern: str):
         """Example arg: pattern='*.model.*'"""

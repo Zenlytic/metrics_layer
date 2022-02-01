@@ -6,6 +6,7 @@ import pytest
 from metrics_layer.core.parse.config import ConfigError, MetricsLayerConfiguration
 from metrics_layer.core.parse.connections import BigQueryConnection, SnowflakeConnection
 from metrics_layer.core.parse.github_repo import LookerGithubRepo
+from metrics_layer.core.parse.project_reader import ProjectReader
 
 
 def test_config_explicit_metrics_layer_single_local():
@@ -167,6 +168,7 @@ def test_config_explicit_env_config(monkeypatch):
     assert config.repo.repo_url == "https://correct.com"
 
 
+@pytest.mark.mm
 def test_config_file_metrics_layer(monkeypatch):
     test_repo_path = os.path.abspath("./tests/config/metrics_layer_config")
 
@@ -199,6 +201,30 @@ def test_config_file_metrics_layer(monkeypatch):
         "project_id": "test-data-warehouse",
         "type": "service_account",
     }
+
+
+def test_config_file_metrics_layer_dbt_run(monkeypatch, mocker):
+    def assert_dump(slf, data, path):
+        print(data)
+        print(path)
+
+    # test_repo_path = os.path.abspath("./tests/config/metrics_layer_config")
+    monkeypatch.setattr(ProjectReader, "_dump_yaml_file", assert_dump)
+    mocker.patch("metrics_layer.core.parse.project_reader.ProjectReader._run_dbt")
+
+    # monkeypatch.setattr(os, "getcwd", lambda *args: test_repo_path)
+
+    # test_repo_path = os.path.abspath("./tests/config/metrics_layer_config")
+    # mocker.patch("os.getcwd", lambda *args: test_repo_path)
+    # cwd_path = os.getcwd()
+    # print(cwd_path)
+    # This references the metrics_layer_config/ directory
+    repo_config = {"repo_path": "./", "repo_type": "metrics_layer"}
+    config = MetricsLayerConfiguration(repo_config)
+
+    assert config.project
+
+    ProjectReader._run_dbt.assert_called_once()
 
 
 def test_config_does_not_exist():
