@@ -121,3 +121,20 @@ def test_access_grants_field_visible(connection):
     assert exc_info.value
     assert exc_info.value.object_name == "total_revenue"
     assert exc_info.value.object_type == "field"
+
+
+def test_access_grants_dashboard_visible(connection):
+    # None always allows access
+    connection.config.project.set_user({"department": None})
+    connection.get_dashboard("sales_dashboard_v2")
+
+    connection.config.project.set_user({"department": "sales"})
+    connection.get_dashboard("sales_dashboard_v2")
+
+    connection.config.project.set_user({"department": "operations"})
+    with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
+        connection.get_dashboard("sales_dashboard_v2")
+
+    assert exc_info.value
+    assert exc_info.value.object_name == "sales_dashboard_v2"
+    assert exc_info.value.object_type == "dashboard"
