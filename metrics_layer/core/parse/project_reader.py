@@ -275,9 +275,9 @@ class ProjectReader:
 
     @staticmethod
     def _run_dbt(cmd: str, project_dir: str, profiles_dir: str):
-        from dbt.main import handle_and_check
+        # from dbt.main import handle_and_check
 
-        handle_and_check([cmd, "--project-dir", project_dir, "--profiles-dir", profiles_dir])
+        os.system(f"dbt {cmd} --project-dir {project_dir} --profiles-dir {profiles_dir}")
 
     def _load_metrics_layer(self, repo: BaseRepo):
         models, views, dashboards = [], [], []

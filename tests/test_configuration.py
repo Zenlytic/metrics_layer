@@ -204,20 +204,11 @@ def test_config_file_metrics_layer(monkeypatch):
 
 
 def test_config_file_metrics_layer_dbt_run(monkeypatch, mocker):
-    def assert_dump(slf, data, path):
-        print(data)
-        print(path)
-
-    # test_repo_path = os.path.abspath("./tests/config/metrics_layer_config")
-    monkeypatch.setattr(ProjectReader, "_dump_yaml_file", assert_dump)
+    test_repo_path = os.path.abspath("./tests/config/metrics_layer_config")
+    monkeypatch.setattr(os, "getcwd", lambda *args: test_repo_path)
+    mocker.patch("metrics_layer.core.parse.project_reader.ProjectReader._dump_yaml_file")
     mocker.patch("metrics_layer.core.parse.project_reader.ProjectReader._run_dbt")
 
-    # monkeypatch.setattr(os, "getcwd", lambda *args: test_repo_path)
-
-    # test_repo_path = os.path.abspath("./tests/config/metrics_layer_config")
-    # mocker.patch("os.getcwd", lambda *args: test_repo_path)
-    # cwd_path = os.getcwd()
-    # print(cwd_path)
     # This references the metrics_layer_config/ directory
     repo_config = {"repo_path": "./", "repo_type": "metrics_layer"}
     config = MetricsLayerConfiguration(repo_config)
@@ -225,6 +216,7 @@ def test_config_file_metrics_layer_dbt_run(monkeypatch, mocker):
     assert config.project
 
     ProjectReader._run_dbt.assert_called_once()
+    ProjectReader._dump_yaml_file.assert_called_once()
 
 
 def test_config_does_not_exist():
