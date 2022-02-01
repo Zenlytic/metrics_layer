@@ -17,6 +17,9 @@ access_grants:
   - name: test_access_grant_department_field
     user_attribute: department
     allowed_values: ["executive", "engineering", 'sales']
+  - name: test_access_grant_department_dashboard
+    user_attribute: department
+    allowed_values: ["executive", 'sales']
 
 explores:
   - name: order_lines_all

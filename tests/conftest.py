@@ -11,6 +11,9 @@ BASE_PATH = os.path.dirname(__file__)
 
 model_path = os.path.join(BASE_PATH, "config/metrics_layer_config/models/commerce_test_model.yml")
 sales_dashboard_path = os.path.join(BASE_PATH, "config/metrics_layer_config/dashboards/sales_dashboard.yml")
+sales_dashboard_v2_path = os.path.join(
+    BASE_PATH, "config/metrics_layer_config/dashboards/sales_dashboard_v2.yml"
+)
 order_lines_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_order_lines.yml")
 orders_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_orders.yml")
 customers_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_customers.yml")
@@ -29,7 +32,7 @@ view_paths = [
     discount_detail_view_path,
     country_detail_view_path,
 ]
-dashboard_paths = [sales_dashboard_path]
+dashboard_paths = [sales_dashboard_path, sales_dashboard_v2_path]
 
 
 @pytest.fixture(scope="function")

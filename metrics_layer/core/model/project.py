@@ -47,11 +47,27 @@ class Project:
             all_errors.extend(errors)
         return all_errors
 
+    def _all_dashboards(self):
+        dashboards = []
+        for d in self._dashboards:
+            dashboard = Dashboard(d, project=self)
+            user_allowed = self.can_access_dashboard(dashboard)
+            if user_allowed:
+                dashboards.append(dashboard)
+        return dashboards
+
     def dashboards(self) -> list:
-        return [Dashboard(d, project=self) for d in self._dashboards]
+        return self._all_dashboards()
 
     def get_dashboard(self, dashboard_name: str) -> Model:
-        return next((d for d in self.dashboards() if d.name == dashboard_name), None)
+        try:
+            return next((d for d in self.dashboards() if d.name == dashboard_name))
+        except StopIteration:
+            raise AccessDeniedOrDoesNotExistException(
+                f"Could not find or you do not have access to dashboard {dashboard_name}",
+                object_name=dashboard_name,
+                object_type="dashboard",
+            )
 
     def models(self) -> list:
         return [Model(m) for m in self._models]
@@ -64,6 +80,9 @@ class Project:
 
     def get_access_grant(self, grant_name: str):
         return next((ag for ag in self.access_grants() if ag.name == grant_name), None)
+
+    def can_access_dashboard(self, dashboard: Dashboard):
+        return self._can_access_object(dashboard)
 
     def can_access_explore(self, explore: Explore):
         return self._can_access_object(explore)
