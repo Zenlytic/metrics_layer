@@ -34,14 +34,28 @@ class Join(MetricsLayerBase, SQLReplacement):
 
         for k in required_keys:
             if k not in definition:
-                raise ValueError(f"Join missing required key {k}")
+                join_name = None
+                if "name" in definition:
+                    join_name = definition["name"]
+                raise ValueError(f"Join missing required key {k} in join {join_name}")
 
-        neither_join_keys = "sql_on" not in definition and "foreign_key" not in definition
-        both_join_keys = "sql_on" in definition and "foreign_key" in definition
+        has_sql_on = "sql_on" in definition
+        has_fk = "foreign_key" in definition
+        has_sql = "sql" in definition
+        all_join_arguments = [has_sql_on, has_fk, has_sql]
+        no_join_keys = all(not c for c in all_join_arguments)
+        multiple_join_keys = sum(all_join_arguments) > 1
 
-        if both_join_keys or neither_join_keys:
-            raise ValueError(f"Incorrect join identifiers sql_on and foreign_key (must have exactly one)")
+        if no_join_keys:
+            raise ValueError(
+                f"No join arguments found in join {definition['name']}, please pass sql_on or foreign_key"
+            )
 
+        if multiple_join_keys:
+            raise ValueError(
+                f"Multiple join arguments found in join {definition['name']}"
+                ", please pass only one of: sql_on, foreign_key"
+            )
         super().__init__(definition)
 
     def collect_errors(self):
