@@ -1,4 +1,5 @@
 from .base import MetricsLayerBase
+from .filter import Filter
 
 
 class DashboardLayouts:
@@ -23,6 +24,14 @@ class DashboardElement(MetricsLayerBase):
     def slice_by(self):
         return self._definition.get("slice_by", [])
 
+    def _raw_filters(self):
+        if self.filters is None:
+            return []
+        return self.filters
+
+    def parsed_filters(self):
+        return [Filter(f).filter_dict() for f in self._raw_filters()]
+
     def collect_errors(self):
         errors = []
 
@@ -42,6 +51,14 @@ class DashboardElement(MetricsLayerBase):
                 err_msg = (
                     f"Could not find field {field} in explore {self.explore} "
                     f"referenced in dashboard {self.dashboard.name}"
+                )
+                errors.append(err_msg)
+
+        for f in self._raw_filters():
+            if not self._function_executes(self.project.get_field, f["field"], explore_name=self.explore):
+                err_msg = (
+                    f"Could not find field {f['field']} in explore {self.explore} "
+                    f"referenced in a filter in dashboard {self.dashboard.name}"
                 )
                 errors.append(err_msg)
         return errors
@@ -81,6 +98,16 @@ class Dashboard(MetricsLayerBase):
 
     def collect_errors(self):
         errors = []
+        for f in self._raw_filters():
+            try:
+                self.project.get_field(f["field"], explore_name=self.explore)
+            except Exception:
+                err_msg = (
+                    f"Could not find field {f['field']} in explore {self.explore} "
+                    f"referenced in a filter in dashboard {self.name}"
+                )
+                errors.append(err_msg)
+
         for element in self.elements():
             errors.extend(element.collect_errors())
         return errors
@@ -90,6 +117,14 @@ class Dashboard(MetricsLayerBase):
         attributes = self.to_dict()
         attributes["type"] = "dashboard"
         return {key: attributes.get(key) for key in to_print if attributes.get(key) is not None}
+
+    def _raw_filters(self):
+        if self.filters is None:
+            return []
+        return self.filters
+
+    def parsed_filters(self):
+        return [Filter(f).filter_dict() for f in self._raw_filters()]
 
     def elements(self):
         elements = self._definition.get("elements", [])

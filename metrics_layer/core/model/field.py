@@ -3,6 +3,7 @@ from copy import deepcopy
 
 from .base import MetricsLayerBase, SQLReplacement
 from .definitions import Definitions
+from .filter import Filter
 from .set import Set
 
 SQL_KEYWORDS = {"order", "group", "by", "as", "from", "select", "on", "with"}
@@ -50,7 +51,9 @@ class Field(MetricsLayerBase, SQLReplacement):
             definition["sql"] = self._translate_looker_case_to_sql(definition["case"])
 
         if "sql" in definition and "filters" in definition:
-            definition["sql"] = self._translate_looker_filter_to_sql(definition["sql"], definition["filters"])
+            definition["sql"] = Filter.translate_looker_filters_to_sql(
+                definition["sql"], definition["filters"]
+            )
 
         if "sql" in definition and definition.get("type") == "tier":
             definition["sql"] = self._translate_looker_tier_to_sql(definition["sql"], definition["tiers"])
@@ -566,57 +569,6 @@ class Field(MetricsLayerBase, SQLReplacement):
         when_sql = f"when {sql} >= {tiers[-1]} then '[{tiers[-1]},inf)' "
         case_sql += when_sql
         return case_sql + "else 'Unknown' end"
-
-    @staticmethod
-    def _translate_looker_filter_to_sql(sql: str, filters: list):
-        case_sql = "case when "
-        conditions = []
-        for f in filters:
-            # TODO more advanced parsing
-            # ref: https://docs.looker.com/reference/field-params/filters
-
-            field_reference = "${" + f["field"] + "}"
-            value = f["value"]
-
-            # Handle null conditiona
-            if value == "NULL":
-                condition_value = f"is null"
-            elif value == "-NULL":
-                condition_value = f"is not null"
-
-            # Numeric parsing for less than or equal to, greater than or equal to, not equal to
-            elif value[:2] in {"=<", ">=", "<>", "!="}:
-                condition_value = f"{value[:2]} {value[2:]}"
-
-            # Numeric parsing for equal to, less than, greater than
-            elif value[0] in {"=", ">", "<"}:
-                condition_value = f"{value[0]} {value[1:]}"
-
-            # Not equal to condition for strings
-            elif value[0] == "-":
-                condition_value = f"<> '{value[1:]}'"
-
-            # Not equal to condition for strings
-            elif value[0] == "-":
-                condition_value = f"<> '{value[1:]}'"
-
-            # isin for strings
-            elif len(value.split(", ")) > 1:
-                categories = ",".join([f"'{category.strip()}'" for category in value.split(", ")])
-                condition_value = f"is in ({categories})"
-
-            else:
-                condition_value = f"= '{value}'"
-
-            condition = f"{field_reference} {condition_value}"
-            conditions.append(condition)
-
-        # Add the filter conditions AND'd together
-        case_sql += " and ".join(conditions)
-        # Add the result from the sql arg + imply NULL for anything not hitting the filter condition
-        case_sql += f" then {sql} end"
-
-        return case_sql
 
     @staticmethod
     def _translate_looker_case_to_sql(case: dict):
