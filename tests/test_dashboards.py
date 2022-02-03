@@ -19,6 +19,31 @@ def test_dashboard_located(connection):
     assert first_element.slice_by == ["orders.new_vs_repeat", "order_lines.product_name"]
 
 
+def test_dashboard_to_dict(connection):
+    dash = connection.get_dashboard("sales_dashboard")
+
+    dash_dict = dash.to_dict()
+    assert dash_dict["name"] == "sales_dashboard"
+    correct = {"expression": "equal_to", "field": "orders.new_vs_repeat", "value": "New"}
+    assert len(dash_dict["filters"]) == 1
+    assert dash_dict["filters"][0] == correct
+    assert isinstance(dash_dict["elements"], list)
+
+    assert dash_dict["elements"][0]["filters"] == []
+
+    correct = {"expression": "not_equal_to", "field": "order_lines.product_name", "value": "Handbag"}
+    assert len(dash_dict["elements"][-1]["filters"]) == 1
+    assert dash_dict["elements"][-1]["filters"][0] == correct
+
+    first_element = dash_dict["elements"][0]
+    assert first_element["title"] == "First element"
+    assert first_element["type"] == "plot"
+    assert first_element["model"] == "test_model"
+    assert first_element["explore"] == "order_lines_all"
+    assert first_element["metric"] == "orders.total_revenue"
+    assert first_element["slice_by"] == ["orders.new_vs_repeat", "order_lines.product_name"]
+
+
 @pytest.mark.parametrize(
     "raw_filter_dict",
     [

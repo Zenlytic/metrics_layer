@@ -168,7 +168,6 @@ def test_config_explicit_env_config(monkeypatch):
     assert config.repo.repo_url == "https://correct.com"
 
 
-@pytest.mark.mm
 def test_config_file_metrics_layer(monkeypatch):
     test_repo_path = os.path.abspath("./tests/config/metrics_layer_config")
 

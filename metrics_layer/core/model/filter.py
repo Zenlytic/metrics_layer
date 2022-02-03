@@ -56,8 +56,11 @@ class Filter(MetricsLayerBase):
             if k not in definition:
                 raise ValueError(f"Filter missing required key '{k}' The filter passed was {definition}")
 
-    def filter_dict(self):
-        return self._filter_dict(self.field, self.value)
+    def filter_dict(self, json_safe: bool = False):
+        filter_dict = self._filter_dict(self.field, self.value)
+        if json_safe:
+            filter_dict["expression"] = filter_dict["expression"].value
+        return filter_dict
 
     @staticmethod
     def _filter_dict(field: str, value: str):

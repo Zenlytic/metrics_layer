@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from .base import MetricsLayerBase
 from .filter import Filter
 
@@ -20,6 +22,11 @@ class DashboardElement(MetricsLayerBase):
             if k not in definition:
                 raise ValueError(f"Dashboard Element missing required key {k}")
 
+    def to_dict(self):
+        definition = deepcopy(self._definition)
+        definition["filters"] = self.parsed_filters(json_safe=True)
+        return definition
+
     @property
     def slice_by(self):
         return self._definition.get("slice_by", [])
@@ -29,8 +36,8 @@ class DashboardElement(MetricsLayerBase):
             return []
         return self.filters
 
-    def parsed_filters(self):
-        return [Filter(f).filter_dict() for f in self._raw_filters()]
+    def parsed_filters(self, json_safe=False):
+        return [Filter(f).filter_dict(json_safe) for f in self._raw_filters()]
 
     def collect_errors(self):
         errors = []
@@ -96,6 +103,12 @@ class Dashboard(MetricsLayerBase):
             if k not in definition:
                 raise ValueError(f"Dashboard missing required key {k}")
 
+    def to_dict(self):
+        definition = deepcopy(self._definition)
+        definition["elements"] = [e.to_dict() for e in self.elements()]
+        definition["filters"] = self.parsed_filters(json_safe=True)
+        return definition
+
     def collect_errors(self):
         errors = []
         for f in self._raw_filters():
@@ -123,8 +136,8 @@ class Dashboard(MetricsLayerBase):
             return []
         return self.filters
 
-    def parsed_filters(self):
-        return [Filter(f).filter_dict() for f in self._raw_filters()]
+    def parsed_filters(self, json_safe=False):
+        return [Filter(f).filter_dict(json_safe) for f in self._raw_filters()]
 
     def elements(self):
         elements = self._definition.get("elements", [])
