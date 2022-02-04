@@ -17,6 +17,7 @@ def test_cli_init(mocker, monkeypatch):
         nonlocal yaml_dump_called
         yaml_dump_called = True
         assert isinstance(data, dict)
+        assert data["folder"] == "data_model/"
 
     mocker.patch("os.mkdir")
     monkeypatch.setattr(ProjectReader, "_dump_yaml_file", assert_called)
@@ -24,8 +25,9 @@ def test_cli_init(mocker, monkeypatch):
     result = runner.invoke(init)
 
     assert result.exit_code == 0
-    calls = [os.path.join(os.getcwd(), dir_path) for dir_path in ["views/", "models/"]]
-    for call in calls:
+    dirs = ["data_model/", "data_model/views/", "data_model/models/"]
+    for dir_path in dirs:
+        call = os.path.join(os.getcwd(), dir_path)
         os.mkdir.assert_any_call(call)
     assert yaml_dump_called
 
@@ -36,7 +38,6 @@ def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_
     yaml_dump_called = False
 
     def query_runner_mock(slf, query):
-        print(query)
         if query == "show tables in schema demo.analytics;":
             return seed_tables_data
         elif query == "show views in schema demo.analytics;":
@@ -108,11 +109,19 @@ def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
     monkeypatch.setattr(SeedMetricsLayer, "run_query", query_runner_mock)
     monkeypatch.setattr(ProjectReader, "_dump_yaml_file", yaml_dump_assert)
+
+    class repo_mock:
+        repo_path = os.path.join(os.getcwd(), "data_model/")
+
+    # Set repo path to ref local repo
+    connection.config.repo = repo_mock
+
     runner = CliRunner()
     result = runner.invoke(seed, ["--database", "demo", "--schema", "analytics"])
 
     assert result.exit_code == 0
-    calls = [os.path.join(os.getcwd(), dir_path) for dir_path in ["views/", "models/"]]
+    dirs = ["data_model/", "data_model/views/", "data_model/models/"]
+    calls = [os.path.join(os.getcwd(), dir_path) for dir_path in dirs]
     for call in calls:
         os.mkdir.assert_any_call(call)
 
@@ -258,7 +267,6 @@ def test_cli_validate_dashboards(config, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
     dashboards = sorted(project._dashboards, key=lambda x: x["name"])
-    print(dashboards[0])
 
     dashboards[0]["elements"][0]["explore"] = "orders"
     dashboards[0]["elements"][0]["slice_by"][0] = "missing_campaign"

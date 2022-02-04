@@ -77,8 +77,12 @@ class SeedMetricsLayer:
 
         reader._models = models
         reader._views = views
+
         # Dump the models to yaml files
-        reader.dump(os.getcwd())
+        if getattr(self.metrics_layer.config.repo, "repo_path", None):
+            reader.dump(self.metrics_layer.config.repo.repo_path)
+        else:
+            reader.dump(os.getcwd())
 
     def make_models(self, views: list):
         model = {
@@ -218,8 +222,16 @@ class SeedMetricsLayer:
     def _init_directories():
         models_dir = "models/"
         views_dir = "views/"
+        project_dir = "data_model/"
+
+        # Create project directory
+        fully_qualified_project_path = os.path.join(os.getcwd(), project_dir)
+        if not os.path.exists(fully_qualified_project_path):
+            os.mkdir(fully_qualified_project_path)
+
+        # Create models and views directory inside of project dir
         for directory in [models_dir, views_dir]:
-            fully_qualified_path = os.path.join(os.getcwd(), directory)
+            fully_qualified_path = os.path.join(fully_qualified_project_path, directory)
             if not os.path.exists(fully_qualified_path):
                 os.mkdir(fully_qualified_path)
 
@@ -227,7 +239,11 @@ class SeedMetricsLayer:
     def _init_project_file():
         from metrics_layer.core.parse.project_reader import ProjectReader
 
-        default_profile = {"name": "zenlytic_project_name", "profile": "my_dbt_profile", "folder": "./"}
+        default_profile = {
+            "name": "zenlytic_project_name",
+            "profile": "my_dbt_profile",
+            "folder": "data_model/",
+        }
         ProjectReader._dump_yaml_file(default_profile, "zenlytic_project.yml")
 
     @staticmethod

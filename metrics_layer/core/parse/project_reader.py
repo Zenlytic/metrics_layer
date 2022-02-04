@@ -292,7 +292,7 @@ class ProjectReader:
 
             # Handle keyerror
             if "type" not in yaml_dict:
-                print(f"WARN: file {fn} is missing a type")
+                print(f"WARNING: file {fn} is missing a type")
 
             yaml_type = yaml_dict.get("type")
 
@@ -303,7 +303,7 @@ class ProjectReader:
             elif yaml_type == "dashboard":
                 dashboards.append(yaml_dict)
             elif yaml_type:
-                print(f"WARN: Unknown file type '{yaml_type}' options are 'model', 'view', or 'dashboard'")
+                print(f"WARNING: Unknown file type '{yaml_type}' options are 'model', 'view', or 'dashboard'")
 
         return models, views, dashboards
 
