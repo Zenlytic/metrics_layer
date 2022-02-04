@@ -24,7 +24,12 @@ def test_dashboard_to_dict(connection):
 
     dash_dict = dash.to_dict()
     assert dash_dict["name"] == "sales_dashboard"
-    correct = {"expression": "equal_to", "field": "orders.new_vs_repeat", "value": "New"}
+    correct = {
+        "explore": "order_lines_all",
+        "expression": "equal_to",
+        "field": "orders.new_vs_repeat",
+        "value": "New",
+    }
     assert len(dash_dict["filters"]) == 1
     assert dash_dict["filters"][0] == correct
     assert isinstance(dash_dict["elements"], list)
@@ -44,23 +49,25 @@ def test_dashboard_to_dict(connection):
     assert first_element["slice_by"] == ["orders.new_vs_repeat", "order_lines.product_name"]
 
 
+@pytest.mark.mm
 @pytest.mark.parametrize(
     "raw_filter_dict",
     [
-        {"field": "customers.gender", "value": "Male"},
-        {"field": "customers.gender", "value": "-Male"},
-        {"field": "orders.revenue_dimension", "value": "=100"},
-        {"field": "orders.revenue_dimension", "value": ">100"},
-        {"field": "orders.revenue_dimension", "value": "<100"},
-        {"field": "orders.revenue_dimension", "value": "<=120"},
-        {"field": "orders.revenue_dimension", "value": ">=120"},
-        {"field": "orders.revenue_dimension", "value": "!=120"},
-        {"field": "orders.revenue_dimension", "value": "<>120"},
-        {"field": "customers.gender", "value": "Male, Female"},
-        {"field": "customers.gender", "value": "-Male, -Female"},
-        {"field": "customers.gender", "value": "-NULL"},
-        {"field": "customers.gender", "value": "NULL"},
-        {"field": "customers.gender", "value": "-Male, Female"},
+        {"explore": "orders", "field": "customers.gender", "value": "Male"},
+        {"explore": "orders", "field": "customers.gender", "value": "-Male"},
+        {"explore": "orders", "field": "orders.revenue_dimension", "value": "=100"},
+        {"explore": "orders", "field": "orders.revenue_dimension", "value": ">100"},
+        {"explore": "orders", "field": "orders.revenue_dimension", "value": "<100"},
+        {"explore": "orders", "field": "orders.revenue_dimension", "value": "<=120"},
+        {"explore": "orders", "field": "orders.revenue_dimension", "value": ">=120"},
+        {"explore": "orders", "field": "orders.revenue_dimension", "value": "!=120"},
+        {"explore": "orders", "field": "orders.revenue_dimension", "value": "<>120"},
+        {"explore": "orders", "field": "customers.gender", "value": "Male, Female"},
+        {"explore": "orders", "field": "customers.gender", "value": "-Male, -Female"},
+        {"explore": "orders", "field": "customers.gender", "value": "-NULL"},
+        {"explore": "orders", "field": "customers.gender", "value": "NULL"},
+        {"explore": "orders", "field": "customers.gender", "value": "-Male, Female"},
+        {"field": "customers.gender", "value": "BREAK_ON_EXPLORE"},
     ],
 )
 def test_dashboard_filter_processing(connection, raw_filter_dict):
@@ -98,7 +105,7 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         "NULL": None,
     }
 
-    if raw_filter_dict["value"] == "-Male, Female":
+    if raw_filter_dict["value"] in {"-Male, Female", "BREAK_ON_EXPLORE"}:
         with pytest.raises(ValueError) as exc_info:
             dash.parsed_filters()
         assert exc_info.value
@@ -106,6 +113,7 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
     else:
         parsed_filters = dash.parsed_filters()
         assert len(parsed_filters) == 2
+        assert parsed_filters[0]["explore"] == "orders"
         assert parsed_filters[0]["field"] == raw_filter_dict["field"]
         assert parsed_filters[0]["expression"].value == expression_lookup[raw_filter_dict["value"]]
         assert parsed_filters[0]["value"] == value_lookup[raw_filter_dict["value"]]

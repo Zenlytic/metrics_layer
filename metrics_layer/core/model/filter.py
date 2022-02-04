@@ -58,9 +58,10 @@ class Filter(MetricsLayerBase):
 
     def filter_dict(self, json_safe: bool = False):
         filter_dict = self._filter_dict(self.field, self.value)
+        enriched_filter = {**self._definition, **filter_dict}
         if json_safe:
-            filter_dict["expression"] = filter_dict["expression"].value
-        return filter_dict
+            enriched_filter["expression"] = enriched_filter["expression"].value
+        return enriched_filter
 
     @staticmethod
     def _filter_dict(field: str, value: str):

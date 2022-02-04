@@ -112,11 +112,15 @@ class Dashboard(MetricsLayerBase):
     def collect_errors(self):
         errors = []
         for f in self._raw_filters():
+            if "explore" not in f:
+                errors.append(self._missing_filter_explore_error(f))
+                continue
+
             try:
-                self.project.get_field(f["field"], explore_name=self.explore)
+                self.project.get_field(f["field"], explore_name=f["explore"])
             except Exception:
                 err_msg = (
-                    f"Could not find field {f['field']} in explore {self.explore} "
+                    f"Could not find field {f['field']} in explore {f['explore']} "
                     f"referenced in a filter in dashboard {self.name}"
                 )
                 errors.append(err_msg)
@@ -137,8 +141,20 @@ class Dashboard(MetricsLayerBase):
         return self.filters
 
     def parsed_filters(self, json_safe=False):
-        return [Filter(f).filter_dict(json_safe) for f in self._raw_filters()]
+        all_filters = []
+        for f in self._raw_filters():
+            clean_filter = Filter(f).filter_dict(json_safe)
+            if "explore" not in clean_filter:
+                raise ValueError(self._missing_filter_explore_error(filter_obj=clean_filter))
+            all_filters.append(clean_filter)
+        return all_filters
 
     def elements(self):
         elements = self._definition.get("elements", [])
         return [DashboardElement(e, dashboard=self, project=self.project) for e in elements]
+
+    def _missing_filter_explore_error(self, filter_obj: dict):
+        return (
+            f"Argument 'explore' not found in the the filter {filter_obj} on dashboard "
+            f"{self.name}. The 'explore' argument is required on filters for the whole dashboard."
+        )
