@@ -64,7 +64,7 @@ class SnowflakeConnection(BaseConnection):
         if self.schema:
             base["schema"] = self.schema
         if self.role:
-            base["role"] = self.rolequery
+            base["role"] = self.role
         return base
 
     def printable_attributes(self):

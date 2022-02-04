@@ -44,6 +44,10 @@ def test_config_explicit_metrics_layer_single_with_connections():
             "account": "sf_account",
             "username": "sf_username",
             "password": "sf_password",
+            "role": "my_role",
+            "warehouse": "compute_wh",
+            "database": "company",
+            "schema": "analytics",
         },
         {
             "type": "BIGQUERY",
@@ -63,6 +67,10 @@ def test_config_explicit_metrics_layer_single_with_connections():
         "user": "sf_username",
         "password": "sf_password",
         "account": "sf_account",
+        "role": "my_role",
+        "warehouse": "compute_wh",
+        "database": "company",
+        "schema": "analytics",
         "type": "SNOWFLAKE",
     }
 
