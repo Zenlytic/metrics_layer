@@ -56,7 +56,7 @@ class SnowflakeConnection(BaseConnection):
 
     def to_dict(self):
         """Dict for use with the snowflake connector"""
-        base = {"user": self.username, "password": self.password, "account": self.account}
+        base = {"user": self.username, "password": self.password, "account": self.account, "type": self.type}
         if self.warehouse:
             base["warehouse"] = self.warehouse
         if self.database:
@@ -64,14 +64,14 @@ class SnowflakeConnection(BaseConnection):
         if self.schema:
             base["schema"] = self.schema
         if self.role:
-            base["role"] = self.role
+            base["role"] = self.rolequery
         return base
 
     def printable_attributes(self):
         attributes = deepcopy(self.to_dict())
         attributes.pop("password")
         attributes["name"] = self.name
-        sort_order = ["name", "account", "user", "database", "schema", "warehouse", "role"]
+        sort_order = ["name", "type", "account", "user", "database", "schema", "warehouse", "role"]
         return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
 
 
@@ -84,13 +84,13 @@ class BigQueryConnection(BaseConnection):
 
     def to_dict(self):
         """Dict for use with the BigQuery connector"""
-        return {"credentials": self.credentials, "project_id": self.project_id}
+        return {"credentials": self.credentials, "project_id": self.project_id, "type": self.type}
 
     def printable_attributes(self):
         attributes = deepcopy(self.to_dict())
         attributes.pop("credentials")
         attributes["name"] = self.name
-        sort_order = ["name", "project_id"]
+        sort_order = ["name", "type", "project_id"]
         return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
 
     @staticmethod

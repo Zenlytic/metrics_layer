@@ -63,6 +63,7 @@ def test_config_explicit_metrics_layer_single_with_connections():
         "user": "sf_username",
         "password": "sf_password",
         "account": "sf_account",
+        "type": "SNOWFLAKE",
     }
 
     bq_connection = config.get_connection("bq_name")
@@ -70,6 +71,7 @@ def test_config_explicit_metrics_layer_single_with_connections():
     assert bq_connection.to_dict() == {
         "project_id": "test-1234",
         "credentials": {"key": "value", "project_id": "test-1234"},
+        "type": "BIGQUERY",
     }
 
     # Should raise ConfigError

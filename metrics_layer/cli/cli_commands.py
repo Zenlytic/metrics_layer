@@ -102,7 +102,7 @@ def debug():
     test_query = "select 1 as id;"
     for connection in connections:
         try:
-            metrics_layer.run_query(test_query, connection)
+            metrics_layer.run_query(test_query, connection, run_pre_queries=False)
             connection_status = "OK connection ok"
             color = "green"
         except Exception as e:

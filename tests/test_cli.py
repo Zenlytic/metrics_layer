@@ -286,9 +286,10 @@ def test_cli_validate_dashboards(config, fresh_project, mocker):
 
 @pytest.mark.cli
 def test_cli_debug(connection, mocker):
-    def query_runner_mock(query, connection):
+    def query_runner_mock(query, connection, run_pre_queries=True):
         assert query == "select 1 as id;"
         assert connection.name == "testing_snowflake"
+        assert not run_pre_queries
         return True
 
     connection.run_query = query_runner_mock

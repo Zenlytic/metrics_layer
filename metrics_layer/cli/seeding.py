@@ -170,7 +170,7 @@ class SeedMetricsLayer:
         return column_df
 
     def run_query(self, query: str):
-        return self.metrics_layer.run_query(query, self.connection, raw_cursor=True)
+        return self.metrics_layer.run_query(query, self.connection, raw_cursor=True, run_pre_queries=False)
 
     @staticmethod
     def _init_connection(profile_name: str, connection_name: str = None):

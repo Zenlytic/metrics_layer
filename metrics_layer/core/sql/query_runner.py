@@ -33,12 +33,17 @@ class QueryRunner:
     # 3 min timeout default set in seconds (aborts query after timeout)
     def run_query(self, timeout: int = 180, **kwargs):
         query_runner = self._query_runner_lookup[self.connection.type]
-        df = query_runner(timeout=timeout, raw_cursor=kwargs.get("raw_cursor", False))
+        df = query_runner(
+            timeout=timeout,
+            raw_cursor=kwargs.get("raw_cursor", False),
+            run_pre_queries=kwargs.get("run_pre_queries", True),
+        )
         return df
 
-    def _run_snowflake_query(self, timeout: int, raw_cursor: bool):
+    def _run_snowflake_query(self, timeout: int, raw_cursor: bool, run_pre_queries: bool):
         snowflake_connection = self._get_snowflake_connection(self.connection)
-        self._run_snowflake_pre_queries(snowflake_connection)
+        if run_pre_queries:
+            self._run_snowflake_pre_queries(snowflake_connection)
 
         cursor = snowflake_connection.cursor()
         cursor.execute(self.query, timeout=timeout)
@@ -49,7 +54,7 @@ class QueryRunner:
         df = cursor.fetch_pandas_all()
         return df
 
-    def _run_bigquery_query(self, timeout: int, raw_cursor: bool):
+    def _run_bigquery_query(self, timeout: int, raw_cursor: bool, run_pre_queries: bool):
         bigquery_connection = self._get_bigquery_connection(self.connection)
         result = bigquery_connection.query(self.query, timeout=timeout, job_retry=None)
         bigquery_connection.close()
