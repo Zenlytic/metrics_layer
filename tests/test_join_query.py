@@ -304,6 +304,32 @@ def test_query_multiple_join(connection):
     assert query == correct
 
 
+import pytest
+
+
+@pytest.mark.mm
+def test_query_multiple_join_with_duration(connection):
+    query = connection.get_sql_query(
+        metrics=["total_sessions"],
+        dimensions=["months_between_orders"],
+    )
+
+    correct = (
+        "SELECT DATEDIFF('MONTH', orders.previous_order_date, orders.order_date) as orders_months_between_orders,"  # noqa
+        "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when customers.is_churned is FALSE then "
+        "customers.total_sessions end, 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) "
+        "+ (TO_NUMBER(MD5(customers.customer_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) "  # noqa
+        "- SUM(DISTINCT (TO_NUMBER(MD5(customers.customer_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "
+        "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) / CAST((1000000*1.0) AS DOUBLE PRECISION), 0) "
+        "as customers_total_sessions "
+        "FROM analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
+        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        "GROUP BY DATEDIFF('MONTH', orders.previous_order_date, orders.order_date);"
+    )
+    assert query == correct
+
+
 def test_query_multiple_join_where_dict(connection):
 
     query = connection.get_sql_query(

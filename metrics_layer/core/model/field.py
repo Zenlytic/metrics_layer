@@ -298,14 +298,25 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def required_views(self):
         views = []
-        if not self.sql:
-            return []
+        if self.sql:
+            views.extend(self._get_required_views_from_sql(self.sql))
+        elif self.sql_start and self.sql_end:
+            views.extend(self._get_required_views_from_sql(self.sql_start))
+            views.extend(self._get_required_views_from_sql(self.sql_end))
+        else:
+            # There is not sql or sql_start or sql_end, it must be a
+            # default count measure which references only the field's base view
+            pass
 
-        for field_name in self.fields_to_replace(self.sql):
+        return list(set([self.view.name] + views))
+
+    def _get_required_views_from_sql(self, sql: str):
+        views = []
+        for field_name in self.fields_to_replace(sql):
             if field_name != "TABLE":
                 field = self.get_field_with_view_info(field_name)
                 views.extend(field.required_views())
-        return list(set([self.view.name] + views))
+        return views
 
     def validate(self, definition: dict):
         required_keys = ["name", "field_type"]

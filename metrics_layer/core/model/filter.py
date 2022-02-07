@@ -79,7 +79,7 @@ class Filter(MetricsLayerBase):
             "<": MetricsLayerFilterExpressionType.LessThan,
         }
 
-        # Handle null conditiona
+        # Handle null conditional
         if value == "NULL":
             expression = MetricsLayerFilterExpressionType.IsNull
             cleaned_value = None
@@ -87,6 +87,11 @@ class Filter(MetricsLayerBase):
         elif value == "-NULL":
             expression = MetricsLayerFilterExpressionType.IsNotNull
             cleaned_value = None
+
+        # Handle boolean True and False
+        elif value == True or value == False:  # noqa
+            expression = MetricsLayerFilterExpressionType.EqualTo
+            cleaned_value = value
 
         # isin for strings
         elif len(value.split(", ")) > 1:
@@ -139,6 +144,10 @@ class Filter(MetricsLayerBase):
             elif filter_dict["expression"] == MetricsLayerFilterExpressionType.IsNotIn:
                 categories = ",".join([f"'{v}'" for v in parsed_value])
                 condition_value = f"is not in ({categories})"
+
+            # Handle boolean True and False
+            elif parsed_value == True or parsed_value == False:  # noqa
+                condition_value = f"is {str(parsed_value).upper()}"
 
             # Not equal to condition for strings
             elif f["value"][0] == "-":

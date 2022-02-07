@@ -49,7 +49,6 @@ def test_dashboard_to_dict(connection):
     assert first_element["slice_by"] == ["orders.new_vs_repeat", "order_lines.product_name"]
 
 
-@pytest.mark.mm
 @pytest.mark.parametrize(
     "raw_filter_dict",
     [
@@ -66,6 +65,8 @@ def test_dashboard_to_dict(connection):
         {"explore": "orders", "field": "customers.gender", "value": "-Male, -Female"},
         {"explore": "orders", "field": "customers.gender", "value": "-NULL"},
         {"explore": "orders", "field": "customers.gender", "value": "NULL"},
+        {"explore": "orders", "field": "customers.is_churned", "value": True},
+        {"explore": "orders", "field": "customers.is_churned", "value": False},
         {"explore": "orders", "field": "customers.gender", "value": "-Male, Female"},
         {"field": "customers.gender", "value": "BREAK_ON_EXPLORE"},
     ],
@@ -88,6 +89,8 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         "-Male, -Female": "isnotin",
         "-NULL": "is_not_null",
         "NULL": "is_null",
+        True: "equal_to",
+        False: "equal_to",
     }
     value_lookup = {
         "Male": "Male",
@@ -103,6 +106,8 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         "-Male, -Female": ["Male", "Female"],
         "-NULL": None,
         "NULL": None,
+        True: True,
+        False: False,
     }
 
     if raw_filter_dict["value"] in {"-Male, Female", "BREAK_ON_EXPLORE"}:
