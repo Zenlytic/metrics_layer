@@ -35,7 +35,7 @@ def test_cli_init(mocker, monkeypatch):
 @pytest.mark.cli
 def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_data, get_seed_columns_data):
     mocker.patch("os.mkdir")
-    yaml_dump_called = False
+    yaml_dump_called = 0
 
     def query_runner_mock(slf, query):
         if query == "show tables in schema demo.analytics;":
@@ -50,11 +50,11 @@ def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_
 
     def yaml_dump_assert(slf, data, file):
         nonlocal yaml_dump_called
-        yaml_dump_called = True
+        yaml_dump_called += 1
         if data["type"] == "model":
             assert data["name"] == "base_model"
             assert data["connection"] == "testing_snowflake"
-            assert len(data["explores"]) == 2
+            assert len(data["explores"]) in {2, 1}  # 2 for first test 1 for second
         elif data["type"] == "view" and data["name"] == "orders":
             assert data["sql_table_name"] == "ANALYTICS.ORDERS"
 
@@ -125,7 +125,13 @@ def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_
     for call in calls:
         os.mkdir.assert_any_call(call)
 
-    assert yaml_dump_called
+    assert yaml_dump_called == 3
+
+    runner = CliRunner()
+    result = runner.invoke(seed, ["--database", "demo", "--schema", "analytics", "--table", "orders"])
+
+    assert result.exit_code == 0
+    assert yaml_dump_called == 5
 
 
 @pytest.mark.cli

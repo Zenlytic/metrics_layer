@@ -1,13 +1,17 @@
 import json
 import os
+from collections import OrderedDict
 from copy import deepcopy
 
 import lkml
+import ruamel.yaml
 import yaml
 
 from metrics_layer.core.utils import merge_nested_dict
 
 from .github_repo import BaseRepo
+
+# from ruamel import yaml
 
 
 class ProjectReader:
@@ -61,10 +65,126 @@ class ProjectReader:
                 file_path = os.path.join(path, file_name)
             self._dump_yaml_file(view, file_path)
 
+    def _sort_view(self, view: dict):
+        view_key_order = [
+            "version",
+            "type",
+            "name",
+            "sql_table_name",
+            "default_date",
+            "row_label",
+            "extends",
+            "extension",
+            "required_access_grants",
+            "sets",
+            "fields",
+        ]
+        extra_keys = [k for k in view.keys() if k not in view_key_order]
+        new_view = OrderedDict()
+        for k in view_key_order + extra_keys:
+            if k in view:
+                if k == "fields":
+                    new_view[k] = self._sort_fields(view[k])
+                else:
+                    new_view[k] = view[k]
+        return new_view
+
+    def _sort_fields(self, fields: list):
+        sort_key = ["dimension", "dimension_group", "measure"]
+        sorted_fields = sorted(fields, key=lambda x: sort_key.index(x["field_type"]))
+        return [self._sort_field(f) for f in sorted_fields]
+
+    def _sort_field(self, field: dict):
+        field_key_order = [
+            "name",
+            "field_type",
+            "type",
+            "datatype",
+            "hidden",
+            "primary_key",
+            "label",
+            "view_label",
+            "description",
+            "required_access_grants",
+            "value_format_name",
+            "drill_fields",
+            "sql_distinct_key",
+            "tiers",
+            "timeframes",
+            "intervals",
+            "sql_start",
+            "sql_end",
+            "sql",
+            "filters",
+            "extra",
+        ]
+        extra_keys = [k for k in field.keys() if k not in field_key_order]
+        new_field = OrderedDict()
+        for k in field_key_order + extra_keys:
+            if k in field:
+                new_field[k] = field[k]
+        return new_field
+
+    def _sort_model(self, model: dict):
+        model_key_order = [
+            "version",
+            "type",
+            "name",
+            "label",
+            "connection",
+            "fiscal_month_offset",
+            "week_start_day",
+            "access_grants",
+            "explores",
+        ]
+        extra_keys = [k for k in model.keys() if k not in model_key_order]
+        new_model = OrderedDict()
+        for k in model_key_order + extra_keys:
+            if k in model:
+                if k == "explores":
+                    new_model[k] = self._sort_explores(model[k])
+                else:
+                    new_model[k] = model[k]
+        return new_model
+
+    def _sort_explores(self, explores: list):
+        return [self._sort_explore(e) for e in sorted(explores, key=lambda x: x["name"])]
+
+    def _sort_explore(self, explore: dict):
+        explore_key_order = [
+            "name",
+            "from",
+            "view_name",
+            "description",
+            "label",
+            "group_label",
+            "view_label",
+            "extends",
+            "extension",
+            "hidden",
+            "fields",
+            "join_for_analysis",
+            "sql_always_where",
+            "required_access_grants",
+            "always_filter",
+            "conditionally_filter",
+            "access_filter",
+            "always_join",
+            "extra",
+            "joins",
+        ]
+        extra_keys = [k for k in explore.keys() if k not in explore_key_order]
+        new_explore = OrderedDict()
+        for k in explore_key_order + extra_keys:
+            if k in explore:
+                new_explore[k] = explore[k]
+        return new_explore
+
     @staticmethod
     def _dump_yaml_file(data: dict, path: str):
         with open(path, "w") as f:
-            yaml.dump(data, f)
+            ruamel.yaml.dump(data, f, Dumper=ruamel.yaml.RoundTripDumper)
+            # yaml.dump(data, f)
 
     def load(self) -> None:
         base_models, base_views, base_dashboards = self._load_repo(self.base_repo)
@@ -369,8 +489,8 @@ class ProjectReader:
 
     @staticmethod
     def read_lkml_file(path: str):
-        with open(path, "r") as file:
-            lkml_dict = lkml.load(file)
+        with open(path, "r") as f:
+            lkml_dict = lkml.load(f)
         return lkml_dict
 
     @staticmethod
@@ -383,6 +503,7 @@ class ProjectReader:
 
     @staticmethod
     def read_yaml_file(path: str):
-        with open(path, "r") as file:
-            yaml_dict = yaml.safe_load(file)
+        with open(path, "r") as f:
+            # yaml_dict = ruamel.yaml.load(f, Loader=ruamel.yaml.RoundTripLoader)
+            yaml_dict = yaml.safe_load(f)
         return yaml_dict

@@ -29,11 +29,12 @@ def init():
 @click.option("--connection", default=None, help="The name of the connection to use for the database")
 @click.option("--database", help="The name of the database to use for seeding")
 @click.option("--schema", default=None, help="The name of the schema to use for seeding")
-def seed(connection, database, schema):
+@click.option("--table", default=None, help="The name of the table to use for seeding")
+def seed(connection, database, schema, table):
     """Seed a metrics layer project by referencing the existing database"""
     SeedMetricsLayer._init_directories()
     profile = SeedMetricsLayer.get_profile()
-    seeder = SeedMetricsLayer(profile, connection, database, schema)
+    seeder = SeedMetricsLayer(profile, connection, database, schema, table)
     seeder.seed()
 
 

@@ -120,7 +120,7 @@ def test_query_number_with_sql(connection, query_type):
 
     if query_type == Definitions.snowflake:
         sa_sum = (
-            "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(customers.total_sessions, 0) "
+            "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when customers.is_churned is FALSE then customers.total_sessions end, 0) "  # noqa
             "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(customers.customer_id), "
             "'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) "
             "- SUM(DISTINCT (TO_NUMBER(MD5(customers.customer_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "
@@ -129,7 +129,7 @@ def test_query_number_with_sql(connection, query_type):
         )
     elif query_type == Definitions.bigquery:
         sa_sum = (
-            "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(customers.total_sessions, 0) "
+            "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when customers.is_churned is FALSE then customers.total_sessions end, 0) "  # noqa
             "* (1000000 * 1.0)) AS FLOAT64)) + "
             "CAST(FARM_FINGERPRINT(CAST(customers.customer_id AS STRING)) AS BIGNUMERIC)) "
             "- SUM(DISTINCT CAST(FARM_FINGERPRINT(CAST(customers.customer_id AS STRING)) AS BIGNUMERIC))) AS FLOAT64) "  # noqa

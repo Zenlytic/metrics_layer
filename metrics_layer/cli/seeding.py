@@ -5,12 +5,15 @@ import pandas as pd
 
 
 class SeedMetricsLayer:
-    def __init__(self, profile, connection=None, database=None, schema=None):
+    def __init__(self, profile, connection=None, database=None, schema=None, table=None):
         self.profile_name = profile
         self.metrics_layer, self.connection = self._init_connection(self.profile_name, connection)
         self.database = database if database else self.connection.database
         self.schema = schema if schema else self.connection.schema
-        if schema:
+        self.table = table
+        if schema and table:
+            self.location_description = f"table: {self.database}.{self.schema}.{self.table}"
+        elif schema:
             self.location_description = f"schema: {self.database}.{self.schema}"
         else:
             self.location_description = f"database: {self.database}"
@@ -59,6 +62,8 @@ class SeedMetricsLayer:
         # Each row represents either a single table or a single view
         views = []
         for i, (_, row) in enumerate(data.iterrows()):
+            if self.table and row["NAME"].lower() != self.table.lower():
+                continue
             columns_query = self.columns_query(row["NAME"], row["SCHEMA_NAME"], row["DATABASE_NAME"])
             column_data = self.run_query(columns_query)
             column_df = self.column_result_to_dataframe(column_data)
@@ -66,7 +71,11 @@ class SeedMetricsLayer:
             column_df["RAW_TYPE"] = column_df["DATA_TYPE"].apply(lambda x: json.loads(x).get("type", "TEXT"))
 
             view = self.make_view(column_df, row["NAME"], row["SCHEMA_NAME"])
-            print(f"Got information on {row['TYPE']} {row['NAME']} ({i + 1} / {len(data)})")
+            if self.table:
+                progress = ""
+            else:
+                progress = f"({i + 1} / {len(data)})"
+            print(f"Got information on {row['TYPE']} {row['NAME']} {progress}")
             views.append(view)
 
         models = self.make_models(views)
