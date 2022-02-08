@@ -61,6 +61,8 @@ def test_dashboard_to_dict(connection):
         {"explore": "orders", "field": "orders.revenue_dimension", "value": ">=120"},
         {"explore": "orders", "field": "orders.revenue_dimension", "value": "!=120"},
         {"explore": "orders", "field": "orders.revenue_dimension", "value": "<>120"},
+        {"explore": "orders", "field": "orders.order_month", "value": "after 2021-02-03"},
+        {"explore": "orders", "field": "orders.order_month", "value": "before 2021-02-03"},
         {"explore": "orders", "field": "customers.gender", "value": "Male, Female"},
         {"explore": "orders", "field": "customers.gender", "value": "-Male, -Female"},
         {"explore": "orders", "field": "customers.gender", "value": "-NULL"},
@@ -91,6 +93,8 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         "NULL": "is_null",
         True: "equal_to",
         False: "equal_to",
+        "after 2021-02-03": "greater_or_equal_than",
+        "before 2021-02-03": "less_or_equal_than",
     }
     value_lookup = {
         "Male": "Male",
@@ -108,6 +112,8 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         "NULL": None,
         True: True,
         False: False,
+        "after 2021-02-03": "2021-02-03T00:00:00",
+        "before 2021-02-03": "2021-02-03T00:00:00",
     }
 
     if raw_filter_dict["value"] in {"-Male, Female", "BREAK_ON_EXPLORE"}:

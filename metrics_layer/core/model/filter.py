@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import Enum
 
 from .base import MetricsLayerBase
@@ -93,6 +94,14 @@ class Filter(MetricsLayerBase):
             expression = MetricsLayerFilterExpressionType.EqualTo
             cleaned_value = value
 
+        # Handle date after and before
+        elif value.split(" ")[0] in {"after", "before"}:
+            cleaned_value = Filter._parse_date_string(value.split(" ")[-1])
+            if value.split(" ")[0] == "after":
+                expression = MetricsLayerFilterExpressionType.GreaterOrEqualThan
+            else:
+                expression = MetricsLayerFilterExpressionType.LessOrEqualThan
+
         # isin for strings
         elif len(value.split(", ")) > 1:
             if all(category[0] == "-" for category in value.split(", ")):
@@ -123,6 +132,11 @@ class Filter(MetricsLayerBase):
         return {"field": field, "expression": expression, "value": cleaned_value}
 
     @staticmethod
+    def _parse_date_string(date_string: str):
+        parsed_date = datetime.strptime(date_string, "%Y-%m-%d")
+        return parsed_date.strftime("%Y-%m-%dT%H:%M:%S")
+
+    @staticmethod
     def translate_looker_filters_to_sql(sql: str, filters: list):
         case_sql = "case when "
         conditions = []
@@ -148,6 +162,13 @@ class Filter(MetricsLayerBase):
             # Handle boolean True and False
             elif parsed_value == True or parsed_value == False:  # noqa
                 condition_value = f"is {str(parsed_value).upper()}"
+
+            # Handle date after and before
+            elif f["value"].split(" ")[0] == "after":
+                condition_value = f">= {parsed_value}"
+
+            elif f["value"].split(" ")[0] == "before":
+                condition_value = f"<= {parsed_value}"
 
             # Not equal to condition for strings
             elif f["value"][0] == "-":

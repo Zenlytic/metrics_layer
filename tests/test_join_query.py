@@ -304,9 +304,6 @@ def test_query_multiple_join(connection):
     assert query == correct
 
 
-import pytest
-
-
 def test_query_multiple_join_with_duration(connection):
     query = connection.get_sql_query(
         metrics=["total_sessions"],
