@@ -391,11 +391,11 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "years": lambda start, end: f"DATEDIFF('YEAR', {start}, {end})",
             },
             Definitions.bigquery: {
-                "days": lambda start, end: f"DATE_DIFF({end}, {start}, DAY)",
-                "weeks": lambda start, end: f"DATE_DIFF({end}, {start}, ISOWEEK)",
-                "months": lambda start, end: f"DATE_DIFF({end}, {start}, MONTH)",
-                "quarters": lambda start, end: f"DATE_DIFF({end}, {start}, QUARTER)",
-                "years": lambda start, end: f"DATE_DIFF({end}, {start}, ISOYEAR)",
+                "days": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), DAY)",
+                "weeks": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), ISOWEEK)",
+                "months": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), MONTH)",
+                "quarters": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), QUARTER)",  # noqa
+                "years": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), ISOYEAR)",
             },
         }
         try:
@@ -424,11 +424,11 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.bigquery: {
                 "raw": lambda s, qt: s,
                 "time": lambda s, qt: f"CAST({s} as TIMESTAMP)",
-                "date": lambda s, qt: f"DATE_TRUNC({s}, DAY)",
+                "date": lambda s, qt: f"DATE_TRUNC(CAST({s} as DATE), DAY)",
                 "week": self._week_dimension_group_time_sql,
-                "month": lambda s, qt: f"DATE_TRUNC({s}, MONTH)",
-                "quarter": lambda s, qt: f"DATE_TRUNC({s}, QUARTER)",
-                "year": lambda s, qt: f"DATE_TRUNC({s}, YEAR)",
+                "month": lambda s, qt: f"DATE_TRUNC(CAST({s} as DATE), MONTH)",
+                "quarter": lambda s, qt: f"DATE_TRUNC(CAST({s} as DATE), QUARTER)",
+                "year": lambda s, qt: f"DATE_TRUNC(CAST({s} as DATE), YEAR)",
                 "hour_of_day": lambda s, qt: f"CAST({s} AS STRING FORMAT 'HH24')",
                 "day_of_week": lambda s, qt: f"CAST({s} AS STRING FORMAT 'DAY')",
             },
@@ -440,7 +440,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         # Monday is the default date for warehouses
         week_start_day = self.view.explore.week_start_day
         if week_start_day == "monday":
-            return self._week_sql_date_trunc(sql, query_type)
+            return self._week_sql_date_trunc(sql, None, query_type)
         offset_lookup = {
             "sunday": 1,
             "saturday": 2,
@@ -450,15 +450,20 @@ class Field(MetricsLayerBase, SQLReplacement):
             "tuesday": 6,
         }
         offset = offset_lookup[week_start_day]
-        offset_sql = f"{sql} + {offset}"
-        return f"{self._week_sql_date_trunc(offset_sql, query_type)} - {offset}"
+        return f"{self._week_sql_date_trunc(sql, offset, query_type)} - {offset}"
 
     @staticmethod
-    def _week_sql_date_trunc(sql, query_type):
+    def _week_sql_date_trunc(sql, offset, query_type):
         if Definitions.snowflake == query_type:
-            return f"DATE_TRUNC('WEEK', {sql})"
+            if offset is None:
+                offset_sql = sql
+            else:
+                offset_sql = f"{sql} + {offset}"
+            return f"DATE_TRUNC('WEEK', {offset_sql})"
         elif Definitions.bigquery == query_type:
-            return f"DATE_TRUNC({sql}, WEEK)"
+            if offset is None:
+                return f"DATE_TRUNC(CAST({sql} as DATE), WEEK)"
+            return f"DATE_TRUNC(CAST({sql} as DATE) + {offset}, WEEK)"
 
     def collect_errors(self):
         if self.field_type == "measure" and self.type == "number":

@@ -175,11 +175,11 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
     else:
         result_lookup = {
             "time": "CAST(simple.order_date as TIMESTAMP)",
-            "date": "DATE_TRUNC(simple.order_date, DAY)",
-            "week": "DATE_TRUNC(simple.order_date + 1, WEEK) - 1",
-            "month": "DATE_TRUNC(simple.order_date, MONTH)",
-            "quarter": "DATE_TRUNC(simple.order_date, QUARTER)",
-            "year": "DATE_TRUNC(simple.order_date, YEAR)",
+            "date": "DATE_TRUNC(CAST(simple.order_date as DATE), DAY)",
+            "week": "DATE_TRUNC(CAST(simple.order_date as DATE) + 1, WEEK) - 1",
+            "month": "DATE_TRUNC(CAST(simple.order_date as DATE), MONTH)",
+            "quarter": "DATE_TRUNC(CAST(simple.order_date as DATE), QUARTER)",
+            "year": "DATE_TRUNC(CAST(simple.order_date as DATE), YEAR)",
             "hour_of_day": f"CAST(simple.order_date AS STRING FORMAT 'HH24')",
             "day_of_week": f"CAST(simple.order_date AS STRING FORMAT 'DAY')",
         }
@@ -246,11 +246,11 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
         }
     else:
         result_lookup = {
-            "day": "DATE_DIFF(simple.order_date, simple.view_date, DAY)",
-            "week": "DATE_DIFF(simple.order_date, simple.view_date, ISOWEEK)",
-            "month": "DATE_DIFF(simple.order_date, simple.view_date, MONTH)",
-            "quarter": "DATE_DIFF(simple.order_date, simple.view_date, QUARTER)",
-            "year": "DATE_DIFF(simple.order_date, simple.view_date, ISOYEAR)",
+            "day": "DATE_DIFF(CAST(simple.order_date as DATE), CAST(simple.view_date as DATE), DAY)",
+            "week": "DATE_DIFF(CAST(simple.order_date as DATE), CAST(simple.view_date as DATE), ISOWEEK)",
+            "month": "DATE_DIFF(CAST(simple.order_date as DATE), CAST(simple.view_date as DATE), MONTH)",
+            "quarter": "DATE_DIFF(CAST(simple.order_date as DATE), CAST(simple.view_date as DATE), QUARTER)",
+            "year": "DATE_DIFF(CAST(simple.order_date as DATE), CAST(simple.view_date as DATE), ISOYEAR)",
         }
 
     if raises_error:
@@ -338,7 +338,7 @@ def test_simple_query_with_where_dim_group(config, query_type):
     if query_type == Definitions.snowflake:
         condition = "DATE_TRUNC('DAY', simple.order_date)>'2021-08-04'"
     else:
-        condition = "DATE_TRUNC(simple.order_date, DAY)>'2021-08-04'"
+        condition = "DATE_TRUNC(CAST(simple.order_date as DATE), DAY)>'2021-08-04'"
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
