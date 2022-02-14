@@ -1,4 +1,4 @@
-# import pytest
+import pytest
 
 
 def test_query_no_join(connection):
@@ -127,6 +127,25 @@ def test_query_single_dimension_sa_duration(connection):
         "ELSE NULL END), 0)) as orders_average_days_between_orders "
         "FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
         "ON order_lines.order_unique_id=orders.id GROUP BY order_lines.product_name;"
+    )
+    assert query == correct
+
+
+@pytest.mark.mmm
+def test_functional_pk_resolve_one_to_many(connection):
+    query = connection.get_sql_query(
+        metrics=["discount_usd"],
+        dimensions=["country"],
+        explore_name="discounts_only",
+    )
+
+    correct = (
+        "SELECT discounts.country as discounts_country,"
+        "SUM(discount_detail.total_usd) as discount_detail_discount_usd "
+        "FROM analytics_live.discounts discounts "
+        "LEFT JOIN analytics.discount_detail discount_detail "
+        "ON discounts.discount_id=discount_detail.discount_id "
+        "GROUP BY discounts.country;"
     )
     assert query == correct
 

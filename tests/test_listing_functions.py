@@ -4,10 +4,10 @@ from metrics_layer.core import MetricsLayerConnection
 def test_list_metrics(config):
     conn = MetricsLayerConnection(config=config)
     metrics = conn.list_metrics()
-    assert len(metrics) == 18
+    assert len(metrics) == 19
 
     metrics = conn.list_metrics(explore_name="order_lines_all")
-    assert len(metrics) == 18
+    assert len(metrics) == 19
 
     metrics = conn.list_metrics(view_name="order_lines", names_only=True)
     assert len(metrics) == 5

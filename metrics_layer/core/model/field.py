@@ -103,13 +103,11 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"{self.view.name}_{alias}"
         return alias
 
-    def sql_query(
-        self, query_type: str = None, query_base_view: str = None, joins: list = [], alias_only: bool = False
-    ):
+    def sql_query(self, query_type: str = None, functional_pk: str = None, alias_only: bool = False):
         if not query_type:
             query_type = self._derive_query_type()
         if self.field_type == "measure":
-            return self.aggregate_sql_query(query_type, query_base_view, joins, alias_only=alias_only)
+            return self.aggregate_sql_query(query_type, functional_pk, alias_only=alias_only)
         return self.raw_sql_query(query_type, alias_only=alias_only)
 
     def raw_sql_query(self, query_type: str, alias_only: bool = False):
@@ -119,9 +117,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             return self.alias(with_view=True)
         return self.get_replaced_sql_query(query_type, alias_only=alias_only)
 
-    def aggregate_sql_query(
-        self, query_type: str, query_base_view: str, joins: list = [], alias_only: bool = False
-    ):
+    def aggregate_sql_query(self, query_type: str, functional_pk: str, alias_only: bool = False):
         # TODO add median, median_distinct, percentile, max, min, percentile, percentile_distinct
         sql = self.raw_sql_query(query_type, alias_only=alias_only)
         type_lookup = {
@@ -133,34 +129,27 @@ class Field(MetricsLayerBase, SQLReplacement):
             "average_distinct": self._average_distinct_aggregate_sql,
             "number": self._number_aggregate_sql,
         }
-        return type_lookup[self.type](sql, query_type, query_base_view, joins, alias_only)
+        return type_lookup[self.type](sql, query_type, functional_pk, alias_only)
 
-    def _needs_symmetric_aggregate(self, query_base_view: str, joins: list):
-        if query_base_view:
-            different_view = self.view.name != query_base_view
+    def _needs_symmetric_aggregate(self, functional_pk: MetricsLayerBase):
+        if functional_pk:
+            if functional_pk == Definitions.does_not_exist:
+                return True
+            field_pk_id = self.view.primary_key.id(view_only=True)
+            different_functional_pk = field_pk_id != functional_pk.id(view_only=True)
         else:
-            different_view = False
-        if joins:
-            blow_out_joins = any(j.relationship in {"one_to_many", "many_to_many"} for j in joins)
-        else:
-            blow_out_joins = False
-        return different_view or blow_out_joins
+            different_functional_pk = False
+        return different_functional_pk
 
-    def _count_distinct_aggregate_sql(
-        self, sql: str, query_type: str, query_base_view: str, joins: list, alias_only: bool
-    ):
+    def _count_distinct_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
         return f"COUNT(DISTINCT({sql}))"
 
-    def _sum_aggregate_sql(
-        self, sql: str, query_type: str, query_base_view: str, joins: list, alias_only: bool
-    ):
-        if self._needs_symmetric_aggregate(query_base_view, joins):
+    def _sum_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
+        if self._needs_symmetric_aggregate(functional_pk):
             return self._sum_symmetric_aggregate(sql, query_type, alias_only=alias_only)
         return f"SUM({sql})"
 
-    def _sum_distinct_aggregate_sql(
-        self, sql: str, query_type: str, query_base_view: str, joins: list, alias_only: bool
-    ):
+    def _sum_distinct_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
         sql_distinct_key = self._replace_sql_query(self.sql_distinct_key, query_type, alias_only=alias_only)
         return self._sum_symmetric_aggregate(
             sql, query_type, primary_key_sql=sql_distinct_key, alias_only=alias_only
@@ -213,13 +202,11 @@ class Field(MetricsLayerBase, SQLReplacement):
         result = f"{backed_out_cast} / CAST(({factor}*1.0) AS DOUBLE PRECISION), 0)"
         return result
 
-    def _count_aggregate_sql(
-        self, sql: str, query_type: str, query_base_view: str, joins: list, alias_only: bool
-    ):
-        if self._needs_symmetric_aggregate(query_base_view, joins):
+    def _count_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
+        if self._needs_symmetric_aggregate(functional_pk):
             if self.primary_key_count:
                 return self._count_distinct_aggregate_sql(
-                    sql, query_type, query_base_view, joins, alias_only=alias_only
+                    sql, query_type, functional_pk, alias_only=alias_only
                 )
             return self._count_symmetric_aggregate(sql, query_type, alias_only=alias_only)
         return f"COUNT({sql})"
@@ -246,15 +233,13 @@ class Field(MetricsLayerBase, SQLReplacement):
         result = f"NULLIF(COUNT(DISTINCT {pk_if_not_null}), 0)"
         return result
 
-    def _average_aggregate_sql(
-        self, sql: str, query_type: str, query_base_view: str, joins: list, alias_only: bool
-    ):
-        if self._needs_symmetric_aggregate(query_base_view, joins):
+    def _average_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
+        if self._needs_symmetric_aggregate(functional_pk):
             return self._average_symmetric_aggregate(sql, query_type, alias_only=alias_only)
         return f"AVG({sql})"
 
     def _average_distinct_aggregate_sql(
-        self, sql: str, query_type: str, query_base_view: str, joins: list, alias_only: bool
+        self, sql: str, query_type: str, functional_pk: str, alias_only: bool
     ):
         sql_distinct_key = self._replace_sql_query(self.sql_distinct_key, query_type, alias_only=alias_only)
         return self._average_symmetric_aggregate(
@@ -273,9 +258,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         result = f"({sum_symmetric} / {count_symmetric})"
         return result
 
-    def _number_aggregate_sql(
-        self, sql: str, query_type: str, query_base_view: str, joins: list, alias_only: bool
-    ):
+    def _number_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
         if isinstance(sql, list):
             replaced = deepcopy(self.sql)
             for field_name in self.fields_to_replace(self.sql):
@@ -288,9 +271,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                         to_replace = self.view.name
                 else:
                     field = self.get_field_with_view_info(field_name)
-                    to_replace = field.aggregate_sql_query(
-                        query_type, query_base_view, joins, alias_only=alias_only
-                    )
+                    to_replace = field.aggregate_sql_query(query_type, functional_pk, alias_only=alias_only)
                 replaced = replaced.replace(proper_to_replace, to_replace)
         else:
             raise ValueError(f"handle case for sql: {sql}")

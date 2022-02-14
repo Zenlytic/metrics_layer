@@ -359,14 +359,14 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
         "models": "Found 1 model:\n\ntest_model\n",
         "connections": "Found 1 connection:\n\ntesting_snowflake\n",
         "explores": "Found 2 explores:\n\norder_lines_all\ndiscounts_only\n",
-        "views": "Found 1 view:\n\ndiscounts\n",
-        "fields": "Found 4 fields:\n\ncountry\norder\ndiscount_code\ntotal_discount_amt\n",
+        "views": "Found 2 views:\n\ndiscounts\ndiscount_detail\n",
+        "fields": "Found 6 fields:\n\ncountry\norder\ndiscount_code\ntotal_discount_amt\ndiscount_promo_name\ndiscount_usd\n",  # noqa
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
-        "metrics": "Found 1 metric:\n\ntotal_discount_amt\n",
+        "metrics": "Found 2 metrics:\n\ntotal_discount_amt\ndiscount_usd\n",
     }
 
     if any("show-hidden" in a for a in extra_args):
-        correct = "Found 5 dimensions:\n\ndiscount_id\norder_id\ncountry\norder\ndiscount_code\n"
+        correct = "Found 7 dimensions:\n\ndiscount_id\norder_id\ncountry\norder\ndiscount_code\ndiscount_id\ndiscount_promo_name\n"  # noqa
     else:
         correct = result_lookup[object_type]
 
@@ -419,7 +419,7 @@ def test_cli_show(connection, mocker, name, extra_args):
             "  name: discounts_only\n"
             "  type: explore\n"
             "  from: discounts\n"
-            "  join_names: []\n"
+            "  join_names:\n    discount_detail\n"
         ),
         "discounts": (
             "Attributes in view discounts:\n\n"

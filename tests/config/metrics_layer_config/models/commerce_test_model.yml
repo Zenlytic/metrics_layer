@@ -64,3 +64,9 @@ explores:
 
   - name: discounts_only
     view_name: discounts
+
+    joins:
+      - name: discount_detail
+        type: left_outer
+        relationship: one_to_many
+        sql_on: "${discounts_only.discount_id}=${discount_detail.discount_id}"

@@ -16,3 +16,8 @@ fields:
     field_type: "dimension"
     type: string
     sql: ${TABLE}.promo_name
+
+  - name: discount_usd
+    field_type: measure
+    type: sum
+    sql: ${TABLE}.total_usd

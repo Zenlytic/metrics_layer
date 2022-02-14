@@ -89,7 +89,8 @@ class MetricsLayerFilter(MetricsLayerBase):
         if self.is_literal_filter:
 
             return LiteralValueCriterion(self.replace_fields_literal_filter())
-        return self.criterion(LiteralValue(self.field.sql_query(self.query_type, self.design.base_view_name)))
+        functional_pk = self.design.functional_pk()
+        return self.criterion(LiteralValue(self.field.sql_query(self.query_type, functional_pk)))
 
     def replace_fields_literal_filter(self):
         tokens = self._parse_sql_literal(self.literal)
@@ -100,7 +101,7 @@ class MetricsLayerFilter(MetricsLayerBase):
             extra_args = {"field_type": "measure", "type": "number"}
         view = self.design.get_view(self.design.base_view_name)
         field = MetricsLayerField({"sql": "".join(tokens), "name": None, **extra_args}, view=view)
-        return field.sql_query(self.query_type, view.name)
+        return field.sql_query(self.query_type, functional_pk=self.design.functional_pk())
 
     def _parse_sql_literal(self, clause: str):
         generator = list(sqlparse.parse(clause)[0].flatten())
