@@ -133,7 +133,6 @@ class MetricsLayerDesign:
             lengths.append(len(sequence))
             final = sequence[-1]
             final_selections.append(final)
-            print(sequence)
 
         # If all conclusions are the same than that's the right pk
         if len(set(final_selections)) == 1:
@@ -156,6 +155,7 @@ class MetricsLayerDesign:
         for sequence in join_sequences:
             if sequence[-1] != longest_final and not self._is_sublist(longest_sequence, sequence):
                 return Definitions.does_not_exist
+
         return longest_final
 
     @staticmethod

@@ -135,12 +135,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         if functional_pk:
             if functional_pk == Definitions.does_not_exist:
                 return True
-
-            print(functional_pk)
-            print(self.view.primary_key)
-            print(functional_pk.id(view_only=True))
             field_pk_id = self.view.primary_key.id(view_only=True)
-            print(field_pk_id)
             different_functional_pk = field_pk_id != functional_pk.id(view_only=True)
         else:
             different_functional_pk = False

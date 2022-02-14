@@ -131,6 +131,25 @@ def test_query_single_dimension_sa_duration(connection):
     assert query == correct
 
 
+@pytest.mark.mmm
+def test_functional_pk_resolve_one_to_many(connection):
+    query = connection.get_sql_query(
+        metrics=["discount_usd"],
+        dimensions=["country"],
+        explore_name="discounts_only",
+    )
+
+    correct = (
+        "SELECT discounts.country as discounts_country,"
+        "SUM(discount_detail.total_usd) as discount_detail_discount_usd "
+        "FROM analytics_live.discounts discounts "
+        "LEFT JOIN analytics.discount_detail discount_detail "
+        "ON discounts.discount_id=discount_detail.discount_id "
+        "GROUP BY discounts.country;"
+    )
+    assert query == correct
+
+
 def test_query_single_join_count(connection):
 
     query = connection.get_sql_query(
@@ -166,7 +185,6 @@ def test_query_single_join_metric_with_sub_field(connection):
     assert query == correct
 
 
-@pytest.mark.mmm
 def test_query_single_join_with_forced_additional_join(connection):
     query = connection.get_sql_query(
         metrics=["avg_rainfall"],
