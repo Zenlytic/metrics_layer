@@ -19,33 +19,29 @@ def cli_group():
 
 
 @cli_group.command()
-def test(arg=None, opt={}):
-    """Initialize a metrics layer project"""
-    echo("testing", color="red")
-
-
-@cli_group.command()
-def init(arg=None, opt={}):
+def init():
     """Initialize a metrics layer project"""
     SeedMetricsLayer._init_directories()
+    SeedMetricsLayer._init_project_file()
 
 
 @cli_group.command()
 @click.option("--connection", default=None, help="The name of the connection to use for the database")
 @click.option("--database", help="The name of the database to use for seeding")
 @click.option("--schema", default=None, help="The name of the schema to use for seeding")
-@click.argument("profile")
-def seed(profile, connection, database, schema):
+@click.option("--table", default=None, help="The name of the table to use for seeding")
+def seed(connection, database, schema, table):
     """Seed a metrics layer project by referencing the existing database"""
     SeedMetricsLayer._init_directories()
-    seeder = SeedMetricsLayer(profile, connection, database, schema)
+    profile = SeedMetricsLayer.get_profile()
+    seeder = SeedMetricsLayer(profile, connection, database, schema, table)
     seeder.seed()
 
 
 @cli_group.command()
-@click.argument("profile")
-def validate(profile):
+def validate():
     """Validate a metrics layer project, internally, without hitting the database"""
+    profile = SeedMetricsLayer.get_profile()
     metrics_layer = SeedMetricsLayer._init_profile(profile)
     errors = metrics_layer.config.project.validate()
 
@@ -59,14 +55,14 @@ def validate(profile):
 
 
 @cli_group.command()
-@click.argument("profile")
-def debug(profile):
+def debug():
     """Debug a metrics layer project. Pass your profile name as the sole argument.
 
     This will list out the inputs and the locations where the metrics layer is finding them,
      in addition to testing the database connection to ensure it works as expected"""
     from metrics_layer import __version__
 
+    profile = SeedMetricsLayer.get_profile()
     metrics_layer = SeedMetricsLayer._init_profile(profile)
 
     # Environment
@@ -107,7 +103,7 @@ def debug(profile):
     test_query = "select 1 as id;"
     for connection in connections:
         try:
-            metrics_layer.run_query(test_query, connection)
+            metrics_layer.run_query(test_query, connection, run_pre_queries=False)
             connection_status = "OK connection ok"
             color = "green"
         except Exception as e:
@@ -118,7 +114,6 @@ def debug(profile):
 
 
 @cli_group.command("list")
-@click.option("--profile", help="The name of the profile you are using (in profiles.yml)")
 @click.option(
     "--explore",
     default=None,
@@ -129,17 +124,11 @@ def debug(profile):
 )
 @click.option("--show-hidden", is_flag=True, help="Set this flag if you want to see hidden fields")
 @click.argument("type")
-def list_(profile, type, explore, view, show_hidden):
+def list_(type, explore, view, show_hidden):
     """List attributes in a metrics layer project,
     i.e. models, connections, explores, views, fields, metrics, dimensions"""
-    if profile:
-        metrics_layer = SeedMetricsLayer._init_profile(profile)
-    elif not profile and type != "profiles":
-        click.echo(
-            f"Could not find profile in environment, please pass the "
-            "name of your profile with the --profile flag"
-        )
-        return
+    profile = SeedMetricsLayer.get_profile()
+    metrics_layer = SeedMetricsLayer._init_profile(profile)
 
     items = None
     if type == "models":
@@ -185,7 +174,6 @@ def list_(profile, type, explore, view, show_hidden):
 
 
 @cli_group.command()
-@click.option("--profile", help="The name of the profile you are using (in profiles.yml)")
 @click.option(
     "--type",
     help="The type of object to show. One of: model, connection, explore, view, field, metric, dimension",  # noqa
@@ -199,8 +187,9 @@ def list_(profile, type, explore, view, show_hidden):
     "--view", default=None, help="The name of the view (only applicable for fields, dimensions, and metrics)"
 )
 @click.argument("name")
-def show(profile, type, name, explore, view):
+def show(type, name, explore, view):
     """Show information on an attribute in a metrics layer project, by name"""
+    profile = SeedMetricsLayer.get_profile()
     metrics_layer = SeedMetricsLayer._init_profile(profile)
 
     attributes = []

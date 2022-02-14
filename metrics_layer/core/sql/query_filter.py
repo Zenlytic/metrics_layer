@@ -1,6 +1,5 @@
 import datetime
 from copy import deepcopy
-from enum import Enum
 from typing import Dict
 
 import sqlparse
@@ -10,51 +9,10 @@ from sqlparse.tokens import Error, Name, Punctuation
 
 from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.model.field import Field as MetricsLayerField
+from metrics_layer.core.model.filter import MetricsLayerFilterExpressionType
 from metrics_layer.core.sql.pypika_types import LiteralValueCriterion
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_errors import ParseError
-
-
-class MetricsLayerFilterExpressionType(str, Enum):
-    Unknown = "UNKNOWN"
-    LessThan = "less_than"
-    LessOrEqualThan = "less_or_equal_than"
-    EqualTo = "equal_to"
-    NotEqualTo = "not_equal_to"
-    GreaterOrEqualThan = "greater_or_equal_than"
-    GreaterThan = "greater_than"
-    Like = "like"
-    Contains = "contains"
-    DoesNotContain = "does_not_contain"
-    ContainsCaseInsensitive = "contains_case_insensitive"
-    DoesNotContainCaseInsensitive = "does_not_contain_case_insensitive"
-    StartsWith = "starts_with"
-    EndsWith = "ends_with"
-    DoesNotStartWith = "does_not_start_with"
-    DoesNotEndWith = "does_not_end_with"
-    StartsWithCaseInsensitive = "starts_with_case_insensitive"
-    EndsWithCaseInsensitive = "ends_with_case_insensitive"
-    DoesNotStartWithCaseInsensitive = "does_not_start_with_case_insensitive"
-    DoesNotEndWithCaseInsensitive = "does_not_end_with_case_insensitive"
-    IsNull = "is_null"
-    IsNotNull = "is_not_null"
-    IsIn = "isin"
-    IsNotIn = "isnotin"
-    BooleanTrue = "boolean_true"
-    BooleanFalse = "boolean_false"
-
-    def __hash__(self):
-        return hash(self.value)
-
-    def __eq__(self, other):
-        return self.value.lower() == other.value.lower()
-
-    @classmethod
-    def parse(cls, value: str):
-        try:
-            return next(e for e in cls if e.value.lower() == value)
-        except StopIteration:
-            return cls.Unknown
 
 
 class MetricsLayerFilter(MetricsLayerBase):
@@ -131,7 +89,8 @@ class MetricsLayerFilter(MetricsLayerBase):
         if self.is_literal_filter:
 
             return LiteralValueCriterion(self.replace_fields_literal_filter())
-        return self.criterion(LiteralValue(self.field.sql_query(self.query_type, self.design.base_view_name)))
+        functional_pk = self.design.functional_pk()
+        return self.criterion(LiteralValue(self.field.sql_query(self.query_type, functional_pk)))
 
     def replace_fields_literal_filter(self):
         tokens = self._parse_sql_literal(self.literal)
@@ -142,7 +101,7 @@ class MetricsLayerFilter(MetricsLayerBase):
             extra_args = {"field_type": "measure", "type": "number"}
         view = self.design.get_view(self.design.base_view_name)
         field = MetricsLayerField({"sql": "".join(tokens), "name": None, **extra_args}, view=view)
-        return field.sql_query(self.query_type, view.name)
+        return field.sql_query(self.query_type, functional_pk=self.design.functional_pk())
 
     def _parse_sql_literal(self, clause: str):
         generator = list(sqlparse.parse(clause)[0].flatten())

@@ -1,4 +1,4 @@
-import pytest
+# import pytest
 
 
 def test_sets(connection):
@@ -57,7 +57,6 @@ def test_explore_sets(connection):
     assert not any(fn in explore_field_names for fn in excluded)
 
 
-@pytest.mark.mm
 def test_drill_fields(connection):
     field = connection.config.project.get_field("orders.number_of_orders", explore_name="order_lines_all")
 

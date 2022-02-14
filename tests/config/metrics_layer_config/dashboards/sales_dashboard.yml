@@ -1,0 +1,31 @@
+version: 1
+type: dashboard
+name: sales_dashboard
+label: Sales Dashboard (with campaigns)
+description: Sales data broken out by campaign and repurchasing behavior
+layout: grid
+filters:
+  - field: orders.new_vs_repeat
+    value: New
+    explore: order_lines_all
+
+elements:
+  - title: First element
+    type: plot
+    model: test_model
+    explore: order_lines_all
+    metric: orders.total_revenue
+    slice_by: [orders.new_vs_repeat, order_lines.product_name]
+
+  - title: Customer sales stats (by gender)
+    type: table
+    model: test_model
+    explore: order_lines_all
+    metrics:
+      - orders.total_revenue
+      - orders.average_order_value
+      - orders.number_of_orders
+    slice_by: [customers.gender]
+    filters:
+      - field: order_lines.product_name
+        value: -Handbag

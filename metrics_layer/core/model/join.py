@@ -34,15 +34,65 @@ class Join(MetricsLayerBase, SQLReplacement):
 
         for k in required_keys:
             if k not in definition:
-                raise ValueError(f"Join missing required key {k}")
+                join_name = None
+                if "name" in definition:
+                    join_name = definition["name"]
+                raise ValueError(f"Join missing required key {k} in join {join_name}")
 
-        neither_join_keys = "sql_on" not in definition and "foreign_key" not in definition
-        both_join_keys = "sql_on" in definition and "foreign_key" in definition
+        has_sql_on = "sql_on" in definition
+        has_fk = "foreign_key" in definition
+        has_sql = "sql" in definition
+        all_join_arguments = [has_sql_on, has_fk, has_sql]
+        no_join_keys = all(not c for c in all_join_arguments)
+        multiple_join_keys = sum(all_join_arguments) > 1
 
-        if both_join_keys or neither_join_keys:
-            raise ValueError(f"Incorrect join identifiers sql_on and foreign_key (must have exactly one)")
+        if no_join_keys:
+            raise ValueError(
+                f"No join arguments found in join {definition['name']}, please pass sql_on or foreign_key"
+            )
 
+        if multiple_join_keys:
+            raise ValueError(
+                f"Multiple join arguments found in join {definition['name']}"
+                ", please pass only one of: sql_on, foreign_key"
+            )
         super().__init__(definition)
+
+    def collect_errors(self):
+        errors = []
+        if self.foreign_key:
+            for view_name in [self.from_, self.explore.from_]:
+                try:
+                    self.project.get_field(
+                        self.foreign_key, view_name=view_name, explore_name=self.explore.name
+                    )
+                except Exception:
+                    errors.append(
+                        f"Could not find field {self.foreign_key} in join {self.name} "
+                        f"referencing view {view_name} in explore {self.explore.name}"
+                    )
+            return errors
+
+        fields_to_replace = self.fields_to_replace(self.sql_on)
+
+        for field in fields_to_replace:
+            _, join_name, column_name = Field.field_name_parts(field)
+            view_name = self._resolve_view_name(join_name)
+            try:
+                view = self._get_view_internal(view_name)
+            except Exception:
+                err_msg = f"Could not find view {view_name} in join {self.name}"
+                errors.append(err_msg)
+                continue
+
+            try:
+                self.project.get_field(column_name, view_name=view.name, explore_name=self.explore.name)
+            except Exception:
+                errors.append(
+                    f"Could not find field {column_name} in join {self.name} "
+                    f"referencing view {view_name} in explore {self.explore.name}"
+                )
+        return errors
 
     def is_valid(self):
         if self.sql_on:
@@ -58,7 +108,8 @@ class Join(MetricsLayerBase, SQLReplacement):
                     print(err_msg)
                     return False
             return True
-        return self.foreign_key is not None
+        is_valid = self.foreign_key is not None
+        return is_valid
 
     def required_views(self):
         if not self.sql_on:
@@ -94,11 +145,7 @@ class Join(MetricsLayerBase, SQLReplacement):
 
         for field in fields_to_replace:
             _, join_name, column_name = Field.field_name_parts(field)
-            if join_name == self.explore.name:
-                view_name = self.explore.from_
-            else:
-                join = self.explore.get_join(join_name)
-                view_name = join.from_
+            view_name = self._resolve_view_name(join_name)
             view = self._get_view_internal(view_name)
 
             if view is None:
@@ -121,6 +168,14 @@ class Join(MetricsLayerBase, SQLReplacement):
             sql_on = sql_on.replace(replace_text, replace_with)
 
         return sql_on
+
+    def _resolve_view_name(self, join_name: str):
+        if join_name == self.explore.name:
+            view_name = self.explore.from_
+        else:
+            join = self.explore.get_join(join_name)
+            view_name = join.from_
+        return view_name
 
     def _get_view_internal(self, view_name: str):
         if self.from_ is not None and view_name == self.from_:

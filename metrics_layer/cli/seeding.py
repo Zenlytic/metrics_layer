@@ -5,12 +5,15 @@ import pandas as pd
 
 
 class SeedMetricsLayer:
-    def __init__(self, profile, connection=None, database=None, schema=None):
+    def __init__(self, profile, connection=None, database=None, schema=None, table=None):
         self.profile_name = profile
         self.metrics_layer, self.connection = self._init_connection(self.profile_name, connection)
         self.database = database if database else self.connection.database
         self.schema = schema if schema else self.connection.schema
-        if schema:
+        self.table = table
+        if schema and table:
+            self.location_description = f"table: {self.database}.{self.schema}.{self.table}"
+        elif schema:
             self.location_description = f"schema: {self.database}.{self.schema}"
         else:
             self.location_description = f"database: {self.database}"
@@ -59,6 +62,8 @@ class SeedMetricsLayer:
         # Each row represents either a single table or a single view
         views = []
         for i, (_, row) in enumerate(data.iterrows()):
+            if self.table and row["NAME"].lower() != self.table.lower():
+                continue
             columns_query = self.columns_query(row["NAME"], row["SCHEMA_NAME"], row["DATABASE_NAME"])
             column_data = self.run_query(columns_query)
             column_df = self.column_result_to_dataframe(column_data)
@@ -66,7 +71,11 @@ class SeedMetricsLayer:
             column_df["RAW_TYPE"] = column_df["DATA_TYPE"].apply(lambda x: json.loads(x).get("type", "TEXT"))
 
             view = self.make_view(column_df, row["NAME"], row["SCHEMA_NAME"])
-            print(f"Got information on {row['TYPE']} {row['NAME']} ({i + 1} / {len(data)})")
+            if self.table:
+                progress = ""
+            else:
+                progress = f"({i + 1} / {len(data)})"
+            print(f"Got information on {row['TYPE']} {row['NAME']} {progress}")
             views.append(view)
 
         models = self.make_models(views)
@@ -77,8 +86,12 @@ class SeedMetricsLayer:
 
         reader._models = models
         reader._views = views
+
         # Dump the models to yaml files
-        reader.dump(os.getcwd())
+        if getattr(self.metrics_layer.config.repo, "repo_path", None):
+            reader.dump(self.metrics_layer.config.repo.repo_path)
+        else:
+            reader.dump(os.getcwd())
 
     def make_models(self, views: list):
         model = {
@@ -170,7 +183,7 @@ class SeedMetricsLayer:
         return column_df
 
     def run_query(self, query: str):
-        return self.metrics_layer.run_query(query, self.connection, raw_cursor=True)
+        return self.metrics_layer.run_query(query, self.connection, raw_cursor=True, run_pre_queries=False)
 
     @staticmethod
     def _init_connection(profile_name: str, connection_name: str = None):
@@ -197,13 +210,50 @@ class SeedMetricsLayer:
         return metrics_layer
 
     @staticmethod
+    def get_profile():
+        from metrics_layer.core.parse.project_reader import ProjectReader
+
+        zenlytic_project_path = os.path.join(os.getcwd(), "zenlytic_project.yml")
+        dbt_project_path = os.path.join(os.getcwd(), "dbt_project.yml")
+
+        if os.path.exists(zenlytic_project_path):
+            zenlytic_project = ProjectReader.read_yaml_file(zenlytic_project_path)
+            return zenlytic_project["profile"]
+        elif os.path.exists(dbt_project_path):
+            dbt_project = ProjectReader.read_yaml_file(dbt_project_path)
+            return dbt_project["profile"]
+        raise ValueError(
+            """Could not find a profile for the metrics layer in either the zenlytic_project.yml file or in
+         the dbt_project.yml file, if neither of those files exist, please create the file"""
+        )
+
+    @staticmethod
     def _init_directories():
         models_dir = "models/"
         views_dir = "views/"
+        project_dir = "data_model/"
+
+        # Create project directory
+        fully_qualified_project_path = os.path.join(os.getcwd(), project_dir)
+        if not os.path.exists(fully_qualified_project_path):
+            os.mkdir(fully_qualified_project_path)
+
+        # Create models and views directory inside of project dir
         for directory in [models_dir, views_dir]:
-            fully_qualified_path = os.path.join(os.getcwd(), directory)
+            fully_qualified_path = os.path.join(fully_qualified_project_path, directory)
             if not os.path.exists(fully_qualified_path):
                 os.mkdir(fully_qualified_path)
+
+    @staticmethod
+    def _init_project_file():
+        from metrics_layer.core.parse.project_reader import ProjectReader
+
+        default_profile = {
+            "name": "zenlytic_project_name",
+            "profile": "my_dbt_profile",
+            "folder": "data_model/",
+        }
+        ProjectReader._dump_yaml_file(default_profile, "zenlytic_project.yml")
 
     @staticmethod
     def _test_git():

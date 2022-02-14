@@ -1,3 +1,4 @@
+import os
 import pickle
 
 import pytest
@@ -5,6 +6,7 @@ import pytest
 from metrics_layer.core.parse.config import ConfigError, MetricsLayerConfiguration
 from metrics_layer.core.parse.connections import BigQueryConnection, SnowflakeConnection
 from metrics_layer.core.parse.github_repo import LookerGithubRepo
+from metrics_layer.core.parse.project_reader import ProjectReader
 
 
 def test_config_explicit_metrics_layer_single_local():
@@ -42,6 +44,10 @@ def test_config_explicit_metrics_layer_single_with_connections():
             "account": "sf_account",
             "username": "sf_username",
             "password": "sf_password",
+            "role": "my_role",
+            "warehouse": "compute_wh",
+            "database": "company",
+            "schema": "analytics",
         },
         {
             "type": "BIGQUERY",
@@ -61,6 +67,11 @@ def test_config_explicit_metrics_layer_single_with_connections():
         "user": "sf_username",
         "password": "sf_password",
         "account": "sf_account",
+        "role": "my_role",
+        "warehouse": "compute_wh",
+        "database": "company",
+        "schema": "analytics",
+        "type": "SNOWFLAKE",
     }
 
     bq_connection = config.get_connection("bq_name")
@@ -68,6 +79,7 @@ def test_config_explicit_metrics_layer_single_with_connections():
     assert bq_connection.to_dict() == {
         "project_id": "test-1234",
         "credentials": {"key": "value", "project_id": "test-1234"},
+        "type": "BIGQUERY",
     }
 
     # Should raise ConfigError
@@ -167,18 +179,29 @@ def test_config_explicit_env_config(monkeypatch):
 
 
 def test_config_file_metrics_layer(monkeypatch):
-    monkeypatch.setenv("METRICS_LAYER_PROFILES_DIR", "./tests/config/metrics_layer_config/profiles")
-    config = MetricsLayerConfiguration("test_warehouse")
+    test_repo_path = os.path.abspath("./tests/config/metrics_layer_config")
 
-    assert "tests/config/metrics_layer_config" in config.repo.repo_path
-    assert len(config.connections()) == 2
-    assert all(c.name in {"sf_creds", "bq_creds"} for c in config.connections())
+    monkeypatch.setenv("METRICS_LAYER_PROFILES_DIR", "./profiles")
+    monkeypatch.setattr(os, "getcwd", lambda *args: test_repo_path)
+    config = MetricsLayerConfiguration("sf_creds")
+
+    assert config.project
+    assert len(config.project.models()) == 2
+    assert config.repo.repo_path == os.getcwd()
+    assert len(config.connections()) == 1
+    assert all(c.name in {"sf_creds"} for c in config.connections())
 
     sf = config.get_connection("sf_creds")
     assert sf.account == "xyz.us-east-1"
     assert sf.username == "test_user"
     assert sf.password == "test_password"
     assert sf.role == "test_role"
+
+    config = MetricsLayerConfiguration("bq_creds")
+
+    assert config.repo.repo_path == os.getcwd()
+    assert len(config.connections()) == 1
+    assert all(c.name in {"bq_creds"} for c in config.connections())
 
     bq = config.get_connection("bq_creds")
     assert bq.project_id == "test-data-warehouse"
@@ -187,6 +210,22 @@ def test_config_file_metrics_layer(monkeypatch):
         "project_id": "test-data-warehouse",
         "type": "service_account",
     }
+
+
+def test_config_file_metrics_layer_dbt_run(monkeypatch, mocker):
+    test_repo_path = os.path.abspath("./tests/config/metrics_layer_config")
+    monkeypatch.setattr(os, "getcwd", lambda *args: test_repo_path)
+    mocker.patch("metrics_layer.core.parse.project_reader.ProjectReader._dump_yaml_file")
+    mocker.patch("metrics_layer.core.parse.project_reader.ProjectReader._run_dbt")
+
+    # This references the metrics_layer_config/ directory
+    repo_config = {"repo_path": "./", "repo_type": "metrics_layer"}
+    config = MetricsLayerConfiguration(repo_config)
+
+    assert config.project
+
+    ProjectReader._run_dbt.assert_called_once()
+    ProjectReader._dump_yaml_file.assert_called_once()
 
 
 def test_config_does_not_exist():

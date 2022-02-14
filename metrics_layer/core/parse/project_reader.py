@@ -1,24 +1,32 @@
 import json
 import os
+from collections import OrderedDict
 from copy import deepcopy
 
 import lkml
+import ruamel.yaml
 import yaml
 
 from metrics_layer.core.utils import merge_nested_dict
 
 from .github_repo import BaseRepo
 
+# from ruamel import yaml
+
 
 class ProjectReader:
-    def __init__(self, repo: BaseRepo, additional_repo: BaseRepo = None):
+    def __init__(self, repo: BaseRepo, additional_repo: BaseRepo = None, profiles_dir: str = None):
         self.base_repo = repo
         self.additional_repo = additional_repo
         self.multiple_repos = self.additional_repo is not None
+        self.profiles_dir = profiles_dir
         self.version = 1
         self.unloaded = True
+        self.has_dbt_project = False
+        self.manifest = {}
         self._models = []
         self._views = []
+        self._dashboards = []
 
     @property
     def models(self):
@@ -32,6 +40,12 @@ class ProjectReader:
             self.load()
         return self._views
 
+    @property
+    def dashboards(self):
+        if self.unloaded:
+            self.load()
+        return self._dashboards
+
     def dump(self, path: str):
         for model in self.models:
             file_name = model["name"] + "_model.yml"
@@ -40,8 +54,7 @@ class ProjectReader:
                 file_path = os.path.join(models_folder, file_name)
             else:
                 file_path = os.path.join(path, file_name)
-            with open(file_path, "w") as f:
-                yaml.dump(model, f)
+            self._dump_yaml_file(model, file_path)
 
         for view in self.views:
             file_name = view["name"] + "_view.yml"
@@ -50,18 +63,140 @@ class ProjectReader:
                 file_path = os.path.join(views_folder, file_name)
             else:
                 file_path = os.path.join(path, file_name)
-            with open(file_path, "w") as f:
-                yaml.dump(view, f)
+            self._dump_yaml_file(view, file_path)
+
+    def _sort_view(self, view: dict):
+        view_key_order = [
+            "version",
+            "type",
+            "name",
+            "sql_table_name",
+            "default_date",
+            "row_label",
+            "extends",
+            "extension",
+            "required_access_grants",
+            "sets",
+            "fields",
+        ]
+        extra_keys = [k for k in view.keys() if k not in view_key_order]
+        new_view = OrderedDict()
+        for k in view_key_order + extra_keys:
+            if k in view:
+                if k == "fields":
+                    new_view[k] = self._sort_fields(view[k])
+                else:
+                    new_view[k] = view[k]
+        return new_view
+
+    def _sort_fields(self, fields: list):
+        sort_key = ["dimension", "dimension_group", "measure"]
+        sorted_fields = sorted(fields, key=lambda x: sort_key.index(x["field_type"]))
+        return [self._sort_field(f) for f in sorted_fields]
+
+    def _sort_field(self, field: dict):
+        field_key_order = [
+            "name",
+            "field_type",
+            "type",
+            "datatype",
+            "hidden",
+            "primary_key",
+            "label",
+            "view_label",
+            "description",
+            "required_access_grants",
+            "value_format_name",
+            "drill_fields",
+            "sql_distinct_key",
+            "tiers",
+            "timeframes",
+            "intervals",
+            "sql_start",
+            "sql_end",
+            "sql",
+            "filters",
+            "extra",
+        ]
+        extra_keys = [k for k in field.keys() if k not in field_key_order]
+        new_field = OrderedDict()
+        for k in field_key_order + extra_keys:
+            if k in field:
+                new_field[k] = field[k]
+        return new_field
+
+    def _sort_model(self, model: dict):
+        model_key_order = [
+            "version",
+            "type",
+            "name",
+            "label",
+            "connection",
+            "fiscal_month_offset",
+            "week_start_day",
+            "access_grants",
+            "explores",
+        ]
+        extra_keys = [k for k in model.keys() if k not in model_key_order]
+        new_model = OrderedDict()
+        for k in model_key_order + extra_keys:
+            if k in model:
+                if k == "explores":
+                    new_model[k] = self._sort_explores(model[k])
+                else:
+                    new_model[k] = model[k]
+        return new_model
+
+    def _sort_explores(self, explores: list):
+        return [self._sort_explore(e) for e in sorted(explores, key=lambda x: x["name"])]
+
+    def _sort_explore(self, explore: dict):
+        explore_key_order = [
+            "name",
+            "from",
+            "view_name",
+            "description",
+            "label",
+            "group_label",
+            "view_label",
+            "extends",
+            "extension",
+            "hidden",
+            "fields",
+            "join_for_analysis",
+            "sql_always_where",
+            "required_access_grants",
+            "always_filter",
+            "conditionally_filter",
+            "access_filter",
+            "always_join",
+            "extra",
+            "joins",
+        ]
+        extra_keys = [k for k in explore.keys() if k not in explore_key_order]
+        new_explore = OrderedDict()
+        for k in explore_key_order + extra_keys:
+            if k in explore:
+                new_explore[k] = explore[k]
+        return new_explore
+
+    @staticmethod
+    def _dump_yaml_file(data: dict, path: str):
+        with open(path, "w") as f:
+            ruamel.yaml.dump(data, f, Dumper=ruamel.yaml.RoundTripDumper)
+            # yaml.dump(data, f)
 
     def load(self) -> None:
-        base_models, base_views = self._load_repo(self.base_repo)
+        base_models, base_views, base_dashboards = self._load_repo(self.base_repo)
         if self.multiple_repos:
-            additional_models, additional_views = self._load_repo(self.additional_repo)
+            additional_models, additional_views, additional_dashboards = self._load_repo(self.additional_repo)
             self._models = self._merge_objects(base_models, additional_models)
             self._views = self._merge_objects(base_views, additional_views)
+            self._dashboards = base_dashboards + additional_dashboards
         else:
             self._models = base_models
             self._views = base_views
+            self._dashboards = base_dashboards
 
         self.unloaded = False
 
@@ -69,17 +204,17 @@ class ProjectReader:
         repo.fetch()
         repo_type = repo.get_repo_type()
         if repo_type == "lookml":
-            models, views = self._load_lookml(repo)
+            models, views, dashboards = self._load_lookml(repo)
         elif repo_type == "dbt":
-            models, views = self._load_dbt(repo)
+            models, views, dashboards = self._load_dbt(repo)
         elif repo_type == "metrics_layer":
-            models, views = self._load_metrics_layer(repo)
+            models, views, dashboards = self._load_metrics_layer(repo)
         else:
             raise TypeError(
                 f"Unknown repo type: {repo_type}, valid values are 'metrics_layer', 'lookml', 'dbt'"
             )
         repo.delete()
-        return models, views
+        return models, views, dashboards
 
     def _load_lookml(self, repo: BaseRepo):
         models = []
@@ -93,13 +228,22 @@ class ProjectReader:
             file_views = self.read_lkml_file(fn).get("views", [])
             views.extend([self._standardize_view(v) for v in file_views])
 
-        return models, views
+        # Empty list is for currently unsupported dashboards when using the lookml mode
+        return models, views, []
 
     def _load_dbt(self, repo: BaseRepo):
-        self.project_name = self._get_dbt_project_name(repo.folder)
-        self._dump_profiles_file(repo.folder, self.project_name, repo.warehouse_type)
-        self._generate_manifest_json(repo.folder)
+        self.project_name = self._get_dbt_project_file(repo.folder)["name"]
+        self._dump_profiles_file(repo.folder, self.project_name)
+        self._generate_manifest_json(repo.folder, self.profiles_dir)
 
+        self.manifest = self._load_manifest_json(repo)
+        models, views = self._parse_dbt_manifest(self.manifest)
+
+        # Empty list is for currently unsupported dashboards when using the dbt mode
+        return models, views, []
+
+    @staticmethod
+    def _load_manifest_json(repo):
         manifest_files = repo.search(pattern="manifest.json")
         if len(manifest_files) > 1:
             raise ValueError("found multiple manifest.json files for your dbt project")
@@ -108,9 +252,7 @@ class ProjectReader:
 
         with open(manifest_files[0], "r") as f:
             manifest = json.load(f)
-
-        models, views = self._parse_dbt_manifest(manifest)
-        return models, views
+        return manifest
 
     def _parse_dbt_manifest(self, manifest: dict):
         views = self._make_dbt_views(manifest)
@@ -219,68 +361,71 @@ class ProjectReader:
         model["explores"] = [{"name": view_name} for view_name in view_names]
         return [model]
 
-    def _get_dbt_project_name(self, project_dir: str):
+    def _get_dbt_project_file(self, project_dir: str):
         dbt_project = self.read_yaml_file(os.path.join(project_dir, "dbt_project.yml"))
-        return dbt_project["name"]
+        return dbt_project
 
-    @staticmethod
-    def _dump_profiles_file(project_dir: str, project_name: str, warehouse_type: str):
-        if warehouse_type == "SNOWFLAKE":
-            params = {
-                "type": "snowflake",
-                "account": "fake-url.us-east-1",
-                "user": "fake",
-                "password": "fake",
-                "warehouse": "fake",
-                "database": "fake",
-                "schema": "fake",
-            }
-        elif warehouse_type == "BIGQUERY":
-            params = {
-                "type": "bigquery",
-                "method": "service-account",
-                "project": "fake",
-                "dataset": "fake",
-                "keyfile": "fake",
-            }
-        else:
-            raise NotImplementedError()
+    def _dump_profiles_file(self, project_dir: str, project_name: str):
+        # It doesn't matter the warehouse type here because we're just compiling the models
+        params = {
+            "type": "snowflake",
+            "account": "fake-url.us-east-1",
+            "user": "fake",
+            "password": "fake",
+            "warehouse": "fake",
+            "database": "fake",
+            "schema": "fake",
+        }
 
         profiles = {
             project_name: {"target": "temp", "outputs": {"temp": {**params}}},
             "config": {"send_anonymous_usage_stats": False},
         }
-        with open(os.path.join(project_dir, "profiles.yml"), "w") as f:
-            yaml.dump(profiles, f)
+        self._dump_yaml_file(profiles, os.path.join(project_dir, "profiles.yml"))
+
+    def _generate_manifest_json(self, project_dir: str, profiles_dir: str):
+
+        if profiles_dir is None:
+            profiles_dir = project_dir
+            if not os.path.exists(os.path.join(profiles_dir, "profiles.yml")):
+                project = self._get_dbt_project_file(project_dir)
+                self._dump_profiles_file(profiles_dir, project["profile"])
+
+        self._run_dbt("ls", project_dir=project_dir, profiles_dir=profiles_dir)
 
     @staticmethod
-    def _generate_manifest_json(project_dir: str):
-        from dbt.main import handle_and_check
+    def _run_dbt(cmd: str, project_dir: str, profiles_dir: str):
+        # from dbt.main import handle_and_check
 
-        handle_and_check(["ls", "--project-dir", project_dir, "--profiles-dir", project_dir])
+        os.system(f"dbt {cmd} --project-dir {project_dir} --profiles-dir {profiles_dir}")
 
     def _load_metrics_layer(self, repo: BaseRepo):
-        models, views = [], []
+        models, views, dashboards = [], [], []
+        self.has_dbt_project = len(list(repo.search(pattern="dbt_project.yml"))) > 0
+        if self.has_dbt_project:
+            self._generate_manifest_json(repo.folder, self.profiles_dir)
+            self.manifest = self._load_manifest_json(repo)
+
         file_names = repo.search(pattern="*.yml") + repo.search(pattern="*.yaml")
         for fn in file_names:
             yaml_dict = self.read_yaml_file(fn)
 
             # Handle keyerror
             if "type" not in yaml_dict:
-                raise ValueError("All MetricsLayer config files must have a type")
+                print(f"WARNING: file {fn} is missing a type")
 
-            yaml_type = yaml_dict["type"]
+            yaml_type = yaml_dict.get("type")
 
             if yaml_type == "model":
                 models.append(yaml_dict)
             elif yaml_type == "view":
                 views.append(yaml_dict)
-            else:
-                raise ValueError(
-                    f"Unknown MetricsLayer file type '{yaml_type}' options are 'model' or 'view'"
-                )
+            elif yaml_type == "dashboard":
+                dashboards.append(yaml_dict)
+            elif yaml_type:
+                print(f"WARNING: Unknown file type '{yaml_type}' options are 'model', 'view', or 'dashboard'")
 
-        return models, views
+        return models, views, dashboards
 
     def _standardize_view(self, view: dict):
         # Get all fields under the same key "fields"
@@ -344,8 +489,8 @@ class ProjectReader:
 
     @staticmethod
     def read_lkml_file(path: str):
-        with open(path, "r") as file:
-            lkml_dict = lkml.load(file)
+        with open(path, "r") as f:
+            lkml_dict = lkml.load(f)
         return lkml_dict
 
     @staticmethod
@@ -358,6 +503,7 @@ class ProjectReader:
 
     @staticmethod
     def read_yaml_file(path: str):
-        with open(path, "r") as file:
-            yaml_dict = yaml.safe_load(file)
+        with open(path, "r") as f:
+            # yaml_dict = ruamel.yaml.load(f, Loader=ruamel.yaml.RoundTripLoader)
+            yaml_dict = yaml.safe_load(f)
         return yaml_dict

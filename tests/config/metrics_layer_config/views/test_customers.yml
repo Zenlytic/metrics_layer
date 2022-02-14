@@ -2,7 +2,8 @@ version: 1
 type: view
 name: customers
 
-sql_table_name: analytics.customers
+# sql_table_name: analytics.customers
+sql_table_name: "{{ ref('customers') }}"
 
 default_date: first_order
 row_label: "Customer"
@@ -63,6 +64,11 @@ fields:
     type: string
     sql: "${TABLE}.last_product_purchased"
 
+  - name: is_churned
+    field_type: dimension
+    type: yesno
+    sql: "${TABLE}.is_churned"
+
   - name: customer_ltv
     field_type: "dimension"
     type: number
@@ -82,6 +88,9 @@ fields:
     field_type: "measure"
     type: sum
     sql: "${TABLE}.total_sessions"
+    filters:
+      - field: is_churned
+        value: no
 
   - name: total_sessions_divide
     field_type: "measure"

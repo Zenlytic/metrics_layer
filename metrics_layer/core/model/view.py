@@ -7,16 +7,17 @@ from .set import Set
 
 class View(MetricsLayerBase):
     def __init__(self, definition: dict = {}, project=None) -> None:
-        if "sql_table_name" in definition:
-            definition["sql_table_name"] = self.resolve_sql_table_name(
-                definition["sql_table_name"], project.looker_env
-            )
-
         if "sets" not in definition:
             definition["sets"] = []
         self.project = project
         self.validate(definition)
         super().__init__(definition)
+
+    @property
+    def sql_table_name(self):
+        if "sql_table_name" in self._definition:
+            return self.resolve_sql_table_name(self._definition["sql_table_name"], self.project.looker_env)
+        return
 
     def validate(self, definition: dict):
         required_keys = ["name", "fields"]
@@ -27,6 +28,7 @@ class View(MetricsLayerBase):
     def printable_attributes(self):
         to_print = ["name", "type", "label", "group_label", "sql_table_name", "number_of_fields"]
         attributes = self.to_dict()
+        attributes["sql_table_name"] = self.sql_table_name
         attributes["number_of_fields"] = f'{len(attributes.get("fields", []))}'
         return {key: attributes.get(key) for key in to_print if attributes.get(key) is not None}
 
@@ -63,11 +65,18 @@ class View(MetricsLayerBase):
             return all_fields
         return [field for field in all_fields if field.hidden == "no" or not field.hidden]
 
+    def _all_fields(self):
+        fields = []
+        for f in self._definition.get("fields", []):
+            field = Field(f, view=self)
+            if self.project.can_access_field(field):
+                fields.append(field)
+        return fields
+
     def _valid_fields(self, expand_dimension_groups: bool):
         if expand_dimension_groups:
             fields = []
-            for f in self._definition.get("fields", []):
-                field = Field(f, view=self)
+            for field in self._all_fields():
                 if field.field_type == "dimension_group" and field.timeframes:
                     for timeframe in field.timeframes:
                         if timeframe == "raw":
@@ -81,7 +90,7 @@ class View(MetricsLayerBase):
                 else:
                     fields.append(field)
         else:
-            fields = [Field(f, view=self) for f in self._definition.get("fields", [])]
+            fields = self._all_fields()
 
         return fields
 
@@ -96,32 +105,43 @@ class View(MetricsLayerBase):
         return field_clean_expr
 
     def resolve_sql_table_name(self, sql_table_name: str, looker_env: str):
-        start_cond, end_cond = "-- if", "--"
-        if start_cond in sql_table_name:
-            # Find the condition that is chosen in the looker env
-            conditions = re.findall(f"{start_cond}([^{end_cond}]*){end_cond}", sql_table_name)
-            try:
-                condition = next((cond for cond in conditions if cond.strip() == looker_env))
-            except StopIteration:
-                raise ValueError(
-                    f"""Your sql_table_name: '{sql_table_name}' contains a conditional and
-                    we could not match that to the conditional value you passed: {looker_env}"""
-                )
-
-            full_phrase = start_cond + condition + end_cond
-
-            # Use regex to extract the value associated with the condition
-            searchable_sql_table_name = sql_table_name.replace("\n", "")
-            everything_between = f"{full_phrase}([^{end_cond}]*){end_cond}"
-            everything_after = f"(?<={full_phrase}).*"
-            result = re.search(everything_between, searchable_sql_table_name)
-            if result:
-                return result.group().replace(end_cond, "").strip()
-
-            result = re.search(everything_after, searchable_sql_table_name)
-            return result.group().strip()
-
+        if "-- if" in sql_table_name:
+            return self._resolve_conditional_sql_table_name(sql_table_name, looker_env)
+        if "ref(" in sql_table_name:
+            return self._resolve_dbt_ref_sql_table_name(sql_table_name)
         return sql_table_name
+
+    def _resolve_dbt_ref_sql_table_name(self, sql_table_name: str):
+        ref_arguments = sql_table_name[sql_table_name.find("ref(") + 4 : sql_table_name.find(")")]
+        ref_value = ref_arguments.replace("'", "")
+        return self.project.resolve_dbt_ref(ref_value, self.name)
+
+    @staticmethod
+    def _resolve_conditional_sql_table_name(sql_table_name: str, looker_env: str):
+        start_cond, end_cond = "-- if", "--"
+
+        # Find the condition that is chosen in the looker env
+        conditions = re.findall(f"{start_cond}([^{end_cond}]*){end_cond}", sql_table_name)
+        try:
+            condition = next((cond for cond in conditions if cond.strip() == looker_env))
+        except StopIteration:
+            raise ValueError(
+                f"""Your sql_table_name: '{sql_table_name}' contains a conditional and
+                we could not match that to the conditional value you passed: {looker_env}"""
+            )
+
+        full_phrase = start_cond + condition + end_cond
+
+        # Use regex to extract the value associated with the condition
+        searchable_sql_table_name = sql_table_name.replace("\n", "")
+        everything_between = f"{full_phrase}([^{end_cond}]*){end_cond}"
+        everything_after = f"(?<={full_phrase}).*"
+        result = re.search(everything_between, searchable_sql_table_name)
+        if result:
+            return result.group().replace(end_cond, "").strip()
+
+        result = re.search(everything_after, searchable_sql_table_name)
+        return result.group().strip()
 
     def list_sets(self):
         return [Set({**s, "view_name": self.name}, project=self.project) for s in self.sets]

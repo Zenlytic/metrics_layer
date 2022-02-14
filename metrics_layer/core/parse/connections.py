@@ -1,5 +1,6 @@
 import json
 import os
+from argparse import ArgumentError
 from copy import deepcopy
 
 from metrics_layer.core.model.definitions import Definitions
@@ -24,9 +25,10 @@ class SnowflakeConnection(BaseConnection):
         self,
         name: str,
         account: str,
-        username: str,
         password: str,
         role: str = None,
+        username: str = None,
+        user: str = None,
         warehouse: str = None,
         database: str = None,
         schema: str = None,
@@ -35,7 +37,17 @@ class SnowflakeConnection(BaseConnection):
         self.type = ConnectionType.snowflake
         self.name = name
         self.account = account
-        self.username = username
+        if user and username:
+            raise ArgumentError(
+                "Received arguments for both user and username, "
+                "please send only one argument for the Snowflake user"
+            )
+        elif username:
+            self.username = username
+        elif user:
+            self.username = user
+        else:
+            raise ArgumentError("Received no argument for the Snowflake user, pass either user or username")
         self.password = password
         self.role = role
         self.warehouse = warehouse
@@ -44,7 +56,7 @@ class SnowflakeConnection(BaseConnection):
 
     def to_dict(self):
         """Dict for use with the snowflake connector"""
-        base = {"user": self.username, "password": self.password, "account": self.account}
+        base = {"user": self.username, "password": self.password, "account": self.account, "type": self.type}
         if self.warehouse:
             base["warehouse"] = self.warehouse
         if self.database:
@@ -59,7 +71,7 @@ class SnowflakeConnection(BaseConnection):
         attributes = deepcopy(self.to_dict())
         attributes.pop("password")
         attributes["name"] = self.name
-        sort_order = ["name", "account", "user", "database", "schema", "warehouse", "role"]
+        sort_order = ["name", "type", "account", "user", "database", "schema", "warehouse", "role"]
         return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
 
 
@@ -72,13 +84,13 @@ class BigQueryConnection(BaseConnection):
 
     def to_dict(self):
         """Dict for use with the BigQuery connector"""
-        return {"credentials": self.credentials, "project_id": self.project_id}
+        return {"credentials": self.credentials, "project_id": self.project_id, "type": self.type}
 
     def printable_attributes(self):
         attributes = deepcopy(self.to_dict())
         attributes.pop("credentials")
         attributes["name"] = self.name
-        sort_order = ["name", "project_id"]
+        sort_order = ["name", "type", "project_id"]
         return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
 
     @staticmethod

@@ -2,15 +2,18 @@ import os
 
 import pytest
 
-from metrics_layer.api import create_app, db
-from metrics_layer.api.models import User
 from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.model.project import Project
+from metrics_layer.core.parse.manifest import Manifest
 from metrics_layer.core.parse.project_reader import ProjectReader
 
 BASE_PATH = os.path.dirname(__file__)
 
 model_path = os.path.join(BASE_PATH, "config/metrics_layer_config/models/commerce_test_model.yml")
+sales_dashboard_path = os.path.join(BASE_PATH, "config/metrics_layer_config/dashboards/sales_dashboard.yml")
+sales_dashboard_v2_path = os.path.join(
+    BASE_PATH, "config/metrics_layer_config/dashboards/sales_dashboard_v2.yml"
+)
 order_lines_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_order_lines.yml")
 orders_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_orders.yml")
 customers_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_customers.yml")
@@ -29,26 +32,7 @@ view_paths = [
     discount_detail_view_path,
     country_detail_view_path,
 ]
-
-
-@pytest.fixture(scope="module")
-def test_app():
-    app = create_app(config="metrics_layer.api.api_config.TestingConfig")
-    with app.app_context():
-        yield app  # testing happens here
-
-
-@pytest.fixture(scope="module")
-def client(test_app):
-    return test_app.test_client()
-
-
-@pytest.fixture(scope="module")
-def test_database(test_app):
-    db.create_all()
-    yield db  # testing happens here
-    db.session.remove()
-    db.drop_all()
+dashboard_paths = [sales_dashboard_path, sales_dashboard_v2_path]
 
 
 @pytest.fixture(scope="function")
@@ -211,22 +195,21 @@ def get_seed_columns_data():
 
 
 @pytest.fixture(scope="function")
-def add_user():
-    def _add_user(email, password):
-        user = User.create(email=email, password=password)
-        return user
-
-    return _add_user
+def fresh_models():
+    models = [ProjectReader.read_yaml_file(model_path)]
+    return models
 
 
 @pytest.fixture(scope="function")
-def add_user_and_get_auth(client, test_database, add_user):
-    def _add_user_and_get_auth(email, password):
-        user = add_user(email, password)
-        response = client.post("/api/v1/login", json={"email": email, "password": password})
-        return user, response.get_json()["auth_token"]
+def fresh_views():
+    views = [ProjectReader.read_yaml_file(path) for path in view_paths]
+    return views
 
-    return _add_user_and_get_auth
+
+@pytest.fixture(scope="function")
+def fresh_dashboards():
+    dashboards = [ProjectReader.read_yaml_file(path) for path in dashboard_paths]
+    return dashboards
 
 
 @pytest.fixture(scope="module")
@@ -242,9 +225,47 @@ def views():
 
 
 @pytest.fixture(scope="module")
-def project(models, views):
+def dashboards():
+    dashboards = [ProjectReader.read_yaml_file(path) for path in dashboard_paths]
+    return dashboards
+
+
+@pytest.fixture(scope="module")
+def manifest():
+    mock_manifest = {
+        "nodes": {
+            "models.test_project.customers": {
+                "database": "transformed",
+                "schema": "analytics",
+                "alias": "customers",
+            }
+        }
+    }
+    return Manifest(mock_manifest)
+
+
+@pytest.fixture(scope="function")
+def fresh_project(fresh_models, fresh_views, fresh_dashboards, manifest):
     project = Project(
-        models=models, views=views, looker_env="prod", connection_lookup={"connection_name": "SNOWFLAKE"}
+        models=fresh_models,
+        views=fresh_views,
+        dashboards=fresh_dashboards,
+        looker_env="prod",
+        connection_lookup={"connection_name": "SNOWFLAKE"},
+        manifest=manifest,
+    )
+    return project
+
+
+@pytest.fixture(scope="module")
+def project(models, views, dashboards, manifest):
+    project = Project(
+        models=models,
+        views=views,
+        dashboards=dashboards,
+        looker_env="prod",
+        connection_lookup={"connection_name": "SNOWFLAKE"},
+        manifest=manifest,
     )
     return project
 
@@ -271,6 +292,9 @@ def config(project):
 
     class config_mock:
         profiles_path = "test_profiles_file.yml"
+
+        def set_user(user: dict):
+            pass
 
         def get_connection(name: str):
             if name == "bq_creds":

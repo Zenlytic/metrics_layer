@@ -3,6 +3,7 @@ type: view
 name: orders
 
 sql_table_name: analytics.orders
+required_access_grants: [test_access_grant_department_view]
 
 default_date: order
 row_label: "Order"
@@ -97,6 +98,7 @@ fields:
     sql: ${days_between_orders}
 
   - name: total_revenue
+    required_access_grants: [test_access_grant_department_field]
     field_type: "measure"
     type: sum
     sql: ${revenue_dimension}

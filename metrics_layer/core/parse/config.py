@@ -1,4 +1,5 @@
 import os
+from copy import deepcopy
 
 from metrics_layer.core.model.project import Project
 from metrics_layer.core.parse.connections import (
@@ -8,6 +9,7 @@ from metrics_layer.core.parse.connections import (
 )
 
 from .github_repo import GithubRepo, LocalRepo, LookerGithubRepo
+from .manifest import Manifest
 from .project_reader import ProjectReader
 
 
@@ -32,6 +34,12 @@ class MetricsLayerConfiguration:
         )
         self._connections = self._parse_connections(connections) + conns + addtl_conns
         self._project = None
+        self._user = None
+
+    def set_user(self, user: dict):
+        self._user = user
+        if self._project is not None:
+            self._project.set_user(self._user)
 
     @staticmethod
     def get_metrics_layer_configuration(config=None, target: str = None):
@@ -60,6 +68,7 @@ class MetricsLayerConfiguration:
 
     def load(self):
         self._project = self._get_project()
+        self._project.set_user(self._user)
 
     def dump(self, path: str = "./"):
         reader = ProjectReader(repo=self.repo, additional_repo=self.additional_repo)
@@ -67,14 +76,22 @@ class MetricsLayerConfiguration:
         reader.dump(path)
 
     def _get_project(self):
-        reader = ProjectReader(repo=self.repo, additional_repo=self.additional_repo)
+        if self.profiles_path:
+            profiles_dir = os.path.dirname(self.profiles_path)
+        else:
+            profiles_dir = None
+        reader = ProjectReader(
+            repo=self.repo, additional_repo=self.additional_repo, profiles_dir=profiles_dir
+        )
         reader.load()
         connection_lookup = {c.name: c.type for c in self.connections()}
         project = Project(
             models=reader.models,
             views=reader.views,
+            dashboards=reader.dashboards,
             looker_env=self.looker_env,
             connection_lookup=connection_lookup,
+            manifest=Manifest(reader.manifest),
         )
         return project
 
@@ -164,8 +181,8 @@ class MetricsLayerConfiguration:
 
         clean_prefix = "additional_" if "additional" in prefix.lower() else ""
 
-        metrics_layer_directory = self.get_metrics_layer_directory()
-        self.profiles_path = os.path.join(metrics_layer_directory, "profiles.yml")
+        metrics_layer_profiles_directory = self.get_metrics_layer_profiles_directory()
+        self.profiles_path = os.path.join(metrics_layer_profiles_directory, "profiles.yml")
 
         if not os.path.exists(self.profiles_path):
             raise ConfigError(
@@ -213,19 +230,8 @@ class MetricsLayerConfiguration:
             self.looker_env = target["looker_env"]
 
         repo_type = target.get(f"{clean_prefix}repo_type")
-        raw_connections = target.get("connections", [])
-        warehouse_type = raw_connections[0]["type"] if len(raw_connections) > 0 else None
-
-        # Local repo
-        path_arg = f"{clean_prefix}repo_path"
-        if path_arg in target:
-            if os.path.isabs(target[path_arg]):
-                path = target[path_arg]
-            else:
-                path = os.path.abspath(
-                    os.path.join(metrics_layer_directory, os.path.expanduser(target[path_arg]))
-                )
-            repo = LocalRepo(repo_path=path, repo_type=repo_type, warehouse_type=warehouse_type)
+        raw_connection = deepcopy(target)
+        warehouse_type = raw_connection.get("type")
 
         # Github repo
         if all(k in target for k in [f"{clean_prefix}repo_url", f"{clean_prefix}branch"]):
@@ -247,8 +253,31 @@ class MetricsLayerConfiguration:
             looker_args = {k: target[k] for k in looker_keys}
             repo = LookerGithubRepo(**looker_args, repo_type="lookml")
 
-        connections = [{**c, "directory": metrics_layer_directory} for c in raw_connections]
-        return repo, MetricsLayerConfiguration._parse_connections(connections)
+        # Local repo
+        path_arg = f"{clean_prefix}repo_path"
+        if path_arg in target:
+            if os.path.isabs(target[path_arg]):
+                path = target[path_arg]
+            else:
+                path = os.path.abspath(
+                    os.path.join(metrics_layer_profiles_directory, os.path.expanduser(target[path_arg]))
+                )
+        else:
+            config_path = os.path.join(os.getcwd(), "zenlytic_project.yml")
+            if os.path.exists(config_path):
+                config = ProjectReader.read_yaml_file(config_path)
+                relative_path = config.get("folder", "./")
+                path = os.path.abspath(relative_path)
+            else:
+                path = os.getcwd()
+        repo = LocalRepo(repo_path=path, repo_type=repo_type, warehouse_type=warehouse_type)
+
+        connection = {
+            **raw_connection,
+            "name": config_profile_name,
+            "directory": metrics_layer_profiles_directory,
+        }
+        return repo, MetricsLayerConfiguration._parse_connections([connection])
 
     @staticmethod
     def get_all_profiles(directory, names_only: bool = False):
@@ -258,18 +287,17 @@ class MetricsLayerConfiguration:
         return all_profiles
 
     @staticmethod
-    def get_metrics_layer_directory():
+    def get_metrics_layer_profiles_directory():
         env_specified_location = os.getenv(f"METRICS_LAYER_PROFILES_DIR")
         if env_specified_location:
             if os.path.isabs(env_specified_location):
-
                 return env_specified_location
             else:
                 return os.path.join(os.getcwd(), os.path.abspath(env_specified_location))
 
-        # System default home directory
+        # System default home directory to dbt profiles dir
         home = os.path.expanduser("~")
-        location = os.path.join(home, ".metrics_layer/")
+        location = os.path.join(home, ".dbt/")
         return location
 
     @staticmethod

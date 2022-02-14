@@ -3,6 +3,7 @@ from copy import deepcopy
 
 from .base import MetricsLayerBase, SQLReplacement
 from .definitions import Definitions
+from .filter import Filter
 from .set import Set
 
 SQL_KEYWORDS = {"order", "group", "by", "as", "from", "select", "on", "with"}
@@ -35,10 +36,13 @@ class Field(MetricsLayerBase, SQLReplacement):
         self.validate(definition)
         super().__init__(definition)
 
-    def id(self, view_only=False):
+    def id(self, view_only=False, capitalize_alias=False):
+        alias = self.alias()
+        if capitalize_alias:
+            alias = alias.upper()
         if self.view.explore and not view_only:
-            return f"{self.view.explore.name}.{self.view.name}.{self.name}"
-        return f"{self.view.name}.{self.name}"
+            return f"{self.view.explore.name}.{self.view.name}.{alias}"
+        return f"{self.view.name}.{alias}"
 
     @property
     def sql(self):
@@ -47,7 +51,9 @@ class Field(MetricsLayerBase, SQLReplacement):
             definition["sql"] = self._translate_looker_case_to_sql(definition["case"])
 
         if "sql" in definition and "filters" in definition:
-            definition["sql"] = self._translate_looker_filter_to_sql(definition["sql"], definition["filters"])
+            definition["sql"] = Filter.translate_looker_filters_to_sql(
+                definition["sql"], definition["filters"]
+            )
 
         if "sql" in definition and definition.get("type") == "tier":
             definition["sql"] = self._translate_looker_tier_to_sql(definition["sql"], definition["tiers"])
@@ -85,16 +91,17 @@ class Field(MetricsLayerBase, SQLReplacement):
             return Set(set_definition, project=self.view.project).field_names()
         return drill_fields
 
-    def alias(self):
+    def alias(self, with_view: bool = False):
         if self.field_type == "dimension_group":
             if self.type == "time":
-                return f"{self.name}_{self.dimension_group}"
+                alias = f"{self.name}_{self.dimension_group}"
             elif self.type == "duration":
-                return f"{self.dimension_group}_{self.name}"
-
-        if self._name_is_not_valid_sql(self.name):
-            return f"_{self.name}"
-        return self.name
+                alias = f"{self.dimension_group}_{self.name}"
+        else:
+            alias = self.name
+        if with_view:
+            return f"{self.view.name}_{alias}"
+        return alias
 
     def sql_query(self, query_type: str = None, functional_pk: str = None, alias_only: bool = False):
         if not query_type:
@@ -107,7 +114,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         if self.field_type == "measure" and self.type == "number":
             return self.get_referenced_sql_query()
         elif alias_only:
-            return self.alias()
+            return self.alias(with_view=True)
         return self.get_replaced_sql_query(query_type, alias_only=alias_only)
 
     def aggregate_sql_query(self, query_type: str, functional_pk: str, alias_only: bool = False):
@@ -124,8 +131,11 @@ class Field(MetricsLayerBase, SQLReplacement):
         }
         return type_lookup[self.type](sql, query_type, functional_pk, alias_only)
 
-    def _needs_symmetric_aggregate(self, functional_pk: str):
+    def _needs_symmetric_aggregate(self, functional_pk: MetricsLayerBase):
         if functional_pk:
+            if functional_pk == Definitions.does_not_exist:
+                return True
+
             print(functional_pk)
             print(self.view.primary_key)
             print(functional_pk.id(view_only=True))
@@ -274,14 +284,25 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def required_views(self):
         views = []
-        if not self.sql:
-            return []
+        if self.sql:
+            views.extend(self._get_required_views_from_sql(self.sql))
+        elif self.sql_start and self.sql_end:
+            views.extend(self._get_required_views_from_sql(self.sql_start))
+            views.extend(self._get_required_views_from_sql(self.sql_end))
+        else:
+            # There is not sql or sql_start or sql_end, it must be a
+            # default count measure which references only the field's base view
+            pass
 
-        for field_name in self.fields_to_replace(self.sql):
+        return list(set([self.view.name] + views))
+
+    def _get_required_views_from_sql(self, sql: str):
+        views = []
+        for field_name in self.fields_to_replace(sql):
             if field_name != "TABLE":
                 field = self.get_field_with_view_info(field_name)
                 views.extend(field.required_views())
-        return list(set([self.view.name] + views))
+        return views
 
     def validate(self, definition: dict):
         required_keys = ["name", "field_type"]
@@ -356,11 +377,11 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "years": lambda start, end: f"DATEDIFF('YEAR', {start}, {end})",
             },
             Definitions.bigquery: {
-                "days": lambda start, end: f"DATE_DIFF({end}, {start}, DAY)",
-                "weeks": lambda start, end: f"DATE_DIFF({end}, {start}, ISOWEEK)",
-                "months": lambda start, end: f"DATE_DIFF({end}, {start}, MONTH)",
-                "quarters": lambda start, end: f"DATE_DIFF({end}, {start}, QUARTER)",
-                "years": lambda start, end: f"DATE_DIFF({end}, {start}, ISOYEAR)",
+                "days": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), DAY)",
+                "weeks": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), ISOWEEK)",
+                "months": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), MONTH)",
+                "quarters": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), QUARTER)",  # noqa
+                "years": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), ISOYEAR)",
             },
         }
         try:
@@ -389,11 +410,11 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.bigquery: {
                 "raw": lambda s, qt: s,
                 "time": lambda s, qt: f"CAST({s} as TIMESTAMP)",
-                "date": lambda s, qt: f"DATE_TRUNC({s}, DAY)",
+                "date": lambda s, qt: f"DATE_TRUNC(CAST({s} as DATE), DAY)",
                 "week": self._week_dimension_group_time_sql,
-                "month": lambda s, qt: f"DATE_TRUNC({s}, MONTH)",
-                "quarter": lambda s, qt: f"DATE_TRUNC({s}, QUARTER)",
-                "year": lambda s, qt: f"DATE_TRUNC({s}, YEAR)",
+                "month": lambda s, qt: f"DATE_TRUNC(CAST({s} as DATE), MONTH)",
+                "quarter": lambda s, qt: f"DATE_TRUNC(CAST({s} as DATE), QUARTER)",
+                "year": lambda s, qt: f"DATE_TRUNC(CAST({s} as DATE), YEAR)",
                 "hour_of_day": lambda s, qt: f"CAST({s} AS STRING FORMAT 'HH24')",
                 "day_of_week": lambda s, qt: f"CAST({s} AS STRING FORMAT 'DAY')",
             },
@@ -405,7 +426,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         # Monday is the default date for warehouses
         week_start_day = self.view.explore.week_start_day
         if week_start_day == "monday":
-            return self._week_sql_date_trunc(sql, query_type)
+            return self._week_sql_date_trunc(sql, None, query_type)
         offset_lookup = {
             "sunday": 1,
             "saturday": 2,
@@ -415,15 +436,20 @@ class Field(MetricsLayerBase, SQLReplacement):
             "tuesday": 6,
         }
         offset = offset_lookup[week_start_day]
-        offset_sql = f"{sql} + {offset}"
-        return f"{self._week_sql_date_trunc(offset_sql, query_type)} - {offset}"
+        return f"{self._week_sql_date_trunc(sql, offset, query_type)} - {offset}"
 
     @staticmethod
-    def _week_sql_date_trunc(sql, query_type):
+    def _week_sql_date_trunc(sql, offset, query_type):
         if Definitions.snowflake == query_type:
-            return f"DATE_TRUNC('WEEK', {sql})"
+            if offset is None:
+                offset_sql = sql
+            else:
+                offset_sql = f"{sql} + {offset}"
+            return f"DATE_TRUNC('WEEK', {offset_sql})"
         elif Definitions.bigquery == query_type:
-            return f"DATE_TRUNC({sql}, WEEK)"
+            if offset is None:
+                return f"DATE_TRUNC(CAST({sql} as DATE), WEEK)"
+            return f"DATE_TRUNC(CAST({sql} as DATE) + {offset}, WEEK)"
 
     def collect_errors(self):
         if self.field_type == "measure" and self.type == "number":
@@ -545,56 +571,6 @@ class Field(MetricsLayerBase, SQLReplacement):
         when_sql = f"when {sql} >= {tiers[-1]} then '[{tiers[-1]},inf)' "
         case_sql += when_sql
         return case_sql + "else 'Unknown' end"
-
-    @staticmethod
-    def _translate_looker_filter_to_sql(sql: str, filters: list):
-        case_sql = "case when "
-        conditions = []
-        for f in filters:
-            # TODO more advanced parsing
-            # ref: https://docs.looker.com/reference/field-params/filters
-
-            field_reference = "${" + f["field"] + "}"
-            value = f["value"]
-
-            # Handle null conditiona
-            if value == "NULL":
-                condition_value = f"is null"
-            elif value == "-NULL":
-                condition_value = f"is not null"
-
-            # Numeric parsing for less than or equal to, greater than or equal to, not equal to
-            elif value[:2] in {"=<", ">=", "<>", "!="}:
-                condition_value = f"{value[:2]} {value[2:]}"
-
-            # Numeric parsing for equal to, less than, greater than
-            elif value[0] in {"=", ">", "<"}:
-                condition_value = f"{value[0]} {value[1:]}"
-
-            # Not equal to condition for strings
-            elif value[0] == "-":
-                condition_value = f"<> '{value[1:]}'"
-
-            # Not equal to condition for strings
-            elif value[0] == "-":
-                condition_value = f"<> '{value[1:]}'"
-
-            # isin for strings
-            elif len(value.split(", ")) > 1:
-                raise NotImplementedError("TODO: Need to support array syntax in filters")
-
-            else:
-                condition_value = f"= '{value}'"
-
-            condition = f"{field_reference} {condition_value}"
-            conditions.append(condition)
-
-        # Add the filter conditions AND'd together
-        case_sql += " and ".join(conditions)
-        # Add the result from the sql arg + imply NULL for anything not hitting the filter condition
-        case_sql += f" then {sql} end"
-
-        return case_sql
 
     @staticmethod
     def _translate_looker_case_to_sql(case: dict):

@@ -39,11 +39,21 @@ class Explore(MetricsLayerBase):
 
     def validate_fields(self):
         errors = []
+
+        for join in self.joins():
+            errors.extend(join.collect_errors())
+
         for view_name in self.view_names():
-            view = self.project.get_view(view_name)
-            if view is None:
-                print(f"ERROR: View {view_name} cannot be found in explore {self.name}")
+            try:
+                view = self.project.get_view(view_name)
+            except Exception:
+                errors.append(f"View {view_name} cannot be found in explore {self.name}")
                 continue
+            try:
+                view.sql_table_name
+            except ValueError as e:
+                errors.append(f"{str(e)} in explore {self.name}")
+
             referenced_fields = view.referenced_fields()
             view_errors = view.collect_errors()
 
@@ -58,6 +68,14 @@ class Explore(MetricsLayerBase):
 
         return list(sorted(list(set(errors))))
 
+    def _all_joins(self):
+        joins = []
+        for j in self._definition.get("joins", []):
+            join = Join(j, explore=self, project=self.project)
+            if self.project.can_access_join(join, explore=self):
+                joins.append(join)
+        return joins
+
     def view_names(self):
         if self._view_names:
             return self._view_names
@@ -65,7 +83,7 @@ class Explore(MetricsLayerBase):
         return self._view_names
 
     def join_names(self):
-        return [self.name] + [j["name"] for j in self._definition.get("joins", [])]
+        return [self.name] + [j.name for j in self._all_joins()]
 
     def field_names(self):
         # This function is for the explore `fields` parameter, to resolve all the sets into field names
@@ -83,8 +101,7 @@ class Explore(MetricsLayerBase):
 
     def joins(self):
         output = []
-        for j in self._definition.get("joins", []):
-            join = Join(j, explore=self, project=self.project)
+        for join in self._all_joins():
             if join.is_valid():
                 output.append(join)
         return output

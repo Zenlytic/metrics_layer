@@ -1,4 +1,4 @@
-from .base import MetricsLayerBase
+from .base import AccessDeniedOrDoesNotExistException, MetricsLayerBase
 
 
 class Set(MetricsLayerBase):
@@ -64,12 +64,16 @@ class Set(MetricsLayerBase):
             if self.explore:
                 join_set = next((j for j in self.explore.joins() if j.name == set_name), None)
                 if join_set:
-                    view = self.project.get_view(join_set.from_, explore=self.explore)
+                    try:
+                        view = self.project.get_view(join_set.from_, explore=self.explore)
+                    except AccessDeniedOrDoesNotExistException:
+                        return []
                     return [
                         f.id(view_only=True)
                         for f in view.fields(show_hidden=True, expand_dimension_groups=True)
                     ]
-            raise ValueError(f"Could not find set with name {set_name}")
+            print(f"WARNING: Could not find set with name {set_name}, disregarding those fields")
+            return []
         return _set.field_names()
 
     def _get_view_name(self, view_name: str, field_name: str):

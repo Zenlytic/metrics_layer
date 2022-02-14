@@ -23,14 +23,15 @@ class BaseRepo:
         yaml_files += list(self.search(pattern="*.yaml"))
         n_yaml_files = len(yaml_files)
 
-        dbt_files = list(self.search(pattern="dbt_project.yml"))
-        dbt_files += list(self.search(pattern="dbt_project.yml"))
-        n_dbt_files = len(dbt_files)
+        # TODO Need to decide if we will support this
+        # dbt_files = list(self.search(pattern="dbt_project.yml"))
+        # dbt_files += list(self.search(pattern="dbt_project.yml"))
+        # n_dbt_files = len(dbt_files)
 
+        # if n_dbt_files > 0:
+        #     return "dbt"
         if n_looker_files > n_yaml_files:
             return "lookml"
-        if n_dbt_files > 0:
-            return "dbt"
         return "metrics_layer"
 
     def delete(self):
@@ -48,7 +49,7 @@ class LocalRepo(BaseRepo):
         self.repo_path = repo_path
         self.repo_type = repo_type
         self.warehouse_type = warehouse_type
-        self.folder = f"{os.path.join(BASE_PATH, self.repo_path)}/"
+        self.folder = f"{os.path.join(os.getcwd(), self.repo_path)}/"
 
     def search(self, pattern: str):
         """Example arg: pattern='*.model.*'"""

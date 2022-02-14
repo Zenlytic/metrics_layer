@@ -122,6 +122,8 @@ fields:
     filters:
       - field: product_name
         value: "Portable Charger"
+      - field: product_name
+        value: "Portable Charger, Dual Charger"
       - field: orders.revenue_in_cents
         value: ">100"
 
