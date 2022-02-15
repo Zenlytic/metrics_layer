@@ -114,6 +114,7 @@ class Filter(MetricsLayerBase):
 
         # Handle date conditions
         elif value in _date_values_lookup:
+            raise
             start, end = Filter._parse_date_string(value.split(" ")[-1])
             if value.split(" ")[0] == "after":
                 expression = MetricsLayerFilterExpressionType.GreaterOrEqualThan
@@ -153,12 +154,32 @@ class Filter(MetricsLayerBase):
 
         # String parsing for NOT equal to
         elif value[0] == "-":
-            expression = _symbol_to_filter_type_lookup[value[0]]
-            cleaned_value = value[1:]
+            if value[1] == "%" and value[-1] == "%":
+                expression = MetricsLayerFilterExpressionType.DoesNotContainCaseInsensitive
+                cleaned_value = value[2:-1]
+            elif value[1] == "%":
+                expression = MetricsLayerFilterExpressionType.DoesNotEndWithCaseInsensitive
+                cleaned_value = value[2:]
+            elif value[-1] == "%":
+                expression = MetricsLayerFilterExpressionType.DoesNotStartWithCaseInsensitive
+                cleaned_value = value[1:-1]
+            else:
+                expression = _symbol_to_filter_type_lookup[value[0]]
+                cleaned_value = value[1:]
 
         else:
-            expression = MetricsLayerFilterExpressionType.EqualTo
-            cleaned_value = value
+            if value[0] == "%" and value[-1] == "%":
+                expression = MetricsLayerFilterExpressionType.ContainsCaseInsensitive
+                cleaned_value = value[1:-1]
+            elif value[0] == "%":
+                expression = MetricsLayerFilterExpressionType.EndsWithCaseInsensitive
+                cleaned_value = value[1:]
+            elif value[-1] == "%":
+                expression = MetricsLayerFilterExpressionType.StartsWithCaseInsensitive
+                cleaned_value = value[:-1]
+            else:
+                expression = MetricsLayerFilterExpressionType.EqualTo
+                cleaned_value = value
 
         return {"field": field, "expression": expression, "value": cleaned_value}
 
@@ -173,48 +194,6 @@ class Filter(MetricsLayerBase):
         conditions = []
         for f in filters:
             filter_dict = Filter._filter_dict(f["field"], f["value"])
-            # parsed_value = filter_dict["value"]
-
-            # # Handle null conditiona
-            # if filter_dict["expression"] == MetricsLayerFilterExpressionType.IsNull:
-            #     condition_value = f"is null"
-            # elif filter_dict["expression"] == MetricsLayerFilterExpressionType.IsNotNull:
-            #     condition_value = f"is not null"
-
-            # # isin or isnotin for strings
-            # elif filter_dict["expression"] == MetricsLayerFilterExpressionType.IsIn:
-            #     categories = ",".join([f"'{v}'" for v in parsed_value])
-            #     condition_value = f"is in ({categories})"
-
-            # elif filter_dict["expression"] == MetricsLayerFilterExpressionType.IsNotIn:
-            #     categories = ",".join([f"'{v}'" for v in parsed_value])
-            #     condition_value = f"is not in ({categories})"
-
-            # # Handle boolean True and False
-            # elif parsed_value == True or parsed_value == False:  # noqa
-            #     condition_value = f"is {str(parsed_value).upper()}"
-
-            # # Handle date after and before
-            # elif f["value"].split(" ")[0] == "after":
-            #     condition_value = f">= {parsed_value}"
-
-            # elif f["value"].split(" ")[0] == "before":
-            #     condition_value = f"<= {parsed_value}"
-
-            # # Not equal to condition for strings
-            # elif f["value"][0] == "-":
-            #     condition_value = f"<> '{parsed_value}'"
-
-            # # Numeric parsing for less than or equal to, greater than or equal to, not equal to
-            # elif f["value"][:2] in {"<=", ">=", "<>", "!="}:
-            #     condition_value = f"{f['value'][:2]} {parsed_value}"
-
-            # # Numeric parsing for equal to, less than, greater than
-            # elif f["value"][0] in {"=", ">", "<"}:
-            #     condition_value = f"{f['value'][0]} {parsed_value}"
-
-            # else:
-            #     condition_value = f"= '{parsed_value}'"
 
             field_reference = "${" + f["field"] + "}"
             condition_value = Filter.sql_query(

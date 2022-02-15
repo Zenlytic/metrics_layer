@@ -49,11 +49,18 @@ def test_dashboard_to_dict(connection):
     assert first_element["slice_by"] == ["orders.new_vs_repeat", "order_lines.product_name"]
 
 
+@pytest.mark.mm
 @pytest.mark.parametrize(
     "raw_filter_dict",
     [
         {"explore": "orders", "field": "customers.gender", "value": "Male"},
         {"explore": "orders", "field": "customers.gender", "value": "-Male"},
+        {"explore": "orders", "field": "customers.gender", "value": "-Ma%"},
+        {"explore": "orders", "field": "customers.gender", "value": "-%Ma"},
+        {"explore": "orders", "field": "customers.gender", "value": "-%ale%"},
+        {"explore": "orders", "field": "customers.gender", "value": "Fe%"},
+        {"explore": "orders", "field": "customers.gender", "value": "%Fe"},
+        {"explore": "orders", "field": "customers.gender", "value": "%male%"},
         {"explore": "orders", "field": "orders.revenue_dimension", "value": "=100"},
         {"explore": "orders", "field": "orders.revenue_dimension", "value": ">100"},
         {"explore": "orders", "field": "orders.revenue_dimension", "value": "<100"},
@@ -80,6 +87,10 @@ def test_dashboard_to_dict(connection):
         # {"explore": "orders", "field": "orders.order_month", "value": "12 months ago to date"},
         # {"explore": "orders", "field": "orders.order_quarter", "value": "4 quarters ago to date"},
         # {"explore": "orders", "field": "orders.order_year", "value": "1 year ago to date"},
+        # {"explore": "orders", "field": "orders.order_year", "value": "1 year ago for 3 months"},
+        # {"explore": "orders", "field": "orders.order_year", "value": "1 year ago for 30 days"},
+        # {"explore": "orders", "field": "orders.order_year", "value": "2 years ago"},
+        # {"explore": "orders", "field": "orders.order_year", "value": "2 years"},
         {"explore": "orders", "field": "customers.gender", "value": "Male, Female"},
         {"explore": "orders", "field": "customers.gender", "value": "-Male, -Female"},
         {"explore": "orders", "field": "customers.gender", "value": "-NULL"},
@@ -97,6 +108,12 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
     expression_lookup = {
         "Male": "equal_to",
         "-Male": "not_equal_to",
+        "-Ma%": "does_not_start_with_case_insensitive",
+        "-%Ma": "does_not_end_with_case_insensitive",
+        "-%ale%": "does_not_contain_case_insensitive",
+        "Fe%": "starts_with_case_insensitive",
+        "%Fe": "ends_with_case_insensitive",
+        "%male%": "contains_case_insensitive",
         "=100": "equal_to",
         ">100": "greater_than",
         "<100": "less_than",
@@ -116,6 +133,12 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
     value_lookup = {
         "Male": "Male",
         "-Male": "Male",
+        "-Ma%": "Ma",
+        "-%Ma": "Ma",
+        "-%ale%": "ale",
+        "Fe%": "Fe",
+        "%Fe": "Fe",
+        "%male%": "male",
         "=100": 100,
         ">100": 100,
         "<100": 100,
