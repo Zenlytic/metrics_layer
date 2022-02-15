@@ -3,6 +3,7 @@ import pytest
 from metrics_layer.core.model.definitions import Definitions
 
 
+@pytest.mark.query
 def test_query_count_no_sql(connection):
     query = connection.get_sql_query(metrics=["number_of_customers"], dimensions=["channel"])
 
@@ -16,6 +17,7 @@ def test_query_count_no_sql(connection):
 
 
 @pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery])
+@pytest.mark.query
 def test_query_sum_with_sql(connection, query_type):
     query = connection.get_sql_query(metrics=["total_revenue"], dimensions=["channel"], query_type=query_type)
 
@@ -46,6 +48,7 @@ def test_query_sum_with_sql(connection, query_type):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_count_with_sql(connection):
     query = connection.get_sql_query(metrics=["number_of_orders"], dimensions=["channel"])
 
@@ -59,6 +62,7 @@ def test_query_count_with_sql(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_count_with_one_to_many(connection):
     query = connection.get_sql_query(
         metrics=["number_of_email_purchased_items"], dimensions=["discount_code"]
@@ -66,7 +70,7 @@ def test_query_count_with_one_to_many(connection):
 
     correct = (
         "SELECT discounts.code as discounts_discount_code,NULLIF(COUNT(DISTINCT "
-        "CASE WHEN  (case when order_lines.sales_channel = 'Email' then "
+        "CASE WHEN  (case when order_lines.sales_channel='Email' then "
         "order_lines.order_id end)  IS NOT NULL THEN  order_lines.order_line_id  ELSE NULL "
         "END), 0) as order_lines_number_of_email_purchased_items "
         "FROM analytics.order_line_items order_lines "
@@ -78,6 +82,7 @@ def test_query_count_with_one_to_many(connection):
 
 
 @pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery])
+@pytest.mark.query
 def test_query_average_with_sql(connection, query_type: str):
     query = connection.get_sql_query(
         metrics=["average_order_value"], dimensions=["channel"], query_type=query_type
@@ -113,6 +118,7 @@ def test_query_average_with_sql(connection, query_type: str):
 
 
 @pytest.mark.parametrize("query_type", [Definitions.bigquery, Definitions.snowflake])
+@pytest.mark.query
 def test_query_number_with_sql(connection, query_type):
     query = connection.get_sql_query(
         metrics=["total_sessions_divide"], dimensions=["channel"], query_type=query_type
@@ -120,7 +126,7 @@ def test_query_number_with_sql(connection, query_type):
 
     if query_type == Definitions.snowflake:
         sa_sum = (
-            "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when customers.is_churned is FALSE then customers.total_sessions end, 0) "  # noqa
+            "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when customers.is_churned=false then customers.total_sessions end, 0) "  # noqa
             "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(customers.customer_id), "
             "'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) "
             "- SUM(DISTINCT (TO_NUMBER(MD5(customers.customer_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "
@@ -129,7 +135,7 @@ def test_query_number_with_sql(connection, query_type):
         )
     elif query_type == Definitions.bigquery:
         sa_sum = (
-            "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when customers.is_churned is FALSE then customers.total_sessions end, 0) "  # noqa
+            "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when customers.is_churned=false then customers.total_sessions end, 0) "  # noqa
             "* (1000000 * 1.0)) AS FLOAT64)) + "
             "CAST(FARM_FINGERPRINT(CAST(customers.customer_id AS STRING)) AS BIGNUMERIC)) "
             "- SUM(DISTINCT CAST(FARM_FINGERPRINT(CAST(customers.customer_id AS STRING)) AS BIGNUMERIC))) AS FLOAT64) "  # noqa

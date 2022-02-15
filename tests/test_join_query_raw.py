@@ -3,6 +3,7 @@ import pytest
 from metrics_layer.core.sql.query_errors import ArgumentError
 
 
+@pytest.mark.query
 def test_query_no_join_raw(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
@@ -17,6 +18,7 @@ def test_query_no_join_raw(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_single_join_non_base_primary_key(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
@@ -34,6 +36,7 @@ def test_query_single_join_non_base_primary_key(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_single_join_raw(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
@@ -51,6 +54,7 @@ def test_query_single_join_raw(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_single_join_raw_select_args(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
@@ -75,6 +79,7 @@ def test_query_single_join_raw_select_args(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_single_join_having_error(connection):
     with pytest.raises(ArgumentError) as exc_info:
         connection.get_sql_query(
@@ -86,6 +91,7 @@ def test_query_single_join_having_error(connection):
     assert exc_info.value
 
 
+@pytest.mark.query
 def test_query_single_join_order_by_error(connection):
     with pytest.raises(ArgumentError) as exc_info:
         connection.get_sql_query(
@@ -97,6 +103,7 @@ def test_query_single_join_order_by_error(connection):
     assert exc_info.value
 
 
+@pytest.mark.query
 def test_query_single_join_raw_all(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],

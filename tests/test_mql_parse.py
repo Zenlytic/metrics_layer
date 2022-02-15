@@ -3,6 +3,7 @@ import pytest
 from metrics_layer.core.sql.query_errors import ParseError
 
 
+@pytest.mark.query
 def test_query_no_join_mql(connection):
 
     query = connection.get_sql_query(
@@ -29,6 +30,7 @@ def test_query_no_join_mql(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_no_join_mql_syntax_error(connection):
 
     with pytest.raises(ParseError) as exc_info:
@@ -39,6 +41,7 @@ def test_query_no_join_mql_syntax_error(connection):
     assert exc_info.value
 
 
+@pytest.mark.query
 def test_query_single_join_mql(connection):
 
     query = connection.get_sql_query(
@@ -55,6 +58,7 @@ def test_query_single_join_mql(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_multiple_join_mql(connection):
 
     query = connection.get_sql_query(
@@ -73,6 +77,7 @@ def test_query_multiple_join_mql(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_multiple_join_all_mql(connection):
 
     query = connection.get_sql_query(
@@ -93,6 +98,7 @@ def test_query_multiple_join_all_mql(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_mql_as_subset(connection):
 
     mql = (
@@ -148,6 +154,7 @@ def test_query_mql_define(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_mql_pass_through_query(connection):
     correct = "SELECT channelinfo.channel, channelinfo.channel_owner FROM analytics.channeldata channelinfo;"
     query = connection.get_sql_query(sql=correct, connection_name="connection_name")

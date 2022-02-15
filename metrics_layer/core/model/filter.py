@@ -1,6 +1,9 @@
 from datetime import datetime
 from enum import Enum
 
+import pandas as pd
+from pypika.terms import LiteralValue
+
 from .base import MetricsLayerBase
 
 
@@ -69,6 +72,21 @@ class Filter(MetricsLayerBase):
         # TODO more advanced parsing similar to
         # ref: https://docs.looker.com/reference/field-params/filters
 
+        _date_values_lookup = {
+            "yesterday",
+            "last week",
+            "last month",
+            "last quarter",
+            "last year",
+            "week to date",
+            "month to date",
+            "quarter to date",
+            "year to date",
+            "last week to date",
+            "last month to date",
+            "last quarter to date",
+            "last year to date",
+        }
         _symbol_to_filter_type_lookup = {
             "<=": MetricsLayerFilterExpressionType.LessOrEqualThan,
             ">=": MetricsLayerFilterExpressionType.GreaterOrEqualThan,
@@ -94,6 +112,14 @@ class Filter(MetricsLayerBase):
             expression = MetricsLayerFilterExpressionType.EqualTo
             cleaned_value = value
 
+        # Handle date conditions
+        elif value in _date_values_lookup:
+            start, end = Filter._parse_date_string(value.split(" ")[-1])
+            if value.split(" ")[0] == "after":
+                expression = MetricsLayerFilterExpressionType.GreaterOrEqualThan
+            else:
+                expression = MetricsLayerFilterExpressionType.LessOrEqualThan
+
         # Handle date after and before
         elif value.split(" ")[0] in {"after", "before"}:
             cleaned_value = Filter._parse_date_string(value.split(" ")[-1])
@@ -118,10 +144,15 @@ class Filter(MetricsLayerBase):
         # Numeric parsing for less than or equal to, greater than or equal to, not equal to
         elif value[:2] in {"<=", ">=", "<>", "!="}:
             expression = _symbol_to_filter_type_lookup[value[:2]]
-            cleaned_value = value[2:]
+            cleaned_value = pd.to_numeric(value[2:])
 
         # Numeric parsing for equal to, less than, greater than
-        elif value[0] in {"=", ">", "<", "-"}:
+        elif value[0] in {"=", ">", "<"}:
+            expression = _symbol_to_filter_type_lookup[value[0]]
+            cleaned_value = pd.to_numeric(value[1:])
+
+        # String parsing for NOT equal to
+        elif value[0] == "-":
             expression = _symbol_to_filter_type_lookup[value[0]]
             cleaned_value = value[1:]
 
@@ -142,51 +173,54 @@ class Filter(MetricsLayerBase):
         conditions = []
         for f in filters:
             filter_dict = Filter._filter_dict(f["field"], f["value"])
-            parsed_value = filter_dict["value"]
+            # parsed_value = filter_dict["value"]
 
-            # Handle null conditiona
-            if filter_dict["expression"] == MetricsLayerFilterExpressionType.IsNull:
-                condition_value = f"is null"
-            elif filter_dict["expression"] == MetricsLayerFilterExpressionType.IsNotNull:
-                condition_value = f"is not null"
+            # # Handle null conditiona
+            # if filter_dict["expression"] == MetricsLayerFilterExpressionType.IsNull:
+            #     condition_value = f"is null"
+            # elif filter_dict["expression"] == MetricsLayerFilterExpressionType.IsNotNull:
+            #     condition_value = f"is not null"
 
-            # isin or isnotin for strings
-            elif filter_dict["expression"] == MetricsLayerFilterExpressionType.IsIn:
-                categories = ",".join([f"'{v}'" for v in parsed_value])
-                condition_value = f"is in ({categories})"
+            # # isin or isnotin for strings
+            # elif filter_dict["expression"] == MetricsLayerFilterExpressionType.IsIn:
+            #     categories = ",".join([f"'{v}'" for v in parsed_value])
+            #     condition_value = f"is in ({categories})"
 
-            elif filter_dict["expression"] == MetricsLayerFilterExpressionType.IsNotIn:
-                categories = ",".join([f"'{v}'" for v in parsed_value])
-                condition_value = f"is not in ({categories})"
+            # elif filter_dict["expression"] == MetricsLayerFilterExpressionType.IsNotIn:
+            #     categories = ",".join([f"'{v}'" for v in parsed_value])
+            #     condition_value = f"is not in ({categories})"
 
-            # Handle boolean True and False
-            elif parsed_value == True or parsed_value == False:  # noqa
-                condition_value = f"is {str(parsed_value).upper()}"
+            # # Handle boolean True and False
+            # elif parsed_value == True or parsed_value == False:  # noqa
+            #     condition_value = f"is {str(parsed_value).upper()}"
 
-            # Handle date after and before
-            elif f["value"].split(" ")[0] == "after":
-                condition_value = f">= {parsed_value}"
+            # # Handle date after and before
+            # elif f["value"].split(" ")[0] == "after":
+            #     condition_value = f">= {parsed_value}"
 
-            elif f["value"].split(" ")[0] == "before":
-                condition_value = f"<= {parsed_value}"
+            # elif f["value"].split(" ")[0] == "before":
+            #     condition_value = f"<= {parsed_value}"
 
-            # Not equal to condition for strings
-            elif f["value"][0] == "-":
-                condition_value = f"<> '{parsed_value}'"
+            # # Not equal to condition for strings
+            # elif f["value"][0] == "-":
+            #     condition_value = f"<> '{parsed_value}'"
 
-            # Numeric parsing for less than or equal to, greater than or equal to, not equal to
-            elif f["value"][:2] in {"<=", ">=", "<>", "!="}:
-                condition_value = f"{f['value'][:2]} {parsed_value}"
+            # # Numeric parsing for less than or equal to, greater than or equal to, not equal to
+            # elif f["value"][:2] in {"<=", ">=", "<>", "!="}:
+            #     condition_value = f"{f['value'][:2]} {parsed_value}"
 
-            # Numeric parsing for equal to, less than, greater than
-            elif f["value"][0] in {"=", ">", "<"}:
-                condition_value = f"{f['value'][0]} {parsed_value}"
+            # # Numeric parsing for equal to, less than, greater than
+            # elif f["value"][0] in {"=", ">", "<"}:
+            #     condition_value = f"{f['value'][0]} {parsed_value}"
 
-            else:
-                condition_value = f"= '{parsed_value}'"
+            # else:
+            #     condition_value = f"= '{parsed_value}'"
 
             field_reference = "${" + f["field"] + "}"
-            condition = f"{field_reference} {condition_value}"
+            condition_value = Filter.sql_query(
+                field_reference, filter_dict["expression"], filter_dict["value"]
+            )
+            condition = f"{condition_value}"
             conditions.append(condition)
 
         # Add the filter conditions AND'd together
@@ -195,3 +229,45 @@ class Filter(MetricsLayerBase):
         case_sql += f" then {sql} end"
 
         return case_sql
+
+    @staticmethod
+    def sql_query(sql_to_compare: str, expression_type: str, value):
+        field = LiteralValue(sql_to_compare)
+        criterion_strategies = {
+            MetricsLayerFilterExpressionType.LessThan: lambda f: f < value,
+            MetricsLayerFilterExpressionType.LessOrEqualThan: lambda f: f <= value,
+            MetricsLayerFilterExpressionType.EqualTo: lambda f: f == value,
+            MetricsLayerFilterExpressionType.NotEqualTo: lambda f: f != value,
+            MetricsLayerFilterExpressionType.GreaterOrEqualThan: lambda f: f >= value,
+            MetricsLayerFilterExpressionType.GreaterThan: lambda f: f > value,
+            MetricsLayerFilterExpressionType.Like: lambda f: f.like(value),
+            MetricsLayerFilterExpressionType.Contains: lambda f: f.like(f"%{value}%"),
+            MetricsLayerFilterExpressionType.DoesNotContain: lambda f: f.not_like(f"%{value}%"),
+            MetricsLayerFilterExpressionType.ContainsCaseInsensitive: lambda f: f.ilike(f"%{value}%"),
+            MetricsLayerFilterExpressionType.DoesNotContainCaseInsensitive: lambda f: f.not_ilike(
+                f"%{value}%"
+            ),
+            MetricsLayerFilterExpressionType.StartsWith: lambda f: f.like(f"{value}%"),
+            MetricsLayerFilterExpressionType.EndsWith: lambda f: f.like(f"%{value}"),
+            MetricsLayerFilterExpressionType.DoesNotStartWith: lambda f: f.not_like(f"{value}%"),
+            MetricsLayerFilterExpressionType.DoesNotEndWith: lambda f: f.not_like(f"%{value}"),
+            MetricsLayerFilterExpressionType.StartsWithCaseInsensitive: lambda f: f.ilike(f"{value}%"),
+            MetricsLayerFilterExpressionType.EndsWithCaseInsensitive: lambda f: f.ilike(f"%{value}"),
+            MetricsLayerFilterExpressionType.DoesNotStartWithCaseInsensitive: lambda f: f.not_ilike(
+                f"{value}%"
+            ),
+            MetricsLayerFilterExpressionType.DoesNotEndWithCaseInsensitive: lambda f: f.not_ilike(
+                f"%{value}"
+            ),
+            MetricsLayerFilterExpressionType.IsNull: lambda f: f.isnull(),
+            MetricsLayerFilterExpressionType.IsNotNull: lambda f: f.notnull(),
+            MetricsLayerFilterExpressionType.IsIn: lambda f: f.isin(value),
+            MetricsLayerFilterExpressionType.IsNotIn: lambda f: f.isin(value).negate(),
+            MetricsLayerFilterExpressionType.BooleanTrue: lambda f: f,
+            MetricsLayerFilterExpressionType.BooleanFalse: lambda f: f.negate(),
+        }
+
+        try:
+            return criterion_strategies[expression_type](field)
+        except KeyError:
+            raise NotImplementedError(f"Unknown filter expression_type: {expression_type}.")
