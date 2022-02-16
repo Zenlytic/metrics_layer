@@ -1,3 +1,4 @@
+import pendulum
 import pytest
 
 
@@ -70,27 +71,28 @@ def test_dashboard_to_dict(connection):
         {"explore": "orders", "field": "orders.revenue_dimension", "value": "<>120"},
         {"explore": "orders", "field": "orders.order_month", "value": "after 2021-02-03"},
         {"explore": "orders", "field": "orders.order_month", "value": "before 2021-02-03"},
-        # {"explore": "orders", "field": "orders.order_date", "value": "yesterday"},
-        # {"explore": "orders", "field": "orders.order_week", "value": "last week"},
-        # {"explore": "orders", "field": "orders.order_month", "value": "last month"},
-        # {"explore": "orders", "field": "orders.order_month", "value": "last quarter"},
-        # {"explore": "orders", "field": "orders.order_month", "value": "last year"},
-        # {"explore": "orders", "field": "orders.order_week", "value": "week to date"},
-        # {"explore": "orders", "field": "orders.order_month", "value": "month to date"},
-        # {"explore": "orders", "field": "orders.order_quarter", "value": "quarter to date"},
-        # {"explore": "orders", "field": "orders.order_year", "value": "year to date"},
-        # {"explore": "orders", "field": "orders.order_week", "value": "last week to date"},
-        # {"explore": "orders", "field": "orders.order_month", "value": "last month to date"},
-        # {"explore": "orders", "field": "orders.order_quarter", "value": "last quarter to date"},
-        # {"explore": "orders", "field": "orders.order_year", "value": "last year to date"},
-        # {"explore": "orders", "field": "orders.order_week", "value": "52 weeks ago to date"},
-        # {"explore": "orders", "field": "orders.order_month", "value": "12 months ago to date"},
-        # {"explore": "orders", "field": "orders.order_quarter", "value": "4 quarters ago to date"},
-        # {"explore": "orders", "field": "orders.order_year", "value": "1 year ago to date"},
-        # {"explore": "orders", "field": "orders.order_year", "value": "1 year ago for 3 months"},
-        # {"explore": "orders", "field": "orders.order_year", "value": "1 year ago for 30 days"},
-        # {"explore": "orders", "field": "orders.order_year", "value": "2 years ago"},
-        # {"explore": "orders", "field": "orders.order_year", "value": "2 years"},
+        {"explore": "orders", "field": "orders.order_date", "value": "today"},
+        {"explore": "orders", "field": "orders.order_date", "value": "yesterday"},
+        {"explore": "orders", "field": "orders.order_week", "value": "this week"},
+        {"explore": "orders", "field": "orders.order_month", "value": "this month"},
+        {"explore": "orders", "field": "orders.order_month", "value": "this quarter"},
+        {"explore": "orders", "field": "orders.order_month", "value": "this year"},
+        {"explore": "orders", "field": "orders.order_week", "value": "last week"},
+        {"explore": "orders", "field": "orders.order_month", "value": "last month"},
+        {"explore": "orders", "field": "orders.order_month", "value": "last quarter"},
+        {"explore": "orders", "field": "orders.order_month", "value": "last year"},
+        {"explore": "orders", "field": "orders.order_week", "value": "week to date"},
+        {"explore": "orders", "field": "orders.order_month", "value": "month to date"},
+        {"explore": "orders", "field": "orders.order_quarter", "value": "quarter to date"},
+        {"explore": "orders", "field": "orders.order_year", "value": "year to date"},
+        {"explore": "orders", "field": "orders.order_week", "value": "last week to date"},
+        {"explore": "orders", "field": "orders.order_week", "value": "52 weeks ago to date"},
+        {"explore": "orders", "field": "orders.order_month", "value": "12 months ago to date"},
+        {"explore": "orders", "field": "orders.order_year", "value": "1 year ago to date"},
+        {"explore": "orders", "field": "orders.order_year", "value": "1 year ago for 3 months"},
+        {"explore": "orders", "field": "orders.order_year", "value": "1 year ago for 30 days"},
+        {"explore": "orders", "field": "orders.order_year", "value": "2 years ago"},
+        {"explore": "orders", "field": "orders.order_year", "value": "3 months"},
         {"explore": "orders", "field": "customers.gender", "value": "Male, Female"},
         {"explore": "orders", "field": "customers.gender", "value": "-Male, -Female"},
         {"explore": "orders", "field": "customers.gender", "value": "-NULL"},
@@ -103,7 +105,7 @@ def test_dashboard_to_dict(connection):
 )
 def test_dashboard_filter_processing(connection, raw_filter_dict):
     dash = connection.get_dashboard("sales_dashboard")
-    dash.filters = [raw_filter_dict, raw_filter_dict]
+    dash.filters = [raw_filter_dict]
 
     expression_lookup = {
         "Male": "equal_to",
@@ -129,7 +131,30 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         False: "equal_to",
         "after 2021-02-03": "greater_or_equal_than",
         "before 2021-02-03": "less_or_equal_than",
+        "today": "greater_or_equal_than",
+        "yesterday": "greater_or_equal_than",
+        "this week": "greater_or_equal_than",
+        "this month": "greater_or_equal_than",
+        "this quarter": "greater_or_equal_than",
+        "this year": "greater_or_equal_than",
+        "last week": "greater_or_equal_than",
+        "last month": "greater_or_equal_than",
+        "last quarter": "greater_or_equal_than",
+        "last year": "greater_or_equal_than",
+        "week to date": "greater_or_equal_than",
+        "month to date": "greater_or_equal_than",
+        "quarter to date": "greater_or_equal_than",
+        "year to date": "greater_or_equal_than",
+        "last week to date": "greater_or_equal_than",
+        "52 weeks ago to date": "greater_or_equal_than",
+        "12 months ago to date": "greater_or_equal_than",
+        "1 year ago to date": "greater_or_equal_than",
+        "1 year ago for 3 months": "greater_or_equal_than",
+        "1 year ago for 30 days": "greater_or_equal_than",
+        "2 years ago": "greater_or_equal_than",
+        "3 months": "greater_or_equal_than",
     }
+    date_format = "%Y-%m-%dT%H:%M:%S"
     value_lookup = {
         "Male": "Male",
         "-Male": "Male",
@@ -154,8 +179,87 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         False: False,
         "after 2021-02-03": "2021-02-03T00:00:00",
         "before 2021-02-03": "2021-02-03T00:00:00",
+        "today": pendulum.now("UTC").start_of("day").strftime(date_format),
+        "yesterday": pendulum.now("UTC").subtract(days=1).start_of("day").strftime(date_format),
+        "this week": pendulum.now("UTC").subtract(weeks=0).start_of("week").strftime(date_format),
+        "this month": pendulum.now("UTC").subtract(months=0).start_of("month").strftime(date_format),
+        "this quarter": pendulum.now("UTC").subtract(months=0).first_of("quarter").strftime(date_format),
+        "this year": pendulum.now("UTC").subtract(years=0).start_of("year").strftime(date_format),
+        "last week": pendulum.now("UTC").subtract(weeks=1).start_of("week").strftime(date_format),
+        "last month": pendulum.now("UTC").subtract(months=1).start_of("month").strftime(date_format),
+        "last quarter": pendulum.now("UTC").subtract(months=3).first_of("quarter").strftime(date_format),
+        "last year": pendulum.now("UTC").subtract(years=1).start_of("year").strftime(date_format),
+        "week to date": pendulum.now("UTC").subtract(weeks=0).start_of("week").strftime(date_format),
+        "month to date": pendulum.now("UTC").subtract(months=0).start_of("month").strftime(date_format),
+        "quarter to date": pendulum.now("UTC").subtract(months=0).first_of("quarter").strftime(date_format),
+        "year to date": pendulum.now("UTC").subtract(years=0).start_of("year").strftime(date_format),
+        "last week to date": pendulum.now("UTC").subtract(weeks=1).start_of("week").strftime(date_format),
+        "52 weeks ago to date": pendulum.now("UTC").subtract(weeks=52).start_of("week").strftime(date_format),
+        "12 months ago to date": pendulum.now("UTC")
+        .subtract(months=12)
+        .start_of("month")
+        .strftime(date_format),
+        "1 year ago to date": pendulum.now("UTC").subtract(years=1).start_of("year").strftime(date_format),
+        "1 year ago for 3 months": pendulum.now("UTC")
+        .subtract(years=1)
+        .start_of("year")
+        .strftime(date_format),
+        "1 year ago for 30 days": pendulum.now("UTC")
+        .subtract(years=1)
+        .start_of("year")
+        .strftime(date_format),
+        "2 years ago": pendulum.now("UTC").subtract(years=2).start_of("year").strftime(date_format),
+        "3 months": pendulum.now("UTC").subtract(months=2).start_of("month").strftime(date_format),
     }
 
+    second_value_lookup = {
+        "yesterday": pendulum.now("UTC").subtract(days=1).end_of("day").strftime(date_format),
+        "last week": pendulum.now("UTC").subtract(weeks=1).end_of("week").strftime(date_format),
+        "last month": pendulum.now("UTC").subtract(months=1).end_of("month").strftime(date_format),
+        "last quarter": pendulum.now("UTC").subtract(months=3).last_of("quarter").strftime(date_format),
+        "last year": pendulum.now("UTC").subtract(years=1).end_of("year").strftime(date_format),
+        "week to date": pendulum.now("UTC").subtract(days=1).end_of("day").strftime(date_format),
+        "month to date": pendulum.now("UTC").subtract(days=1).end_of("day").strftime(date_format),
+        "quarter to date": pendulum.now("UTC").subtract(days=1).end_of("day").strftime(date_format),
+        "year to date": pendulum.now("UTC").subtract(days=1).end_of("day").strftime(date_format),
+        "last week to date": pendulum.now("UTC")
+        .subtract(weeks=1)
+        .start_of("week")
+        .add(days=(pendulum.now("UTC") - pendulum.now("UTC").start_of("week")).days - 1)
+        .end_of("day")
+        .strftime(date_format),
+        "52 weeks ago to date": pendulum.now("UTC")
+        .subtract(weeks=52)
+        .start_of("week")
+        .add(days=(pendulum.now("UTC") - pendulum.now("UTC").start_of("week")).days - 1)
+        .end_of("day")
+        .strftime(date_format),
+        "12 months ago to date": pendulum.now("UTC")
+        .subtract(months=12)
+        .start_of("month")
+        .add(days=(pendulum.now("UTC") - pendulum.now("UTC").start_of("month")).days - 1)
+        .end_of("day")
+        .strftime(date_format),
+        "1 year ago to date": pendulum.now("UTC")
+        .subtract(years=1)
+        .start_of("year")
+        .add(days=(pendulum.now("UTC") - pendulum.now("UTC").start_of("year")).days - 1)
+        .end_of("day")
+        .strftime(date_format),
+        "1 year ago for 3 months": pendulum.now("UTC")
+        .subtract(years=1)
+        .start_of("year")
+        .add(months=2)
+        .end_of("month")
+        .strftime(date_format),
+        "1 year ago for 30 days": pendulum.now("UTC")
+        .subtract(years=1)
+        .start_of("year")
+        .add(days=29)
+        .end_of("day")
+        .strftime(date_format),
+        "2 years ago": pendulum.now("UTC").subtract(years=2).end_of("year").strftime(date_format),
+    }
     if raw_filter_dict["value"] in {"-Male, Female", "BREAK_ON_EXPLORE"}:
         with pytest.raises(ValueError) as exc_info:
             dash.parsed_filters()
@@ -163,11 +267,15 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
 
     else:
         parsed_filters = dash.parsed_filters()
-        assert len(parsed_filters) == 2
+        assert len(parsed_filters) in {1, 2}
         assert parsed_filters[0]["explore"] == "orders"
         assert parsed_filters[0]["field"] == raw_filter_dict["field"]
         assert parsed_filters[0]["expression"].value == expression_lookup[raw_filter_dict["value"]]
         assert parsed_filters[0]["value"] == value_lookup[raw_filter_dict["value"]]
+        if raw_filter_dict["value"] in second_value_lookup or len(parsed_filters) == 2:
+            assert parsed_filters[1]["field"] == raw_filter_dict["field"]
+            assert parsed_filters[1]["expression"].value == "less_or_equal_than"
+            assert parsed_filters[1]["value"] == second_value_lookup[raw_filter_dict["value"]]
 
 
 @pytest.mark.parametrize(
