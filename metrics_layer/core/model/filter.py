@@ -292,7 +292,7 @@ class Filter(MetricsLayerBase):
             cleaned_value = None
 
         # Handle boolean True and False
-        elif value == True or value == False:  # noqa
+        elif value in {True, False, "TRUE", "FALSE"}:  # noqa
             expression = MetricsLayerFilterExpressionType.EqualTo
             cleaned_value = value
 
