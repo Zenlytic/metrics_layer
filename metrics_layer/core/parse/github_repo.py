@@ -68,7 +68,7 @@ class GithubRepo(BaseRepo):
         self.repo_type = repo_type
         self.warehouse_type = warehouse_type
         self.repo_name = utils.generate_uuid()
-        self.repo_destination = os.path.join(BASE_PATH, self.repo_name)
+        self.repo_destination = os.path.join(os.getcwd(), self.repo_name)
         self.folder = f"{self.repo_destination}/"
         self.branch = branch
 
