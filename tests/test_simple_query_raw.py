@@ -69,6 +69,7 @@ simple_view = {
 }
 
 
+@pytest.mark.query
 def test_simple_query(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -82,6 +83,7 @@ def test_simple_query(config):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_complex_metric(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -97,6 +99,7 @@ def test_query_complex_metric(config):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_complex_metric_having_error(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -111,6 +114,7 @@ def test_query_complex_metric_having_error(config):
     assert exc_info.value
 
 
+@pytest.mark.query
 def test_query_complex_metric_order_by_error(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -125,6 +129,7 @@ def test_query_complex_metric_order_by_error(config):
     assert exc_info.value
 
 
+@pytest.mark.query
 def test_query_complex_metric_all(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project

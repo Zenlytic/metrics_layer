@@ -37,7 +37,7 @@ class DashboardElement(MetricsLayerBase):
         return self.filters
 
     def parsed_filters(self, json_safe=False):
-        return [Filter(f).filter_dict(json_safe) for f in self._raw_filters()]
+        return [f for raw in self._raw_filters() for f in Filter(raw).filter_dict(json_safe)]
 
     def collect_errors(self):
         errors = []
@@ -143,10 +143,11 @@ class Dashboard(MetricsLayerBase):
     def parsed_filters(self, json_safe=False):
         all_filters = []
         for f in self._raw_filters():
-            clean_filter = Filter(f).filter_dict(json_safe)
-            if "explore" not in clean_filter:
-                raise ValueError(self._missing_filter_explore_error(filter_obj=clean_filter))
-            all_filters.append(clean_filter)
+            clean_filters = Filter(f).filter_dict(json_safe)
+            for clean_filter in clean_filters:
+                if "explore" not in clean_filter:
+                    raise ValueError(self._missing_filter_explore_error(filter_obj=clean_filter))
+                all_filters.append(clean_filter)
         return all_filters
 
     def elements(self):

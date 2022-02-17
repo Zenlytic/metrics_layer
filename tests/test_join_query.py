@@ -1,6 +1,7 @@
 import pytest
 
 
+@pytest.mark.query
 def test_query_no_join(connection):
 
     query = connection.get_sql_query(metrics=["total_item_revenue"], dimensions=["channel"])
@@ -13,6 +14,7 @@ def test_query_no_join(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_alias_only_query(connection):
     metric = connection.get_metric(metric_name="total_item_revenue")
     query = metric.sql_query(query_type="SNOWFLAKE", alias_only=True)
@@ -20,6 +22,7 @@ def test_alias_only_query(connection):
     assert query == "SUM(order_lines_total_item_revenue)"
 
 
+@pytest.mark.query
 def test_alias_only_query_number(connection):
     metric = connection.get_metric(metric_name="line_item_aov")
     query = metric.sql_query(query_type="SNOWFLAKE", alias_only=True)
@@ -27,6 +30,7 @@ def test_alias_only_query_number(connection):
     assert query == "SUM(order_lines_total_item_revenue) / COUNT(orders_number_of_orders)"
 
 
+@pytest.mark.query
 def test_alias_only_query_symmetric_average_distinct(connection):
     metric = connection.get_metric(metric_name="average_order_revenue")
     query = metric.sql_query(query_type="SNOWFLAKE", alias_only=True)
@@ -43,6 +47,7 @@ def test_alias_only_query_symmetric_average_distinct(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_no_join_average_distinct(connection):
 
     query = connection.get_sql_query(metrics=["average_order_revenue"], dimensions=["channel"])
@@ -61,6 +66,7 @@ def test_query_no_join_average_distinct(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_single_join(connection):
 
     query = connection.get_sql_query(metrics=["total_item_revenue"], dimensions=["channel", "new_vs_repeat"])
@@ -75,6 +81,7 @@ def test_query_single_join(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_single_dimension(connection):
 
     query = connection.get_sql_query(metrics=[], dimensions=["new_vs_repeat"])
@@ -85,6 +92,7 @@ def test_query_single_dimension(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_single_dimension_with_comment(connection):
     query = connection.get_sql_query(metrics=["total_item_revenue"], dimensions=["parent_channel"])
 
@@ -98,13 +106,14 @@ def test_query_single_dimension_with_comment(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_single_dimension_with_multi_filter(connection):
     query = connection.get_sql_query(metrics=["total_item_costs"], dimensions=["channel"])
 
     correct = (
-        "SELECT order_lines.sales_channel as order_lines_channel,SUM(case when order_lines.product_name "
-        "= 'Portable Charger' and order_lines.product_name is in ('Portable Charger','Dual Charger') "
-        "and orders.revenue * 100 > 100 then order_lines.item_costs end) "
+        "SELECT order_lines.sales_channel as order_lines_channel,SUM(case when order_lines.product_name"
+        "='Portable Charger' and order_lines.product_name IN ('Portable Charger','Dual Charger') "
+        "and orders.revenue * 100>100 then order_lines.item_costs end) "
         "as order_lines_total_item_costs FROM analytics.order_line_items order_lines LEFT JOIN "
         "analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "GROUP BY order_lines.sales_channel;"
@@ -112,6 +121,7 @@ def test_query_single_dimension_with_multi_filter(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_single_dimension_sa_duration(connection):
     query = connection.get_sql_query(metrics=["average_days_between_orders"], dimensions=["product_name"])
 
@@ -131,7 +141,7 @@ def test_query_single_dimension_sa_duration(connection):
     assert query == correct
 
 
-@pytest.mark.mmm
+@pytest.mark.query
 def test_functional_pk_resolve_one_to_many(connection):
     query = connection.get_sql_query(
         metrics=["discount_usd"],
@@ -150,6 +160,7 @@ def test_functional_pk_resolve_one_to_many(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_single_join_count(connection):
 
     query = connection.get_sql_query(
@@ -168,6 +179,7 @@ def test_query_single_join_count(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_single_join_metric_with_sub_field(connection):
 
     query = connection.get_sql_query(
@@ -185,6 +197,7 @@ def test_query_single_join_metric_with_sub_field(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_single_join_with_forced_additional_join(connection):
     query = connection.get_sql_query(
         metrics=["avg_rainfall"],
@@ -211,6 +224,7 @@ def test_query_single_join_with_forced_additional_join(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_single_join_select_args(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
@@ -235,6 +249,7 @@ def test_query_single_join_select_args(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_single_join_with_case_raw_sql(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
@@ -252,6 +267,7 @@ def test_query_single_join_with_case_raw_sql(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_single_join_with_case(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
@@ -267,6 +283,7 @@ def test_query_single_join_with_case(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_single_join_with_tier(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
@@ -289,6 +306,7 @@ def test_query_single_join_with_tier(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_single_join_with_filter(connection):
     query = connection.get_sql_query(
         metrics=["number_of_email_purchased_items"],
@@ -298,7 +316,7 @@ def test_query_single_join_with_filter(connection):
     correct = (
         "SELECT order_lines.sales_channel as order_lines_channel,"
         "orders.new_vs_repeat as orders_new_vs_repeat,"
-        "COUNT(case when order_lines.sales_channel = 'Email' then order_lines.order_id end) "
+        "COUNT(case when order_lines.sales_channel='Email' then order_lines.order_id end) "
         "as order_lines_number_of_email_purchased_items FROM analytics.order_line_items "
         "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id"
         " GROUP BY order_lines.sales_channel,orders.new_vs_repeat;"
@@ -306,6 +324,7 @@ def test_query_single_join_with_filter(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_multiple_join(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
@@ -323,6 +342,7 @@ def test_query_multiple_join(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_multiple_join_with_duration(connection):
     query = connection.get_sql_query(
         metrics=["total_sessions"],
@@ -331,7 +351,7 @@ def test_query_multiple_join_with_duration(connection):
 
     correct = (
         "SELECT DATEDIFF('MONTH', orders.previous_order_date, orders.order_date) as orders_months_between_orders,"  # noqa
-        "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when customers.is_churned is FALSE then "
+        "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when customers.is_churned=false then "
         "customers.total_sessions end, 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) "
         "+ (TO_NUMBER(MD5(customers.customer_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) "  # noqa
         "- SUM(DISTINCT (TO_NUMBER(MD5(customers.customer_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "
@@ -345,6 +365,7 @@ def test_query_multiple_join_with_duration(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_multiple_join_where_dict(connection):
 
     query = connection.get_sql_query(
@@ -365,6 +386,7 @@ def test_query_multiple_join_where_dict(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_multiple_join_where_literal(connection):
 
     query = connection.get_sql_query(
@@ -385,6 +407,7 @@ def test_query_multiple_join_where_literal(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_multiple_join_having_dict(connection):
 
     query = connection.get_sql_query(
@@ -404,6 +427,7 @@ def test_query_multiple_join_having_dict(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_multiple_join_having_literal(connection):
 
     query = connection.get_sql_query(
@@ -423,6 +447,7 @@ def test_query_multiple_join_having_literal(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_multiple_join_order_by_literal(connection):
 
     query = connection.get_sql_query(
@@ -442,6 +467,7 @@ def test_query_multiple_join_order_by_literal(connection):
     assert query == correct
 
 
+@pytest.mark.query
 def test_query_multiple_join_all(connection):
 
     query = connection.get_sql_query(

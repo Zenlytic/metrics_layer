@@ -3,13 +3,13 @@ from copy import deepcopy
 from typing import Dict
 
 import sqlparse
-from pypika import Criterion, Field
+from pypika import Criterion
 from pypika.terms import LiteralValue
 from sqlparse.tokens import Error, Name, Punctuation
 
 from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.model.field import Field as MetricsLayerField
-from metrics_layer.core.model.filter import MetricsLayerFilterExpressionType
+from metrics_layer.core.model.filter import Filter, MetricsLayerFilterExpressionType
 from metrics_layer.core.sql.pypika_types import LiteralValueCriterion
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_errors import ParseError
@@ -90,7 +90,7 @@ class MetricsLayerFilter(MetricsLayerBase):
 
             return LiteralValueCriterion(self.replace_fields_literal_filter())
         functional_pk = self.design.functional_pk()
-        return self.criterion(LiteralValue(self.field.sql_query(self.query_type, functional_pk)))
+        return self.criterion(self.field.sql_query(self.query_type, functional_pk))
 
     def replace_fields_literal_filter(self):
         tokens = self._parse_sql_literal(self.literal)
@@ -126,51 +126,11 @@ class MetricsLayerFilter(MetricsLayerBase):
 
         return tokens
 
-    def criterion(self, field: Field) -> Criterion:
+    def criterion(self, field_sql: str) -> Criterion:
         """
         Generate the Pypika Criterion for this filter
-
-        field: Pypika Field as we do not know the base table this filter is
-                evaluated against (is it the base table or an intermediary table?)
 
         We have to use the following cases as PyPika does not allow an str
          representation of the clause on its where() and having() functions
         """
-        criterion_strategies = {
-            MetricsLayerFilterExpressionType.LessThan: lambda f: f < self.value,
-            MetricsLayerFilterExpressionType.LessOrEqualThan: lambda f: f <= self.value,
-            MetricsLayerFilterExpressionType.EqualTo: lambda f: f == self.value,
-            MetricsLayerFilterExpressionType.NotEqualTo: lambda f: f != self.value,
-            MetricsLayerFilterExpressionType.GreaterOrEqualThan: lambda f: f >= self.value,
-            MetricsLayerFilterExpressionType.GreaterThan: lambda f: f > self.value,
-            MetricsLayerFilterExpressionType.Like: lambda f: f.like(self.value),
-            MetricsLayerFilterExpressionType.Contains: lambda f: f.like(f"%{self.value}%"),
-            MetricsLayerFilterExpressionType.DoesNotContain: lambda f: f.not_like(f"%{self.value}%"),
-            MetricsLayerFilterExpressionType.ContainsCaseInsensitive: lambda f: f.ilike(f"%{self.value}%"),
-            MetricsLayerFilterExpressionType.DoesNotContainCaseInsensitive: lambda f: f.not_ilike(
-                f"%{self.value}%"
-            ),
-            MetricsLayerFilterExpressionType.StartsWith: lambda f: f.like(f"{self.value}%"),
-            MetricsLayerFilterExpressionType.EndsWith: lambda f: f.like(f"%{self.value}"),
-            MetricsLayerFilterExpressionType.DoesNotStartWith: lambda f: f.not_like(f"{self.value}%"),
-            MetricsLayerFilterExpressionType.DoesNotEndWith: lambda f: f.not_like(f"%{self.value}"),
-            MetricsLayerFilterExpressionType.StartsWithCaseInsensitive: lambda f: f.ilike(f"{self.value}%"),
-            MetricsLayerFilterExpressionType.EndsWithCaseInsensitive: lambda f: f.ilike(f"%{self.value}"),
-            MetricsLayerFilterExpressionType.DoesNotStartWithCaseInsensitive: lambda f: f.not_ilike(
-                f"{self.value}%"
-            ),
-            MetricsLayerFilterExpressionType.DoesNotEndWithCaseInsensitive: lambda f: f.not_ilike(
-                f"%{self.value}"
-            ),
-            MetricsLayerFilterExpressionType.IsNull: lambda f: f.isnull(),
-            MetricsLayerFilterExpressionType.IsNotNull: lambda f: f.notnull(),
-            MetricsLayerFilterExpressionType.IsIn: lambda f: f.isin(self.value),
-            MetricsLayerFilterExpressionType.IsNotIn: lambda f: f.isin(self.value).negate(),
-            MetricsLayerFilterExpressionType.BooleanTrue: lambda f: f,
-            MetricsLayerFilterExpressionType.BooleanFalse: lambda f: f.negate(),
-        }
-
-        try:
-            return criterion_strategies[self.expression_type](field)
-        except KeyError:
-            raise NotImplementedError(f"Unknown filter expression_type: {self.expression_type}.")
+        return Filter.sql_query(field_sql, self.expression_type, self.value)

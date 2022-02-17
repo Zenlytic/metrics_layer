@@ -75,6 +75,7 @@ simple_view = {
 }
 
 
+@pytest.mark.query
 def test_simple_query(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -88,6 +89,7 @@ def test_simple_query(config):
     assert query == correct
 
 
+@pytest.mark.query
 def test_simple_query_single_metric(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -98,6 +100,7 @@ def test_simple_query_single_metric(config):
     assert query == correct
 
 
+@pytest.mark.query
 def test_simple_query_single_dimension(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -109,6 +112,7 @@ def test_simple_query_single_dimension(config):
     assert query == correct
 
 
+@pytest.mark.query
 def test_simple_query_count(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -120,6 +124,7 @@ def test_simple_query_count(config):
     assert query == correct
 
 
+@pytest.mark.query
 def test_simple_query_alias_keyword(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -152,6 +157,7 @@ def test_simple_query_alias_keyword(config):
         ("day_of_week", Definitions.bigquery),
     ],
 )
+@pytest.mark.query
 def test_simple_query_dimension_group(config, group: str, query_type: str):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -213,6 +219,7 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
         ("hour", Definitions.bigquery),  # Should raise error
     ],
 )
+@pytest.mark.query
 def test_simple_query_dimension_group_interval(config, interval: str, query_type: str):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -269,6 +276,7 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
         assert field.label == correct_label
 
 
+@pytest.mark.query
 def test_simple_query_two_group_by(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -281,6 +289,7 @@ def test_simple_query_two_group_by(config):
     assert query == correct
 
 
+@pytest.mark.query
 def test_simple_query_two_metric(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -298,6 +307,7 @@ def test_simple_query_two_metric(config):
     assert query == correct
 
 
+@pytest.mark.query
 def test_simple_query_custom_dimension(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -312,6 +322,7 @@ def test_simple_query_custom_dimension(config):
     assert query == correct
 
 
+@pytest.mark.query
 def test_simple_query_custom_metric(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -324,6 +335,7 @@ def test_simple_query_custom_metric(config):
 
 
 @pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery])
+@pytest.mark.query
 def test_simple_query_with_where_dim_group(config, query_type):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -366,6 +378,7 @@ def test_simple_query_with_where_dim_group(config, query_type):
         "does_not_end_with_case_insensitive",
     ],
 )
+@pytest.mark.query
 def test_simple_query_with_where_dict(config, filter_type):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -400,6 +413,7 @@ def test_simple_query_with_where_dict(config, filter_type):
     assert query == correct
 
 
+@pytest.mark.query
 def test_simple_query_with_where_literal(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -428,6 +442,7 @@ def test_simple_query_with_where_literal(config):
         "is_not_null",
     ],
 )
+@pytest.mark.query
 def test_simple_query_with_having_dict(config, filter_type):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -459,6 +474,7 @@ def test_simple_query_with_having_dict(config, filter_type):
     assert query == correct
 
 
+@pytest.mark.query
 def test_simple_query_with_having_literal(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -472,6 +488,7 @@ def test_simple_query_with_having_literal(config):
     assert query == correct
 
 
+@pytest.mark.query
 def test_simple_query_with_order_by_dict(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -487,6 +504,7 @@ def test_simple_query_with_order_by_dict(config):
     assert query == correct
 
 
+@pytest.mark.query
 def test_simple_query_with_order_by_literal(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -502,6 +520,7 @@ def test_simple_query_with_order_by_literal(config):
     assert query == correct
 
 
+@pytest.mark.query
 def test_simple_query_with_all(config):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
@@ -522,6 +541,7 @@ def test_simple_query_with_all(config):
     assert query == correct
 
 
+@pytest.mark.query
 def test_simple_query_sql_always_where(config):
     modified_explore = {**simple_model["explores"][0], "sql_always_where": "${new_vs_repeat} = 'Repeat'"}
 
@@ -537,6 +557,7 @@ def test_simple_query_sql_always_where(config):
     assert query == correct
 
 
+@pytest.mark.query
 def test_simple_query_invalid_sql_always_where(config):
     # Looker conditional example
     modified_explore = {
