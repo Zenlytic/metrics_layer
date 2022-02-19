@@ -121,6 +121,13 @@ fields:
     type: number
     sql: "${total_revenue} / ${number_of_orders}"
 
+  - name: new_order_count
+    field_type: "measure"
+    type: count
+    filters:
+      - field: new_vs_repeat
+        value: "New"
+
 sets:
   - name: test_set
     fields: [order_id, customer_id, total_revenue]

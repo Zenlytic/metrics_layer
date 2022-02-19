@@ -147,7 +147,7 @@ def test_cli_validate(config, connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
-    sorted_fields[11]["name"] = "rev_broken_dim"
+    sorted_fields[12]["name"] = "rev_broken_dim"
     project._views[1]["fields"] = sorted_fields
     config.project = project
     conn = MetricsLayerConnection(config=config)

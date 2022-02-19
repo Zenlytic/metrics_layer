@@ -50,14 +50,6 @@ class Field(MetricsLayerBase, SQLReplacement):
         if "sql" not in definition and "case" in definition:
             definition["sql"] = self._translate_looker_case_to_sql(definition["case"])
 
-        if "sql" in definition and "filters" in definition:
-            definition["sql"] = Filter.translate_looker_filters_to_sql(
-                definition["sql"], definition["filters"]
-            )
-
-        if "sql" in definition and definition.get("type") == "tier":
-            definition["sql"] = self._translate_looker_tier_to_sql(definition["sql"], definition["tiers"])
-
         if (
             "sql" not in definition
             and definition.get("field_type") == "measure"
@@ -67,6 +59,20 @@ class Field(MetricsLayerBase, SQLReplacement):
                 definition["sql"] = self.view.primary_key.sql
             else:
                 definition["sql"] = "*"
+
+        if "sql" in definition and "filters" in definition:
+            if definition["sql"] == "*":
+                raise ValueError(
+                    "To apply filters to a count measure you must have the primary_key specified "
+                    "for the view. You can do this by adding the tag 'primary_key: yes' to the "
+                    "necessary dimension"
+                )
+            definition["sql"] = Filter.translate_looker_filters_to_sql(
+                definition["sql"], definition["filters"]
+            )
+
+        if "sql" in definition and definition.get("type") == "tier":
+            definition["sql"] = self._translate_looker_tier_to_sql(definition["sql"], definition["tiers"])
 
         if "sql" in definition:
             definition["sql"] = self._clean_sql_for_case(definition["sql"])

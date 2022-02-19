@@ -489,3 +489,20 @@ def test_query_multiple_join_all(connection):
         "ORDER BY total_item_revenue DESC;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_query_single_join_count_and_filter(connection):
+    query = connection.get_sql_query(
+        metrics=["new_order_count"],
+        dimensions=["channel"],
+    )
+
+    correct = (
+        "SELECT order_lines.sales_channel as order_lines_channel,COUNT(DISTINCT("
+        "case when orders.new_vs_repeat='New' then orders.id end)) "
+        "as orders_new_order_count FROM analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
+        "GROUP BY order_lines.sales_channel;"
+    )
+    assert query == correct

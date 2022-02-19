@@ -46,6 +46,7 @@ def test_sets(connection):
         "orders.total_revenue",
         "orders.total_modified_revenue",
         "orders.average_order_value_custom",
+        "orders.new_order_count",
     ]
 
 
