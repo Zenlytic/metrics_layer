@@ -2,6 +2,7 @@ import os
 
 import pytest
 
+from metrics_layer.core.model.project import Project
 from metrics_layer.core.parse.github_repo import BaseRepo
 from metrics_layer.core.parse.project_reader import ProjectReader
 
@@ -152,6 +153,7 @@ def test_bad_repo_type():
     assert exc_info.value
 
 
+@pytest.mark.mmm
 def test_config_load_multiple():
 
     base_mock = repo_mock(repo_type="lookml")
@@ -212,7 +214,21 @@ def test_config_load_multiple():
     assert field_with_filter["filters"][0] == {"field": "new_vs_repeat", "value": "Repeat"}
 
     assert field_with_new_filter["filters"][0] == {"field": "new_vs_repeat", "value": "Repeat"}
-    assert field_with_new_filter["filters"][-1] == {"field": "order_number", "value": "=1"}
+    assert field_with_new_filter["filters"][-1] == {"field": "is_churned", "value": "TRUE"}
+
+    project = Project(
+        models=reader.models,
+        views=reader.views,
+        dashboards=[],
+        connection_lookup={"connection_name": "SNOWFLAKE"},
+    )
+    field = project.get_field("filter_testing_new")
+    query = field.sql_query(query_type="SNOWFLAKE")
+    correct = (
+        "SUM(case when view_name.new_vs_repeat='Repeat' and "
+        "view_name.is_churned=true then view_name.revenue end)"
+    )
+    assert query == correct
 
 
 def test_config_use_view_name(project):

@@ -177,7 +177,7 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         "-Male, -Female": ["Male", "Female"],
         "-NULL": None,
         "NULL": None,
-        "TRUE": "TRUE",
+        "TRUE": True,
         True: True,
         False: False,
         "after 2021-02-03": "2021-02-03T00:00:00",

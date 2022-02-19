@@ -256,6 +256,14 @@ view: view_name {
     ]
     default_value: "desired default value"
   }
+  dimension: new_vs_repeat {
+    type: string
+    sql: ${TABLE}.new_vs_repeat ;;
+  }
+  dimension: is_churned {
+    type: yesno
+    sql: ${TABLE}.is_churned ;;
+  }
   measure: filter_testing {
     type: sum
     sql: ${TABLE}.revenue ;;
@@ -267,7 +275,7 @@ view: view_name {
   measure: filter_testing_new {
     type: sum
     sql: ${TABLE}.revenue ;;
-    filters: [new_vs_repeat: "Repeat", order_number: "=1"]
+    filters: [new_vs_repeat: "Repeat", is_churned: "TRUE"]
   }
   dimension: parent_channel {
     type: string

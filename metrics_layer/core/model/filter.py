@@ -294,7 +294,10 @@ class Filter(MetricsLayerBase):
         # Handle boolean True and False
         elif value in {True, False, "TRUE", "FALSE"}:  # noqa
             expression = MetricsLayerFilterExpressionType.EqualTo
-            cleaned_value = value
+            if value in {True, "TRUE"}:
+                cleaned_value = True
+            elif value in {False, "FALSE"}:
+                cleaned_value = False
 
         # Handle date conditions
         elif date_condition:
