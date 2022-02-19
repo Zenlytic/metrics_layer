@@ -166,30 +166,6 @@ def test_cli_validate(config, connection, fresh_project, mocker):
 
 
 @pytest.mark.cli
-def test_cli_validate_dimension(config, fresh_project, mocker):
-    # Break something so validation fails
-    project = fresh_project
-    sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
-
-    sorted_fields[2]["sql"] = "${customer_id}"
-    project._views[1]["fields"] = sorted_fields
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
-
-    runner = CliRunner()
-    result = runner.invoke(validate)
-
-    assert result.exit_code == 0
-    assert result.output == (
-        "Found 1 error in the project:\n\n"
-        "\nThe field average_order_value_custom is a measure with type number, but it's sql references "
-        "another field that is not a measure. Please correct this reference to the right measure.\n\n"
-    )
-
-
-@pytest.mark.cli
 def test_cli_validate_dbt_refs(config, fresh_project, mocker, manifest):
     # Break something so validation fails
     project = fresh_project

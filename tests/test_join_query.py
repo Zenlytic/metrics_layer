@@ -506,3 +506,20 @@ def test_query_single_join_count_and_filter(connection):
         "GROUP BY order_lines.sales_channel;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_query_number_measure_w_dimension_reference(connection):
+    query = connection.get_sql_query(
+        metrics=["ending_on_hand_qty"],
+        dimensions=["product_name"],
+    )
+
+    correct = (
+        "SELECT order_lines.product_name as order_lines_product_name,"
+        "split_part(listagg(order_lines.inventory_qty, ',') within group "
+        "(order by DATE_TRUNC('DAY', order_lines.order_date) desc), ',', 0)::int "
+        "as order_lines_ending_on_hand_qty "
+        "FROM analytics.order_line_items order_lines GROUP BY order_lines.product_name;"
+    )
+    assert query == correct

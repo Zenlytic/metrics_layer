@@ -277,7 +277,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                         to_replace = self.view.name
                 else:
                     field = self.get_field_with_view_info(field_name)
-                    to_replace = field.aggregate_sql_query(query_type, functional_pk, alias_only=alias_only)
+                    to_replace = field.sql_query(query_type, functional_pk, alias_only=alias_only)
                 replaced = replaced.replace(proper_to_replace, to_replace)
         else:
             raise ValueError(f"handle case for sql: {sql}")
@@ -453,16 +453,6 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"DATE_TRUNC(CAST({sql} as DATE) + {offset}, WEEK)"
 
     def collect_errors(self):
-        if self.field_type == "measure" and self.type == "number":
-            contains_dim = any(
-                field.field_type != "measure" for field in self.get_referenced_sql_query(strings_only=False)
-            )
-            if contains_dim:
-                error_text = (
-                    f"The field {self.name} is a measure with type number, but it's sql references "
-                    "another field that is not a measure. Please correct this reference to the right measure."
-                )
-                return [error_text]
         return []
 
     def get_referenced_sql_query(self, strings_only=True):

@@ -72,6 +72,12 @@ fields:
     type: string
     sql: "${TABLE}.product_name"
 
+  - name: inventory_qty
+    field_type: "dimension"
+    hidden: yes
+    type: number
+    sql: "${TABLE}.inventory_qty"
+
   - name: is_on_sale_sql
     field_type: dimension
     type: yesno
@@ -92,9 +98,12 @@ fields:
     tiers: [0,20,50,100,300]
     sql: "${TABLE}.revenue"
 
-  # - name: count
-  #   field_type: measure
-  #   type: count
+  - name: ending_on_hand_qty
+    type: number
+    field_type: measure
+    value_format_name: decimal_0
+    description: "The ending inventory for the time period selected"
+    sql: split_part(listagg(${inventory_qty}, ',') within group (order by ${order_date} desc), ',', 0)::int
 
   - name: number_of_email_purchased_items
     field_type: measure
