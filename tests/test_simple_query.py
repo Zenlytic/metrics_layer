@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import pytest
 
 from metrics_layer.core import MetricsLayerConnection
@@ -55,6 +57,38 @@ simple_view = {
             ],
             "label": "Order Created",
             "name": "order",
+        },
+        {
+            "field_type": "dimension_group",
+            "type": "time",
+            "datatype": "datetime",
+            "sql": "${TABLE}.previous_order_date",
+            "timeframes": [
+                "raw",
+                "time",
+                "date",
+                "week",
+                "month",
+                "quarter",
+                "year",
+            ],
+            "name": "previous_order",
+        },
+        {
+            "field_type": "dimension_group",
+            "type": "time",
+            "datatype": "date",
+            "sql": "${TABLE}.first_order_date",
+            "timeframes": [
+                "raw",
+                "time",
+                "date",
+                "week",
+                "month",
+                "quarter",
+                "year",
+            ],
+            "name": "first_order",
         },
         {
             "field_type": "dimension_group",
@@ -181,11 +215,11 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
     else:
         result_lookup = {
             "time": "CAST(simple.order_date as TIMESTAMP)",
-            "date": "DATE_TRUNC(CAST(simple.order_date as DATE), DAY)",
-            "week": "DATE_TRUNC(CAST(simple.order_date as DATE) + 1, WEEK) - 1",
-            "month": "DATE_TRUNC(CAST(simple.order_date as DATE), MONTH)",
-            "quarter": "DATE_TRUNC(CAST(simple.order_date as DATE), QUARTER)",
-            "year": "DATE_TRUNC(CAST(simple.order_date as DATE), YEAR)",
+            "date": "CAST(DATE_TRUNC(CAST(simple.order_date as DATE), DAY) AS TIMESTAMP)",
+            "week": "CAST(DATE_TRUNC(CAST(simple.order_date as DATE) + 1, WEEK) - 1 AS TIMESTAMP)",
+            "month": "CAST(DATE_TRUNC(CAST(simple.order_date as DATE), MONTH) AS TIMESTAMP)",
+            "quarter": "CAST(DATE_TRUNC(CAST(simple.order_date as DATE), QUARTER) AS TIMESTAMP)",
+            "year": "CAST(DATE_TRUNC(CAST(simple.order_date as DATE), YEAR) AS TIMESTAMP)",
             "hour_of_day": f"CAST(simple.order_date AS STRING FORMAT 'HH24')",
             "day_of_week": f"CAST(simple.order_date AS STRING FORMAT 'DAY')",
         }
@@ -334,23 +368,45 @@ def test_simple_query_custom_metric(config):
     assert query == correct
 
 
-@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery])
+@pytest.mark.parametrize(
+    "field,value,query_type",
+    [
+        ("order_date", "2021-08-04", Definitions.snowflake),
+        ("order_date", "2021-08-04", Definitions.bigquery),
+        ("order_date", datetime(year=2021, month=8, day=4), Definitions.snowflake),
+        ("order_date", datetime(year=2021, month=8, day=4), Definitions.bigquery),
+        ("previous_order_date", datetime(year=2021, month=8, day=4), Definitions.snowflake),
+        ("previous_order_date", datetime(year=2021, month=8, day=4), Definitions.bigquery),
+        ("first_order_date", datetime(year=2021, month=8, day=4), Definitions.snowflake),
+        ("first_order_date", datetime(year=2021, month=8, day=4), Definitions.bigquery),
+    ],
+)
 @pytest.mark.query
-def test_simple_query_with_where_dim_group(config, query_type):
+def test_simple_query_with_where_dim_group(config, field, value, query_type):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
     conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=["channel"],
-        where=[{"field": "order_date", "expression": "greater_than", "value": "2021-08-04"}],
+        where=[{"field": field, "expression": "greater_than", "value": value}],
         query_type=query_type,
     )
 
-    if query_type == Definitions.snowflake:
-        condition = "DATE_TRUNC('DAY', simple.order_date)>'2021-08-04'"
-    else:
-        condition = "DATE_TRUNC(CAST(simple.order_date as DATE), DAY)>'2021-08-04'"
+    if query_type == Definitions.snowflake and isinstance(value, str):
+        condition = f"DATE_TRUNC('DAY', simple.{field})>'2021-08-04'"
+    elif query_type == Definitions.snowflake and isinstance(value, datetime):
+        condition = f"DATE_TRUNC('DAY', simple.{field})>'2021-08-04T00:00:00'"
+    elif query_type == Definitions.bigquery and isinstance(value, str) and field == "order_date":
+        condition = "CAST(DATE_TRUNC(CAST(simple.order_date as DATE), DAY) AS TIMESTAMP)>'2021-08-04'"
+    elif query_type == Definitions.bigquery and isinstance(value, datetime) and field == "order_date":
+        condition = "CAST(DATE_TRUNC(CAST(simple.order_date as DATE), DAY) AS TIMESTAMP)>TIMESTAMP('2021-08-04 00:00:00')"  # noqa
+    elif (
+        query_type == Definitions.bigquery and isinstance(value, datetime) and field == "previous_order_date"
+    ):
+        condition = "CAST(DATE_TRUNC(CAST(simple.previous_order_date as DATE), DAY) AS DATETIME)>DATETIME('2021-08-04 00:00:00')"  # noqa
+    elif query_type == Definitions.bigquery and isinstance(value, datetime) and field == "first_order_date":
+        condition = "CAST(DATE_TRUNC(CAST(simple.first_order_date as DATE), DAY) AS DATE)>DATE('2021-08-04 00:00:00')"  # noqa
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "

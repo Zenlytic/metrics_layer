@@ -76,7 +76,7 @@ class MetricsLayerFilter(MetricsLayerBase):
                 )
 
             if self.design.query_type == "BIGQUERY" and isinstance(definition["value"], datetime.datetime):
-                cast_func = "DATETIME" if self.field.datatype == "date" else "TIMESTAMP"
+                cast_func = self.field.datatype.upper()
                 definition["value"] = LiteralValue(f"{cast_func}('{definition['value']}')")
 
             if self.field.type == "yesno" and "False" in definition["value"]:

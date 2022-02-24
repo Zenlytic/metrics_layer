@@ -11,7 +11,7 @@ SQL_KEYWORDS = {"order", "group", "by", "as", "from", "select", "on", "with"}
 
 class Field(MetricsLayerBase, SQLReplacement):
     def __init__(self, definition: dict = {}, view=None) -> None:
-        self.defaults = {"type": "string", "primary_key": "no"}
+        self.defaults = {"type": "string", "primary_key": "no", "datatype": "timestamp"}
         self.default_intervals = ["second", "minute", "hour", "day", "week", "month", "quarter", "year"]
 
         # Always lowercase names and make exception for the None case in the
@@ -88,6 +88,14 @@ class Field(MetricsLayerBase, SQLReplacement):
                 return f"{self.dimension_group.replace('_', ' ').title()} {label}"
             return label
         return self.alias().replace("_", " ").title()
+
+    @property
+    def datatype(self):
+        if "datatype" in self._definition:
+            return self._definition["datatype"]
+        elif self._definition["field_type"] == "dimension_group":
+            return self.defaults["datatype"]
+        return
 
     @property
     def drill_fields(self):
@@ -411,11 +419,11 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.bigquery: {
                 "raw": lambda s, qt: s,
                 "time": lambda s, qt: f"CAST({s} as TIMESTAMP)",
-                "date": lambda s, qt: f"DATE_TRUNC(CAST({s} as DATE), DAY)",
+                "date": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} as DATE), DAY) AS {self.datatype.upper()})",
                 "week": self._week_dimension_group_time_sql,
-                "month": lambda s, qt: f"DATE_TRUNC(CAST({s} as DATE), MONTH)",
-                "quarter": lambda s, qt: f"DATE_TRUNC(CAST({s} as DATE), QUARTER)",
-                "year": lambda s, qt: f"DATE_TRUNC(CAST({s} as DATE), YEAR)",
+                "month": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} as DATE), MONTH) AS {self.datatype.upper()})",  # noqa
+                "quarter": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} as DATE), QUARTER) AS {self.datatype.upper()})",  # noqa
+                "year": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} as DATE), YEAR) AS {self.datatype.upper()})",
                 "hour_of_day": lambda s, qt: f"CAST({s} AS STRING FORMAT 'HH24')",
                 "day_of_week": lambda s, qt: f"CAST({s} AS STRING FORMAT 'DAY')",
             },
@@ -437,7 +445,10 @@ class Field(MetricsLayerBase, SQLReplacement):
             "tuesday": 6,
         }
         offset = offset_lookup[week_start_day]
-        return f"{self._week_sql_date_trunc(sql, offset, query_type)} - {offset}"
+        positioned_sql = f"{self._week_sql_date_trunc(sql, offset, query_type)} - {offset}"
+        if query_type == Definitions.bigquery:
+            positioned_sql = f"CAST({positioned_sql} AS {self.datatype.upper()})"
+        return positioned_sql
 
     @staticmethod
     def _week_sql_date_trunc(sql, offset, query_type):
