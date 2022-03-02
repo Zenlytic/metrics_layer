@@ -33,6 +33,7 @@ class SQLQueryResolver:
         self.select_raw_sql = kwargs.get("select_raw_sql", [])
         self.explore_name = kwargs.get("explore_name")
         self.suppress_warnings = kwargs.get("suppress_warnings", False)
+        self.limit = kwargs.get("limit")
         self.config = config
         self.project = self.config.project
         self.metrics = metrics
@@ -92,6 +93,7 @@ class SQLQueryResolver:
             "having": self.having,
             "order_by": self.order_by,
             "select_raw_sql": self.select_raw_sql,
+            "limit": self.limit,
         }
         query = MetricsLayerQuery(
             query_definition, design=self.design, suppress_warnings=self.suppress_warnings

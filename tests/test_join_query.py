@@ -2,14 +2,14 @@ import pytest
 
 
 @pytest.mark.query
-def test_query_no_join(connection):
+def test_query_no_join_with_limit(connection):
 
-    query = connection.get_sql_query(metrics=["total_item_revenue"], dimensions=["channel"])
+    query = connection.get_sql_query(metrics=["total_item_revenue"], dimensions=["channel"], limit=499)
 
     correct = (
         "SELECT order_lines.sales_channel as order_lines_channel,"
         "SUM(order_lines.revenue) as order_lines_total_item_revenue "
-        "FROM analytics.order_line_items order_lines GROUP BY order_lines.sales_channel;"
+        "FROM analytics.order_line_items order_lines GROUP BY order_lines.sales_channel LIMIT 499;"
     )
     assert query == correct
 

@@ -163,7 +163,7 @@ class MetricsLayerQuery(MetricsLayerBase):
                 order = Order.desc if arg["sort"] == "desc" else Order.asc
                 base_query = base_query.orderby(LiteralValue(arg["field"]), order=order)
 
-        sql = str(base_query)
+        sql = str(base_query.limit(self.limit))
         if semicolon:
             sql += ";"
         return sql
