@@ -1,6 +1,9 @@
+import pytest
+
 from metrics_layer.core import MetricsLayerConnection
 
 
+@pytest.mark.project
 def test_list_metrics(config):
     conn = MetricsLayerConnection(config=config)
     metrics = conn.list_metrics()
@@ -21,6 +24,7 @@ def test_list_metrics(config):
     }
 
 
+@pytest.mark.project
 def test_list_dimensions(config):
     conn = MetricsLayerConnection(config=config)
     dimensions = conn.list_dimensions(show_hidden=True)
@@ -52,3 +56,23 @@ def test_list_dimensions(config):
     }
     assert len(dimensions) == 12
     assert set(dimensions) == dimensions_present
+
+
+@pytest.mark.project
+def test_project_expand_fields(config):
+    fields = config.project.fields(
+        explore_name="order_lines_all", show_hidden=False, expand_dimension_groups=True
+    )
+
+    dim_groups_alias = [f.alias() for f in fields if f.view.name == "orders" and f.name == "order"]
+
+    assert dim_groups_alias == [
+        "order_time",
+        "order_date",
+        "order_week",
+        "order_month",
+        "order_quarter",
+        "order_year",
+        "order_day_of_week",
+        "order_hour_of_day",
+    ]

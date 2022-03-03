@@ -59,6 +59,7 @@ class SQLQueryResolver:
 
         if not self.explore_name:
             self.explore_name = self.derive_explore(self.verbose)
+
         self.explore = self.project.get_explore(self.explore_name)
         try:
             self.connection = self.config.get_connection(self.explore.model.connection)

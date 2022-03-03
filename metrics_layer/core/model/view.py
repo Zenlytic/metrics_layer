@@ -9,6 +9,7 @@ class View(MetricsLayerBase):
     def __init__(self, definition: dict = {}, project=None) -> None:
         if "sets" not in definition:
             definition["sets"] = []
+        self.__all_fields = None
         self.project = project
         self.validate(definition)
         super().__init__(definition)
@@ -60,38 +61,29 @@ class View(MetricsLayerBase):
         return result
 
     def fields(self, show_hidden: bool = True, expand_dimension_groups: bool = False) -> list:
-        all_fields = self._valid_fields(expand_dimension_groups=expand_dimension_groups)
+        if not self.__all_fields:
+            self.__all_fields = self._all_fields(expand_dimension_groups=expand_dimension_groups)
+        all_fields = self.__all_fields
         if show_hidden:
             return all_fields
         return [field for field in all_fields if field.hidden == "no" or not field.hidden]
 
-    def _all_fields(self):
+    def _all_fields(self, expand_dimension_groups: bool):
         fields = []
         for f in self._definition.get("fields", []):
             field = Field(f, view=self)
             if self.project.can_access_field(field):
-                fields.append(field)
-        return fields
+                if expand_dimension_groups and field.field_type == "dimension_group":
+                    if field.timeframes:
+                        for timeframe in field.timeframes:
+                            additional = {"hidden": "yes"} if timeframe == "raw" else {}
+                            fields.append(Field({**f, **additional, "dimension_group": timeframe}, view=self))
 
-    def _valid_fields(self, expand_dimension_groups: bool):
-        if expand_dimension_groups:
-            fields = []
-            for field in self._all_fields():
-                if field.field_type == "dimension_group" and field.timeframes:
-                    for timeframe in field.timeframes:
-                        if timeframe == "raw":
-                            continue
-                        field.dimension_group = timeframe
-                        fields.append(field)
-                elif field.field_type == "dimension_group" and field.intervals:
-                    for interval in field.intervals:
-                        field.dimension_group = f"{interval}s"
-                        fields.append(field)
+                    elif field.intervals:
+                        for interval in field.intervals:
+                            fields.append(Field({**f, "dimension_group": f"{interval}s"}, view=self))
                 else:
                     fields.append(field)
-        else:
-            fields = self._all_fields()
-
         return fields
 
     def _field_name_to_remove(self, field_expr: str):

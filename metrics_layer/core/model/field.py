@@ -352,11 +352,13 @@ class Field(MetricsLayerBase, SQLReplacement):
         if view_name and view_name != self.view.name:
             return False
 
-        if self.field_type == "dimension_group":
+        if self.field_type == "dimension_group" and self.dimension_group is None:
             if field_name_only in self.dimension_group_names():
                 self.dimension_group = self.get_dimension_group_name(field_name_only)
                 return True
             return False
+        elif self.field_type == "dimension_group":
+            return self.alias() == field_name_only
         return self.name == field_name_only
 
     def dimension_group_names(self):
@@ -367,11 +369,11 @@ class Field(MetricsLayerBase, SQLReplacement):
         return []
 
     def get_dimension_group_name(self, field_name: str):
-        if self.type == "duration":
+        if self.type == "duration" and f"_{self.name}" in field_name:
             return field_name.replace(f"_{self.name}", "")
         if self.type == "time":
             return field_name.replace(f"{self.name}_", "")
-        return self.name
+        return None
 
     def apply_dimension_group_duration_sql(self, sql_start: str, sql_end: str, query_type: str):
         meta_lookup = {

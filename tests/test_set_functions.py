@@ -1,6 +1,7 @@
-# import pytest
+import pytest
 
 
+@pytest.mark.project
 def test_sets(connection):
     sets = connection.config.project.sets()
     assert len(sets) == 5
@@ -23,6 +24,7 @@ def test_sets(connection):
         "orders.new_vs_repeat",
         "orders.sub_channel",
         "orders.average_order_value",
+        "orders.order_time",
     ]
 
     _set = connection.config.project.get_set(set_name="test_set_composed")
@@ -31,14 +33,33 @@ def test_sets(connection):
         "orders.customer_id",
         "orders.total_revenue",
         "orders.average_order_value",
+        "orders.order_time",
     ]
 
     _set = connection.config.project.get_set(set_name="test_set_all_fields")
     assert _set.field_names() == [
         "orders.customer_id",
         "orders.do_not_use",
+        "orders.order_raw",
+        "orders.order_date",
+        "orders.order_week",
+        "orders.order_month",
+        "orders.order_quarter",
+        "orders.order_year",
+        "orders.order_day_of_week",
         "orders.order_hour_of_day",
+        "orders.previous_order_raw",
+        "orders.previous_order_time",
+        "orders.previous_order_date",
+        "orders.previous_order_week",
+        "orders.previous_order_month",
+        "orders.previous_order_quarter",
         "orders.previous_order_year",
+        "orders.hours_between_orders",
+        "orders.days_between_orders",
+        "orders.weeks_between_orders",
+        "orders.months_between_orders",
+        "orders.quarters_between_orders",
         "orders.years_between_orders",
         "orders.revenue_in_cents",
         "orders.number_of_orders",

@@ -1,3 +1,7 @@
+import functools
+import hashlib
+import json
+
 from .base import AccessDeniedOrDoesNotExistException
 from .dashboard import Dashboard
 from .explore import Explore
@@ -31,7 +35,17 @@ class Project:
 
     def __repr__(self):
         text = "models" if len(self._models) != 1 else "model"
-        return f"<Project {len(self._models)} {text}>"
+        return f"<Project {len(self._models)} {text} user={self._user}>"
+
+    def __hash__(self):
+        model_str = json.dumps(self._models, sort_keys=True)
+        view_str = json.dumps(self._views, sort_keys=True)
+        dash_str = json.dumps(self._dashboards, sort_keys=True)
+        conn_str = json.dumps(self.connection_lookup, sort_keys=True)
+        user_str = "" if not self._user else json.dumps(self._user, sort_keys=True)
+        string_to_hash = model_str + view_str + dash_str + conn_str + user_str + str(self.looker_env)
+        result = hashlib.md5(string_to_hash.encode("utf-8"))
+        return int(result.hexdigest(), base=16)
 
     def set_user(self, user: dict):
         self._user = user
@@ -194,6 +208,7 @@ class Project:
             sets = self.sets()
         return next((s for s in sets if s.name == set_name), None)
 
+    @functools.lru_cache(maxsize=None)
     def fields(
         self,
         explore_name: str = None,
@@ -247,8 +262,9 @@ class Project:
             return fields_in_explore
         return fields
 
+    @functools.lru_cache(maxsize=None)
     def get_field(self, field_name: str, explore_name: str = None, view_name: str = None) -> Field:
-        # Handle the case where the explore syntax is passed: explore_name.field_name
+        # Handle the case where the explore syntax is passed: explore_name.view_name.field_name
         if "." in field_name:
             specified_explore_name, specified_view_name, field_name = Field.field_name_parts(field_name)
             if view_name and specified_view_name != view_name:
@@ -264,7 +280,8 @@ class Project:
                 explore_name = specified_explore_name
 
         field_name = field_name.lower()
-        fields = self.fields(explore_name=explore_name, view_name=view_name)
+
+        fields = self.fields(explore_name=explore_name, view_name=view_name, expand_dimension_groups=True)
         matching_fields = [f for f in fields if f.equal(field_name)]
         return self._matching_field_handler(matching_fields, field_name, explore_name, view_name)
 
@@ -279,7 +296,7 @@ class Project:
         all_fields_with_explore_duplicates = []
         for explore in self.explores():
             for view in self.views_with_explore(explore_name=explore.name):
-                all_fields_with_explore_duplicates.extend(view.fields())
+                all_fields_with_explore_duplicates.extend(view.fields(expand_dimension_groups=True))
 
         matching_fields = [f for f in all_fields_with_explore_duplicates if f.name == field_name]
         match = self._matching_field_handler(matching_fields, field_name)

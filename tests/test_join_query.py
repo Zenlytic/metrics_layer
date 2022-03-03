@@ -49,7 +49,6 @@ def test_alias_only_query_symmetric_average_distinct(connection):
 
 @pytest.mark.query
 def test_query_no_join_average_distinct(connection):
-
     query = connection.get_sql_query(metrics=["average_order_revenue"], dimensions=["channel"])
 
     correct = (

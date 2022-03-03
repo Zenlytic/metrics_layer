@@ -133,7 +133,7 @@ sets:
     fields: [order_id, customer_id, total_revenue]
 
   - name: test_set2
-    fields: [order_id, new_vs_repeat, sub_channel, average_order_value]
+    fields: [order_id, new_vs_repeat, sub_channel, average_order_value, order_time]
 
   - name: test_set_composed
     fields: [test_set*, test_set2*, -new_vs_repeat, -sub_channel]
