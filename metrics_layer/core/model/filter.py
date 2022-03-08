@@ -36,6 +36,7 @@ class MetricsLayerFilterExpressionType(str, Enum):
     IsNotIn = "isnotin"
     BooleanTrue = "boolean_true"
     BooleanFalse = "boolean_false"
+    Matches = "matches"
 
     def __hash__(self):
         return hash(self.value)

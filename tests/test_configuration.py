@@ -72,6 +72,7 @@ def test_config_explicit_metrics_layer_single_with_connections():
         "database": "company",
         "schema": "analytics",
         "type": "SNOWFLAKE",
+        "name": "sf_name",
     }
 
     bq_connection = config.get_connection("bq_name")
@@ -80,6 +81,7 @@ def test_config_explicit_metrics_layer_single_with_connections():
         "project_id": "test-1234",
         "credentials": {"key": "value", "project_id": "test-1234"},
         "type": "BIGQUERY",
+        "name": "bq_name",
     }
 
     # Should raise ConfigError

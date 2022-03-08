@@ -56,7 +56,13 @@ class SnowflakeConnection(BaseConnection):
 
     def to_dict(self):
         """Dict for use with the snowflake connector"""
-        base = {"user": self.username, "password": self.password, "account": self.account, "type": self.type}
+        base = {
+            "name": self.name,
+            "user": self.username,
+            "password": self.password,
+            "account": self.account,
+            "type": self.type,
+        }
         if self.warehouse:
             base["warehouse"] = self.warehouse
         if self.database:
@@ -84,7 +90,12 @@ class BigQueryConnection(BaseConnection):
 
     def to_dict(self):
         """Dict for use with the BigQuery connector"""
-        return {"credentials": self.credentials, "project_id": self.project_id, "type": self.type}
+        return {
+            "name": self.name,
+            "credentials": self.credentials,
+            "project_id": self.project_id,
+            "type": self.type,
+        }
 
     def printable_attributes(self):
         attributes = deepcopy(self.to_dict())

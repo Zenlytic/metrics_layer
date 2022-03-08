@@ -8,11 +8,17 @@ from pypika.terms import LiteralValue
 from sqlparse.tokens import Error, Name, Punctuation
 
 from metrics_layer.core.model.base import MetricsLayerBase
+from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.field import Field as MetricsLayerField
 from metrics_layer.core.model.filter import Filter, MetricsLayerFilterExpressionType
 from metrics_layer.core.sql.pypika_types import LiteralValueCriterion
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_errors import ParseError
+
+
+def bigquery_cast(field, value):
+    cast_func = field.datatype.upper()
+    return LiteralValue(f"{cast_func}('{value}')")
 
 
 class MetricsLayerFilter(MetricsLayerBase):
@@ -76,8 +82,7 @@ class MetricsLayerFilter(MetricsLayerBase):
                 )
 
             if self.design.query_type == "BIGQUERY" and isinstance(definition["value"], datetime.datetime):
-                cast_func = self.field.datatype.upper()
-                definition["value"] = LiteralValue(f"{cast_func}('{definition['value']}')")
+                definition["value"] = bigquery_cast(self.field, definition["value"])
 
             if self.field.type == "yesno" and "False" in definition["value"]:
                 definition["expression"] = "boolean_false"
@@ -133,4 +138,13 @@ class MetricsLayerFilter(MetricsLayerBase):
         We have to use the following cases as PyPika does not allow an str
          representation of the clause on its where() and having() functions
         """
+        if self.expression_type == MetricsLayerFilterExpressionType.Matches:
+            criteria = []
+            for f in Filter({"field": self.field.alias(), "value": self.value}).filter_dict():
+                if self.query_type == Definitions.bigquery:
+                    value = bigquery_cast(self.field, f["value"])
+                else:
+                    value = f["value"]
+                criteria.append(Filter.sql_query(field_sql, f["expression"], value))
+            return Criterion.all(criteria)
         return Filter.sql_query(field_sql, self.expression_type, self.value)

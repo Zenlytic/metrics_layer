@@ -1,9 +1,11 @@
 from datetime import datetime
 
+import pendulum
 import pytest
 
 from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.model import Definitions, Project
+from metrics_layer.core.model.filter import Filter
 
 simple_model = {
     "type": "model",
@@ -369,35 +371,42 @@ def test_simple_query_custom_metric(config):
 
 
 @pytest.mark.parametrize(
-    "field,value,query_type",
+    "field,expression,value,query_type",
     [
-        ("order_date", "2021-08-04", Definitions.snowflake),
-        ("order_date", "2021-08-04", Definitions.bigquery),
-        ("order_date", datetime(year=2021, month=8, day=4), Definitions.snowflake),
-        ("order_date", datetime(year=2021, month=8, day=4), Definitions.bigquery),
-        ("previous_order_date", datetime(year=2021, month=8, day=4), Definitions.snowflake),
-        ("previous_order_date", datetime(year=2021, month=8, day=4), Definitions.bigquery),
-        ("first_order_date", datetime(year=2021, month=8, day=4), Definitions.snowflake),
-        ("first_order_date", datetime(year=2021, month=8, day=4), Definitions.bigquery),
+        ("order_date", "greater_than", "2021-08-04", Definitions.snowflake),
+        ("order_date", "greater_than", "2021-08-04", Definitions.bigquery),
+        ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.snowflake),
+        ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.bigquery),
+        ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.snowflake),
+        ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.bigquery),
+        ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.snowflake),
+        ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.bigquery),
+        ("order_date", "matches", "last year", Definitions.snowflake),
+        ("order_date", "matches", "last year", Definitions.bigquery),
     ],
 )
 @pytest.mark.query
-def test_simple_query_with_where_dim_group(config, field, value, query_type):
+def test_simple_query_with_where_dim_group(config, field, expression, value, query_type):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
     conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=["channel"],
-        where=[{"field": field, "expression": "greater_than", "value": value}],
+        where=[{"field": field, "expression": expression, "value": value}],
         query_type=query_type,
     )
 
-    if query_type == Definitions.snowflake and isinstance(value, str):
+    if query_type == Definitions.snowflake and expression == "greater_than" and isinstance(value, str):
         condition = f"DATE_TRUNC('DAY', simple.{field})>'2021-08-04'"
     elif query_type == Definitions.snowflake and isinstance(value, datetime):
         condition = f"DATE_TRUNC('DAY', simple.{field})>'2021-08-04T00:00:00'"
-    elif query_type == Definitions.bigquery and isinstance(value, str) and field == "order_date":
+    elif (
+        query_type == Definitions.bigquery
+        and expression == "greater_than"
+        and isinstance(value, str)
+        and field == "order_date"
+    ):
         condition = "CAST(DATE_TRUNC(CAST(simple.order_date as DATE), DAY) AS TIMESTAMP)>'2021-08-04'"
     elif query_type == Definitions.bigquery and isinstance(value, datetime) and field == "order_date":
         condition = "CAST(DATE_TRUNC(CAST(simple.order_date as DATE), DAY) AS TIMESTAMP)>TIMESTAMP('2021-08-04 00:00:00')"  # noqa
@@ -407,6 +416,16 @@ def test_simple_query_with_where_dim_group(config, field, value, query_type):
         condition = "CAST(DATE_TRUNC(CAST(simple.previous_order_date as DATE), DAY) AS DATETIME)>DATETIME('2021-08-04 00:00:00')"  # noqa
     elif query_type == Definitions.bigquery and isinstance(value, datetime) and field == "first_order_date":
         condition = "CAST(DATE_TRUNC(CAST(simple.first_order_date as DATE), DAY) AS DATE)>DATE('2021-08-04 00:00:00')"  # noqa
+    elif query_type == Definitions.snowflake and expression == "matches":
+        time_str = Filter._date_to_string(pendulum.now("UTC").subtract(months=13).start_of("month"))
+        last_year = pendulum.now("UTC").year - 1
+        print(time_str)
+        condition = f"DATE_TRUNC('DAY', simple.{field})>='{last_year}-01-01T00:00:00' AND "
+        condition += f"DATE_TRUNC('DAY', simple.{field})<='{last_year}-12-31T23:59:59'"
+    elif query_type == Definitions.bigquery and expression == "matches":
+        last_year = pendulum.now("UTC").year - 1
+        condition = f"CAST(DATE_TRUNC(CAST(simple.{field} as DATE), DAY) AS TIMESTAMP)>=TIMESTAMP('{last_year}-01-01T00:00:00') AND "  # noqa
+        condition += f"CAST(DATE_TRUNC(CAST(simple.{field} as DATE), DAY) AS TIMESTAMP)<=TIMESTAMP('{last_year}-12-31T23:59:59')"  # noqa
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
