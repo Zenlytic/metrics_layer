@@ -15,4 +15,5 @@ bq_creds:
   outputs:
     prod:
       type: bigquery
-      credentials: ./bq-test-service-account.json
+      method: service-account
+      keyfile: ./bq-test-service-account.json
