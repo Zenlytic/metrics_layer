@@ -1,5 +1,6 @@
 import os
 
+import pandas as pd
 import pytest
 
 from metrics_layer.core import MetricsLayerConnection
@@ -36,162 +37,85 @@ dashboard_paths = [sales_dashboard_path, sales_dashboard_v2_path]
 
 
 @pytest.fixture(scope="function")
-def seed_views_data():
-    return []
-
-
-@pytest.fixture(scope="function")
-def seed_tables_data():
-    raw_data = [
-        (None, "ORDERS", "DEMO", "ANALYTICS"),
-        (None, "SESSIONS", "DEMO", "ANALYTICS"),
+def seed_snowflake_tables_data():
+    order_records = [
+        {"COLUMN_NAME": "ORDER_ID", "DATA_TYPE": "FIXED"},
+        {"COLUMN_NAME": "ORDER_CREATED_AT", "DATA_TYPE": "DATE"},
+        {"COLUMN_NAME": "REVENUE", "DATA_TYPE": "FIXED"},
+        {"COLUMN_NAME": "ACQUISITION_DATE", "DATA_TYPE": "TIMESTAMP_NTZ"},
+        {"COLUMN_NAME": "ON_SOCIAL_NETWORK", "DATA_TYPE": "BOOLEAN"},
+        {"COLUMN_NAME": "CAMPAIGN", "DATA_TYPE": "TEXT"},
+        {"COLUMN_NAME": "NEW_VS_REPEAT", "DATA_TYPE": "TEXT"},
+        {"COLUMN_NAME": "PRODUCT", "DATA_TYPE": "TEXT"},
+        {"COLUMN_NAME": "DAY_OF_WEEK", "DATA_TYPE": "TEXT"},
+        {"COLUMN_NAME": "TWITTER", "DATA_TYPE": "TEXT"},
+        {"COLUMN_NAME": "EMAILS_FROM_US_IN_THE_LAST_WEEK", "DATA_TYPE": "TEXT"},
+        {"COLUMN_NAME": "LAST_VIEWED_PAGE", "DATA_TYPE": "TEXT"},
+        {"COLUMN_NAME": "CUSTOMER_ID", "DATA_TYPE": "TEXT"},
+        {"COLUMN_NAME": "TOP_CUSTOMERS", "DATA_TYPE": "TEXT"},
     ]
-    return raw_data
+    order_records = [{"TABLE_NAME": "ORDERS", **o} for o in order_records]
+    session_records = [
+        {"COLUMN_NAME": "SESSION_ID", "DATA_TYPE": "TEXT"},
+        {"COLUMN_NAME": "SESSION_DATE", "DATA_TYPE": "DATE"},
+        {"COLUMN_NAME": "ADD_TO_CART", "DATA_TYPE": "FIXED"},
+        {"COLUMN_NAME": "CONVERSION", "DATA_TYPE": "REAL"},
+        {"COLUMN_NAME": "CROSSSELL_PRODUCT", "DATA_TYPE": "TEXT"},
+        {"COLUMN_NAME": "ACQUISITION_CHANNEL", "DATA_TYPE": "TEXT"},
+        {"COLUMN_NAME": "SOCIAL_NETWORK", "DATA_TYPE": "TEXT"},
+        {"COLUMN_NAME": "CAMPAIGN", "DATA_TYPE": "TEXT"},
+        {"COLUMN_NAME": "NEW_VS_REPEAT", "DATA_TYPE": "TEXT"},
+        {"COLUMN_NAME": "PRODUCT", "DATA_TYPE": "TEXT"},
+        {"COLUMN_NAME": "DAY_OF_WEEK", "DATA_TYPE": "TEXT"},
+        {"COLUMN_NAME": "TWITTER", "DATA_TYPE": "TEXT"},
+        {"COLUMN_NAME": "EMAILS_FROM_US_IN_THE_LAST_WEEK", "DATA_TYPE": "TEXT"},
+        {"COLUMN_NAME": "LAST_VIEWED_PAGE", "DATA_TYPE": "TEXT"},
+    ]
+    session_records = [{"TABLE_NAME": "SESSIONS", **o} for o in session_records]
+    all_records = order_records + session_records
+    records = [{"TABLE_CATALOG": "DEMO", "TABLE_SCHEMA": "ANALYTICS", **r} for r in all_records]
+    return pd.DataFrame(records)
 
 
 @pytest.fixture(scope="function")
-def get_seed_columns_data():
-    def _get_seed_columns_data(table_name):
-        if table_name == "ORDERS":
-            order_records = [
-                (None, None, "ORDER_ID", '{"type":"FIXED","precision":38,"scale":0,"nullable":true}'),
-                (None, None, "ORDER_CREATED_AT", '{"type":"DATE","nullable":true}'),
-                (None, None, "REVENUE", '{"type":"FIXED","precision":38,"scale":0,"nullable":true}'),
-                (None, None, "ACQUISITION_DATE", '{"type":"TIMESTAMP_NTZ","nullable":true,"fixed":false}'),
-                (None, None, "ON_SOCIAL_NETWORK", '{"type":"BOOLEAN","nullable":true}'),
-                (
-                    None,
-                    None,
-                    "CAMPAIGN",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-                (
-                    None,
-                    None,
-                    "NEW_VS_REPEAT",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-                (
-                    None,
-                    None,
-                    "PRODUCT",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-                (
-                    None,
-                    None,
-                    "DAY_OF_WEEK",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-                (
-                    None,
-                    None,
-                    "TWITTER",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-                (
-                    None,
-                    None,
-                    "EMAILS_FROM_US_IN_THE_LAST_WEEK",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-                (
-                    None,
-                    None,
-                    "LAST_VIEWED_PAGE",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-                (
-                    None,
-                    None,
-                    "CUSTOMER_ID",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-                (
-                    None,
-                    None,
-                    "TOP_CUSTOMERS",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-            ]
-            return order_records
-        elif table_name == "SESSIONS":
-            session_records = [
-                (
-                    None,
-                    None,
-                    "SESSION_ID",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-                (None, None, "SESSION_DATE", '{"type":"DATE","nullable":true}'),
-                (None, None, "ADD_TO_CART", '{"type":"FIXED","precision":38,"scale":0,"nullable":true}'),
-                (None, None, "CONVERSION", '{"type":"REAL","precision":38,"scale":0,"nullable":true}'),
-                (
-                    None,
-                    None,
-                    "CROSSSELL_PRODUCT",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-                (
-                    None,
-                    None,
-                    "ACQUISITION_CHANNEL",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-                (
-                    None,
-                    None,
-                    "SOCIAL_NETWORK",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-                (
-                    None,
-                    None,
-                    "CAMPAIGN",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-                (
-                    None,
-                    None,
-                    "NEW_VS_REPEAT",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-                (
-                    None,
-                    None,
-                    "PRODUCT",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-                (
-                    None,
-                    None,
-                    "DAY_OF_WEEK",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-                (
-                    None,
-                    None,
-                    "TWITTER",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-                (
-                    None,
-                    None,
-                    "EMAILS_FROM_US_IN_THE_LAST_WEEK",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-                (
-                    None,
-                    None,
-                    "LAST_VIEWED_PAGE",
-                    '{"type":"TEXT","length":16777216,"byteLength":16777216,"nullable":true,"fixed":false}',
-                ),
-            ]
-            return session_records
-        else:
-            raise NotImplementedError(f"This should never be hit in testing with table: {table_name}")
-
-    return _get_seed_columns_data
+def seed_bigquery_tables_data():
+    order_records = [
+        {"column_name": "ORDER_ID", "data_type": "INT64"},
+        {"column_name": "ORDER_CREATED_AT", "data_type": "TIMESTAMP"},
+        {"column_name": "REVENUE", "data_type": "INT64"},
+        {"column_name": "ACQUISITION_DATE", "data_type": "TIMESTAMP"},
+        {"column_name": "ON_SOCIAL_NETWORK", "data_type": "BOOL"},
+        {"column_name": "CAMPAIGN", "data_type": "STRING"},
+        {"column_name": "NEW_VS_REPEAT", "data_type": "STRING"},
+        {"column_name": "PRODUCT", "data_type": "STRING"},
+        {"column_name": "DAY_OF_WEEK", "data_type": "STRING"},
+        {"column_name": "TWITTER", "data_type": "STRING"},
+        {"column_name": "EMAILS_FROM_US_IN_THE_LAST_WEEK", "data_type": "STRING"},
+        {"column_name": "LAST_VIEWED_PAGE", "data_type": "STRING"},
+        {"column_name": "CUSTOMER_ID", "data_type": "STRING"},
+        {"column_name": "TOP_CUSTOMERS", "data_type": "STRING"},
+    ]
+    order_records = [{"table_name": "orders", **o} for o in order_records]
+    session_records = [
+        {"column_name": "SESSION_ID", "data_type": "STRING"},
+        {"column_name": "SESSION_DATE", "data_type": "TIMESTAMP"},
+        {"column_name": "ADD_TO_CART", "data_type": "INT64"},
+        {"column_name": "CONVERSION", "data_type": "NUMERIC"},
+        {"column_name": "CROSSSELL_PRODUCT", "data_type": "STRING"},
+        {"column_name": "ACQUISITION_CHANNEL", "data_type": "STRING"},
+        {"column_name": "SOCIAL_NETWORK", "data_type": "STRING"},
+        {"column_name": "CAMPAIGN", "data_type": "STRING"},
+        {"column_name": "NEW_VS_REPEAT", "data_type": "STRING"},
+        {"column_name": "PRODUCT", "data_type": "STRING"},
+        {"column_name": "DAY_OF_WEEK", "data_type": "STRING"},
+        {"column_name": "TWITTER", "data_type": "STRING"},
+        {"column_name": "EMAILS_FROM_US_IN_THE_LAST_WEEK", "data_type": "STRING"},
+        {"column_name": "LAST_VIEWED_PAGE", "data_type": "STRING"},
+    ]
+    session_records = [{"table_name": "sessions", **o} for o in session_records]
+    all_records = order_records + session_records
+    records = [{"table_catalog": "demo", "table_schema": "analytics", **r} for r in all_records]
+    return pd.DataFrame(records)
 
 
 @pytest.fixture(scope="function")
@@ -292,6 +216,7 @@ def config(project):
 
     class config_mock:
         profiles_path = "test_profiles_file.yml"
+        _connections = [sf_mock]
 
         def set_user(user: dict):
             pass
@@ -303,7 +228,7 @@ def config(project):
                 return sf_mock
 
         def connections():
-            return [sf_mock]
+            return config_mock._connections
 
     config_mock.project = project
     return config_mock

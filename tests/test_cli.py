@@ -1,4 +1,5 @@
 import os
+from copy import copy
 
 import pytest
 from click.testing import CliRunner
@@ -6,6 +7,7 @@ from click.testing import CliRunner
 from metrics_layer.cli import debug, init, list_, seed, show, validate
 from metrics_layer.cli.seeding import SeedMetricsLayer
 from metrics_layer.core import MetricsLayerConnection
+from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.parse.project_reader import ProjectReader
 
 
@@ -33,19 +35,19 @@ def test_cli_init(mocker, monkeypatch):
 
 
 @pytest.mark.cli
-def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_data, get_seed_columns_data):
+@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery])
+def test_cli_seed(
+    mocker, monkeypatch, connection, query_type, seed_snowflake_tables_data, seed_bigquery_tables_data
+):
     mocker.patch("os.mkdir")
     yaml_dump_called = 0
 
     def query_runner_mock(slf, query):
-        if query == "show tables in schema demo.analytics;":
-            return seed_tables_data
-        elif query == "show views in schema demo.analytics;":
-            return seed_views_data
-        elif query == 'show columns in "DEMO"."ANALYTICS"."ORDERS";':
-            return get_seed_columns_data("ORDERS")
-        elif query == 'show columns in "DEMO"."ANALYTICS"."SESSIONS";':
-            return get_seed_columns_data("SESSIONS")
+        print(query)
+        if query_type == Definitions.snowflake:
+            return seed_snowflake_tables_data
+        elif query_type == Definitions.bigquery:
+            return seed_bigquery_tables_data
         raise ValueError("Query error, does not match expected")
 
     def yaml_dump_assert(slf, data, file):
@@ -56,7 +58,10 @@ def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_
             assert data["connection"] == "testing_snowflake"
             assert len(data["explores"]) in {2, 1}  # 2 for first test 1 for second
         elif data["type"] == "view" and data["name"] == "orders":
-            assert data["sql_table_name"] == "ANALYTICS.ORDERS"
+            if query_type == Definitions.snowflake:
+                assert data["sql_table_name"] == "ANALYTICS.ORDERS"
+            else:
+                assert data["sql_table_name"] == "`demo.analytics.orders`"
 
             date = next((f for f in data["fields"] if f["name"] == "order_created_at"))
             new = next((f for f in data["fields"] if f["name"] == "new_vs_repeat"))
@@ -72,7 +77,10 @@ def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_
             assert acq_date["sql"] == "${TABLE}.ACQUISITION_DATE"
 
             assert date["type"] == "time"
-            assert date["datatype"] == "date"
+            if query_type == Definitions.snowflake:
+                assert date["datatype"] == "date"
+            else:
+                assert date["datatype"] == "timestamp"
             assert date["timeframes"] == ["raw", "date", "week", "month", "quarter", "year"]
             assert date["sql"] == "${TABLE}.ORDER_CREATED_AT"
 
@@ -84,14 +92,20 @@ def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_
 
             assert len(data["fields"]) == 15
         elif data["type"] == "view" and data["name"] == "sessions":
-            assert data["sql_table_name"] == "ANALYTICS.SESSIONS"
+            if query_type == Definitions.snowflake:
+                assert data["sql_table_name"] == "ANALYTICS.SESSIONS"
+            else:
+                assert data["sql_table_name"] == "`demo.analytics.sessions`"
 
             date = next((f for f in data["fields"] if f["name"] == "session_date"))
             pk = next((f for f in data["fields"] if f["name"] == "session_id"))
             num = next((f for f in data["fields"] if f["name"] == "conversion"))
 
             assert date["type"] == "time"
-            assert date["datatype"] == "date"
+            if query_type == Definitions.snowflake:
+                assert date["datatype"] == "date"
+            else:
+                assert date["datatype"] == "timestamp"
             assert date["timeframes"] == ["raw", "date", "week", "month", "quarter", "year"]
             assert date["sql"] == "${TABLE}.SESSION_DATE"
 
@@ -105,6 +119,8 @@ def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_
         else:
             raise AssertionError("undefined model type for seeding")
 
+    old_type = copy(connection.config._connections[0].type)
+    connection.config._connections[0].type = query_type
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
     monkeypatch.setattr(SeedMetricsLayer, "run_query", query_runner_mock)
@@ -130,6 +146,7 @@ def test_cli_seed(mocker, monkeypatch, connection, seed_tables_data, seed_views_
     runner = CliRunner()
     result = runner.invoke(seed, ["--database", "demo", "--schema", "analytics", "--table", "orders"])
 
+    connection.config._connections[0].type = old_type
     assert result.exit_code == 0
     assert yaml_dump_called == 5
 

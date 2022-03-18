@@ -1,7 +1,6 @@
-import json
 import os
 
-import pandas as pd
+from metrics_layer.core.model.definitions import Definitions
 
 
 class SeedMetricsLayer:
@@ -39,43 +38,48 @@ class SeedMetricsLayer:
             "VARBINARY": "string",
         }
 
+        self._bigquery_type_lookup = {
+            "DATE": "date",
+            "DATETIME": "timestamp",
+            "TIMESTAMP": "timestamp",
+            "BOOL": "yesno",
+            "FLOAT64": "number",
+            "INT64": "number",
+            "NUMERIC": "number",
+            "STRING": "string",
+        }
+
     def seed(self):
-        from metrics_layer.core.model.definitions import Definitions
         from metrics_layer.core.parse.project_reader import ProjectReader
 
-        if self.connection.type != Definitions.snowflake:
+        if self.connection.type not in {Definitions.snowflake, Definitions.bigquery}:
             raise NotImplementedError(
-                "The only data warehouse supported for seeding at this time is Snowflake"
+                "The only data warehouses supported for seeding are Snowflake and BigQuery"
             )
-        table_query = self.table_query(type="tables")
-        table_data = self.run_query(table_query)
-        table_df = self.table_result_to_dataframe(table_data)
-        print(f"Got information on all tables in {self.location_description}")
+        table_query = self.table_query()
+        data = self.run_query(table_query)
+        data.columns = [c.upper() for c in data.columns]
+        print(f"Got information on all tables and views in {self.location_description}")
 
-        view_query = self.table_query(type="views")
-        view_data = self.run_query(view_query)
-        view_df = self.view_result_to_dataframe(view_data)
-        print(f"Got information on all views in {self.location_description}")
+        # We need to filter down the whole result to just the chosen schema and table (if applicable)
+        if self.schema:
+            data = data[data["TABLE_SCHEMA"].str.lower() == self.schema.lower()].copy()
 
-        data = self.join_view_and_table_results(table_df, view_df)
+        if self.table:
+            data = data[data["TABLE_NAME"].str.lower() == self.table.lower()].copy()
 
-        # Each row represents either a single table or a single view
+        # Each iteration represents either a single table or a single view
         views = []
-        for i, (_, row) in enumerate(data.iterrows()):
-            if self.table and row["NAME"].lower() != self.table.lower():
-                continue
-            columns_query = self.columns_query(row["NAME"], row["SCHEMA_NAME"], row["DATABASE_NAME"])
-            column_data = self.run_query(columns_query)
-            column_df = self.column_result_to_dataframe(column_data)
+        for i, table_name in enumerate(data["TABLE_NAME"].unique()):
+            column_df = data[data["TABLE_NAME"].str.lower() == table_name.lower()].copy()
+            schema_name = column_df["TABLE_SCHEMA"].values[0]
+            view = self.make_view(column_df, table_name, schema_name)
 
-            column_df["RAW_TYPE"] = column_df["DATA_TYPE"].apply(lambda x: json.loads(x).get("type", "TEXT"))
-
-            view = self.make_view(column_df, row["NAME"], row["SCHEMA_NAME"])
             if self.table:
                 progress = ""
             else:
                 progress = f"({i + 1} / {len(data)})"
-            print(f"Got information on {row['TYPE']} {row['NAME']} {progress}")
+            print(f"Got information on {table_name} {progress}")
             views.append(view)
 
         models = self.make_models(views)
@@ -107,11 +111,15 @@ class SeedMetricsLayer:
         view_name = self.clean_name(table_name)
         count_measure = {"field_type": "measure", "name": "count", "type": "count"}
         fields = self.make_fields(column_data) + [count_measure]
+        if self.connection.type == Definitions.snowflake:
+            sql_table_name = f"{schema_name}.{table_name}"
+        elif self.connection.type == Definitions.bigquery:
+            sql_table_name = f"`{self.database}.{schema_name}.{table_name}`"
         view = {
             "version": 1,
             "type": "view",
             "name": view_name,
-            "sql_table_name": f"{schema_name}.{table_name}",
+            "sql_table_name": sql_table_name,
             "default_date": next((f["name"] for f in fields if f["field_type"] == "dimension_group"), None),
             "row_label": "TODO - Label row",
             "fields": fields,
@@ -120,9 +128,12 @@ class SeedMetricsLayer:
 
     def make_fields(self, column_data: str):
         fields = []
-        for _, row in column_data[["COLUMN_NAME", "RAW_TYPE"]].iterrows():
+        for _, row in column_data[["COLUMN_NAME", "DATA_TYPE"]].iterrows():
             name = self.clean_name(row["COLUMN_NAME"])
-            metrics_layer_type = self._snowflake_type_lookup.get(row["RAW_TYPE"], "string")
+            if self.connection.type == Definitions.snowflake:
+                metrics_layer_type = self._snowflake_type_lookup.get(row["DATA_TYPE"], "string")
+            elif self.connection.type == Definitions.bigquery:
+                metrics_layer_type = self._bigquery_type_lookup.get(row["DATA_TYPE"], "string")
             sql = "${TABLE}." + row["COLUMN_NAME"]
 
             field = {"name": name, "sql": sql}
@@ -138,52 +149,24 @@ class SeedMetricsLayer:
             fields.append(field)
         return fields
 
-    def table_query(self, type="tables"):
-        query = f"show {type} in "
-        if self.database and not self.schema:
-            query += f"database {self.database};"
-        elif self.database and self.schema:
-            query += f"schema {self.database}.{self.schema};"
+    def table_query(self):
+        query = "SELECT table_catalog, table_schema, table_name, column_name, data_type FROM "
+        if self.database and self.connection.type == Definitions.snowflake:
+            query += f"{self.database}.INFORMATION_SCHEMA.COLUMNS"
+        elif self.database and self.schema and self.connection.type == Definitions.bigquery:
+            query += f"`{self.database}.{self.schema}`.INFORMATION_SCHEMA.COLUMNS"
+        elif not self.schema and self.connection.type == Definitions.bigquery:
+            raise ValueError(
+                "You must specify a database (project) AND a schema (dataset) for seeding in BigQuery"
+            )
         else:
-            raise ValueError("You must specify a database or a database and a schema for seeding")
-        return query
-
-    @staticmethod
-    def table_result_to_dataframe(table_data):
-        table_df = pd.DataFrame(
-            [{"NAME": i[1], "DATABASE_NAME": i[2], "SCHEMA_NAME": i[3], "TYPE": "table"} for i in table_data]
-        )
-        return table_df
-
-    @staticmethod
-    def view_result_to_dataframe(view_data):
-        view_df = pd.DataFrame(
-            [{"NAME": i[1], "DATABASE_NAME": i[3], "SCHEMA_NAME": i[4], "TYPE": "view"} for i in view_data]
-        )
-        return view_df
-
-    @staticmethod
-    def join_view_and_table_results(table_df, view_df):
-        columns = ["DATABASE_NAME", "SCHEMA_NAME", "NAME", "TYPE"]
-        if view_df.empty and table_df.empty:
-            print("Could not find any tables or views, are you sure you are looking ar the right database?")
-            raise ValueError("No tables or views found")
-        if view_df.empty:
-            return table_df[columns]
-        if table_df.empty:
-            return view_df[columns]
-        return pd.concat([table_df[columns], view_df[columns]], sort=False)
-
-    def columns_query(self, table_name: str, schema_name: str, database_name: str):
-        return f'show columns in "{database_name}"."{schema_name}"."{table_name}";'
-
-    @staticmethod
-    def column_result_to_dataframe(column_data):
-        column_df = pd.DataFrame([{"COLUMN_NAME": i[2], "DATA_TYPE": i[3]} for i in column_data])
-        return column_df
+            raise ValueError("You must specify at least a database for seeding")
+        return query + ";"
 
     def run_query(self, query: str):
-        return self.metrics_layer.run_query(query, self.connection, raw_cursor=True, run_pre_queries=False)
+        return self.metrics_layer.run_query(
+            query, self.connection, run_pre_queries=False, start_warehouse=True
+        )
 
     @staticmethod
     def _init_connection(profile_name: str, connection_name: str = None):

@@ -27,8 +27,10 @@ def init():
 
 @cli_group.command()
 @click.option("--connection", default=None, help="The name of the connection to use for the database")
-@click.option("--database", help="The name of the database to use for seeding")
-@click.option("--schema", default=None, help="The name of the schema to use for seeding")
+@click.option("--database", help="The name of the database to use for seeding (project in BigQuery)")
+@click.option(
+    "--schema", default=None, help="The name of the schema to use for seeding (dataset in BigQuery)"
+)
 @click.option("--table", default=None, help="The name of the table to use for seeding")
 def seed(connection, database, schema, table):
     """Seed a metrics layer project by referencing the existing database"""

@@ -37,14 +37,18 @@ class QueryRunner:
             timeout=timeout,
             raw_cursor=kwargs.get("raw_cursor", False),
             run_pre_queries=kwargs.get("run_pre_queries", True),
+            start_warehouse=kwargs.get("start_warehouse", True),
         )
         return df
 
-    def _run_snowflake_query(self, timeout: int, raw_cursor: bool, run_pre_queries: bool):
+    def _run_snowflake_query(
+        self, timeout: int, raw_cursor: bool, run_pre_queries: bool, start_warehouse: bool
+    ):
         snowflake_connection = self._get_snowflake_connection(self.connection)
         if run_pre_queries:
             self._run_snowflake_pre_queries(snowflake_connection)
-
+        elif start_warehouse:
+            self._run_snowflake_pre_queries(snowflake_connection, warehouse_only=True)
         cursor = snowflake_connection.cursor()
         cursor.execute(self.query, timeout=timeout)
 
@@ -54,7 +58,9 @@ class QueryRunner:
         df = cursor.fetch_pandas_all()
         return df
 
-    def _run_bigquery_query(self, timeout: int, raw_cursor: bool, run_pre_queries: bool):
+    def _run_bigquery_query(
+        self, timeout: int, raw_cursor: bool, run_pre_queries: bool, start_warehouse: bool
+    ):
         bigquery_connection = self._get_bigquery_connection(self.connection)
         result = bigquery_connection.query(self.query, timeout=timeout, job_retry=None)
         bigquery_connection.close()
@@ -63,13 +69,13 @@ class QueryRunner:
         df = result.to_dataframe()
         return df
 
-    def _run_snowflake_pre_queries(self, snowflake_connection):
+    def _run_snowflake_pre_queries(self, snowflake_connection, warehouse_only: bool = False):
         to_execute = ""
         if self.connection.warehouse:
             to_execute += f"USE WAREHOUSE {self.connection.warehouse};"
-        if self.connection.database:
+        if self.connection.database and not warehouse_only:
             to_execute += f'USE DATABASE "{self.connection.database.upper()}";'
-        if self.connection.schema:
+        if self.connection.schema and not warehouse_only:
             to_execute += f'USE SCHEMA "{self.connection.schema.upper()}";'
 
         if to_execute != "":
