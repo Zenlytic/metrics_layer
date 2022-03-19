@@ -128,6 +128,6 @@ def test_access_filter(connection):
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
         "WHERE customers.region = 'US-West' "
-        "GROUP BY orders.new_vs_repeat;"
+        "GROUP BY orders.new_vs_repeat ORDER BY orders_total_revenue DESC;"
     )
     assert correct == query

@@ -11,7 +11,8 @@ def test_query_no_join_with_limit(connection):
     correct = (
         "SELECT order_lines.sales_channel as order_lines_channel,"
         "SUM(order_lines.revenue) as order_lines_total_item_revenue "
-        "FROM analytics.order_line_items order_lines GROUP BY order_lines.sales_channel LIMIT 499;"
+        "FROM analytics.order_line_items order_lines GROUP BY order_lines.sales_channel "
+        "ORDER BY order_lines_total_item_revenue DESC LIMIT 499;"
     )
     assert query == correct
 
@@ -62,7 +63,7 @@ def test_query_no_join_average_distinct(connection):
         "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0) / NULLIF(COUNT(DISTINCT CASE WHEN  "
         "(order_lines.order_total)  IS NOT NULL THEN  order_lines.order_unique_id  ELSE NULL END), 0)) "
         "as order_lines_average_order_revenue FROM analytics.order_line_items order_lines "
-        "GROUP BY order_lines.sales_channel;"
+        "GROUP BY order_lines.sales_channel ORDER BY order_lines_average_order_revenue DESC;"
     )
     assert query == correct
 
@@ -77,7 +78,8 @@ def test_query_single_join(connection):
         "orders.new_vs_repeat as orders_new_vs_repeat,"
         "SUM(order_lines.revenue) as order_lines_total_item_revenue FROM "
         "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
-        "order_lines.order_unique_id=orders.id GROUP BY order_lines.sales_channel,orders.new_vs_repeat;"
+        "order_lines.order_unique_id=orders.id GROUP BY order_lines.sales_channel,orders.new_vs_repeat "
+        "ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
 
@@ -87,9 +89,12 @@ def test_query_single_dimension(connection):
 
     query = connection.get_sql_query(metrics=[], dimensions=["new_vs_repeat"])
 
-    correct = "SELECT orders.new_vs_repeat as orders_new_vs_repeat FROM "
-    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
-    correct += "order_lines.order_unique_id=orders.id GROUP BY orders.new_vs_repeat;"
+    correct = (
+        "SELECT orders.new_vs_repeat as orders_new_vs_repeat FROM "
+        "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
+        "order_lines.order_unique_id=orders.id GROUP BY orders.new_vs_repeat "
+        "ORDER BY orders_new_vs_repeat ASC;"
+    )
     assert query == correct
 
 
@@ -102,7 +107,8 @@ def test_query_single_dimension_with_comment(connection):
         "'Social'\nELSE 'Not Social'\nEND as order_lines_parent_channel,"
         "SUM(order_lines.revenue) as order_lines_total_item_revenue "
         "FROM analytics.order_line_items order_lines GROUP BY CASE\n--- parent channel\nWHEN "
-        "order_lines.sales_channel ilike '%social%' then 'Social'\nELSE 'Not Social'\nEND;"
+        "order_lines.sales_channel ilike '%social%' then 'Social'\nELSE 'Not Social'\nEND "
+        "ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
 
@@ -117,7 +123,7 @@ def test_query_single_dimension_with_multi_filter(connection):
         "and orders.revenue * 100>100 then order_lines.item_costs end) "
         "as order_lines_total_item_costs FROM analytics.order_line_items order_lines LEFT JOIN "
         "analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        "GROUP BY order_lines.sales_channel;"
+        "GROUP BY order_lines.sales_channel ORDER BY order_lines_total_item_costs DESC;"
     )
     assert query == correct
 
@@ -137,7 +143,8 @@ def test_query_single_dimension_sa_duration(connection):
         "orders.order_date))  IS NOT NULL THEN  orders.id  "
         "ELSE NULL END), 0)) as orders_average_days_between_orders "
         "FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
-        "ON order_lines.order_unique_id=orders.id GROUP BY order_lines.product_name;"
+        "ON order_lines.order_unique_id=orders.id GROUP BY order_lines.product_name "
+        "ORDER BY orders_average_days_between_orders DESC;"
     )
     assert query == correct
 
@@ -156,7 +163,7 @@ def test_functional_pk_resolve_one_to_many(connection):
         "FROM analytics_live.discounts discounts "
         "LEFT JOIN analytics.discount_detail discount_detail "
         "ON discounts.discount_id=discount_detail.discount_id "
-        "GROUP BY discounts.country;"
+        "GROUP BY discounts.country ORDER BY discount_detail_discount_usd DESC;"
     )
     assert query == correct
 
@@ -189,7 +196,8 @@ def test_query_single_join_count(connection):
         "orders.new_vs_repeat as orders_new_vs_repeat,"
         "COUNT(order_lines.order_line_id) as order_lines_count FROM "
         "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
-        "order_lines.order_unique_id=orders.id GROUP BY order_lines.sales_channel,orders.new_vs_repeat;"
+        "order_lines.order_unique_id=orders.id GROUP BY order_lines.sales_channel,orders.new_vs_repeat "
+        "ORDER BY order_lines_count DESC;"
     )
     assert query == correct
 
@@ -207,7 +215,8 @@ def test_query_single_join_metric_with_sub_field(connection):
         "/ NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL "
         "THEN  orders.id  ELSE NULL END), 0) as order_lines_line_item_aov "
         "FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
-        "ON order_lines.order_unique_id=orders.id GROUP BY order_lines.sales_channel;"
+        "ON order_lines.order_unique_id=orders.id GROUP BY order_lines.sales_channel "
+        "ORDER BY order_lines_line_item_aov DESC;"
     )
     assert query == correct
 
@@ -234,7 +243,8 @@ def test_query_single_join_with_forced_additional_join(connection):
         "ON discounts.discount_id=discount_detail.discount_id "
         "AND DATE_TRUNC(CAST(discounts.order_date as DATE), WEEK) is not null "
         "LEFT JOIN (SELECT * FROM ANALYTICS.COUNTRY_DETAIL) as country_detail "
-        "ON discounts.country=country_detail.country GROUP BY discount_detail.promo_name;"
+        "ON discounts.country=country_detail.country GROUP BY discount_detail.promo_name "
+        "ORDER BY country_detail_avg_rainfall DESC;"
     )
     assert query == correct
 
@@ -258,8 +268,9 @@ def test_query_single_join_select_args(connection):
         "CAST(date_created > '2021-04-02' AS INT) as period FROM "
         "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
         "order_lines.order_unique_id=orders.id GROUP BY order_lines.sales_channel,orders.new_vs_repeat,"
+        "CAST(new_vs_repeat = 'Repeat' AS INT),CAST(date_created > '2021-04-02' AS INT) "
+        "ORDER BY order_lines_total_item_revenue DESC;"
     )
-    correct += "CAST(new_vs_repeat = 'Repeat' AS INT),CAST(date_created > '2021-04-02' AS INT);"
 
     assert query == correct
 
@@ -277,7 +288,8 @@ def test_query_single_join_with_case_raw_sql(connection):
         "SUM(order_lines.revenue) as order_lines_total_item_revenue FROM "
         "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
         "ON order_lines.order_unique_id=orders.id GROUP BY CASE WHEN order_lines.product_name "
-        "ilike '%sale%' then TRUE else FALSE end,orders.new_vs_repeat;"
+        "ilike '%sale%' then TRUE else FALSE end,orders.new_vs_repeat "
+        "ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
 
@@ -289,12 +301,15 @@ def test_query_single_join_with_case(connection):
         dimensions=["is_on_sale_case", "new_vs_repeat"],
     )
 
-    correct = "SELECT case when order_lines.product_name ilike '%sale%' then 'On sale' else 'Not on sale' end "  # noqa
-    correct += "as order_lines_is_on_sale_case,orders.new_vs_repeat as orders_new_vs_repeat,"
-    correct += "SUM(order_lines.revenue) as order_lines_total_item_revenue FROM "
-    correct += "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
-    correct += "ON order_lines.order_unique_id=orders.id GROUP BY case when order_lines.product_name "
-    correct += "ilike '%sale%' then 'On sale' else 'Not on sale' end,orders.new_vs_repeat;"
+    correct = (
+        "SELECT case when order_lines.product_name ilike '%sale%' then 'On sale' else 'Not on sale' end "  # noqa
+        "as order_lines_is_on_sale_case,orders.new_vs_repeat as orders_new_vs_repeat,"
+        "SUM(order_lines.revenue) as order_lines_total_item_revenue FROM "
+        "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
+        "ON order_lines.order_unique_id=orders.id GROUP BY case when order_lines.product_name "
+        "ilike '%sale%' then 'On sale' else 'Not on sale' end,orders.new_vs_repeat "
+        "ORDER BY order_lines_total_item_revenue DESC;"
+    )
     assert query == correct
 
 
@@ -316,7 +331,8 @@ def test_query_single_join_with_tier(connection):
         f"SELECT {tier_case_query} as order_lines_order_tier,orders.new_vs_repeat as orders_new_vs_repeat,"
         "SUM(order_lines.revenue) as order_lines_total_item_revenue FROM "
         "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
-        f"ON order_lines.order_unique_id=orders.id GROUP BY {tier_case_query},orders.new_vs_repeat;"
+        f"ON order_lines.order_unique_id=orders.id GROUP BY {tier_case_query},orders.new_vs_repeat "
+        "ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
 
@@ -334,7 +350,8 @@ def test_query_single_join_with_filter(connection):
         "COUNT(case when order_lines.sales_channel='Email' then order_lines.order_id end) "
         "as order_lines_number_of_email_purchased_items FROM analytics.order_line_items "
         "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id"
-        " GROUP BY order_lines.sales_channel,orders.new_vs_repeat;"
+        " GROUP BY order_lines.sales_channel,orders.new_vs_repeat "
+        "ORDER BY order_lines_number_of_email_purchased_items DESC;"
     )
     assert query == correct
 
@@ -352,7 +369,7 @@ def test_query_multiple_join(connection):
         "analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
-        "GROUP BY customers.region,orders.new_vs_repeat;"
+        "GROUP BY customers.region,orders.new_vs_repeat ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
 
@@ -375,7 +392,8 @@ def test_query_multiple_join_with_duration(connection):
         "FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
-        "GROUP BY DATEDIFF('MONTH', orders.previous_order_date, orders.order_date);"
+        "GROUP BY DATEDIFF('MONTH', orders.previous_order_date, orders.order_date) "
+        "ORDER BY customers_total_sessions DESC;"
     )
     assert query == correct
 
@@ -396,7 +414,7 @@ def test_query_multiple_join_where_dict(connection):
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
         "WHERE customers.region<>'West' "
-        "GROUP BY customers.region,orders.new_vs_repeat;"
+        "GROUP BY customers.region,orders.new_vs_repeat ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
 
@@ -417,7 +435,7 @@ def test_query_multiple_join_where_literal(connection):
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
         "WHERE DATE_TRUNC('WEEK', customers.first_order_date) > '2021-07-12' "
-        "GROUP BY customers.region,orders.new_vs_repeat;"
+        "GROUP BY customers.region,orders.new_vs_repeat ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
 
@@ -437,7 +455,8 @@ def test_query_multiple_join_having_dict(connection):
         "analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
-        "GROUP BY customers.region,orders.new_vs_repeat HAVING SUM(order_lines.revenue)>-12;"
+        "GROUP BY customers.region,orders.new_vs_repeat HAVING SUM(order_lines.revenue)>-12 "
+        "ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
 
@@ -457,7 +476,8 @@ def test_query_multiple_join_having_literal(connection):
         "analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
-        "GROUP BY customers.region,orders.new_vs_repeat HAVING SUM(order_lines.revenue) > -12;"
+        "GROUP BY customers.region,orders.new_vs_repeat HAVING SUM(order_lines.revenue) > -12 "
+        "ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
 
@@ -490,7 +510,7 @@ def test_query_multiple_join_all(connection):
         dimensions=["region", "new_vs_repeat"],
         where=[{"field": "region", "expression": "not_equal_to", "value": "West"}],
         having=[{"field": "total_item_revenue", "expression": "greater_than", "value": -12}],
-        order_by=[{"field": "total_item_revenue", "sort": "desc"}],
+        order_by=[{"field": "total_item_revenue", "sort": "asc"}],
     )
 
     correct = (
@@ -501,7 +521,7 @@ def test_query_multiple_join_all(connection):
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
         "WHERE customers.region<>'West' "
         "GROUP BY customers.region,orders.new_vs_repeat HAVING SUM(order_lines.revenue)>-12 "
-        "ORDER BY total_item_revenue DESC;"
+        "ORDER BY total_item_revenue ASC;"
     )
     assert query == correct
 
@@ -518,7 +538,7 @@ def test_query_single_join_count_and_filter(connection):
         "case when orders.new_vs_repeat='New' then orders.id end)) "
         "as orders_new_order_count FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        "GROUP BY order_lines.sales_channel;"
+        "GROUP BY order_lines.sales_channel ORDER BY orders_new_order_count DESC;"
     )
     assert query == correct
 
@@ -535,6 +555,7 @@ def test_query_number_measure_w_dimension_reference(connection):
         "split_part(listagg(order_lines.inventory_qty, ',') within group "
         "(order by DATE_TRUNC('DAY', order_lines.order_date) desc), ',', 0)::int "
         "as order_lines_ending_on_hand_qty "
-        "FROM analytics.order_line_items order_lines GROUP BY order_lines.product_name;"
+        "FROM analytics.order_line_items order_lines GROUP BY order_lines.product_name "
+        "ORDER BY order_lines_ending_on_hand_qty DESC;"
     )
     assert query == correct

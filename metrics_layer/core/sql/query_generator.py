@@ -71,6 +71,8 @@ class MetricsLayerQuery(MetricsLayerBase):
 
         if order_by:
             self.order_by_args.extend(self._parse_order_by_object(order_by))
+        else:
+            self.order_by_args.append({"field": "__DEFAULT__"})
 
     def _parse_filter_object(
         self, filter_object, filter_type: str, always_where: str = None, access_filter: str = None
@@ -160,6 +162,12 @@ class MetricsLayerQuery(MetricsLayerBase):
         # Handle order by
         if self.order_by_args and not self.no_group_by:
             for arg in self.order_by_args:
+                # If the order isn't specified, then we default to the first measure or dim if no measure
+                if arg["field"] == "__DEFAULT__":
+                    all_fields = self.metrics + self.dimensions
+                    first_field = self.design.get_field(all_fields[0])
+                    arg["sort"] = "desc" if first_field.field_type == "measure" else "asc"
+                    arg["field"] = first_field.alias(with_view=True)
                 order = Order.desc if arg["sort"] == "desc" else Order.asc
                 base_query = base_query.orderby(LiteralValue(arg["field"]), order=order)
 
