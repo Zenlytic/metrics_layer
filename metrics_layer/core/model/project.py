@@ -52,6 +52,9 @@ class Project:
 
     def validate(self):
         all_errors = []
+        for model in self.models():
+            all_errors.extend(model.collect_errors())
+
         for explore in self.explores():
             errors = explore.validate_fields()
             all_errors.extend(errors)

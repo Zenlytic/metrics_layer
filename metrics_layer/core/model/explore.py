@@ -39,6 +39,8 @@ class Explore(MetricsLayerBase):
 
     def validate_fields(self):
         errors = []
+        if not self.valid_name(self.name):
+            errors.append(self.name_error("explore", self.name))
 
         for join in self.joins():
             errors.extend(join.collect_errors())

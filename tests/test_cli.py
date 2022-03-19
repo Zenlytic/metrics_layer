@@ -292,6 +292,29 @@ def test_cli_validate_dashboards(config, fresh_project, mocker):
 
 
 @pytest.mark.cli
+def test_cli_validate_names(config, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
+
+    sorted_fields[0]["name"] = "an invalid @name"
+    project._views[1]["fields"] = sorted_fields
+    config.project = project
+    conn = MetricsLayerConnection(config=config)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nField name: an invalid @name is invalid. Please reference the naming conventions (only letters, numbers, or underscores)\n\n"  # noqa
+    )
+
+
+@pytest.mark.cli
 def test_cli_debug(connection, mocker):
     def query_runner_mock(query, connection, run_pre_queries=True):
         assert query == "select 1 as id;"

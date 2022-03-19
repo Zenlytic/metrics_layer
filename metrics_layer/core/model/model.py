@@ -26,6 +26,11 @@ class Model(MetricsLayerBase):
             if k not in definition:
                 raise ValueError(f"Model missing required key {k}")
 
+    def collect_errors(self):
+        if not self.valid_name(self.name):
+            return [self.name_error("model", self.name)]
+        return []
+
     def printable_attributes(self):
         to_print = ["name", "type", "label", "group_label", "connection", "explore_names"]
         attributes = self.to_dict()

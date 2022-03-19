@@ -43,6 +43,9 @@ class View(MetricsLayerBase):
         for field in fields:
             field_errors.extend(field.collect_errors())
 
+        if not self.valid_name(self.name):
+            field_errors.append(self.name_error("view", self.name))
+
         if self.primary_key is None:
             primary_key_error = (
                 f"Warning: The view {self.name} does not have a primary key, "
