@@ -1,5 +1,7 @@
 import pytest
 
+from metrics_layer.core.model.project import AccessDeniedOrDoesNotExistException
+
 
 @pytest.mark.query
 def test_query_no_join_with_limit(connection):
@@ -157,6 +159,20 @@ def test_functional_pk_resolve_one_to_many(connection):
         "GROUP BY discounts.country;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_ensure_join_fields_are_respected(connection):
+    with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
+        connection.get_explore("order_lines_all")
+
+        connection.get_sql_query(
+            metrics=["discount_usd"],
+            dimensions=["discount_promo_name"],
+            explore_name="discounts_only",
+        )
+
+    assert exc_info.value
 
 
 @pytest.mark.query

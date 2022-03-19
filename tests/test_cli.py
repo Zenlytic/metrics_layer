@@ -250,11 +250,14 @@ def test_cli_validate_explores(config, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 3 errors in the project:\n\n"
+        "Found 6 errors in the project:\n\n"
         "\nCould not find field customer_id in join customers referencing view "
         "missing_view in explore order_lines_all\n\n"
         "\nCould not find view missing_view in join all_orders\n\n"
         "\nView missing_view cannot be found in explore order_lines_all\n\n"
+        "\nCould not find field order_lines.product_name in explore order_lines_all referenced in dashboard sales_dashboard\n\n"  # noqa
+        "\nCould not find field order_lines.product_name in explore order_lines_all referenced in a filter in dashboard sales_dashboard\n\n"  # noqa
+        "\nCould not find field order_lines.product_name in explore order_lines_all referenced in dashboard sales_dashboard_v2\n\n"  # noqa
     )
 
     explores[-1]["from"] = "order_lines"
@@ -376,13 +379,13 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
         "connections": "Found 1 connection:\n\ntesting_snowflake\n",
         "explores": "Found 2 explores:\n\norder_lines_all\ndiscounts_only\n",
         "views": "Found 2 views:\n\ndiscounts\ndiscount_detail\n",
-        "fields": "Found 6 fields:\n\ncountry\norder\ndiscount_code\ntotal_discount_amt\ndiscount_promo_name\ndiscount_usd\n",  # noqa
+        "fields": "Found 5 fields:\n\ncountry\norder\ndiscount_code\ntotal_discount_amt\ndiscount_usd\n",  # noqa
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
         "metrics": "Found 2 metrics:\n\ntotal_discount_amt\ndiscount_usd\n",
     }
 
     if any("show-hidden" in a for a in extra_args):
-        correct = "Found 7 dimensions:\n\ndiscount_id\norder_id\ncountry\norder\ndiscount_code\ndiscount_id\ndiscount_promo_name\n"  # noqa
+        correct = "Found 5 dimensions:\n\ndiscount_id\norder_id\ncountry\norder\ndiscount_code\n"  # noqa
     else:
         correct = result_lookup[object_type]
 

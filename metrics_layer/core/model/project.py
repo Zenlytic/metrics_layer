@@ -62,7 +62,8 @@ class Project:
         for dashboard in self.dashboards():
             errors = dashboard.collect_errors()
             all_errors.extend(errors)
-        return all_errors
+
+        return list(sorted(set(all_errors), key=lambda x: all_errors.index(x)))
 
     def _all_dashboards(self):
         dashboards = []
@@ -223,13 +224,10 @@ class Project:
         if explore_name is None and view_name is None:
             return self._all_fields(show_hidden, expand_dimension_groups)
         elif view_name and explore_name:
-            return self._view_fields(
-                view_name, self.get_explore(explore_name), show_hidden, expand_dimension_groups
-            )
+            fields = self._explore_fields(explore_name, show_hidden, expand_dimension_groups, show_excluded)
+            return [f for f in fields if f.view.name == view_name]
         elif view_name:
-            return self._view_fields(
-                view_name, show_hidden=show_hidden, expand_dimension_groups=expand_dimension_groups
-            )
+            return self._view_fields(view_name, show_hidden, expand_dimension_groups)
         else:
             return self._explore_fields(explore_name, show_hidden, expand_dimension_groups, show_excluded)
 
@@ -239,9 +237,9 @@ class Project:
     def _view_fields(
         self,
         view_name: str,
-        explore: Explore = None,
         show_hidden: bool = True,
         expand_dimension_groups: bool = False,
+        explore: Explore = None,
     ):
         view = self.get_view(view_name, explore=explore)
         if not view:
@@ -253,20 +251,15 @@ class Project:
         self, explore_name: str, show_hidden: bool, expand_dimension_groups: bool, show_excluded: bool
     ):
         explore = self.get_explore(explore_name)
-        valid_views = self.views_with_explore(explore=explore)
-        fields = [f for v in valid_views for f in v.fields(show_hidden, expand_dimension_groups)]
-
-        if explore.fields and not show_excluded:
-            field_names = explore.field_names()
-            fields_in_explore = []
-            for field in fields:
-                if any(field.equal(fn) for fn in field_names):
-                    fields_in_explore.append(field)
-            return fields_in_explore
-        return fields
+        if show_excluded:
+            valid_views = self.views_with_explore(explore=explore)
+            return [f for v in valid_views for f in v.fields(show_hidden, expand_dimension_groups)]
+        return explore.explore_fields(show_hidden, expand_dimension_groups, show_excluded)
 
     @functools.lru_cache(maxsize=None)
-    def get_field(self, field_name: str, explore_name: str = None, view_name: str = None) -> Field:
+    def get_field(
+        self, field_name: str, explore_name: str = None, view_name: str = None, show_excluded: bool = False
+    ) -> Field:
         # Handle the case where the explore syntax is passed: explore_name.view_name.field_name
         if "." in field_name:
             specified_explore_name, specified_view_name, field_name = Field.field_name_parts(field_name)
@@ -284,7 +277,12 @@ class Project:
 
         field_name = field_name.lower()
 
-        fields = self.fields(explore_name=explore_name, view_name=view_name, expand_dimension_groups=True)
+        fields = self.fields(
+            explore_name=explore_name,
+            view_name=view_name,
+            expand_dimension_groups=True,
+            show_excluded=show_excluded,
+        )
         matching_fields = [f for f in fields if f.equal(field_name)]
         return self._matching_field_handler(matching_fields, field_name, explore_name, view_name)
 

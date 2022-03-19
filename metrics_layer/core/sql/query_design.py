@@ -3,10 +3,7 @@ from typing import List
 
 import networkx
 
-from metrics_layer.core.model.base import (
-    AccessDeniedOrDoesNotExistException,
-    MetricsLayerBase,
-)
+from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.sql.query_errors import ParseError
 
@@ -21,7 +18,6 @@ class MetricsLayerDesign:
         self.explore = explore
         self.project = project
         self._joins = None
-        self._fields = None
 
     def views(self) -> List[MetricsLayerBase]:
         return self.project.views(explore_name=self.explore.name)
@@ -176,19 +172,8 @@ class MetricsLayerDesign:
     def get_join(self, name: str) -> MetricsLayerBase:
         return next((j for j in self.joins() if j.name == name), None)
 
-    def fields(self):
-        if not self._fields:
-            self._fields = self.project.explore.explore_fields()
-        return self._fields
-
     def get_field(self, field_name: str) -> MetricsLayerBase:
-        try:
-            return next(f for f in self.fields() if f.equal(field_name))
-        except StopIteration as e:
-            raise AccessDeniedOrDoesNotExistException(
-                f"Field {field_name} not found in explore {self.explore.name }"
-            )
-        # return self.project.get_field(field_name, explore_name=self.explore.name)
+        return self.project.get_field(field_name, explore_name=self.explore.name)
 
     def get_access_filter(self):
         if self.explore.access_filters:

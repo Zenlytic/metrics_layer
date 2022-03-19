@@ -1,4 +1,4 @@
-from .base import MetricsLayerBase
+from .base import AccessDeniedOrDoesNotExistException, MetricsLayerBase
 from .join import Join
 from .set import Set
 
@@ -107,3 +107,18 @@ class Explore(MetricsLayerBase):
             if join.is_valid():
                 output.append(join)
         return output
+
+    def explore_fields(self, show_hidden: bool, expand_dimension_groups: bool, show_excluded: bool):
+        try:
+            view = self.project.get_view(self.from_, explore=self)
+            fields = view.fields(show_hidden, expand_dimension_groups)
+        except AccessDeniedOrDoesNotExistException:
+            fields = []
+
+        for join in self.joins():
+            fields.extend(join.join_fields(show_hidden, expand_dimension_groups, show_excluded))
+
+        explore_field_names = self.field_names()
+        if explore_field_names and not show_excluded:
+            return [f for f in fields if f.id(view_only=True) in explore_field_names]
+        return fields

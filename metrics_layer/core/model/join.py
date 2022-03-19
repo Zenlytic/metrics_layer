@@ -1,7 +1,8 @@
 from copy import deepcopy
 
-from .base import MetricsLayerBase, SQLReplacement
+from .base import AccessDeniedOrDoesNotExistException, MetricsLayerBase, SQLReplacement
 from .field import Field
+from .set import Set
 
 
 class Join(MetricsLayerBase, SQLReplacement):
@@ -64,7 +65,10 @@ class Join(MetricsLayerBase, SQLReplacement):
             for view_name in [self.from_, self.explore.from_]:
                 try:
                     self.project.get_field(
-                        self.foreign_key, view_name=view_name, explore_name=self.explore.name
+                        self.foreign_key,
+                        view_name=view_name,
+                        explore_name=self.explore.name,
+                        show_excluded=True,
                     )
                 except Exception:
                     errors.append(
@@ -86,7 +90,12 @@ class Join(MetricsLayerBase, SQLReplacement):
                 continue
 
             try:
-                self.project.get_field(column_name, view_name=view.name, explore_name=self.explore.name)
+                self.project.get_field(
+                    column_name,
+                    view_name=view.name,
+                    explore_name=self.explore.name,
+                    show_excluded=True,
+                )
             except Exception:
                 errors.append(
                     f"Could not find field {column_name} in join {self.name} "
@@ -153,7 +162,7 @@ class Join(MetricsLayerBase, SQLReplacement):
 
             table_name = view.name
             field_obj = self.project.get_field(
-                column_name, view_name=table_name, explore_name=self.explore.name
+                column_name, view_name=table_name, explore_name=self.explore.name, show_excluded=True
             )
 
             if field_obj and table_name:
@@ -185,3 +194,29 @@ class Join(MetricsLayerBase, SQLReplacement):
         else:
             view = self.project.get_view(view_name)
         return view
+
+    def field_names(self):
+        # This function is for the explore `fields` parameter, to resolve all the sets into field names
+        if self.fields is None:
+            return self.fields
+
+        set_definition = {
+            "name": "NA",
+            "fields": self.fields,
+            "view_name": self.from_,
+            "explore_name": self.explore.name,
+        }
+        join_set = Set(set_definition, project=self.project, explore=self.explore)
+        return join_set.field_names()
+
+    def join_fields(self, show_hidden: bool, expand_dimension_groups: bool, show_excluded: bool):
+        try:
+            view = self.project.get_view(self.from_, explore=self.explore)
+        except AccessDeniedOrDoesNotExistException:
+            # If the user does not have access to the view, there are obviously no fields to show them
+            return []
+        fields = view.fields(show_hidden, expand_dimension_groups)
+        join_field_names = self.field_names()
+        if join_field_names and not show_excluded:
+            return [f for f in fields if f.id(view_only=True) in join_field_names]
+        return fields

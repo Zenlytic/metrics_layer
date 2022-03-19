@@ -5,7 +5,6 @@ import pytest
 
 from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.model import Definitions, Project
-from metrics_layer.core.model.filter import Filter
 
 simple_model = {
     "type": "model",
@@ -417,9 +416,7 @@ def test_simple_query_with_where_dim_group(config, field, expression, value, que
     elif query_type == Definitions.bigquery and isinstance(value, datetime) and field == "first_order_date":
         condition = "CAST(DATE_TRUNC(CAST(simple.first_order_date as DATE), DAY) AS DATE)>DATE('2021-08-04 00:00:00')"  # noqa
     elif query_type == Definitions.snowflake and expression == "matches":
-        time_str = Filter._date_to_string(pendulum.now("UTC").subtract(months=13).start_of("month"))
         last_year = pendulum.now("UTC").year - 1
-        print(time_str)
         condition = f"DATE_TRUNC('DAY', simple.{field})>='{last_year}-01-01T00:00:00' AND "
         condition += f"DATE_TRUNC('DAY', simple.{field})<='{last_year}-12-31T23:59:59'"
     elif query_type == Definitions.bigquery and expression == "matches":
