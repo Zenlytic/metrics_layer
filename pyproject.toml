@@ -21,17 +21,18 @@ pandas = {version = "^1.2.2", optional = true}
 snowflake-connector-python = {version = "~2.5.1", optional = true}
 pyarrow = {version = "3.0.0", optional = true}
 google-cloud-bigquery = {version = "^2.24.1", optional = true}
+redshift-connector = {version = "^2.0.905", optional = true}
 dbt-core = {version = "^1.0.0", optional = true}
 dbt-extractor = {version = "^0.4.0", optional = true}
 dbt-snowflake = {version = "^1.0.0", optional = true}
 dbt-bigquery = {version = "^1.0.0", optional = true}
+dbt-redshift = {version = "^1.0.0", optional = true}
 networkx = "^2.6.3"
 click = "^8.0"
 importlib-metadata = "^4.8.2"
 colorama = "^0.4.4"
 "ruamel.yaml" = "^0.17.20"
 pendulum = "^2.1.2"
-redshift-connector = "^2.0.905"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
@@ -45,8 +46,9 @@ pytest-mock = "^3.6.1"
 [tool.poetry.extras]
 snowflake = ["snowflake-connector-python", "pyarrow", "pandas", "dbt-snowflake"]
 bigquery = ["google-cloud-bigquery", "pyarrow", "pandas", "dbt-bigquery"]
+redshift = ["redshift-connector", "dbt-redshift", "pandas"]
 dbt = ["dbt-core", "dbt-extractor"]
-all = ["snowflake-connector-python", "google-cloud-bigquery", "pyarrow", "pandas", "dbt-core", "dbt-extractor", "dbt-snowflake", "dbt-bigquery"]
+all = ["snowflake-connector-python", "google-cloud-bigquery", "pyarrow", "pandas", "dbt-core", "dbt-extractor", "dbt-snowflake", "dbt-bigquery", "dbt-redshift", "redshift-connector"]
 
 [tool.black]
 line-length = 110
