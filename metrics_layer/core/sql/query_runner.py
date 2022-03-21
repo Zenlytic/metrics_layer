@@ -9,6 +9,11 @@ try:
 except ModuleNotFoundError:
     pass
 
+try:
+    import redshift_connector
+except ModuleNotFoundError:
+    pass
+
 from metrics_layer.core.parse.connections import (
     BaseConnection,
     ConnectionType,
@@ -23,6 +28,7 @@ class QueryRunner:
         self._query_runner_lookup = {
             ConnectionType.snowflake: self._run_snowflake_query,
             ConnectionType.bigquery: self._run_bigquery_query,
+            ConnectionType.redshift: self._run_redshift_query,
         }
         if self.connection.type not in self._query_runner_lookup:
             supported = list(self._query_runner_lookup.keys())
@@ -58,6 +64,19 @@ class QueryRunner:
         df = cursor.fetch_pandas_all()
         return df
 
+    def _run_redshift_query(
+        self, timeout: int, raw_cursor: bool, run_pre_queries: bool, start_warehouse: bool
+    ):
+        redshift_connection = self._get_redshift_connection(self.connection)
+        cursor = redshift_connection.cursor()
+        cursor.execute(self.query, timeout=timeout)
+
+        redshift_connection.close()
+        if raw_cursor:
+            return cursor
+        df = cursor.fetch_dataframe()
+        return df
+
     def _run_bigquery_query(
         self, timeout: int, raw_cursor: bool, run_pre_queries: bool, start_warehouse: bool
     ):
@@ -89,6 +108,23 @@ class QueryRunner:
                 user=connection.username,
                 password=connection.password,
                 role=connection.role,
+            )
+        except (ModuleNotFoundError, NameError):
+            raise ModuleNotFoundError(
+                "MetricsLayer could not find the Snowflake modules it needs to run the query. "
+                "Make sure that you have those modules installed or reinstall MetricsLayer with "
+                "the [snowflake] option e.g. pip install metrics-layer[snowflake]"
+            )
+
+    @staticmethod
+    def _get_redshift_connection(connection: BaseConnection):
+        try:
+            return redshift_connector.connect(
+                host=connection.host,
+                port=connection.port,
+                database=connection.database,
+                user=connection.username,
+                password=connection.password,
             )
         except (ModuleNotFoundError, NameError):
             raise ModuleNotFoundError(
