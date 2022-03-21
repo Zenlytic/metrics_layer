@@ -470,6 +470,8 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"DATE_TRUNC(CAST({sql} as DATE) + {offset}, WEEK)"
 
     def collect_errors(self):
+        if not self.valid_name(self.name):
+            return [self.name_error("field", self.name)]
         return []
 
     def get_referenced_sql_query(self, strings_only=True):

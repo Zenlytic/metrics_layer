@@ -34,10 +34,10 @@ def test_list_dimensions(config):
     assert len(dimensions) == 28
 
     dimensions = conn.list_dimensions(explore_name="order_lines_all", show_hidden=True)
-    assert len(dimensions) == 36
+    assert len(dimensions) == 29
 
     dimensions = conn.list_dimensions(explore_name="order_lines_all")
-    assert len(dimensions) == 25
+    assert len(dimensions) == 18
 
     dimensions = conn.list_dimensions(view_name="order_lines", names_only=True, show_hidden=True)
     dimensions_present = {

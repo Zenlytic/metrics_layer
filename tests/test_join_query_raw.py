@@ -31,7 +31,7 @@ def test_query_single_join_non_base_primary_key(connection):
         "SUM(order_lines.revenue) as order_lines_total_item_revenue FROM "
         "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
         "order_lines.order_unique_id=orders.id GROUP BY orders.id,order_lines.sales_channel,"
-        "orders.new_vs_repeat;"
+        "orders.new_vs_repeat ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
 

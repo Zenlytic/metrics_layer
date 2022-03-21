@@ -13,7 +13,7 @@ access_grants:
     allowed_values: ["finance", "executive", "sales"]
   - name: test_access_grant_department_join
     user_attribute: department
-    allowed_values: ["executive"]
+    allowed_values: ["executive", "marketing"]
   - name: test_access_grant_department_field
     user_attribute: department
     allowed_values: ["executive", "engineering", 'sales']
@@ -67,6 +67,7 @@ explores:
 
     joins:
       - name: discount_detail
+        fields: [discount_usd]
         type: left_outer
         relationship: one_to_many
         sql_on: "${discounts_only.discount_id}=${discount_detail.discount_id}"

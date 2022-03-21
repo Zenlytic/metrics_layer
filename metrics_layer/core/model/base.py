@@ -1,5 +1,7 @@
 import re
 
+NAME_REGEX = re.compile(r"([A-Za-z0-9\_]+)")
+
 
 class AccessDeniedOrDoesNotExistException(Exception):
     def __init__(self, message: str, object_name: str, object_type: str):
@@ -23,6 +25,18 @@ class MetricsLayerBase:
 
     def to_dict(self):
         return self._definition
+
+    @staticmethod
+    def valid_name(name: str):
+        match = re.match(NAME_REGEX, name)
+        return match.group(1) == name
+
+    @staticmethod
+    def name_error(entity_name: str, name: str):
+        return (
+            f"{entity_name.title()} name: {name} is invalid. Please reference "
+            "the naming conventions (only letters, numbers, or underscores)"
+        )
 
     @staticmethod
     def field_name_parts(field_name: str):

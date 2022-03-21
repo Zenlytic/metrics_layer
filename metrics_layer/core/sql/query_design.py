@@ -172,8 +172,8 @@ class MetricsLayerDesign:
     def get_join(self, name: str) -> MetricsLayerBase:
         return next((j for j in self.joins() if j.name == name), None)
 
-    def get_field(self, field_name: str, view_name: str = None) -> MetricsLayerBase:
-        return self.project.get_field(field_name, view_name=view_name, explore_name=self.explore.name)
+    def get_field(self, field_name: str) -> MetricsLayerBase:
+        return self.project.get_field(field_name, explore_name=self.explore.name)
 
     def get_access_filter(self):
         if self.explore.access_filters:

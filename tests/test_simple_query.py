@@ -5,7 +5,6 @@ import pytest
 
 from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.model import Definitions, Project
-from metrics_layer.core.model.filter import Filter
 
 simple_model = {
     "type": "model",
@@ -121,7 +120,7 @@ def test_simple_query(config):
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
     )
-    correct += "analytics.orders simple GROUP BY simple.sales_channel;"
+    correct += "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC;"
     assert query == correct
 
 
@@ -132,7 +131,10 @@ def test_simple_query_single_metric(config):
     conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(metrics=["total_revenue"])
 
-    correct = "SELECT SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple;"
+    correct = (
+        "SELECT SUM(simple.revenue) as simple_total_revenue "
+        "FROM analytics.orders simple ORDER BY simple_total_revenue DESC;"
+    )
     assert query == correct
 
 
@@ -143,8 +145,10 @@ def test_simple_query_single_dimension(config):
     conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(dimensions=["channel"])
 
-    correct = "SELECT simple.sales_channel as simple_channel FROM "
-    correct += "analytics.orders simple GROUP BY simple.sales_channel;"
+    correct = (
+        "SELECT simple.sales_channel as simple_channel FROM analytics.orders simple "
+        "GROUP BY simple.sales_channel ORDER BY simple_channel ASC;"
+    )
     assert query == correct
 
 
@@ -156,7 +160,7 @@ def test_simple_query_count(config):
     query = conn.get_sql_query(metrics=["count"], dimensions=["channel"])
 
     correct = "SELECT simple.sales_channel as simple_channel,COUNT(*) as simple_count FROM "
-    correct += "analytics.orders simple GROUP BY simple.sales_channel;"
+    correct += "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_count DESC;"
     assert query == correct
 
 
@@ -168,7 +172,7 @@ def test_simple_query_alias_keyword(config):
     query = conn.get_sql_query(metrics=["count"], dimensions=["group"])
 
     correct = "SELECT simple.group_name as simple_group,COUNT(*) as simple_count FROM "
-    correct += "analytics.orders simple GROUP BY simple.group_name;"
+    correct += "analytics.orders simple GROUP BY simple.group_name ORDER BY simple_count DESC;"
     assert query == correct
 
 
@@ -236,8 +240,11 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
 
     date_result = result_lookup[group]
 
-    correct = f"SELECT {date_result} as simple_order_{group},SUM(simple.revenue) as "
-    correct += f"simple_total_revenue FROM analytics.orders simple GROUP BY {date_result};"
+    correct = (
+        f"SELECT {date_result} as simple_order_{group},SUM(simple.revenue) as "
+        f"simple_total_revenue FROM analytics.orders simple GROUP BY {date_result} "
+        "ORDER BY simple_total_revenue DESC;"
+    )
     assert query == correct
 
     correct_label = f"Order Created {group.replace('_', ' ').title()}"
@@ -320,7 +327,7 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
         correct = (
             f"SELECT {interval_result} as simple_{interval}s_waiting,"
             "SUM(simple.revenue) as simple_total_revenue FROM "
-            f"analytics.orders simple GROUP BY {interval_result};"
+            f"analytics.orders simple GROUP BY {interval_result} ORDER BY simple_total_revenue DESC;"
         )
         assert query == correct
 
@@ -335,9 +342,11 @@ def test_simple_query_two_group_by(config):
     conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel", "new_vs_repeat"])
 
-    correct = "SELECT simple.sales_channel as simple_channel,simple.new_vs_repeat as simple_new_vs_repeat,"
-    correct += "SUM(simple.revenue) as simple_total_revenue FROM "
-    correct += "analytics.orders simple GROUP BY simple.sales_channel,simple.new_vs_repeat;"
+    correct = (
+        "SELECT simple.sales_channel as simple_channel,simple.new_vs_repeat as simple_new_vs_repeat,"
+        "SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple "
+        "GROUP BY simple.sales_channel,simple.new_vs_repeat ORDER BY simple_total_revenue DESC;"
+    )
     assert query == correct
 
 
@@ -351,11 +360,12 @@ def test_simple_query_two_metric(config):
         dimensions=["channel", "new_vs_repeat"],
     )
 
-    correct = "SELECT simple.sales_channel as simple_channel,simple.new_vs_repeat as simple_new_vs_repeat,"
-    correct += (
+    correct = (
+        "SELECT simple.sales_channel as simple_channel,simple.new_vs_repeat as simple_new_vs_repeat,"
         "SUM(simple.revenue) as simple_total_revenue,AVG(simple.revenue) as simple_average_order_value FROM "
+        "analytics.orders simple GROUP BY simple.sales_channel,simple.new_vs_repeat "
+        "ORDER BY simple_total_revenue DESC;"
     )
-    correct += "analytics.orders simple GROUP BY simple.sales_channel,simple.new_vs_repeat;"
     assert query == correct
 
 
@@ -368,9 +378,10 @@ def test_simple_query_custom_dimension(config):
 
     correct = (
         "SELECT CASE WHEN simple.sales_channel != 'fraud' THEN TRUE ELSE FALSE END as simple_is_valid_order,"
+        "SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple"
+        " GROUP BY CASE WHEN simple.sales_channel != 'fraud' THEN TRUE ELSE FALSE END "
+        "ORDER BY simple_total_revenue DESC;"
     )
-    correct += "SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple"
-    correct += " GROUP BY CASE WHEN simple.sales_channel != 'fraud' THEN TRUE ELSE FALSE END;"
     assert query == correct
 
 
@@ -381,8 +392,11 @@ def test_simple_query_custom_metric(config):
     conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(metrics=["revenue_per_aov"], dimensions=["channel"])
 
-    correct = "SELECT simple.sales_channel as simple_channel,CASE WHEN AVG(simple.revenue) = 0 THEN 0 ELSE SUM(simple.revenue) / AVG(simple.revenue) END as simple_revenue_per_aov FROM "  # noqa
-    correct += "analytics.orders simple GROUP BY simple.sales_channel;"
+    correct = (
+        "SELECT simple.sales_channel as simple_channel,CASE WHEN AVG(simple.revenue) = 0 THEN "
+        "0 ELSE SUM(simple.revenue) / AVG(simple.revenue) END as simple_revenue_per_aov FROM "
+        "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_revenue_per_aov DESC;"
+    )
     assert query == correct
 
 
@@ -438,9 +452,7 @@ def test_simple_query_with_where_dim_group(config, field, expression, value, que
     elif query_type == Definitions.bigquery and isinstance(value, datetime) and field == "first_order_date":
         condition = "CAST(DATE_TRUNC(CAST(simple.first_order_date as DATE), DAY) AS DATE)>DATE('2021-08-04 00:00:00')"  # noqa
     elif sf_or_rs and expression == "matches":
-        time_str = Filter._date_to_string(pendulum.now("UTC").subtract(months=13).start_of("month"))
         last_year = pendulum.now("UTC").year - 1
-        print(time_str)
         condition = f"DATE_TRUNC('DAY', simple.{field})>='{last_year}-01-01T00:00:00' AND "
         condition += f"DATE_TRUNC('DAY', simple.{field})<='{last_year}-12-31T23:59:59'"
     elif query_type == Definitions.bigquery and expression == "matches":
@@ -450,7 +462,8 @@ def test_simple_query_with_where_dim_group(config, field, expression, value, que
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-        f"analytics.orders simple WHERE {condition} GROUP BY simple.sales_channel;"
+        f"analytics.orders simple WHERE {condition} GROUP BY simple.sales_channel "
+        "ORDER BY simple_total_revenue DESC;"
     )
     assert query == correct
 
@@ -504,7 +517,8 @@ def test_simple_query_with_where_dict(config, filter_type):
     filter_expr = result_lookup[filter_type]
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-        f"analytics.orders simple WHERE simple.sales_channel{filter_expr} GROUP BY simple.sales_channel;"
+        f"analytics.orders simple WHERE simple.sales_channel{filter_expr} GROUP BY simple.sales_channel "
+        "ORDER BY simple_total_revenue DESC;"
     )
     assert query == correct
 
@@ -520,8 +534,9 @@ def test_simple_query_with_where_literal(config):
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
+        "analytics.orders simple WHERE simple.sales_channel != 'Email' GROUP BY simple.sales_channel "
+        "ORDER BY simple_total_revenue DESC;"
     )
-    correct += "analytics.orders simple WHERE simple.sales_channel != 'Email' GROUP BY simple.sales_channel;"
     assert query == correct
 
 
@@ -565,7 +580,8 @@ def test_simple_query_with_having_dict(config, filter_type):
         full_expr = "NOT " + full_expr
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-        f"analytics.orders simple GROUP BY simple.sales_channel HAVING {full_expr};"
+        f"analytics.orders simple GROUP BY simple.sales_channel HAVING {full_expr} "
+        "ORDER BY simple_total_revenue DESC;"
     )
     assert query == correct
 
@@ -579,8 +595,9 @@ def test_simple_query_with_having_literal(config):
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
+        "analytics.orders simple GROUP BY simple.sales_channel HAVING SUM(simple.revenue) > 12 "
+        "ORDER BY simple_total_revenue DESC;"
     )
-    correct += "analytics.orders simple GROUP BY simple.sales_channel HAVING SUM(simple.revenue) > 12;"
     assert query == correct
 
 
@@ -592,11 +609,14 @@ def test_simple_query_with_order_by_dict(config):
     query = conn.get_sql_query(
         metrics=["total_revenue", "average_order_value"],
         dimensions=["channel"],
-        order_by=[{"field": "total_revenue", "sort": "desc"}, {"field": "average_order_value"}],
+        order_by=[{"field": "total_revenue", "sort": "asc"}, {"field": "average_order_value"}],
     )
 
-    correct = "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue,AVG(simple.revenue) as simple_average_order_value FROM "  # noqa
-    correct += "analytics.orders simple GROUP BY simple.sales_channel ORDER BY total_revenue DESC,average_order_value ASC;"  # noqa
+    correct = (
+        "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue,"
+        "AVG(simple.revenue) as simple_average_order_value FROM analytics.orders simple "
+        "GROUP BY simple.sales_channel ORDER BY total_revenue ASC,average_order_value ASC;"
+    )
     assert query == correct
 
 
@@ -611,8 +631,8 @@ def test_simple_query_with_order_by_literal(config):
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
+        "analytics.orders simple GROUP BY simple.sales_channel ORDER BY total_revenue ASC;"
     )
-    correct += "analytics.orders simple GROUP BY simple.sales_channel ORDER BY total_revenue ASC;"
     assert query == correct
 
 
@@ -631,9 +651,9 @@ def test_simple_query_with_all(config):
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
+        "analytics.orders simple WHERE simple.sales_channel<>'Email' "
+        "GROUP BY simple.sales_channel HAVING SUM(simple.revenue)>12 ORDER BY total_revenue ASC;"
     )
-    correct += "analytics.orders simple WHERE simple.sales_channel<>'Email' "
-    correct += "GROUP BY simple.sales_channel HAVING SUM(simple.revenue)>12 ORDER BY total_revenue ASC;"
     assert query == correct
 
 
@@ -648,8 +668,9 @@ def test_simple_query_sql_always_where(config):
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
+        "analytics.orders simple WHERE simple.new_vs_repeat = 'Repeat' GROUP BY simple.sales_channel "
+        "ORDER BY simple_total_revenue DESC;"
     )
-    correct += "analytics.orders simple WHERE simple.new_vs_repeat = 'Repeat' GROUP BY simple.sales_channel;"
     assert query == correct
 
 
@@ -668,6 +689,6 @@ def test_simple_query_invalid_sql_always_where(config):
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
+        "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC;"
     )
-    correct += "analytics.orders simple GROUP BY simple.sales_channel;"
     assert query == correct
