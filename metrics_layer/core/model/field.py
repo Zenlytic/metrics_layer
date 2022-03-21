@@ -177,7 +177,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         alias_only: bool = False,
         factor: int = 1_000_000,
     ):
-        if query_type == Definitions.snowflake:
+        if query_type in {Definitions.snowflake, Definitions.redshift}:
             return self._sum_symmetric_aggregate_snowflake(sql, primary_key_sql, alias_only, factor)
         elif query_type == Definitions.bigquery:
             return self._sum_symmetric_aggregate_bigquery(sql, primary_key_sql, alias_only, factor)
@@ -395,6 +395,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "years": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), ISOYEAR)",
             },
         }
+        # Snowflake and redshift have identical syntax in this case
+        meta_lookup[Definitions.redshift] = meta_lookup[Definitions.snowflake]
         try:
             return meta_lookup[query_type][self.dimension_group](sql_start, sql_end)
         except KeyError:
@@ -430,6 +432,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "day_of_week": lambda s, qt: f"CAST({s} AS STRING FORMAT 'DAY')",
             },
         }
+        # Snowflake and redshift have identical syntax in this case
+        meta_lookup[Definitions.redshift] = meta_lookup[Definitions.snowflake]
 
         return meta_lookup[query_type][self.dimension_group](sql, query_type)
 
@@ -454,7 +458,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     @staticmethod
     def _week_sql_date_trunc(sql, offset, query_type):
-        if Definitions.snowflake == query_type:
+        if query_type in {Definitions.snowflake, Definitions.redshift}:
             if offset is None:
                 offset_sql = sql
             else:

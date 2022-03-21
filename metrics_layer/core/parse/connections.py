@@ -13,6 +13,7 @@ class MetricsLayerConnectionError(Exception):
 class ConnectionType:
     snowflake = Definitions.snowflake
     bigquery = Definitions.bigquery
+    redshift = Definitions.redshift
 
 
 class BaseConnection:
@@ -78,6 +79,50 @@ class SnowflakeConnection(BaseConnection):
         attributes.pop("password")
         attributes["name"] = self.name
         sort_order = ["name", "type", "account", "user", "database", "schema", "warehouse", "role"]
+        return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
+
+
+class RedshiftConnection(BaseConnection):
+    def __init__(
+        self,
+        name: str,
+        host: str,
+        username: str,
+        password: str,
+        port: int = 5439,
+        database: str = None,
+        schema: str = None,
+        **kwargs,
+    ) -> None:
+        self.type = ConnectionType.redshift
+        self.name = name
+        self.host = host
+        self.port = port
+        self.username = username
+        self.password = password
+        self.database = database
+        self.schema = schema
+
+    def to_dict(self):
+        base = {
+            "name": self.name,
+            "host": self.host,
+            "port": self.port,
+            "username": self.username,
+            "password": self.password,
+            "type": self.type,
+        }
+        if self.database:
+            base["database"] = self.database
+        if self.schema:
+            base["schema"] = self.schema
+        return base
+
+    def printable_attributes(self):
+        attributes = deepcopy(self.to_dict())
+        attributes.pop("password")
+        attributes["name"] = self.name
+        sort_order = ["name", "type", "host", "port", "username", "database", "schema"]
         return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
 
 

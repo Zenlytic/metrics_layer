@@ -38,6 +38,23 @@ class SeedMetricsLayer:
             "VARBINARY": "string",
         }
 
+        self._redshift_type_lookup = {
+            "TIME": "timestamp",
+            "TIMETZ": "timestamp",
+            "TIMESTAMP": "timestamp",
+            "TIMESTAMPTZ": "timestamp",
+            "DATE": "date",
+            "CHAR": "string",
+            "VARCHAR": "string",
+            "BOOLEAN": "yesno",
+            "DOUBLE PRECISION": "number",
+            "DOUBLE": "number",
+            "PRECISION": "number",
+            "REAL": "number",
+            "DECIMAL": "number",
+            "BIGINT": "number",
+        }
+
         self._bigquery_type_lookup = {
             "DATE": "date",
             "DATETIME": "timestamp",
@@ -52,9 +69,9 @@ class SeedMetricsLayer:
     def seed(self):
         from metrics_layer.core.parse.project_reader import ProjectReader
 
-        if self.connection.type not in {Definitions.snowflake, Definitions.bigquery}:
+        if self.connection.type not in {Definitions.snowflake, Definitions.bigquery, Definitions.redshift}:
             raise NotImplementedError(
-                "The only data warehouses supported for seeding are Snowflake and BigQuery"
+                "The only data warehouses supported for seeding are Snowflake, Redshift and BigQuery"
             )
         table_query = self.table_query()
         data = self.run_query(table_query)
@@ -111,7 +128,7 @@ class SeedMetricsLayer:
         view_name = self.clean_name(table_name)
         count_measure = {"field_type": "measure", "name": "count", "type": "count"}
         fields = self.make_fields(column_data) + [count_measure]
-        if self.connection.type == Definitions.snowflake:
+        if self.connection.type in {Definitions.snowflake, Definitions.redshift}:
             sql_table_name = f"{schema_name}.{table_name}"
         elif self.connection.type == Definitions.bigquery:
             sql_table_name = f"`{self.database}.{schema_name}.{table_name}`"
@@ -132,6 +149,8 @@ class SeedMetricsLayer:
             name = self.clean_name(row["COLUMN_NAME"])
             if self.connection.type == Definitions.snowflake:
                 metrics_layer_type = self._snowflake_type_lookup.get(row["DATA_TYPE"], "string")
+            if self.connection.type == Definitions.redshift:
+                metrics_layer_type = self._redshift_type_lookup.get(row["DATA_TYPE"], "string")
             elif self.connection.type == Definitions.bigquery:
                 metrics_layer_type = self._bigquery_type_lookup.get(row["DATA_TYPE"], "string")
             sql = "${TABLE}." + row["COLUMN_NAME"]
@@ -151,7 +170,7 @@ class SeedMetricsLayer:
 
     def table_query(self):
         query = "SELECT table_catalog, table_schema, table_name, column_name, data_type FROM "
-        if self.database and self.connection.type == Definitions.snowflake:
+        if self.database and self.connection.type in {Definitions.snowflake, Definitions.redshift}:
             query += f"{self.database}.INFORMATION_SCHEMA.COLUMNS"
         elif self.database and self.schema and self.connection.type == Definitions.bigquery:
             query += f"`{self.database}.{self.schema}`.INFORMATION_SCHEMA.COLUMNS"

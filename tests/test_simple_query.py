@@ -187,6 +187,14 @@ def test_simple_query_alias_keyword(config):
         ("year", Definitions.snowflake),
         ("hour_of_day", Definitions.snowflake),
         ("day_of_week", Definitions.snowflake),
+        ("time", Definitions.redshift),
+        ("date", Definitions.redshift),
+        ("week", Definitions.redshift),
+        ("month", Definitions.redshift),
+        ("quarter", Definitions.redshift),
+        ("year", Definitions.redshift),
+        ("hour_of_day", Definitions.redshift),
+        ("day_of_week", Definitions.redshift),
         ("time", Definitions.bigquery),
         ("date", Definitions.bigquery),
         ("week", Definitions.bigquery),
@@ -207,7 +215,7 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
     )
     field = project.get_field(f"order_{group}")
 
-    if query_type == Definitions.snowflake:
+    if query_type in {Definitions.snowflake, Definitions.redshift}:
         result_lookup = {
             "time": "CAST(simple.order_date as TIMESTAMP)",
             "date": "DATE_TRUNC('DAY', simple.order_date)",
@@ -254,6 +262,14 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
         ("month", Definitions.snowflake),
         ("quarter", Definitions.snowflake),
         ("year", Definitions.snowflake),
+        ("second", Definitions.redshift),
+        ("minute", Definitions.redshift),
+        ("hour", Definitions.redshift),
+        ("day", Definitions.redshift),
+        ("week", Definitions.redshift),
+        ("month", Definitions.redshift),
+        ("quarter", Definitions.redshift),
+        ("year", Definitions.redshift),
         ("day", Definitions.bigquery),
         ("week", Definitions.bigquery),
         ("month", Definitions.bigquery),
@@ -283,7 +299,7 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
         )
         field = project.get_field(f"{interval}s_waiting")
 
-    if query_type == Definitions.snowflake:
+    if query_type in {Definitions.snowflake, Definitions.redshift}:
         result_lookup = {
             "second": "DATEDIFF('SECOND', simple.view_date, simple.order_date)",
             "minute": "DATEDIFF('MINUTE', simple.view_date, simple.order_date)",
@@ -388,14 +404,19 @@ def test_simple_query_custom_metric(config):
     "field,expression,value,query_type",
     [
         ("order_date", "greater_than", "2021-08-04", Definitions.snowflake),
+        ("order_date", "greater_than", "2021-08-04", Definitions.redshift),
         ("order_date", "greater_than", "2021-08-04", Definitions.bigquery),
         ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.snowflake),
+        ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.redshift),
         ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.bigquery),
         ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.snowflake),
+        ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.redshift),
         ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.bigquery),
         ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.snowflake),
+        ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.redshift),
         ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.bigquery),
         ("order_date", "matches", "last year", Definitions.snowflake),
+        ("order_date", "matches", "last year", Definitions.redshift),
         ("order_date", "matches", "last year", Definitions.bigquery),
     ],
 )
@@ -410,10 +431,10 @@ def test_simple_query_with_where_dim_group(config, field, expression, value, que
         where=[{"field": field, "expression": expression, "value": value}],
         query_type=query_type,
     )
-
-    if query_type == Definitions.snowflake and expression == "greater_than" and isinstance(value, str):
+    sf_or_rs = query_type in {Definitions.snowflake, Definitions.redshift}
+    if sf_or_rs and expression == "greater_than" and isinstance(value, str):
         condition = f"DATE_TRUNC('DAY', simple.{field})>'2021-08-04'"
-    elif query_type == Definitions.snowflake and isinstance(value, datetime):
+    elif sf_or_rs and isinstance(value, datetime):
         condition = f"DATE_TRUNC('DAY', simple.{field})>'2021-08-04T00:00:00'"
     elif (
         query_type == Definitions.bigquery
@@ -430,7 +451,7 @@ def test_simple_query_with_where_dim_group(config, field, expression, value, que
         condition = "CAST(DATE_TRUNC(CAST(simple.previous_order_date as DATE), DAY) AS DATETIME)>DATETIME('2021-08-04 00:00:00')"  # noqa
     elif query_type == Definitions.bigquery and isinstance(value, datetime) and field == "first_order_date":
         condition = "CAST(DATE_TRUNC(CAST(simple.first_order_date as DATE), DAY) AS DATE)>DATE('2021-08-04 00:00:00')"  # noqa
-    elif query_type == Definitions.snowflake and expression == "matches":
+    elif sf_or_rs and expression == "matches":
         last_year = pendulum.now("UTC").year - 1
         condition = f"DATE_TRUNC('DAY', simple.{field})>='{last_year}-01-01T00:00:00' AND "
         condition += f"DATE_TRUNC('DAY', simple.{field})<='{last_year}-12-31T23:59:59'"

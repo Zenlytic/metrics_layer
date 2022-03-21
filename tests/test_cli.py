@@ -35,6 +35,7 @@ def test_cli_init(mocker, monkeypatch):
 
 
 @pytest.mark.cli
+# TODO add redshift test
 @pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery])
 def test_cli_seed(
     mocker, monkeypatch, connection, query_type, seed_snowflake_tables_data, seed_bigquery_tables_data
@@ -44,7 +45,7 @@ def test_cli_seed(
 
     def query_runner_mock(slf, query):
         print(query)
-        if query_type == Definitions.snowflake:
+        if query_type in {Definitions.snowflake, Definitions.redshift}:
             return seed_snowflake_tables_data
         elif query_type == Definitions.bigquery:
             return seed_bigquery_tables_data
@@ -58,7 +59,7 @@ def test_cli_seed(
             assert data["connection"] == "testing_snowflake"
             assert len(data["explores"]) in {2, 1}  # 2 for first test 1 for second
         elif data["type"] == "view" and data["name"] == "orders":
-            if query_type == Definitions.snowflake:
+            if query_type in {Definitions.snowflake, Definitions.redshift}:
                 assert data["sql_table_name"] == "ANALYTICS.ORDERS"
             else:
                 assert data["sql_table_name"] == "`demo.analytics.orders`"
@@ -77,7 +78,7 @@ def test_cli_seed(
             assert acq_date["sql"] == "${TABLE}.ACQUISITION_DATE"
 
             assert date["type"] == "time"
-            if query_type == Definitions.snowflake:
+            if query_type in {Definitions.snowflake, Definitions.redshift}:
                 assert date["datatype"] == "date"
             else:
                 assert date["datatype"] == "timestamp"
@@ -92,7 +93,7 @@ def test_cli_seed(
 
             assert len(data["fields"]) == 15
         elif data["type"] == "view" and data["name"] == "sessions":
-            if query_type == Definitions.snowflake:
+            if query_type in {Definitions.snowflake, Definitions.redshift}:
                 assert data["sql_table_name"] == "ANALYTICS.SESSIONS"
             else:
                 assert data["sql_table_name"] == "`demo.analytics.sessions`"
@@ -102,7 +103,7 @@ def test_cli_seed(
             num = next((f for f in data["fields"] if f["name"] == "conversion"))
 
             assert date["type"] == "time"
-            if query_type == Definitions.snowflake:
+            if query_type in {Definitions.snowflake, Definitions.redshift}:
                 assert date["datatype"] == "date"
             else:
                 assert date["datatype"] == "timestamp"

@@ -4,7 +4,11 @@ import pickle
 import pytest
 
 from metrics_layer.core.parse.config import ConfigError, MetricsLayerConfiguration
-from metrics_layer.core.parse.connections import BigQueryConnection, SnowflakeConnection
+from metrics_layer.core.parse.connections import (
+    BigQueryConnection,
+    RedshiftConnection,
+    SnowflakeConnection,
+)
 from metrics_layer.core.parse.github_repo import LookerGithubRepo
 from metrics_layer.core.parse.project_reader import ProjectReader
 
@@ -54,6 +58,14 @@ def test_config_explicit_metrics_layer_single_with_connections():
             "name": "bq_name",
             "credentials": '{"key": "value", "project_id": "test-1234"}',
         },
+        {
+            "type": "REDSHIFT",
+            "name": "rs_name",
+            "host": "rs_host",
+            "username": "rs_username",
+            "password": "rs_password",
+            "database": "company",
+        },
     ]
     config = MetricsLayerConfiguration(repo_config=repo_config, connections=connections)
 
@@ -84,6 +96,17 @@ def test_config_explicit_metrics_layer_single_with_connections():
         "name": "bq_name",
     }
 
+    rs_connection = config.get_connection("rs_name")
+    assert isinstance(rs_connection, RedshiftConnection)
+    assert rs_connection.to_dict() == {
+        "type": "REDSHIFT",
+        "name": "rs_name",
+        "host": "rs_host",
+        "port": 5439,
+        "username": "rs_username",
+        "password": "rs_password",
+        "database": "company",
+    }
     # Should raise ConfigError
     with pytest.raises(ConfigError) as exc_info:
         config.get_connection("does_not_exist")

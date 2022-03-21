@@ -16,12 +16,12 @@ def test_query_count_no_sql(connection):
     assert query == correct
 
 
-@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery])
+@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery, Definitions.redshift])
 @pytest.mark.query
 def test_query_sum_with_sql(connection, query_type):
     query = connection.get_sql_query(metrics=["total_revenue"], dimensions=["channel"], query_type=query_type)
 
-    if query_type == Definitions.snowflake:
+    if query_type in {Definitions.snowflake, Definitions.redshift}:
         sa = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) "
             "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(orders.id), "
@@ -81,14 +81,14 @@ def test_query_count_with_one_to_many(connection):
     assert query == correct
 
 
-@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery])
+@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery, Definitions.redshift])
 @pytest.mark.query
 def test_query_average_with_sql(connection, query_type: str):
     query = connection.get_sql_query(
         metrics=["average_order_value"], dimensions=["channel"], query_type=query_type
     )
 
-    if query_type == Definitions.snowflake:
+    if query_type in {Definitions.snowflake, Definitions.redshift}:
         sa_sum = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) "
             "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(orders.id), "
@@ -117,14 +117,14 @@ def test_query_average_with_sql(connection, query_type: str):
     assert query == correct
 
 
-@pytest.mark.parametrize("query_type", [Definitions.bigquery, Definitions.snowflake])
+@pytest.mark.parametrize("query_type", [Definitions.bigquery, Definitions.snowflake, Definitions.redshift])
 @pytest.mark.query
 def test_query_number_with_sql(connection, query_type):
     query = connection.get_sql_query(
         metrics=["total_sessions_divide"], dimensions=["channel"], query_type=query_type
     )
 
-    if query_type == Definitions.snowflake:
+    if query_type in {Definitions.snowflake, Definitions.redshift}:
         sa_sum = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when customers.is_churned=false then customers.total_sessions end, 0) "  # noqa
             "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(customers.customer_id), "
