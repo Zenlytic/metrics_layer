@@ -5,6 +5,7 @@ from metrics_layer.core.model.project import Project
 from metrics_layer.core.parse.connections import (
     BigQueryConnection,
     ConnectionType,
+    RedshiftConnection,
     SnowflakeConnection,
 )
 
@@ -305,6 +306,7 @@ class MetricsLayerConfiguration:
         class_lookup = {
             ConnectionType.snowflake: SnowflakeConnection,
             ConnectionType.bigquery: BigQueryConnection,
+            ConnectionType.redshift: RedshiftConnection,
         }
         results = []
         for connection in connections:

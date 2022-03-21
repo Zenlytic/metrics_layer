@@ -31,6 +31,7 @@ importlib-metadata = "^4.8.2"
 colorama = "^0.4.4"
 "ruamel.yaml" = "^0.17.20"
 pendulum = "^2.1.2"
+redshift-connector = "^2.0.905"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"

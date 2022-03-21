@@ -9,6 +9,8 @@ from pypika.enums import Dialects
 from metrics_layer.core.model.definitions import Definitions
 
 SnowflakeQueryBuilder.ALIAS_QUOTE_CHAR = None
+RedShiftQueryBuilder.ALIAS_QUOTE_CHAR = None
+RedShiftQueryBuilder.QUOTE_CHAR = None
 PostgreSQLQueryBuilder.ALIAS_QUOTE_CHAR = None
 PostgreSQLQueryBuilder.QUOTE_CHAR = "'"
 
