@@ -45,13 +45,25 @@ def test_merged_result_query_additional_metric(connection, query_type):
 
 
 @pytest.mark.query
-def test_merged_result_query_only_metric(connection):
+@pytest.mark.parametrize("dim", ["order_lines.order_month", "sessions.session_month"])
+def test_merged_result_query_only_metric(connection, dim):
     query = connection.get_sql_query(
         metrics=["revenue_per_session"],
-        dimensions=["order_lines.order_month"],
+        dimensions=[dim],
         merged_result=True,
         verbose=True,
     )
+
+    if "order_month" in dim:
+        date_seq = (
+            "order_lines_all.order_lines_order_month as order_lines_order_month,"
+            "sessions.sessions_session_month as sessions_session_month"
+        )
+    else:
+        date_seq = (
+            "sessions.sessions_session_month as sessions_session_month,"
+            "order_lines_all.order_lines_order_month as order_lines_order_month"
+        )
 
     correct = (
         "WITH order_lines_all AS ("
@@ -67,9 +79,7 @@ def test_merged_result_query_only_metric(connection):
         f"GROUP BY DATE_TRUNC('MONTH', sessions.session_date) "
         "ORDER BY sessions_number_of_sessions DESC) "
         "SELECT order_lines_all.order_lines_total_item_revenue as order_lines_total_item_revenue,"
-        "sessions.sessions_number_of_sessions as sessions_number_of_sessions,"
-        "order_lines_all.order_lines_order_month as order_lines_order_month,"
-        "sessions.sessions_session_month as sessions_session_month,"
+        f"sessions.sessions_number_of_sessions as sessions_number_of_sessions,{date_seq},"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
         "FROM order_lines_all JOIN sessions "
         "ON order_lines_all.order_lines_order_month=sessions.sessions_session_month;"

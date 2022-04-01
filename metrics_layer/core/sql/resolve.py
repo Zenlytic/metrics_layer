@@ -144,7 +144,11 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             for other_explore_name, other_field_set in self.explore_metrics.items():
                 if other_explore_name != explore_name:
                     other_canon_date = other_field_set[0].canon_date
-                    canon_date_data = {"field": other_canon_date, "explore_name": other_explore_name}
+                    other_view_name = other_field_set[0].view.name
+                    canon_date_data = {
+                        "field": f"{other_view_name}.{other_canon_date}",
+                        "explore_name": other_explore_name,
+                    }
                     dimension_mapping[canon_date].append(canon_date_data)
 
         self.explore_dimensions = defaultdict(list)
@@ -158,7 +162,6 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             dimension_group = field.dimension_group
             self.explore_dimensions[explore_name].append(field)
             for mapping_info in dimension_mapping[field.name]:
-                field = self.project.get_field(
-                    f"{mapping_info['field']}_{dimension_group}", explore_name=mapping_info["explore_name"]
-                )
+                key = f"{mapping_info['field']}_{dimension_group}"
+                field = self.project.get_field(key, explore_name=mapping_info["explore_name"])
                 self.explore_dimensions[mapping_info["explore_name"]].append(field)
