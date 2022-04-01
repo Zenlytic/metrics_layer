@@ -50,7 +50,6 @@ def test_dashboard_to_dict(connection):
     assert first_element["slice_by"] == ["orders.new_vs_repeat", "order_lines.product_name"]
 
 
-@pytest.mark.mm
 @pytest.mark.parametrize(
     "raw_filter_dict",
     [

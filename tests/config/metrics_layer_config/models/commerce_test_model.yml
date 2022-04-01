@@ -62,6 +62,22 @@ explores:
         relationship: one_to_one
         sql_on: "${discounts.discount_id}=${discount_detail.discount_id} AND ${discounts.order_week} is not null"
 
+    # metrics:
+      # - name: discounts_per_order
+      #   # For foreign explores you need to specify the explore, view and measure
+      #   # The the one this is defined in, you only need to specify the view and measure (but you can specify both)
+      #   sql: ${discounts_only.discounts.total_discount_amt} / nullif(${total_item_revenue}, 0)
+
+      #   # This should throw an error if there is no canon_date defined for both of them, and
+      #   # the only available dimensions to slice by are the ones contained in the mapping + the canonical date
+      #   mapping:
+      #     discounts_only:
+      #       order_lines.product_name: discounts.discount_promo_name
+
+      #   value_format_name: usd
+      #   extra:
+      #     zenlytic.show: yes
+
   - name: discounts_only
     view_name: discounts
 
@@ -71,3 +87,5 @@ explores:
         type: left_outer
         relationship: one_to_many
         sql_on: "${discounts_only.discount_id}=${discount_detail.discount_id}"
+
+  - name: sessions

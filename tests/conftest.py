@@ -25,6 +25,7 @@ discount_detail_view_path = os.path.join(
 country_detail_view_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/views/test_country_detail.yml"
 )
+session_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_sessions.yml")
 view_paths = [
     order_lines_view_path,
     orders_view_path,
@@ -32,6 +33,7 @@ view_paths = [
     discounts_view_path,
     discount_detail_view_path,
     country_detail_view_path,
+    session_view_path,
 ]
 dashboard_paths = [sales_dashboard_path, sales_dashboard_v2_path]
 

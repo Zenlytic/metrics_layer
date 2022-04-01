@@ -122,6 +122,7 @@ fields:
   - name: total_item_revenue
     field_type: "measure"
     type: sum
+    canon_date: order
     sql: "${TABLE}.revenue"
 
   - name: total_item_costs
@@ -141,3 +142,22 @@ fields:
     field_type: "measure"
     type: number
     sql: "${total_item_revenue} / ${orders.number_of_orders}"
+
+  - name: revenue_per_session
+    field_type: measure
+    type: number # only type allowed for a field that references an external explore
+
+    # For foreign explores you need to specify the explore, view and measure
+    # The the one this is defined in, you only need to specify the view and measure (but you can specify both)
+    sql: ${total_item_revenue} / nullif(${sessions.sessions.number_of_sessions}, 0)
+
+    is_merged_result: yes
+    # This should throw an error if there is no canon_date defined for both of them, and
+    # the only available dimensions to slice by are the ones contained in the mapping + the canonical date
+    mapping:
+      discounts_only:
+        order_lines.product_name: discounts.discount_promo_name
+
+    value_format_name: usd
+    extra:
+      zenlytic.show: yes

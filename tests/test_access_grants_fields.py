@@ -18,7 +18,7 @@ def test_access_grants_explore_visible(connection):
     connection.config.project.set_user(None)
     explores = connection.list_explores()
 
-    assert len(explores) == 2
+    assert len(explores) == 3
 
     connection.get_explore("order_lines_all")
 
@@ -27,7 +27,7 @@ def test_access_grants_explore_visible(connection):
 
     explores = connection.list_explores()
 
-    assert len(explores) == 2
+    assert len(explores) == 3
 
     connection.get_explore("order_lines_all")
 
@@ -35,7 +35,7 @@ def test_access_grants_explore_visible(connection):
     connection.config.project.set_user({"department": "operations"})
     explores = connection.list_explores()
 
-    assert len(explores) == 1
+    assert len(explores) == 2
 
     with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
         connection.get_explore("order_lines_all")

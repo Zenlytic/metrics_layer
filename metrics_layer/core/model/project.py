@@ -116,6 +116,10 @@ class Project:
         can_access_view = self.can_access_view(field.view)
         return self._can_access_object(field) and can_access_view
 
+    def can_access_merged_field(self, field, explore: Explore):
+        can_access_explore = self.can_access_explore(explore)
+        return self._can_access_object(field) and can_access_explore
+
     def _can_access_object(self, obj):
         if self._user is not None:
             if obj.required_access_grants:
@@ -288,10 +292,9 @@ class Project:
 
     def get_explore_from_field(self, field_name: str):
         # If it's specified this is really easy
-        if "." in field_name:
-            explore_name, _, _ = Field.field_name_parts(field_name)
-            if explore_name is not None:
-                return explore_name
+        explore_name, view_name, to_match = Field.field_name_parts(field_name)
+        if explore_name is not None:
+            return explore_name
 
         # If it's not we have to check all explores to make sure the field isn't ambiguously referenced
         all_fields_with_explore_duplicates = []
@@ -299,7 +302,9 @@ class Project:
             for view in self.views_with_explore(explore_name=explore.name):
                 all_fields_with_explore_duplicates.extend(view.fields(expand_dimension_groups=True))
 
-        matching_fields = [f for f in all_fields_with_explore_duplicates if f.name == field_name]
+        matching_fields = [f for f in all_fields_with_explore_duplicates if f.alias() == to_match]
+        if view_name:
+            matching_fields = [f for f in matching_fields if f.view.name == view_name]
         match = self._matching_field_handler(matching_fields, field_name)
         return match.view.explore.name
 

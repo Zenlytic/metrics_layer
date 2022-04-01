@@ -95,6 +95,7 @@ fields:
   - name: average_days_between_orders
     field_type: measure
     type: average
+    canon_date: previous_order
     sql: ${days_between_orders}
 
   - name: total_revenue
