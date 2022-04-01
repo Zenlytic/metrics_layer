@@ -1,3 +1,4 @@
+import hashlib
 import re
 from copy import deepcopy
 
@@ -35,6 +36,15 @@ class Field(MetricsLayerBase, SQLReplacement):
         self.view = view
         self.validate(definition)
         super().__init__(definition)
+
+    def __hash__(self) -> int:
+        result = hashlib.md5(self.id(view_only=True).encode("utf-8"))
+        return int(result.hexdigest(), base=16)
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return False
+        return self.id(view_only=True) == other.id(view_only=True)
 
     def id(self, view_only=False, capitalize_alias=False):
         alias = self.alias()
@@ -144,6 +154,22 @@ class Field(MetricsLayerBase, SQLReplacement):
             "number": self._number_aggregate_sql,
         }
         return type_lookup[self.type](sql, query_type, functional_pk, alias_only)
+
+    def strict_replaced_query(self):
+        clean_sql = deepcopy(self.sql)
+        fields_to_replace = self.fields_to_replace(clean_sql)
+        for to_replace in fields_to_replace:
+            if to_replace == "TABLE":
+                clean_sql = clean_sql.replace("${TABLE}.", "")
+            else:
+                field = self.get_field_with_view_info(to_replace, ignore_explore=True)
+                if field:
+                    sql_replace = field.alias(with_view=True)
+                else:
+                    sql_replace = to_replace
+
+                clean_sql = clean_sql.replace("${" + to_replace + "}", sql_replace)
+        return clean_sql.strip()
 
     def _needs_symmetric_aggregate(self, functional_pk: MetricsLayerBase):
         if functional_pk:
@@ -490,12 +516,12 @@ class Field(MetricsLayerBase, SQLReplacement):
             return list(set(f"{f.view.name}.{f.name}" for f in valid_references))
         return referenced_fields
 
-    def referenced_fields(self, sql):
+    def referenced_fields(self, sql, ignore_explore: bool = False):
         reference_fields = []
         for to_replace in self.fields_to_replace(sql):
             if to_replace != "TABLE":
                 try:
-                    field = self.get_field_with_view_info(to_replace)
+                    field = self.get_field_with_view_info(to_replace, ignore_explore=ignore_explore)
                 except Exception:
                     field = None
                 to_replace_type = None if field is None else field.type
@@ -551,8 +577,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                 clean_sql = clean_sql.replace("${" + to_replace + "}", sql_replace)
         return clean_sql.strip()
 
-    def get_field_with_view_info(self, field: str, specified_view: str = None):
-        _, view_name, field_name = self.field_name_parts(field)
+    def get_field_with_view_info(self, field: str, specified_view: str = None, ignore_explore: bool = False):
+        specified_explore, view_name, field_name = self.field_name_parts(field)
         if view_name is None and specified_view is None:
             view_name = self.view.name
         elif view_name is None and specified_view:
@@ -560,10 +586,10 @@ class Field(MetricsLayerBase, SQLReplacement):
 
         if self.view is None:
             raise AttributeError(f"You must specify which view this field is in '{self.name}'")
-        if self.view.explore:
+        if self.view.explore and not ignore_explore:
             explore_name = self.view.explore.name
         else:
-            explore_name = None
+            explore_name = specified_explore
         return self.view.project.get_field(field_name, view_name=view_name, explore_name=explore_name)
 
     def _translate_looker_tier_to_sql(self, sql: str, tiers: list):

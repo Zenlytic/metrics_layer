@@ -160,7 +160,7 @@ def test_cli_validate(config, connection, fresh_project, mocker):
     result = runner.invoke(validate)
 
     assert result.exit_code == 0
-    assert result.output == "Project passed (checked 2 explores)!\n"
+    assert result.output == "Project passed (checked 3 explores)!\n"
 
     # Break something so validation fails
     project = fresh_project
@@ -211,10 +211,10 @@ def test_cli_validate_joins(config, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
     explores = sorted(project._models[0]["explores"], key=lambda x: x["name"])
-    joins = sorted(explores[-1]["joins"], key=lambda x: x["name"])
+    joins = sorted(explores[1]["joins"], key=lambda x: x["name"])
     joins[0]["sql_on"] = "${order_lines_all.order_id}=${all_orders.wrong_name_order_id}"
 
-    explores[-1]["joins"] = joins
+    explores[1]["joins"] = joins
 
     project._models[0]["explores"] = explores
     config.project = project
@@ -239,7 +239,7 @@ def test_cli_validate_explores(config, fresh_project, mocker):
     project = fresh_project
     explores = sorted(project._models[0]["explores"], key=lambda x: x["name"])
 
-    explores[-1]["from"] = "missing_view"
+    explores[1]["from"] = "missing_view"
     project._models[0]["explores"] = explores
     config.project = project
     conn = MetricsLayerConnection(config=config)
@@ -260,9 +260,6 @@ def test_cli_validate_explores(config, fresh_project, mocker):
         "\nCould not find field order_lines.product_name in explore order_lines_all referenced in a filter in dashboard sales_dashboard\n\n"  # noqa
         "\nCould not find field order_lines.product_name in explore order_lines_all referenced in dashboard sales_dashboard_v2\n\n"  # noqa
     )
-
-    explores[-1]["from"] = "order_lines"
-    project._models[0]["explores"] = explores
 
 
 @pytest.mark.cli
@@ -378,7 +375,7 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
     result_lookup = {
         "models": "Found 1 model:\n\ntest_model\n",
         "connections": "Found 1 connection:\n\ntesting_snowflake\n",
-        "explores": "Found 2 explores:\n\norder_lines_all\ndiscounts_only\n",
+        "explores": "Found 3 explores:\n\norder_lines_all\ndiscounts_only\nsessions\n",
         "views": "Found 2 views:\n\ndiscounts\ndiscount_detail\n",
         "fields": "Found 5 fields:\n\ncountry\norder\ndiscount_code\ntotal_discount_amt\ndiscount_usd\n",  # noqa
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
@@ -424,6 +421,7 @@ def test_cli_show(connection, mocker, name, extra_args):
             "  explore_names:\n"
             "    order_lines_all\n"
             "    discounts_only\n"
+            "    sessions\n"
         ),
         "testing_snowflake": (
             "Attributes in connection testing_snowflake:\n\n"

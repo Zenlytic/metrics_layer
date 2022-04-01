@@ -153,7 +153,6 @@ def test_bad_repo_type():
     assert exc_info.value
 
 
-@pytest.mark.mmm
 def test_config_load_multiple():
 
     base_mock = repo_mock(repo_type="lookml")

@@ -171,7 +171,11 @@ class MetricsLayerQuery(MetricsLayerBase):
                 order = Order.desc if arg["sort"] == "desc" else Order.asc
                 base_query = base_query.orderby(LiteralValue(arg["field"]), order=order)
 
-        sql = str(base_query.limit(self.limit))
+        completed_query = base_query.limit(self.limit)
+        if self.return_pypika_query:
+            return completed_query
+
+        sql = str(completed_query)
         if semicolon:
             sql += ";"
         return sql
