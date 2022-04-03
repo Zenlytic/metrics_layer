@@ -226,6 +226,7 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
             "hour_of_day": "HOUR(simple.order_date)",
             "day_of_week": "DAYOFWEEK(simple.order_date)",
         }
+        order_by = " ORDER BY simple_total_revenue DESC"
     else:
         result_lookup = {
             "time": "CAST(simple.order_date as TIMESTAMP)",
@@ -237,13 +238,14 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
             "hour_of_day": f"CAST(simple.order_date AS STRING FORMAT 'HH24')",
             "day_of_week": f"CAST(simple.order_date AS STRING FORMAT 'DAY')",
         }
+        order_by = ""
 
     date_result = result_lookup[group]
 
     correct = (
         f"SELECT {date_result} as simple_order_{group},SUM(simple.revenue) as "
-        f"simple_total_revenue FROM analytics.orders simple GROUP BY {date_result} "
-        "ORDER BY simple_total_revenue DESC;"
+        f"simple_total_revenue FROM analytics.orders simple GROUP BY {date_result}"
+        f"{order_by};"
     )
     assert query == correct
 
@@ -310,6 +312,7 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
             "quarter": "DATEDIFF('QUARTER', simple.view_date, simple.order_date)",
             "year": "DATEDIFF('YEAR', simple.view_date, simple.order_date)",
         }
+        order_by = " ORDER BY simple_total_revenue DESC"
     else:
         result_lookup = {
             "day": "DATE_DIFF(CAST(simple.order_date as DATE), CAST(simple.view_date as DATE), DAY)",
@@ -318,7 +321,7 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
             "quarter": "DATE_DIFF(CAST(simple.order_date as DATE), CAST(simple.view_date as DATE), QUARTER)",
             "year": "DATE_DIFF(CAST(simple.order_date as DATE), CAST(simple.view_date as DATE), ISOYEAR)",
         }
-
+        order_by = ""
     if raises_error:
         assert exc_info.value
     else:
@@ -327,7 +330,7 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
         correct = (
             f"SELECT {interval_result} as simple_{interval}s_waiting,"
             "SUM(simple.revenue) as simple_total_revenue FROM "
-            f"analytics.orders simple GROUP BY {interval_result} ORDER BY simple_total_revenue DESC;"
+            f"analytics.orders simple GROUP BY {interval_result}{order_by};"
         )
         assert query == correct
 
@@ -431,6 +434,12 @@ def test_simple_query_with_where_dim_group(config, field, expression, value, que
         where=[{"field": field, "expression": expression, "value": value}],
         query_type=query_type,
     )
+
+    if query_type == Definitions.bigquery:
+        order_by = ""
+    else:
+        order_by = " ORDER BY simple_total_revenue DESC"
+
     sf_or_rs = query_type in {Definitions.snowflake, Definitions.redshift}
     if sf_or_rs and expression == "greater_than" and isinstance(value, str):
         condition = f"DATE_TRUNC('DAY', simple.{field})>'2021-08-04'"
@@ -462,8 +471,7 @@ def test_simple_query_with_where_dim_group(config, field, expression, value, que
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-        f"analytics.orders simple WHERE {condition} GROUP BY simple.sales_channel "
-        "ORDER BY simple_total_revenue DESC;"
+        f"analytics.orders simple WHERE {condition} GROUP BY simple.sales_channel{order_by};"
     )
     assert query == correct
 

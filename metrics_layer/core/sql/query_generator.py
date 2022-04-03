@@ -7,6 +7,7 @@ from pypika import Criterion, JoinType, Order, Table
 from pypika.terms import LiteralValue
 
 from metrics_layer.core.model.base import MetricsLayerBase
+from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.field import Field
 from metrics_layer.core.model.join import Join
 from metrics_layer.core.model.view import View
@@ -71,7 +72,7 @@ class MetricsLayerQuery(MetricsLayerBase):
 
         if order_by:
             self.order_by_args.extend(self._parse_order_by_object(order_by))
-        else:
+        elif self.query_type in {Definitions.snowflake, Definitions.redshift}:
             self.order_by_args.append({"field": "__DEFAULT__"})
 
     def _parse_filter_object(

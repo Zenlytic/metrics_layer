@@ -30,6 +30,7 @@ def test_query_sum_with_sql(connection, query_type):
             "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
             "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
         )
+        order_by = " ORDER BY orders_total_revenue DESC"
     elif query_type == Definitions.bigquery:
         sa = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) "
@@ -38,12 +39,13 @@ def test_query_sum_with_sql(connection, query_type):
             "- SUM(DISTINCT CAST(FARM_FINGERPRINT(CAST(orders.id AS STRING)) AS BIGNUMERIC))) AS FLOAT64) "
             "/ CAST((1000000*1.0) AS FLOAT64), 0)"
         )
+        order_by = ""
     correct = (
         "SELECT order_lines.sales_channel as order_lines_channel,"
         f"{sa} as orders_total_revenue "
         "FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        "GROUP BY order_lines.sales_channel ORDER BY orders_total_revenue DESC;"
+        f"GROUP BY order_lines.sales_channel{order_by};"
     )
     assert query == correct
 
@@ -97,6 +99,7 @@ def test_query_average_with_sql(connection, query_type: str):
             "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
             "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
         )
+        order_by = " ORDER BY orders_average_order_value DESC"
     elif query_type == Definitions.bigquery:
         sa_sum = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) "
@@ -105,6 +108,7 @@ def test_query_average_with_sql(connection, query_type: str):
             "- SUM(DISTINCT CAST(FARM_FINGERPRINT(CAST(orders.id AS STRING)) AS BIGNUMERIC))) AS FLOAT64) "
             "/ CAST((1000000*1.0) AS FLOAT64), 0)"
         )
+        order_by = ""
 
     correct = (
         "SELECT order_lines.sales_channel as order_lines_channel,"
@@ -112,7 +116,7 @@ def test_query_average_with_sql(connection, query_type: str):
         "(orders.revenue)  IS NOT NULL THEN  orders.id  ELSE NULL END), 0))"
         " as orders_average_order_value FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        "GROUP BY order_lines.sales_channel ORDER BY orders_average_order_value DESC;"
+        f"GROUP BY order_lines.sales_channel{order_by};"
     )
     assert query == correct
 
@@ -133,6 +137,7 @@ def test_query_number_with_sql(connection, query_type):
             "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
             "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
         )
+        order_by = " ORDER BY customers_total_sessions_divide DESC"
     elif query_type == Definitions.bigquery:
         sa_sum = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when customers.is_churned=false then customers.total_sessions end, 0) "  # noqa
@@ -141,12 +146,13 @@ def test_query_number_with_sql(connection, query_type):
             "- SUM(DISTINCT CAST(FARM_FINGERPRINT(CAST(customers.customer_id AS STRING)) AS BIGNUMERIC))) AS FLOAT64) "  # noqa
             "/ CAST((1000000*1.0) AS FLOAT64), 0)"
         )
+        order_by = ""
 
     correct = (
         "SELECT order_lines.sales_channel as order_lines_channel,"
         f"{sa_sum} / (100 * 1.0)"
         " as customers_total_sessions_divide FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
-        "GROUP BY order_lines.sales_channel ORDER BY customers_total_sessions_divide DESC;"
+        f"GROUP BY order_lines.sales_channel{order_by};"
     )
     assert query == correct
