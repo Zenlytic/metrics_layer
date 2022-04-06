@@ -1,4 +1,5 @@
 from collections import defaultdict
+from copy import deepcopy
 
 from metrics_layer.core.parse.config import MetricsLayerConfiguration
 from metrics_layer.core.sql.query_merged_results import MetricsLayerMergedResultsQuery
@@ -79,9 +80,9 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             resolver = SingleSQLQueryResolver(
                 metrics=metrics,
                 dimensions=dimensions,
-                where=[],  # self.where,
-                having=[],  # self.having,
-                order_by=[],  # self.order_by,
+                where=self.explore_where[explore_name],
+                having=[],
+                order_by=[],
                 config=self.config,
                 explore_name=explore_name,
                 **kws,
@@ -93,10 +94,12 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             "merged_metrics": self.merged_metrics,
             "explore_metrics": self.explore_metrics,
             "explore_dimensions": self.explore_dimensions,
+            "having": self.having,
             "explore_queries": explore_queries,
             "explore_names": list(sorted(self.explore_metrics.keys())),
             "query_type": resolver.query_type,
             "limit": self.limit,
+            "project": self.project,
         }
         merged_result_query = MetricsLayerMergedResultsQuery(query_config)
         query = merged_result_query.get_query(semicolon=semicolon)
@@ -123,7 +126,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         for merged_metric in self.merged_metrics:
             for ref_field in merged_metric.referenced_fields(merged_metric.sql, ignore_explore=True):
                 if isinstance(ref_field, str):
-                    raise ValueError("Unable to find the field {ref_field} in the project")
+                    raise ValueError(f"Unable to find the field {ref_field} in the project")
                 if ref_field.view.explore is None:
                     explore_name = merged_metric.view.explore.name
                 else:
@@ -165,3 +168,20 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                 key = f"{mapping_info['field']}_{dimension_group}"
                 field = self.project.get_field(key, explore_name=mapping_info["explore_name"])
                 self.explore_dimensions[mapping_info["explore_name"]].append(field)
+
+        self.explore_where = defaultdict(list)
+        for where in self.where:
+            explore_name = self.project.get_explore_from_field(where["field"])
+            if explore_name not in self.explore_metrics:
+                raise ValueError(
+                    f"Could not find a metric in {self.metrics} that references the explore {explore_name}"
+                )
+            field = self.project.get_field(where["field"], explore_name=explore_name)
+            dimension_group = field.dimension_group
+            self.explore_where[explore_name].append(where)
+            for mapping_info in dimension_mapping[field.name]:
+                key = f"{mapping_info['field']}_{dimension_group}"
+                field = self.project.get_field(key, explore_name=mapping_info["explore_name"])
+                mapped_where = deepcopy(where)
+                mapped_where["field"] = field.id(view_only=True)
+                self.explore_where[mapping_info["explore_name"]].append(mapped_where)

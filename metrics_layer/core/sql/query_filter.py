@@ -39,7 +39,10 @@ class MetricsLayerFilter(MetricsLayerBase):
         #  are properly defined in the design
         self.design = design
         self.is_literal_filter = "literal" in definition
-        self.query_type = self.design.query_type
+        if self.design:
+            self.query_type = self.design.query_type
+        else:
+            self.query_type = definition["query_type"]
         self.filter_type = filter_type
 
         self.validate(definition)

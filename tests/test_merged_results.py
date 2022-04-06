@@ -1,3 +1,5 @@
+import datetime
+
 import pytest
 
 from metrics_layer.core.model.definitions import Definitions
@@ -113,6 +115,100 @@ def test_merged_result_query_only_metric_no_dim(connection):
         "sessions.sessions_number_of_sessions as sessions_number_of_sessions,"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
         "FROM order_lines_all JOIN sessions ON 1=1;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_merged_result_query_only_metric_with_where(connection):
+    query = connection.get_sql_query(
+        metrics=["revenue_per_session"],
+        dimensions=["order_lines.order_month"],
+        where=[
+            {
+                "field": "order_lines.order_raw",
+                "expression": "greater_or_equal_than",
+                "value": datetime.datetime(2022, 1, 5, 0, 0),
+            }
+        ],
+        merged_result=True,
+        verbose=True,
+    )
+
+    date_seq = (
+        "order_lines_all.order_lines_order_month as order_lines_order_month,"
+        "sessions.sessions_session_month as sessions_session_month"
+    )
+
+    correct = (
+        "WITH order_lines_all AS ("
+        f"SELECT DATE_TRUNC('MONTH', order_lines.order_date) as order_lines_order_month,"
+        "SUM(order_lines.revenue) as order_lines_total_item_revenue "
+        "FROM analytics.order_line_items order_lines "
+        "WHERE order_lines.order_date>='2022-01-05T00:00:00' "
+        f"GROUP BY DATE_TRUNC('MONTH', order_lines.order_date) "
+        "ORDER BY order_lines_total_item_revenue DESC) ,"
+        "sessions AS ("
+        f"SELECT DATE_TRUNC('MONTH', sessions.session_date) as sessions_session_month,"
+        "COUNT(sessions.id) as sessions_number_of_sessions "
+        "FROM analytics.sessions sessions "
+        "WHERE sessions.session_date>='2022-01-05T00:00:00' "
+        f"GROUP BY DATE_TRUNC('MONTH', sessions.session_date) "
+        "ORDER BY sessions_number_of_sessions DESC) "
+        "SELECT order_lines_all.order_lines_total_item_revenue as order_lines_total_item_revenue,"
+        f"sessions.sessions_number_of_sessions as sessions_number_of_sessions,{date_seq},"
+        "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
+        "FROM order_lines_all JOIN sessions "
+        "ON order_lines_all.order_lines_order_month=sessions.sessions_session_month;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_merged_result_query_only_metric_with_having(connection):
+    query = connection.get_sql_query(
+        metrics=["revenue_per_session"],
+        dimensions=["order_lines.order_month"],
+        having=[
+            {
+                "field": "revenue_per_session",
+                "expression": "greater_or_equal_than",
+                "value": 40,
+            },
+            {
+                "field": "number_of_sessions",
+                "expression": "less_than",
+                "value": 5400,
+            },
+        ],
+        merged_result=True,
+        verbose=True,
+    )
+
+    date_seq = (
+        "order_lines_all.order_lines_order_month as order_lines_order_month,"
+        "sessions.sessions_session_month as sessions_session_month"
+    )
+
+    correct = (
+        "WITH order_lines_all AS ("
+        f"SELECT DATE_TRUNC('MONTH', order_lines.order_date) as order_lines_order_month,"
+        "SUM(order_lines.revenue) as order_lines_total_item_revenue "
+        "FROM analytics.order_line_items order_lines "
+        f"GROUP BY DATE_TRUNC('MONTH', order_lines.order_date) "
+        "ORDER BY order_lines_total_item_revenue DESC) ,"
+        "sessions AS ("
+        f"SELECT DATE_TRUNC('MONTH', sessions.session_date) as sessions_session_month,"
+        "COUNT(sessions.id) as sessions_number_of_sessions "
+        "FROM analytics.sessions sessions "
+        f"GROUP BY DATE_TRUNC('MONTH', sessions.session_date) "
+        "ORDER BY sessions_number_of_sessions DESC) "
+        "SELECT order_lines_all.order_lines_total_item_revenue as order_lines_total_item_revenue,"
+        f"sessions.sessions_number_of_sessions as sessions_number_of_sessions,{date_seq},"
+        "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
+        "FROM order_lines_all JOIN sessions "
+        "ON order_lines_all.order_lines_order_month=sessions.sessions_session_month "
+        "WHERE order_lines_revenue_per_session>=40 AND sessions_number_of_sessions<5400;"
     )
     assert query == correct
 

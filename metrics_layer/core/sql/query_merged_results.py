@@ -1,9 +1,10 @@
-from pypika import AliasedQuery
+from pypika import AliasedQuery, Criterion
 from pypika.terms import LiteralValue
 
 from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.sql.pypika_types import LiteralValueCriterion
 from metrics_layer.core.sql.query_dialect import query_lookup
+from metrics_layer.core.sql.query_filter import MetricsLayerFilter
 
 
 class MetricsLayerMergedResultsQuery(MetricsLayerBase):
@@ -20,6 +21,10 @@ class MetricsLayerMergedResultsQuery(MetricsLayerBase):
         # Add all columns in the SELECT clause
         select = self.get_select_columns()
         complete_query = base_cte_query.select(*select)
+
+        if self.having:
+            where = self.get_where_from_having()
+            complete_query = complete_query.where(Criterion.all(where))
 
         sql = str(complete_query.limit(self.limit))
         if semicolon:
@@ -75,12 +80,14 @@ class MetricsLayerMergedResultsQuery(MetricsLayerBase):
 
         return select
 
-    def _get_group_by_select_columns(self):
-        select = []
-        for field_name in self.dimensions + self.metrics:
-            field = self.design.get_field(field_name)
-            select.append(self.get_sql(field, alias=field.alias(with_view=True), use_symmetric=True))
-        return select
+    def get_where_from_having(self):
+        where = []
+        for having_clause in self.having:
+            having_clause["query_type"] = self.query_type
+            f = MetricsLayerFilter(definition=having_clause, design=None, filter_type="where")
+            field = self.project.get_field(having_clause["field"])
+            where.append(f.criterion(field.alias(with_view=True)))
+        return where
 
     def _get_base_query(self):
         return self.query_lookup[self.query_type]
