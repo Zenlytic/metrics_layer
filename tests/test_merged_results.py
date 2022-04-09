@@ -120,6 +120,29 @@ def test_merged_result_query_only_metric_no_dim(connection):
 
 
 @pytest.mark.query
+def test_merged_result_query_ambig_explore(connection):
+    query = connection.get_sql_query(
+        metrics=["discount_per_order"],
+        dimensions=[],
+        merged_result=True,
+        verbose=True,
+    )
+
+    correct = (
+        "WITH discounts_only AS (SELECT SUM(discounts.discount_amt) as discounts_total_discount_amt "
+        "FROM analytics_live.discounts discounts ORDER BY discounts_total_discount_amt DESC) ,"
+        "order_lines_all AS (SELECT NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL THEN "
+        " orders.id  ELSE NULL END), 0) as orders_number_of_orders FROM analytics.order_line_items "
+        "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
+        "ORDER BY orders_number_of_orders DESC) SELECT discounts_only.discounts_total_discount_amt "
+        "as discounts_total_discount_amt,order_lines_all.orders_number_of_orders as "
+        "orders_number_of_orders,discounts_total_discount_amt / nullif(orders_number_of_orders, 0) "
+        "as discounts_discount_per_order FROM discounts_only JOIN order_lines_all ON 1=1;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_merged_result_query_only_metric_with_where(connection):
     query = connection.get_sql_query(
         metrics=["revenue_per_session"],

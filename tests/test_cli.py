@@ -251,10 +251,11 @@ def test_cli_validate_explores(config, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 6 errors in the project:\n\n"
+        "Found 7 errors in the project:\n\n"
         "\nCould not find field customer_id in join customers referencing view "
         "missing_view in explore order_lines_all\n\n"
         "\nCould not find view missing_view in join all_orders\n\n"
+        "\nCould not find view missing_view in join country_detail\n\n"
         "\nView missing_view cannot be found in explore order_lines_all\n\n"
         "\nCould not find field order_lines.product_name in explore order_lines_all referenced in dashboard sales_dashboard\n\n"  # noqa
         "\nCould not find field order_lines.product_name in explore order_lines_all referenced in a filter in dashboard sales_dashboard\n\n"  # noqa
@@ -377,9 +378,9 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
         "connections": "Found 1 connection:\n\ntesting_snowflake\n",
         "explores": "Found 3 explores:\n\norder_lines_all\ndiscounts_only\nsessions\n",
         "views": "Found 2 views:\n\ndiscounts\ndiscount_detail\n",
-        "fields": "Found 5 fields:\n\ncountry\norder\ndiscount_code\ntotal_discount_amt\ndiscount_usd\n",  # noqa
+        "fields": "Found 6 fields:\n\ncountry\norder\ndiscount_code\ntotal_discount_amt\ndiscount_per_order\ndiscount_usd\n",  # noqa
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
-        "metrics": "Found 2 metrics:\n\ntotal_discount_amt\ndiscount_usd\n",
+        "metrics": "Found 3 metrics:\n\ntotal_discount_amt\ndiscount_per_order\ndiscount_usd\n",
     }
 
     if any("show-hidden" in a for a in extra_args):
@@ -444,7 +445,7 @@ def test_cli_show(connection, mocker, name, extra_args):
             "  name: discounts\n"
             "  type: view\n"
             "  sql_table_name: analytics_live.discounts\n"
-            "  number_of_fields: 6\n"
+            "  number_of_fields: 7\n"
         ),
         "order_id": (
             "Attributes in field order_id:\n\n"
