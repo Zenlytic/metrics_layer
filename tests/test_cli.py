@@ -142,14 +142,14 @@ def test_cli_seed(
     for call in calls:
         os.mkdir.assert_any_call(call)
 
-    assert yaml_dump_called == 3
+    assert yaml_dump_called == 2
 
     runner = CliRunner()
     result = runner.invoke(seed, ["--database", "demo", "--schema", "analytics", "--table", "orders"])
 
     connection.config._connections[0].type = old_type
     assert result.exit_code == 0
-    assert yaml_dump_called == 5
+    assert yaml_dump_called == 3
 
 
 @pytest.mark.cli
