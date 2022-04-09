@@ -52,3 +52,18 @@ fields:
     field_type: "measure"
     type: sum
     sql: "${TABLE}.discount_amt"
+    canon_date: order
+
+  - name: discount_per_order
+    field_type: measure
+    type: number # only type allowed for a field that references an external explore
+
+    # For foreign explores you need to specify the explore, view and measure
+    # The the one this is defined in, you only need to specify the view and measure (but you can specify both)
+    sql: ${total_discount_amt} / nullif(${order_lines_all.orders.number_of_orders}, 0)
+
+    is_merged_result: yes
+
+    value_format_name: usd
+    extra:
+      zenlytic.show: yes

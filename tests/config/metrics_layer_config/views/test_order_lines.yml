@@ -48,7 +48,7 @@ fields:
   - name: waiting
     field_type: dimension_group
     type: duration
-    timeframes: [day, week]
+    intervals: [day, week]
     sql_start: "${TABLE}.view_date"
     sql_end: "${TABLE}.order_date"
 

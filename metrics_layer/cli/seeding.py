@@ -67,6 +67,7 @@ class SeedMetricsLayer:
         }
 
     def seed(self):
+        from metrics_layer.core.parse.github_repo import LocalRepo
         from metrics_layer.core.parse.project_reader import ProjectReader
 
         if self.connection.type not in {Definitions.snowflake, Definitions.bigquery, Definitions.redshift}:
@@ -101,18 +102,23 @@ class SeedMetricsLayer:
 
         models = self.make_models(views)
 
-        reader = ProjectReader(None)
-        # Fake that the project was loaded from a repo
-        reader.unloaded = False
+        if getattr(self.metrics_layer.config.repo, "repo_path", None):
+            folder = self.metrics_layer.config.repo.repo_path
+        else:
+            folder = os.getcwd()
 
-        reader._models = models
+        reader = ProjectReader(LocalRepo(folder))
+        reader.load()
+
+        views_only = True
+        if len(reader._models) > 0:
+            views_only = True
+        else:
+            reader._models = models
         reader._views = views
 
         # Dump the models to yaml files
-        if getattr(self.metrics_layer.config.repo, "repo_path", None):
-            reader.dump(self.metrics_layer.config.repo.repo_path)
-        else:
-            reader.dump(os.getcwd())
+        reader.dump(folder, views_only=views_only)
 
     def make_models(self, views: list):
         model = {

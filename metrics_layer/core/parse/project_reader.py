@@ -46,8 +46,10 @@ class ProjectReader:
             self.load()
         return self._dashboards
 
-    def dump(self, path: str):
+    def dump(self, path: str, views_only: bool = False):
         for model in self.models:
+            if views_only:
+                break
             file_name = model["name"] + "_model.yml"
             models_folder = os.path.join(path, "models/")
             if os.path.exists(models_folder):

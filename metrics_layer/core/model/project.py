@@ -1,6 +1,7 @@
 import functools
 import hashlib
 import json
+from collections import Counter
 
 from .base import AccessDeniedOrDoesNotExistException
 from .dashboard import Dashboard
@@ -63,7 +64,22 @@ class Project:
             errors = dashboard.collect_errors()
             all_errors.extend(errors)
 
+        all_errors.extend(self._validate_dashboard_names())
+
         return list(sorted(set(all_errors), key=lambda x: all_errors.index(x)))
+
+    def _validate_dashboard_names(self):
+        # We need to make sure the unique identifiers for the dashboards are actually unique
+        errors = []
+        dashboard_names = [d.name for d in self.dashboards()]
+        name_frequency = Counter(dashboard_names).most_common()
+        for name, frequency in name_frequency:
+            if frequency > 1:
+                msg = f"Dashboard name {name} appears {frequency} times, make sure dashboard names are unique"
+                errors.append(msg)
+            else:
+                break
+        return errors
 
     def _all_dashboards(self):
         dashboards = []
@@ -315,7 +331,17 @@ class Project:
             return matching_fields[0]
 
         elif len(matching_fields) > 1:
-            matching_names = [self._fully_qualified_name(f) for f in matching_fields]
+            # if exerything is in the same view we can pick the explore that uses this view as the from_ view
+            if len(set([f.view.name for f in matching_fields])) == 1:
+                view_name = matching_fields[0].view.name
+                matching_explores = [e for e in self.explores() if e.from_ == view_name]
+                # This method will work iff there is exactly one matchng explore
+                if len(matching_explores) == 1:
+                    for f in matching_fields:
+                        if f.view.explore.name == matching_explores[0].name:
+                            return f
+
+            matching_names = [f.id() for f in matching_fields]
             explore_text = f", in explore {explore_name}" if explore_name else ""
             view_text = f", in view {view_name}" if view_name else ""
             err_msg = (
@@ -350,10 +376,3 @@ class Project:
                 f"project to resolve the dbt ref('{ref_name}') in view {view_name}"
             )
         return self.manifest.resolve_name(ref_name)
-
-    @staticmethod
-    def _fully_qualified_name(field: Field):
-        name = f"{field.view.name}.{field.name}"
-        if field.view.explore:
-            name = f"{field.view.explore.name}.{name}"
-        return name

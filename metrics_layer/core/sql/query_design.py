@@ -59,7 +59,7 @@ class MetricsLayerDesign:
         for join in joins_needed:
             for view_name in join.required_views():
                 self._join_graph.add_edge(view_name, join.from_, relationship=join.relationship)
-        self._ordered_join_names = list(networkx.bfs_tree(self._join_graph, source=self.base_view_name))
+        self._ordered_join_names = list(networkx.dfs_tree(self._join_graph, source=self.base_view_name))
         # Skip the first one because that's *always* the base of the explore
         return [self.explore.get_join(name, by_view_name=True) for name in self._ordered_join_names[1:]]
 

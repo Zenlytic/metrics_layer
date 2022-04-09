@@ -1,6 +1,6 @@
 import re
 
-from .base import MetricsLayerBase
+from .base import AccessDeniedOrDoesNotExistException, MetricsLayerBase
 from .field import Field
 from .set import Set
 
@@ -40,6 +40,21 @@ class View(MetricsLayerBase):
     def collect_errors(self):
         fields = self.fields(show_hidden=True)
         field_errors = []
+
+        if self.explore and self.default_date:
+            try:
+                # TODO make this more robust where it doesn't always require month to be present
+                if "." in self.default_date:
+                    name = self.default_date
+                else:
+                    name = f"{self.name}.{self.default_date}"
+                self.project.get_field(f"{name}_month", explore_name=self.explore.name)
+            except (AccessDeniedOrDoesNotExistException, ValueError):
+                field_errors.append(
+                    f"Default date {self.default_date} is unreachable in "
+                    f"view {self.name} in explore {self.explore.name}"
+                )
+
         for field in fields:
             field_errors.extend(field.collect_errors())
 
@@ -59,7 +74,9 @@ class View(MetricsLayerBase):
         fields = self.fields(show_hidden=True)
         result = []
         for field in fields:
-            all_fields = [field] + field.get_referenced_sql_query(strings_only=False)
+            all_fields = [field]
+            if not field.is_merged_result:
+                all_fields += field.get_referenced_sql_query(strings_only=False)
             result.extend(all_fields)
         return result
 

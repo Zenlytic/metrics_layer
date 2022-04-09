@@ -36,16 +36,16 @@ explores:
         user_attribute: owned_region
 
     joins:
+      - name: country_detail
+        type: left_outer
+        relationship: many_to_one
+        sql_on: "${discounts.country}=${country_detail.country_id} and ${order_lines_all.order_date} is not null"
+
       - name: all_orders
         from: orders
         type: left_outer
         relationship: many_to_one
         sql_on: "${order_lines_all.order_id}=${all_orders.order_id}"
-
-      - name: country_detail
-        type: left_outer
-        relationship: many_to_one
-        sql_on: "${discounts.country}=${country_detail.country_id}"
 
       - name: customers
         required_access_grants: [test_access_grant_department_join]

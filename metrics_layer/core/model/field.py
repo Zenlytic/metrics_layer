@@ -496,9 +496,20 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"DATE_TRUNC(CAST({sql} as DATE) + {offset}, WEEK)"
 
     def collect_errors(self):
+        errors = []
         if not self.valid_name(self.name):
-            return [self.name_error("field", self.name)]
-        return []
+            errors.append(self.name_error("field", self.name))
+        if self.type == "time" and "intervals" in self._definition:
+            errors.append(
+                f"Field {self.name} is of type time, but has property "
+                "intervals when it should have property timeframes"
+            )
+        if self.type == "duration" and "timeframes" in self._definition:
+            errors.append(
+                f"Field {self.name} is of type duration, but has property "
+                "timeframes when it should have property intervals"
+            )
+        return errors
 
     def get_referenced_sql_query(self, strings_only=True):
         if self.sql and ("{%" in self.sql or self.sql == ""):
