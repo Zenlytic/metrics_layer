@@ -47,7 +47,7 @@ class Explore(MetricsLayerBase):
 
         for view_name in self.view_names():
             try:
-                view = self.project.get_view(view_name)
+                view = self.project.get_view(view_name, explore=self)
             except Exception:
                 errors.append(f"View {view_name} cannot be found in explore {self.name}")
                 continue
@@ -58,7 +58,6 @@ class Explore(MetricsLayerBase):
 
             referenced_fields = view.referenced_fields()
             view_errors = view.collect_errors()
-
             errors.extend(
                 [
                     f"Could not locate reference {field} in view {view_name} in explore {self.name}"

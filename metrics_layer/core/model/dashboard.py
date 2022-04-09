@@ -24,12 +24,19 @@ class DashboardElement(MetricsLayerBase):
 
     def to_dict(self):
         definition = deepcopy(self._definition)
+        definition["metrics"] = self.metrics
         definition["filters"] = self.parsed_filters(json_safe=True)
         return definition
 
     @property
     def slice_by(self):
         return self._definition.get("slice_by", [])
+
+    @property
+    def metrics(self):
+        if "metric" in self._definition:
+            return [self._definition["metric"]]
+        return self._definition.get("metrics", [])
 
     def _raw_filters(self):
         if self.filters is None:
@@ -53,7 +60,7 @@ class DashboardElement(MetricsLayerBase):
             )
             errors.append(err_msg)
 
-        for field in self.slice_by:
+        for field in self.metrics + self.slice_by:
             if not self._function_executes(self.project.get_field, field, explore_name=self.explore):
                 err_msg = (
                     f"Could not find field {field} in explore {self.explore} "

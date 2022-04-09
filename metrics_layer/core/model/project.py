@@ -1,6 +1,7 @@
 import functools
 import hashlib
 import json
+from collections import Counter
 
 from .base import AccessDeniedOrDoesNotExistException
 from .dashboard import Dashboard
@@ -63,7 +64,22 @@ class Project:
             errors = dashboard.collect_errors()
             all_errors.extend(errors)
 
+        all_errors.extend(self._validate_dashboard_names())
+
         return list(sorted(set(all_errors), key=lambda x: all_errors.index(x)))
+
+    def _validate_dashboard_names(self):
+        # We need to make sure the unique identifiers for the dashboards are actually unique
+        errors = []
+        dashboard_names = [d.name for d in self.dashboards()]
+        name_frequency = Counter(dashboard_names).most_common()
+        for name, frequency in name_frequency:
+            if frequency > 1:
+                msg = f"Dashboard name {name} appears {frequency} times, make sure dashboard names are unique"
+                errors.append(msg)
+            else:
+                break
+        return errors
 
     def _all_dashboards(self):
         dashboards = []

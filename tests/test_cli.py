@@ -164,6 +164,7 @@ def test_cli_validate(config, connection, fresh_project, mocker):
 
     # Break something so validation fails
     project = fresh_project
+    project._views[1]["default_date"] = "sessions.session_date"
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
     sorted_fields[12]["name"] = "rev_broken_dim"
     project._views[1]["fields"] = sorted_fields
@@ -177,9 +178,10 @@ def test_cli_validate(config, connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 2 errors in the project:\n\n"
+        "Found 3 errors in the project:\n\n"
         "\nCould not locate reference revenue_dimension in view order_lines in explore order_lines_all\n\n"
         "\nCould not locate reference revenue_dimension in view orders in explore order_lines_all\n\n"
+        "\nDefault date sessions.session_date is unreachable in view orders in explore order_lines_all\n\n"
     )
 
 
@@ -271,6 +273,7 @@ def test_cli_validate_dashboards(config, fresh_project, mocker):
 
     dashboards[0]["elements"][0]["explore"] = "orders"
     dashboards[0]["elements"][0]["slice_by"][0] = "missing_campaign"
+    dashboards[0]["elements"][1]["metrics"][0] = "missing_revenue"
     project._dashboards = dashboards
     config.project = project
     conn = MetricsLayerConnection(config=config)
@@ -282,10 +285,12 @@ def test_cli_validate_dashboards(config, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 3 errors in the project:\n\n"
+        "Found 5 errors in the project:\n\n"
         "\nCould not find explore orders in model test_model referenced in dashboard sales_dashboard\n\n"
+        "\nCould not find field orders.total_revenue in explore orders referenced in dashboard sales_dashboard\n\n"  # noqa
         "\nCould not find field missing_campaign in explore orders referenced in dashboard sales_dashboard\n\n"  # noqa
         "\nCould not find field order_lines.product_name in explore orders referenced in dashboard sales_dashboard\n\n"  # noqa
+        "\nCould not find field missing_revenue in explore order_lines_all referenced in dashboard sales_dashboard\n\n"  # noqa
     )
 
     dashboards[0]["elements"][0]["explore"] = "order_lines_all"
@@ -300,6 +305,7 @@ def test_cli_validate_names(config, fresh_project, mocker):
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
 
     sorted_fields[0]["name"] = "an invalid @name"
+    sorted_fields[3]["timeframes"] = ["date", "month", "year"]
     project._views[1]["fields"] = sorted_fields
     config.project = project
     conn = MetricsLayerConnection(config=config)
@@ -311,7 +317,9 @@ def test_cli_validate_names(config, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 1 error in the project:\n\n"
+        "Found 3 errors in the project:\n\n"
+        "\nCould not locate reference days_between_orders in view orders in explore order_lines_all\n\n"
+        "\nField between_orders is of type duration, but has property timeframes when it should have property intervals\n\n"  # noqa
         "\nField name: an invalid @name is invalid. Please reference the naming conventions (only letters, numbers, or underscores)\n\n"  # noqa
     )
 
