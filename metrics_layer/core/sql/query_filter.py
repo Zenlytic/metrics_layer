@@ -102,7 +102,6 @@ class MetricsLayerFilter(MetricsLayerBase):
 
     def replace_fields_literal_filter(self):
         tokens = self._parse_sql_literal(self.literal)
-
         if self.filter_type == "where":
             extra_args = {"field_type": None}
         else:
@@ -114,6 +113,7 @@ class MetricsLayerFilter(MetricsLayerBase):
     def _parse_sql_literal(self, clause: str):
         generator = list(sqlparse.parse(clause)[0].flatten())
         tokens, field_names = [], []
+
         for i, token in enumerate(generator):
             not_already_added = i == 0 or str(generator[i - 1]) != "."
 
@@ -123,6 +123,8 @@ class MetricsLayerFilter(MetricsLayerBase):
                     tokens.append("${" + field.view.name + "." + str(token) + "}")
                 except Exception:
                     field_names.append(str(token))
+                    if (len(generator) - i - 1) >= 2 and generator[i + 2].ttype != Name:
+                        tokens.append(str(token))
             elif token.ttype == Name and not not_already_added:
                 pass
             elif token.ttype == Punctuation and str(token) == ".":

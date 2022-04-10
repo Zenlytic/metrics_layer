@@ -667,7 +667,10 @@ def test_simple_query_with_all(config):
 
 @pytest.mark.query
 def test_simple_query_sql_always_where(config):
-    modified_explore = {**simple_model["explores"][0], "sql_always_where": "${new_vs_repeat} = 'Repeat'"}
+    modified_explore = {
+        **simple_model["explores"][0],
+        "sql_always_where": "UPPER(${new_vs_repeat}) = 'REPEAT'",
+    }
 
     project = Project(models=[{**simple_model, "explores": [modified_explore]}], views=[simple_view])
     config.project = project
@@ -676,7 +679,7 @@ def test_simple_query_sql_always_where(config):
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-        "analytics.orders simple WHERE simple.new_vs_repeat = 'Repeat' GROUP BY simple.sales_channel "
+        "analytics.orders simple WHERE UPPER(simple.new_vs_repeat) = 'REPEAT' GROUP BY simple.sales_channel "
         "ORDER BY simple_total_revenue DESC;"
     )
     assert query == correct
