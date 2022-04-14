@@ -67,9 +67,9 @@ class QueryRunner:
     def _run_redshift_query(
         self, timeout: int, raw_cursor: bool, run_pre_queries: bool, start_warehouse: bool
     ):
-        redshift_connection = self._get_redshift_connection(self.connection)
+        redshift_connection = self._get_redshift_connection(self.connection, timeout=timeout)
         cursor = redshift_connection.cursor()
-        cursor.execute(self.query, timeout=timeout)
+        cursor.execute(self.query)
 
         redshift_connection.close()
         if raw_cursor:
@@ -117,7 +117,7 @@ class QueryRunner:
             )
 
     @staticmethod
-    def _get_redshift_connection(connection: BaseConnection):
+    def _get_redshift_connection(connection: BaseConnection, timeout: int = None):
         try:
             return redshift_connector.connect(
                 host=connection.host,
@@ -125,6 +125,7 @@ class QueryRunner:
                 database=connection.database,
                 user=connection.username,
                 password=connection.password,
+                timeout=timeout,
             )
         except (ModuleNotFoundError, NameError):
             raise ModuleNotFoundError(
