@@ -110,7 +110,7 @@ class SeedMetricsLayer:
         reader = ProjectReader(LocalRepo(folder))
         reader.load()
 
-        views_only = True
+        views_only = False
         if len(reader._models) > 0:
             views_only = True
         else:
