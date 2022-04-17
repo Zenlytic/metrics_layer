@@ -2,7 +2,7 @@ version: 1
 type: view
 name: view_name
 
-sql_table_name: "table_name ;;"
+sql_table_name: "{{ ref('customers') }}"
 default_date: dimension_group_name
 row_label: row_label
 row_special_code: customers

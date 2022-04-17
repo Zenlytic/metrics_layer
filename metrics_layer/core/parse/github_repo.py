@@ -45,8 +45,13 @@ class BaseRepo:
 
 
 class LocalRepo(BaseRepo):
-    def __init__(self, repo_path: str, repo_type: str = None, warehouse_type: str = None) -> None:
+    def __init__(
+        self, repo_path: str, repo_type: str = None, dbt_path: str = None, warehouse_type: str = None
+    ) -> None:
         self.repo_path = repo_path
+        self.dbt_path = dbt_path
+        if isinstance(dbt_path, str) and dbt_path[-1] != "/":
+            self.dbt_path += "/"
         self.repo_type = repo_type
         self.warehouse_type = warehouse_type
         self.folder = f"{os.path.join(os.getcwd(), self.repo_path)}/"
@@ -70,6 +75,7 @@ class GithubRepo(BaseRepo):
         self.repo_name = utils.generate_uuid()
         self.repo_destination = os.path.join(BASE_PATH, self.repo_name)
         self.folder = f"{self.repo_destination}/"
+        self.dbt_path = self.folder
         self.branch = branch
 
     def search(self, pattern: str):
@@ -104,6 +110,7 @@ class LookerGithubRepo(BaseRepo):
         self.repo_type = repo_type
         self.repo_url, self.branch = self.get_looker_github_info()
         self.repo = GithubRepo(self.repo_url, self.branch)
+        self.dbt_path = self.repo.folder
 
     def search(self, pattern: str):
         """Example arg: pattern='*.model.*'"""

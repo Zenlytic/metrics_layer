@@ -6,4 +6,4 @@ name: metrics_project
 profile: test_profile
 
 
-folder: ./
+folder: ./data_model

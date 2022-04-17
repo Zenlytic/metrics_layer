@@ -11,5 +11,6 @@
   "python.formatting.provider": "black",
   "python.formatting.blackArgs": [
     "--line-length=110"
-  ]
+  ],
+  "python.formatting.blackPath": "./venv/bin/black"
 }
