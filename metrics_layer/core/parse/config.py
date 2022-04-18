@@ -42,6 +42,12 @@ class MetricsLayerConfiguration:
         if self._project is not None:
             self._project.set_user(self._user)
 
+    def get_branch_options(self):
+        # We can't have branch options with two independent repos
+        if self.additional_repo is not None:
+            return []
+        return self.repo.branch_options
+
     @staticmethod
     def get_metrics_layer_configuration(config=None, target: str = None):
         if config:

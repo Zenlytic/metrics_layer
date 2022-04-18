@@ -50,6 +50,7 @@ class LocalRepo(BaseRepo):
         self.repo_type = repo_type
         self.warehouse_type = warehouse_type
         self.folder = f"{os.path.join(os.getcwd(), self.repo_path)}/"
+        self.branch_options = []
 
     def search(self, pattern: str):
         """Example arg: pattern='*.model.*'"""
@@ -71,6 +72,7 @@ class GithubRepo(BaseRepo):
         self.repo_destination = os.path.join(BASE_PATH, self.repo_name)
         self.folder = f"{self.repo_destination}/"
         self.branch = branch
+        self.branch_options = []
 
     def search(self, pattern: str):
         """Example arg: pattern='*.model.*'"""
@@ -78,6 +80,19 @@ class GithubRepo(BaseRepo):
 
     def fetch(self):
         self.fetch_github_repo(self.repo_url, self.repo_destination, self.branch)
+
+        try:
+            dynamic_branch_options = []
+            g = git.cmd.Git()
+            raw = g.ls_remote(self.repo_url)
+            for raw_branch_ref in raw.split("\n"):
+                if "/heads/" in raw_branch_ref:
+                    clean_branch_ref = raw_branch_ref.split("/heads/")[-1]
+                    dynamic_branch_options.append(clean_branch_ref)
+            self.branch_options = dynamic_branch_options
+        except Exception as e:
+            print(f"Exception getting branch options: {e}")
+            self.branch_options = [self.branch]
 
     def delete(self, folder: str = None):
         if folder is None:
@@ -90,7 +105,8 @@ class GithubRepo(BaseRepo):
     def fetch_github_repo(repo_url: str, repo_destination: str, branch: str):
         if os.path.exists(repo_destination) and os.path.isdir(repo_destination):
             shutil.rmtree(repo_destination)
-        git.Repo.clone_from(repo_url, to_path=repo_destination, branch=branch, depth=1)
+        repo = git.Repo.clone_from(repo_url, to_path=repo_destination, branch=branch, depth=1)
+        return repo
 
 
 class LookerGithubRepo(BaseRepo):
@@ -104,6 +120,7 @@ class LookerGithubRepo(BaseRepo):
         self.repo_type = repo_type
         self.repo_url, self.branch = self.get_looker_github_info()
         self.repo = GithubRepo(self.repo_url, self.branch)
+        self.branch_options = []
 
     def search(self, pattern: str):
         """Example arg: pattern='*.model.*'"""
@@ -111,6 +128,7 @@ class LookerGithubRepo(BaseRepo):
 
     def fetch(self) -> None:
         self.repo.fetch()
+        self.branch_options = self.repo.branch_options
 
     def delete(self, folder: str = None) -> None:
         self.repo.delete(folder=folder)
