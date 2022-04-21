@@ -275,9 +275,13 @@ class MetricsLayerConfiguration:
                 config = ProjectReader.read_yaml_file(config_path)
                 relative_path = config.get("folder", "./")
                 path = os.path.abspath(relative_path)
+                dbt_path = os.getcwd()
             else:
                 path = os.getcwd()
-        repo = LocalRepo(repo_path=path, repo_type=repo_type, warehouse_type=warehouse_type)
+                dbt_path = os.getcwd()
+        repo = LocalRepo(
+            repo_path=path, repo_type=repo_type, dbt_path=dbt_path, warehouse_type=warehouse_type
+        )
 
         connection = {
             **raw_connection,

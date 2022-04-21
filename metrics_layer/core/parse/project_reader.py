@@ -1,5 +1,6 @@
 import json
 import os
+from glob import glob
 from collections import OrderedDict
 from copy import deepcopy
 
@@ -244,9 +245,8 @@ class ProjectReader:
         # Empty list is for currently unsupported dashboards when using the dbt mode
         return models, views, []
 
-    @staticmethod
-    def _load_manifest_json(repo):
-        manifest_files = repo.search(pattern="manifest.json")
+    def _load_manifest_json(self, repo):
+        manifest_files = self.search_dbt_project(repo, pattern="manifest.json")
         if len(manifest_files) > 1:
             raise ValueError("found multiple manifest.json files for your dbt project")
         if len(manifest_files) == 0:
@@ -255,6 +255,10 @@ class ProjectReader:
         with open(manifest_files[0], "r") as f:
             manifest = json.load(f)
         return manifest
+
+    @staticmethod
+    def search_dbt_project(repo, pattern: str):
+        return glob(f"{repo.dbt_path}**/{pattern}", recursive=True)
 
     def _parse_dbt_manifest(self, manifest: dict):
         views = self._make_dbt_views(manifest)
@@ -397,15 +401,13 @@ class ProjectReader:
 
     @staticmethod
     def _run_dbt(cmd: str, project_dir: str, profiles_dir: str):
-        # from dbt.main import handle_and_check
-
         os.system(f"dbt {cmd} --project-dir {project_dir} --profiles-dir {profiles_dir}")
 
     def _load_metrics_layer(self, repo: BaseRepo):
         models, views, dashboards = [], [], []
-        self.has_dbt_project = len(list(repo.search(pattern="dbt_project.yml"))) > 0
+        self.has_dbt_project = len(list(self.search_dbt_project(repo, pattern="dbt_project.yml"))) > 0
         if self.has_dbt_project:
-            self._generate_manifest_json(repo.folder, self.profiles_dir)
+            self._generate_manifest_json(repo.dbt_path, self.profiles_dir)
             self.manifest = self._load_manifest_json(repo)
 
         file_names = repo.search(pattern="*.yml") + repo.search(pattern="*.yaml")

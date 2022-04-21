@@ -12,6 +12,7 @@ BASE_PATH = os.path.dirname(__file__)
 class repo_mock(BaseRepo):
     def __init__(self, repo_type: str = None):
         self.repo_type = repo_type
+        self.dbt_path = None
 
     @property
     def folder(self):
@@ -34,8 +35,10 @@ class repo_mock(BaseRepo):
         elif pattern == "*.view.*":
             return [os.path.join(BASE_PATH, "config/lookml/views/view_with_all_fields.view.lkml")]
         elif pattern == "*.yml":
-            view = os.path.join(BASE_PATH, "config/metrics_layer_config/views/view_with_all_fields.yml")
-            model = os.path.join(BASE_PATH, "config/metrics_layer_config/models/model_with_all_fields.yml")
+            view = os.path.join(BASE_PATH, "config/metrics_layer_config/data_model/view_with_all_fields.yml")
+            model = os.path.join(
+                BASE_PATH, "config/metrics_layer_config/data_model/model_with_all_fields.yml"
+            )  # noqa
             return [model, view]
         elif pattern == "manifest.json":
             return [os.path.join(BASE_PATH, "config/dbt/target/manifest.json")]
@@ -45,8 +48,15 @@ class repo_mock(BaseRepo):
         return
 
 
+def mock_dbt_search(repo, pattern):
+    if pattern == "manifest.json":
+        return [os.path.join(BASE_PATH, "config/dbt/target/manifest.json")]
+    return []
+
+
 def test_config_load_yaml():
     reader = ProjectReader(repo=repo_mock(repo_type="metrics_layer"))
+    reader.search_dbt_project = mock_dbt_search
     reader.load()
 
     model = reader.models[0]

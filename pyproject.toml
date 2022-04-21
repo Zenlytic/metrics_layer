@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "metrics_layer"
-version = "0.6.7"
+version = "0.6.8"
 description = "The open source metrics layer."
 authors = ["Paul Blankley <paul@zenlytic.com>"]
 keywords = ["Metrics Layer", "Looker", "Analytics"]
@@ -36,7 +36,7 @@ pendulum = "^2.1.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
-black = "^21.8b0"
+black = "^22.3.0"
 flake8 = "^3.9.2"
 pre-commit = "^2.15.0"
 isort = "^5.9.3"

@@ -10,7 +10,6 @@ from metrics_layer.core.parse.connections import (
     SnowflakeConnection,
 )
 from metrics_layer.core.parse.github_repo import LookerGithubRepo
-from metrics_layer.core.parse.project_reader import ProjectReader
 
 
 def test_config_explicit_metrics_layer_single_local():
@@ -211,8 +210,11 @@ def test_config_file_metrics_layer(monkeypatch):
     config = MetricsLayerConfiguration("sf_creds")
 
     assert config.project
-    assert len(config.project.models()) == 2
-    assert config.repo.repo_path == os.getcwd()
+    assert len(config.project.models()) == 1
+    assert config.project.models()[0].name == "model_name"
+    assert config.repo.repo_path == os.getcwd() + "/data_model"
+    view = config.project.views()[0]
+    assert view.sql_table_name == "analytics.customers"
     assert len(config.connections()) == 1
     assert all(c.name in {"sf_creds"} for c in config.connections())
 
@@ -224,7 +226,7 @@ def test_config_file_metrics_layer(monkeypatch):
 
     config = MetricsLayerConfiguration("bq_creds")
 
-    assert config.repo.repo_path == os.getcwd()
+    assert config.repo.repo_path == os.getcwd() + "/data_model"
     assert len(config.connections()) == 1
     assert all(c.name in {"bq_creds"} for c in config.connections())
 
@@ -235,22 +237,6 @@ def test_config_file_metrics_layer(monkeypatch):
         "project_id": "test-data-warehouse",
         "type": "service_account",
     }
-
-
-def test_config_file_metrics_layer_dbt_run(monkeypatch, mocker):
-    test_repo_path = os.path.abspath("./tests/config/metrics_layer_config")
-    monkeypatch.setattr(os, "getcwd", lambda *args: test_repo_path)
-    mocker.patch("metrics_layer.core.parse.project_reader.ProjectReader._dump_yaml_file")
-    mocker.patch("metrics_layer.core.parse.project_reader.ProjectReader._run_dbt")
-
-    # This references the metrics_layer_config/ directory
-    repo_config = {"repo_path": "./", "repo_type": "metrics_layer"}
-    config = MetricsLayerConfiguration(repo_config)
-
-    assert config.project
-
-    ProjectReader._run_dbt.assert_called_once()
-    ProjectReader._dump_yaml_file.assert_called_once()
 
 
 def test_config_does_not_exist():
