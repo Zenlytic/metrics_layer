@@ -150,7 +150,7 @@ def test_query_number_with_sql(connection, query_type):
 
     correct = (
         "SELECT order_lines.sales_channel as order_lines_channel,"
-        f"{sa_sum} / (100 * 1.0)"
+        f"({sa_sum}) / (100 * 1.0)"
         " as customers_total_sessions_divide FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
         f"GROUP BY order_lines.sales_channel{order_by};"

@@ -396,8 +396,8 @@ def test_simple_query_custom_metric(config):
     query = conn.get_sql_query(metrics=["revenue_per_aov"], dimensions=["channel"])
 
     correct = (
-        "SELECT simple.sales_channel as simple_channel,CASE WHEN AVG(simple.revenue) = 0 THEN "
-        "0 ELSE SUM(simple.revenue) / AVG(simple.revenue) END as simple_revenue_per_aov FROM "
+        "SELECT simple.sales_channel as simple_channel,CASE WHEN (AVG(simple.revenue)) = 0 THEN "
+        "0 ELSE (SUM(simple.revenue)) / (AVG(simple.revenue)) END as simple_revenue_per_aov FROM "
         "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_revenue_per_aov DESC;"
     )
     assert query == correct
@@ -603,7 +603,7 @@ def test_simple_query_with_having_literal(config):
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-        "analytics.orders simple GROUP BY simple.sales_channel HAVING SUM(simple.revenue) > 12 "
+        "analytics.orders simple GROUP BY simple.sales_channel HAVING (SUM(simple.revenue)) > 12 "
         "ORDER BY simple_total_revenue DESC;"
     )
     assert query == correct

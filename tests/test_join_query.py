@@ -30,7 +30,7 @@ def test_alias_only_query_number(connection):
     metric = connection.get_metric(metric_name="line_item_aov")
     query = metric.sql_query(query_type="SNOWFLAKE", alias_only=True)
 
-    assert query == "SUM(order_lines_total_item_revenue) / COUNT(orders_number_of_orders)"
+    assert query == "(SUM(order_lines_total_item_revenue)) / (COUNT(orders_number_of_orders))"
 
 
 @pytest.mark.query
@@ -211,9 +211,9 @@ def test_query_single_join_metric_with_sub_field(connection):
     )
 
     correct = (
-        "SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) "
-        "/ NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL "
-        "THEN  orders.id  ELSE NULL END), 0) as order_lines_line_item_aov "
+        "SELECT order_lines.sales_channel as order_lines_channel,(SUM(order_lines.revenue)) "
+        "/ (NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL "
+        "THEN  orders.id  ELSE NULL END), 0)) as order_lines_line_item_aov "
         "FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
         "ON order_lines.order_unique_id=orders.id GROUP BY order_lines.sales_channel "
         "ORDER BY order_lines_line_item_aov DESC;"
@@ -476,7 +476,7 @@ def test_query_multiple_join_having_literal(connection):
         "analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
-        "GROUP BY customers.region,orders.new_vs_repeat HAVING SUM(order_lines.revenue) > -12 "
+        "GROUP BY customers.region,orders.new_vs_repeat HAVING (SUM(order_lines.revenue)) > -12 "
         "ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
@@ -552,8 +552,8 @@ def test_query_number_measure_w_dimension_reference(connection):
 
     correct = (
         "SELECT order_lines.product_name as order_lines_product_name,"
-        "split_part(listagg(order_lines.inventory_qty, ',') within group "
-        "(order by DATE_TRUNC('DAY', order_lines.order_date) desc), ',', 0)::int "
+        "split_part(listagg((order_lines.inventory_qty), ',') within group "
+        "(order by (DATE_TRUNC('DAY', order_lines.order_date)) desc), ',', 0)::int "
         "as order_lines_ending_on_hand_qty "
         "FROM analytics.order_line_items order_lines GROUP BY order_lines.product_name "
         "ORDER BY order_lines_ending_on_hand_qty DESC;"
