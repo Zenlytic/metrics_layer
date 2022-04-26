@@ -10,8 +10,7 @@ from sqlparse.tokens import Error, Name, Punctuation
 from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.field import Field as MetricsLayerField
-from metrics_layer.core.model.filter import Filter, MetricsLayerFilterExpressionType
-from metrics_layer.core.sql.pypika_types import LiteralValueCriterion
+from metrics_layer.core.model.filter import Filter, MetricsLayerFilterExpressionType, LiteralValueCriterion
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_errors import ParseError
 

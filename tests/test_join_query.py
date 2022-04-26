@@ -30,7 +30,7 @@ def test_alias_only_query_number(connection):
     metric = connection.get_metric(metric_name="line_item_aov")
     query = metric.sql_query(query_type="SNOWFLAKE", alias_only=True)
 
-    assert query == "SUM(order_lines_total_item_revenue) / COUNT(orders_number_of_orders)"
+    assert query == "(SUM(order_lines_total_item_revenue)) / (COUNT(orders_number_of_orders))"
 
 
 @pytest.mark.query
@@ -211,9 +211,9 @@ def test_query_single_join_metric_with_sub_field(connection):
     )
 
     correct = (
-        "SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) "
-        "/ NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL "
-        "THEN  orders.id  ELSE NULL END), 0) as order_lines_line_item_aov "
+        "SELECT order_lines.sales_channel as order_lines_channel,(SUM(order_lines.revenue)) "
+        "/ (NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL "
+        "THEN  orders.id  ELSE NULL END), 0)) as order_lines_line_item_aov "
         "FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
         "ON order_lines.order_unique_id=orders.id GROUP BY order_lines.sales_channel "
         "ORDER BY order_lines_line_item_aov DESC;"
@@ -385,8 +385,8 @@ def test_query_multiple_join_with_duration(connection):
         "SELECT DATEDIFF('MONTH', orders.previous_order_date, orders.order_date) as orders_months_between_orders,"  # noqa
         "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when customers.is_churned=false then "
         "customers.total_sessions end, 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) "
-        "+ (TO_NUMBER(MD5(customers.customer_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) "  # noqa
-        "- SUM(DISTINCT (TO_NUMBER(MD5(customers.customer_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "
+        "+ (TO_NUMBER(MD5(case when customers.is_churned=false then customers.customer_id end), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) "  # noqa
+        "- SUM(DISTINCT (TO_NUMBER(MD5(case when customers.is_churned=false then customers.customer_id end), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "  # noqa
         "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) / CAST((1000000*1.0) AS DOUBLE PRECISION), 0) "
         "as customers_total_sessions "
         "FROM analytics.order_line_items order_lines "
@@ -476,7 +476,7 @@ def test_query_multiple_join_having_literal(connection):
         "analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
-        "GROUP BY customers.region,orders.new_vs_repeat HAVING SUM(order_lines.revenue) > -12 "
+        "GROUP BY customers.region,orders.new_vs_repeat HAVING (SUM(order_lines.revenue)) > -12 "
         "ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
@@ -552,10 +552,36 @@ def test_query_number_measure_w_dimension_reference(connection):
 
     correct = (
         "SELECT order_lines.product_name as order_lines_product_name,"
-        "split_part(listagg(order_lines.inventory_qty, ',') within group "
-        "(order by DATE_TRUNC('DAY', order_lines.order_date) desc), ',', 0)::int "
+        "split_part(listagg((order_lines.inventory_qty), ',') within group "
+        "(order by (DATE_TRUNC('DAY', order_lines.order_date)) desc), ',', 0)::int "
         "as order_lines_ending_on_hand_qty "
         "FROM analytics.order_line_items order_lines GROUP BY order_lines.product_name "
         "ORDER BY order_lines_ending_on_hand_qty DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+@pytest.mark.parametrize("bool_value", ["True", "False"])
+def test_query_bool_and_date_filter(connection, bool_value):
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["channel"],
+        where=[
+            {"field": "is_churned", "expression": "equal_to", "value": bool_value},
+            {"field": "order_lines.order_date", "expression": "greater_than", "value": "2022-04-03"},
+        ],
+    )
+
+    if bool_value == "True":
+        negation = ""
+    else:
+        negation = "NOT "
+    correct = (
+        "SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) "
+        "as order_lines_total_item_revenue FROM analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        f"WHERE {negation}customers.is_churned AND DATE_TRUNC('DAY', order_lines.order_date)>'2022-04-03' "
+        "GROUP BY order_lines.sales_channel ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct

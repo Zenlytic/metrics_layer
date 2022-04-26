@@ -4,6 +4,8 @@ import click
 
 from .seeding import SeedMetricsLayer
 
+# from metrics_layer import __version__
+
 
 def echo(text: str, color: str = None, bold: bool = True):
     if color:
@@ -13,7 +15,7 @@ def echo(text: str, color: str = None, bold: bool = True):
 
 
 @click.group()
-# @click.version_option(version="0.22")
+# @click.version_option(version=__version__)
 def cli_group():
     pass
 

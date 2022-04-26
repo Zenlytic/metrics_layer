@@ -2,7 +2,7 @@ from pypika import AliasedQuery, Criterion
 from pypika.terms import LiteralValue
 
 from metrics_layer.core.model.base import MetricsLayerBase
-from metrics_layer.core.sql.pypika_types import LiteralValueCriterion
+from metrics_layer.core.model.filter import LiteralValueCriterion
 from metrics_layer.core.sql.query_dialect import query_lookup
 from metrics_layer.core.sql.query_filter import MetricsLayerFilter
 

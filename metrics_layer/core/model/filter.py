@@ -5,8 +5,19 @@ from enum import Enum
 import pandas as pd
 import pendulum
 from pypika.terms import LiteralValue
+from pypika import Criterion
 
 from .base import MetricsLayerBase
+
+
+class LiteralValueCriterion(Criterion):
+    def __init__(self, sql_query: str, alias: str = None) -> None:
+        """A wrapper for a literal value criterion which is a string of valid sql"""
+        super().__init__(alias)
+        self.sql_query = sql_query
+
+    def get_sql(self, **kwargs):
+        return self.sql_query
 
 
 class MetricsLayerFilterExpressionType(str, Enum):
@@ -444,7 +455,7 @@ class Filter(MetricsLayerBase):
             MetricsLayerFilterExpressionType.IsNotNull: lambda f: f.notnull(),
             MetricsLayerFilterExpressionType.IsIn: lambda f: f.isin(value),
             MetricsLayerFilterExpressionType.IsNotIn: lambda f: f.isin(value).negate(),
-            MetricsLayerFilterExpressionType.BooleanTrue: lambda f: f,
+            MetricsLayerFilterExpressionType.BooleanTrue: lambda f: LiteralValueCriterion(f),
             MetricsLayerFilterExpressionType.BooleanFalse: lambda f: f.negate(),
         }
 
