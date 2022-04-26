@@ -559,3 +559,29 @@ def test_query_number_measure_w_dimension_reference(connection):
         "ORDER BY order_lines_ending_on_hand_qty DESC;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+@pytest.mark.parametrize("bool_value", ["True", "False"])
+def test_query_bool_and_date_filter(connection, bool_value):
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["channel"],
+        where=[
+            {"field": "is_churned", "expression": "equal_to", "value": bool_value},
+            {"field": "order_lines.order_date", "expression": "greater_than", "value": "2022-04-03"},
+        ],
+    )
+
+    if bool_value == "True":
+        negation = ""
+    else:
+        negation = "NOT "
+    correct = (
+        "SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) "
+        "as order_lines_total_item_revenue FROM analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        f"WHERE {negation}customers.is_churned AND DATE_TRUNC('DAY', order_lines.order_date)>'2022-04-03' "
+        "GROUP BY order_lines.sales_channel ORDER BY order_lines_total_item_revenue DESC;"
+    )
+    assert query == correct

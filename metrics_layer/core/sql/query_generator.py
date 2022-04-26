@@ -11,7 +11,7 @@ from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.field import Field
 from metrics_layer.core.model.join import Join
 from metrics_layer.core.model.view import View
-from metrics_layer.core.sql.pypika_types import LiteralValueCriterion
+from metrics_layer.core.model.filter import LiteralValueCriterion
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_dialect import query_lookup
 from metrics_layer.core.sql.query_errors import ArgumentError
