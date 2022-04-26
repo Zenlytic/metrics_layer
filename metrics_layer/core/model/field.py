@@ -181,6 +181,15 @@ class Field(MetricsLayerBase, SQLReplacement):
             different_functional_pk = False
         return different_functional_pk
 
+    def _get_sql_distinct_key(self, sql_distinct_key: str, query_type: str, alias_only: bool):
+        if "filters" in self._definition:
+            clean_sql_distinct_key = Filter.translate_looker_filters_to_sql(
+                sql_distinct_key, self._definition["filters"]
+            )
+        else:
+            clean_sql_distinct_key = sql_distinct_key
+        return self._replace_sql_query(clean_sql_distinct_key, query_type, alias_only=alias_only)
+
     def _count_distinct_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
         return f"COUNT(DISTINCT({sql}))"
 
@@ -190,7 +199,10 @@ class Field(MetricsLayerBase, SQLReplacement):
         return f"SUM({sql})"
 
     def _sum_distinct_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
-        sql_distinct_key = self._replace_sql_query(self.sql_distinct_key, query_type, alias_only=alias_only)
+        # sql_distinct_key = self._replace_sql_query(self.sql_distinct_key, query_type, alias_only=alias_only)
+        sql_distinct_key = self._get_sql_distinct_key(
+            self.sql_distinct_key, query_type, alias_only=alias_only
+        )
         return self._sum_symmetric_aggregate(
             sql, query_type, primary_key_sql=sql_distinct_key, alias_only=alias_only
         )
@@ -212,7 +224,10 @@ class Field(MetricsLayerBase, SQLReplacement):
         self, sql: str, primary_key_sql: str, alias_only: bool, factor: int = 1_000_000
     ):
         if not primary_key_sql:
-            primary_key_sql = self.view.primary_key.sql_query(Definitions.bigquery, alias_only=alias_only)
+            raw_primary_key_sql = self.view.primary_key.sql_query(Definitions.bigquery, alias_only=alias_only)
+            primary_key_sql = self._get_sql_distinct_key(
+                raw_primary_key_sql, Definitions.bigquery, alias_only
+            )
 
         adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS FLOAT64))"
 
@@ -229,7 +244,12 @@ class Field(MetricsLayerBase, SQLReplacement):
         self, sql: str, primary_key_sql: str, alias_only: bool, factor: int = 1_000_000
     ):
         if not primary_key_sql:
-            primary_key_sql = self.view.primary_key.sql_query(Definitions.snowflake, alias_only=alias_only)
+            raw_primary_key_sql = self.view.primary_key.sql_query(
+                Definitions.snowflake, alias_only=alias_only
+            )
+            primary_key_sql = self._get_sql_distinct_key(
+                raw_primary_key_sql, Definitions.snowflake, alias_only
+            )
 
         adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS DECIMAL(38,0)))"
 
@@ -268,7 +288,8 @@ class Field(MetricsLayerBase, SQLReplacement):
         self, sql: str, query_type: str, primary_key_sql: str, alias_only: bool
     ):
         if not primary_key_sql:
-            primary_key_sql = self.view.primary_key.sql_query(query_type, alias_only=alias_only)
+            raw_primary_key_sql = self.view.primary_key.sql_query(query_type, alias_only=alias_only)
+            primary_key_sql = self._get_sql_distinct_key(raw_primary_key_sql, query_type, alias_only)
         pk_if_not_null = f"CASE WHEN  ({sql})  IS NOT NULL THEN  {primary_key_sql}  ELSE NULL END"
         result = f"NULLIF(COUNT(DISTINCT {pk_if_not_null}), 0)"
         return result
@@ -281,7 +302,8 @@ class Field(MetricsLayerBase, SQLReplacement):
     def _average_distinct_aggregate_sql(
         self, sql: str, query_type: str, functional_pk: str, alias_only: bool
     ):
-        sql_distinct_key = self._replace_sql_query(self.sql_distinct_key, query_type, alias_only=alias_only)
+        # sql_distinct_key = self._replace_sql_query(self.sql_distinct_key, query_type, alias_only=alias_only)
+        sql_distinct_key = self._get_sql_distinct_key(self.sql_distinct_key, query_type, alias_only)
         return self._average_symmetric_aggregate(
             sql, query_type, primary_key_sql=sql_distinct_key, alias_only=alias_only
         )
