@@ -67,11 +67,8 @@ class MetricsLayerFilter(MetricsLayerBase):
         if definition["expression"] == "UNKNOWN":
             raise NotImplementedError(f"Unknown filter expression: {definition['expression']}.")
 
-        if (
-            definition.get("value", None) is None
-            and definition["expression"] != "is_null"
-            and definition["expression"] != "is_not_null"
-        ):
+        no_expr = {"is_null", "is_not_null", "boolean_true", "boolean_false"}
+        if definition.get("value", None) is None and definition["expression"] not in no_expr:
             raise ParseError(f"Filter expression: {definition['expression']} needs a non-empty value.")
 
         if self.design:
@@ -86,10 +83,10 @@ class MetricsLayerFilter(MetricsLayerBase):
             if self.design.query_type == "BIGQUERY" and isinstance(definition["value"], datetime.datetime):
                 definition["value"] = bigquery_cast(self.field, definition["value"])
 
-            if self.field.type == "yesno" and "False" in definition["value"]:
+            if self.field.type == "yesno" and "False" in str(definition["value"]):
                 definition["expression"] = "boolean_false"
 
-            if self.field.type == "yesno" and "True" in definition["value"]:
+            if self.field.type == "yesno" and "True" in str(definition["value"]):
                 definition["expression"] = "boolean_true"
 
     def sql_query(self):

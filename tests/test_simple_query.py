@@ -477,55 +477,73 @@ def test_simple_query_with_where_dim_group(config, field, expression, value, que
 
 
 @pytest.mark.parametrize(
-    "filter_type",
+    "field_name,filter_type,value",
     [
-        "equal_to",
-        "not_equal_to",
-        "contains",
-        "does_not_contain",
-        "contains_case_insensitive",
-        "does_not_contain_case_insensitive",
-        "starts_with",
-        "ends_with",
-        "does_not_start_with",
-        "does_not_end_with",
-        "starts_with_case_insensitive",
-        "ends_with_case_insensitive",
-        "does_not_start_with_case_insensitive",
-        "does_not_end_with_case_insensitive",
+        ("channel", "equal_to", "Email"),
+        ("channel", "not_equal_to", "Email"),
+        ("channel", "contains", "Email"),
+        ("channel", "does_not_contain", "Email"),
+        ("channel", "contains_case_insensitive", "Email"),
+        ("channel", "does_not_contain_case_insensitive", "Email"),
+        ("channel", "starts_with", "Email"),
+        ("channel", "ends_with", "Email"),
+        ("channel", "does_not_start_with", "Email"),
+        ("channel", "does_not_end_with", "Email"),
+        ("channel", "starts_with_case_insensitive", "Email"),
+        ("channel", "ends_with_case_insensitive", "Email"),
+        ("channel", "does_not_start_with_case_insensitive", "Email"),
+        ("channel", "does_not_end_with_case_insensitive", "Email"),
+        ("is_valid_order", "is_null", None),
+        ("is_valid_order", "is_not_null", None),
+        ("is_valid_order", "boolean_true", None),
+        ("is_valid_order", "boolean_false", None),
     ],
 )
 @pytest.mark.query
-def test_simple_query_with_where_dict(config, filter_type):
+def test_simple_query_with_where_dict(config, field_name, filter_type, value):
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
     conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(
         metrics=["total_revenue"],
-        dimensions=["simple.channel"],
-        where=[{"field": "channel", "expression": filter_type, "value": "Email"}],
+        dimensions=[f"simple.channel"],
+        where=[{"field": field_name, "expression": filter_type, "value": value}],
     )
 
     result_lookup = {
-        "equal_to": "='Email'",
-        "not_equal_to": "<>'Email'",
-        "contains": " LIKE '%Email%'",
-        "does_not_contain": " NOT LIKE '%Email%'",
-        "contains_case_insensitive": " ILIKE '%Email%'",
-        "does_not_contain_case_insensitive": " NOT ILIKE '%Email%'",
-        "starts_with": " LIKE 'Email%'",
-        "ends_with": " LIKE '%Email'",
-        "does_not_start_with": " NOT LIKE 'Email%'",
-        "does_not_end_with": " NOT LIKE '%Email'",
-        "starts_with_case_insensitive": " ILIKE 'Email%'",
-        "ends_with_case_insensitive": " ILIKE '%Email'",
-        "does_not_start_with_case_insensitive": " NOT ILIKE 'Email%'",
-        "does_not_end_with_case_insensitive": " NOT ILIKE '%Email'",
+        "equal_to": f"='{value}'",
+        "not_equal_to": f"<>'{value}'",
+        "contains": f" LIKE '%{value}%'",
+        "does_not_contain": f" NOT LIKE '%{value}%'",
+        "contains_case_insensitive": f" ILIKE '%{value}%'",
+        "does_not_contain_case_insensitive": f" NOT ILIKE '%{value}%'",
+        "starts_with": f" LIKE '{value}%'",
+        "ends_with": f" LIKE '%{value}'",
+        "does_not_start_with": f" NOT LIKE '{value}%'",
+        "does_not_end_with": f" NOT LIKE '%{value}'",
+        "starts_with_case_insensitive": f" ILIKE '{value}%'",
+        "ends_with_case_insensitive": f" ILIKE '%{value}'",
+        "does_not_start_with_case_insensitive": f" NOT ILIKE '{value}%'",
+        "does_not_end_with_case_insensitive": f" NOT ILIKE '%{value}'",
+        "is_null": " IS NULL",
+        "is_not_null": " IS NULL",
+        "boolean_true": "",
+        "boolean_false": "",
+    }
+    prefix_filter = {
+        "is_not_null": "NOT ",
+        "boolean_false": "NOT ",
+    }
+    dim_lookup = {
+        "channel": "simple.sales_channel",
+        "is_valid_order": "CASE WHEN simple.sales_channel != 'fraud' THEN TRUE ELSE FALSE END",
     }
     filter_expr = result_lookup[filter_type]
+    prefix_expr = prefix_filter.get(filter_type, "")
+    dim_expr = dim_lookup[field_name]
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-        f"analytics.orders simple WHERE simple.sales_channel{filter_expr} GROUP BY simple.sales_channel "
+        f"analytics.orders simple WHERE {prefix_expr}{dim_expr}{filter_expr} GROUP BY simple.sales_channel "
         "ORDER BY simple_total_revenue DESC;"
     )
     assert query == correct
