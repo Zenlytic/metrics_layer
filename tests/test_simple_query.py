@@ -219,7 +219,7 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
         result_lookup = {
             "time": "CAST(simple.order_date as TIMESTAMP)",
             "date": "DATE_TRUNC('DAY', simple.order_date)",
-            "week": "DATE_TRUNC('WEEK', simple.order_date + 1) - 1",
+            "week": "DATE_TRUNC('WEEK', CAST(simple.order_date as DATE) + 1) - 1",
             "month": "DATE_TRUNC('MONTH', simple.order_date)",
             "quarter": "DATE_TRUNC('QUARTER', simple.order_date)",
             "year": "DATE_TRUNC('YEAR', simple.order_date)",

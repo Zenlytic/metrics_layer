@@ -434,7 +434,7 @@ def test_query_multiple_join_where_literal(connection):
         "analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
-        "WHERE DATE_TRUNC('WEEK', customers.first_order_date) > '2021-07-12' "
+        "WHERE DATE_TRUNC('WEEK', CAST(customers.first_order_date as DATE)) > '2021-07-12' "
         "GROUP BY customers.region,orders.new_vs_repeat ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
