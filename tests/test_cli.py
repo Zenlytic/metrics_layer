@@ -385,14 +385,14 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
         "models": "Found 1 model:\n\ntest_model\n",
         "connections": "Found 1 connection:\n\ntesting_snowflake\n",
         "explores": "Found 3 explores:\n\norder_lines_all\ndiscounts_only\nsessions\n",
-        "views": "Found 2 views:\n\ndiscounts\ndiscount_detail\n",
-        "fields": "Found 6 fields:\n\ncountry\norder\ndiscount_code\ntotal_discount_amt\ndiscount_per_order\ndiscount_usd\n",  # noqa
+        "views": "Found 3 views:\n\ndiscounts\ndiscount_detail\nsessions\n",
+        "fields": "Found 9 fields:\n\ncountry\norder\ndiscount_code\ntotal_discount_amt\ndiscount_per_order\ndiscount_usd\nutm_source\nsession\nnumber_of_sessions\n",  # noqa
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
-        "metrics": "Found 3 metrics:\n\ntotal_discount_amt\ndiscount_per_order\ndiscount_usd\n",
+        "metrics": "Found 4 metrics:\n\ntotal_discount_amt\ndiscount_per_order\ndiscount_usd\nnumber_of_sessions\n",  # noqa
     }
 
     if any("show-hidden" in a for a in extra_args):
-        correct = "Found 5 dimensions:\n\ndiscount_id\norder_id\ncountry\norder\ndiscount_code\n"  # noqa
+        correct = "Found 8 dimensions:\n\ndiscount_id\norder_id\ncountry\norder\ndiscount_code\nsession_id\nutm_source\nsession\n"  # noqa
     else:
         correct = result_lookup[object_type]
 
@@ -446,7 +446,7 @@ def test_cli_show(connection, mocker, name, extra_args):
             "  name: discounts_only\n"
             "  type: explore\n"
             "  from: discounts\n"
-            "  join_names:\n    discount_detail\n"
+            "  join_names:\n    discount_detail\n    sessions\n"
         ),
         "discounts": (
             "Attributes in view discounts:\n\n"

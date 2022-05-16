@@ -43,7 +43,9 @@ class Join(MetricsLayerBase, SQLReplacement):
         has_sql_on = "sql_on" in definition
         has_fk = "foreign_key" in definition
         has_sql = "sql" in definition
-        all_join_arguments = [has_sql_on, has_fk, has_sql]
+        # Cross join won't need either sql_on or foreign key set
+        is_cross_join = definition["type"] == "cross"
+        all_join_arguments = [has_sql_on, has_fk, has_sql, is_cross_join]
         no_join_keys = all(not c for c in all_join_arguments)
         multiple_join_keys = sum(all_join_arguments) > 1
 
@@ -77,30 +79,32 @@ class Join(MetricsLayerBase, SQLReplacement):
                     )
             return errors
 
-        fields_to_replace = self.fields_to_replace(self.sql_on)
+        if self.sql_on:
+            fields_to_replace = self.fields_to_replace(self.sql_on)
 
-        for field in fields_to_replace:
-            _, join_name, column_name = Field.field_name_parts(field)
-            view_name = self._resolve_view_name(join_name)
-            try:
-                view = self._get_view_internal(view_name)
-            except Exception:
-                err_msg = f"Could not find view {view_name} in join {self.name}"
-                errors.append(err_msg)
-                continue
+            for field in fields_to_replace:
+                _, join_name, column_name = Field.field_name_parts(field)
+                view_name = self._resolve_view_name(join_name)
+                try:
+                    view = self._get_view_internal(view_name)
+                except Exception:
+                    err_msg = f"Could not find view {view_name} in join {self.name}"
+                    errors.append(err_msg)
+                    continue
 
-            try:
-                self.project.get_field(
-                    column_name,
-                    view_name=view.name,
-                    explore_name=self.explore.name,
-                    show_excluded=True,
-                )
-            except Exception:
-                errors.append(
-                    f"Could not find field {column_name} in join {self.name} "
-                    f"referencing view {view_name} in explore {self.explore.name}"
-                )
+                try:
+                    self.project.get_field(
+                        column_name,
+                        view_name=view.name,
+                        explore_name=self.explore.name,
+                        show_excluded=True,
+                    )
+                except Exception:
+                    errors.append(
+                        f"Could not find field {column_name} in join {self.name} "
+                        f"referencing view {view_name} in explore {self.explore.name}"
+                    )
+
         return errors
 
     def is_valid(self):
@@ -117,7 +121,7 @@ class Join(MetricsLayerBase, SQLReplacement):
                     print(err_msg)
                     return False
             return True
-        is_valid = self.foreign_key is not None
+        is_valid = self.foreign_key is not None or self.type == "cross"
         return is_valid
 
     def required_views(self):

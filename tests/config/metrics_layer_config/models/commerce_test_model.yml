@@ -88,4 +88,8 @@ explores:
         relationship: one_to_many
         sql_on: "${discounts_only.discount_id}=${discount_detail.discount_id}"
 
+      - name: sessions
+        type: cross
+        relationship: many_to_one
+
   - name: sessions

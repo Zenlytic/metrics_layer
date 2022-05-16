@@ -585,3 +585,19 @@ def test_query_bool_and_date_filter(connection, bool_value):
         "GROUP BY order_lines.sales_channel ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_cross_join(connection):
+    query = connection.get_sql_query(
+        metrics=["sessions.number_of_sessions"],
+        explore_name="discounts_only",
+    )
+
+    correct = (
+        "SELECT NULLIF(COUNT(DISTINCT CASE WHEN  (sessions.id)  IS NOT NULL THEN "
+        " sessions.id  ELSE NULL END), 0) as sessions_number_of_sessions "
+        "FROM analytics_live.discounts discounts CROSS JOIN analytics.sessions sessions "
+        "ORDER BY sessions_number_of_sessions DESC;"
+    )
+    assert query == correct
