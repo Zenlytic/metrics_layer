@@ -434,7 +434,7 @@ def test_query_multiple_join_where_literal(connection):
         "analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
-        "WHERE DATE_TRUNC('WEEK', customers.first_order_date) > '2021-07-12' "
+        "WHERE DATE_TRUNC('WEEK', CAST(customers.first_order_date as DATE)) > '2021-07-12' "
         "GROUP BY customers.region,orders.new_vs_repeat ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
@@ -583,5 +583,21 @@ def test_query_bool_and_date_filter(connection, bool_value):
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
         f"WHERE {negation}customers.is_churned AND DATE_TRUNC('DAY', order_lines.order_date)>'2022-04-03' "
         "GROUP BY order_lines.sales_channel ORDER BY order_lines_total_item_revenue DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_cross_join(connection):
+    query = connection.get_sql_query(
+        metrics=["sessions.number_of_sessions"],
+        explore_name="discounts_only",
+    )
+
+    correct = (
+        "SELECT NULLIF(COUNT(DISTINCT CASE WHEN  (sessions.id)  IS NOT NULL THEN "
+        " sessions.id  ELSE NULL END), 0) as sessions_number_of_sessions "
+        "FROM analytics_live.discounts discounts CROSS JOIN analytics.sessions sessions "
+        "ORDER BY sessions_number_of_sessions DESC;"
     )
     assert query == correct

@@ -506,16 +506,15 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     @staticmethod
     def _week_sql_date_trunc(sql, offset, query_type):
+        casted = f"CAST({sql} as DATE)"
         if query_type in {Definitions.snowflake, Definitions.redshift}:
             if offset is None:
-                offset_sql = sql
-            else:
-                offset_sql = f"{sql} + {offset}"
-            return f"DATE_TRUNC('WEEK', {offset_sql})"
+                return f"DATE_TRUNC('WEEK', {casted})"
+            return f"DATE_TRUNC('WEEK', {casted} + {offset})"
         elif Definitions.bigquery == query_type:
             if offset is None:
-                return f"DATE_TRUNC(CAST({sql} as DATE), WEEK)"
-            return f"DATE_TRUNC(CAST({sql} as DATE) + {offset}, WEEK)"
+                return f"DATE_TRUNC({casted}, WEEK)"
+            return f"DATE_TRUNC({casted} + {offset}, WEEK)"
 
     def collect_errors(self):
         errors = []

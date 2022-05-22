@@ -258,7 +258,10 @@ class MetricsLayerQuery(MetricsLayerBase):
             criteria = LiteralValueCriterion(join.replaced_sql_on(self.query_type))
             join_type = self.get_pypika_join_type(join)
 
-            base_join_query = base_join_query.join(db_table, join_type).on(criteria)
+            if join.type == "cross":
+                base_join_query = base_join_query.join(db_table, join_type).cross()
+            else:
+                base_join_query = base_join_query.join(db_table, join_type).on(criteria)
 
         return base_join_query
 
@@ -290,6 +293,8 @@ class MetricsLayerQuery(MetricsLayerBase):
             return JoinType.inner
         elif join.type == "full_outer":
             return JoinType.outer
+        elif join.type == "cross":
+            return JoinType.cross
         return JoinType.left
 
     # Code for the GROUP BY part of the query
