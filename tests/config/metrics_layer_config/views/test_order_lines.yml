@@ -7,6 +7,15 @@ sql_table_name: analytics.order_line_items
 default_date: order
 row_label: "Order line item"
 
+
+identifiers: 
+- name: order_line_id
+  type: primary
+  sql: ${order_line_id}
+- name: order_id
+  type: foreign
+  sql: ${order_id}
+
 fields:
   - name: order_line_id
     field_type: "dimension"

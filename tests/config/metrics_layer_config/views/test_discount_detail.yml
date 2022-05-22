@@ -3,6 +3,13 @@ type: view
 name: discount_detail
 sql_table_name: analytics.discount_detail
 
+identifiers:
+- name: discount_join
+  type: join
+  reference: discounts
+  relationship: one_to_one
+  sql_on: "${discounts.discount_id}=${discount_detail.discount_id} AND ${discounts.order_week} is not null"
+
 fields:
   - name: discount_id
     field_type: "dimension"

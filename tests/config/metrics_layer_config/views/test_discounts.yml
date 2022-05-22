@@ -8,6 +8,14 @@ sql_table_name: "-- if dev -- dev_db.discounts
 default_date: order
 row_label: "Discount"
 
+identifiers:
+- name: order_id
+  type: foreign
+  sql: ${order_id}
+- name: country_id
+  type: foreign
+  sql: ${country}
+
 fields:
   - name: discount_id
     field_type: "dimension"

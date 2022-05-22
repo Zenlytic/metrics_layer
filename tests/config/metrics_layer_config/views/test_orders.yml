@@ -8,6 +8,11 @@ required_access_grants: [test_access_grant_department_view]
 default_date: order
 row_label: "Order"
 
+identifiers:
+- name: order_id
+  type: primary
+  sql: ${order_id}
+
 fields:
   - name: order_id
     field_type: "dimension"

@@ -8,6 +8,12 @@ sql_table_name: "{{ ref('customers') }}"
 default_date: first_order
 row_label: "Customer"
 
+
+identifiers: 
+- name: customer_id
+  type: primary
+  sql: ${customer_id}
+
 fields:
   - name: customer_id
     field_type: "dimension"

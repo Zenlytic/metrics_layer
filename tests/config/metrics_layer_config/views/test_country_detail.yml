@@ -1,10 +1,21 @@
 version: 1
 type: view
 name: country_detail
-# sql_table_name: analytics.country_detail
+
 derived_table:
   sql: SELECT * FROM ANALYTICS.COUNTRY_DETAIL
   datagroup_trigger: country_detail_datagroup
+
+identifiers: 
+- name: country_id
+  type: primary
+  sql: ${country_id}
+- name: order_lines_join
+  type: join
+  reference: order_lines
+  relationship: many_to_one
+  join_type: left_outer
+  sql_on: "${discounts.country}=${country_id} and ${order_lines.order_date} is not null"
 
 fields:
   - name: country_id
