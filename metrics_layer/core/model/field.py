@@ -454,7 +454,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             )
 
     def apply_dimension_group_time_sql(self, sql: str, query_type: str):
-        # TODO add day_of_week, day_of_week_index, month_name, month_num
+        # TODO add day_of_week_index, month_name, month_num
         # more types here https://docs.looker.com/reference/field-params/dimension_group
         meta_lookup = {
             Definitions.snowflake: {
@@ -467,6 +467,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', {s})",
                 "hour_of_day": lambda s, qt: f"HOUR({s})",
                 "day_of_week": lambda s, qt: f"DAYOFWEEK({s})",
+                "day_of_month": lambda s, qt: f"DAYOFMONTH({s})",
             },
             Definitions.bigquery: {
                 "raw": lambda s, qt: s,
@@ -478,6 +479,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "year": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} as DATE), YEAR) AS {self.datatype.upper()})",
                 "hour_of_day": lambda s, qt: f"CAST({s} AS STRING FORMAT 'HH24')",
                 "day_of_week": lambda s, qt: f"CAST({s} AS STRING FORMAT 'DAY')",
+                "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM {s})",
             },
         }
         # Snowflake and redshift have identical syntax in this case
