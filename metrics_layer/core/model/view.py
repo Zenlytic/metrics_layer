@@ -20,6 +20,15 @@ class View(MetricsLayerBase):
             return self.resolve_sql_table_name(self._definition["sql_table_name"], self.project.looker_env)
         return
 
+    @property
+    def identifiers(self):
+        if "identifiers" in self._definition:
+            return self._definition["identifiers"]
+        return []
+
+    def get_identifier(self, identifier_name: str):
+        return next((i for i in self.identifiers if i["name"] == identifier_name), None)
+
     def validate(self, definition: dict):
         required_keys = ["name", "fields"]
         for k in required_keys:

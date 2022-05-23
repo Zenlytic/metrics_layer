@@ -61,6 +61,7 @@ class SingleSQLQueryResolver:
                 "'query_type' argument to this function"
             )
         self.parse_input()
+        self.used_views = self.get_used_views()
 
     def get_query(self, semicolon: bool = True):
         self.design = MetricsLayerDesign(
@@ -69,6 +70,7 @@ class SingleSQLQueryResolver:
             field_lookup=self.field_lookup,
             explore=self.explore,
             project=self.project,
+            used_views=self.used_views,
         )
 
         query_definition = {
@@ -86,6 +88,10 @@ class SingleSQLQueryResolver:
         ).get_query(semicolon=semicolon)
 
         return query
+
+    def get_used_views(self):
+        unique_view_names = {f.view.name for f in self.field_lookup.values()}
+        return [self.project.get_view(name) for name in unique_view_names]
 
     def derive_explore(self, verbose: bool):
         # Only checking metrics when they exist reduces the number of obvious explores a user has to specify

@@ -11,16 +11,20 @@ from metrics_layer.core.sql.query_errors import ParseError
 class MetricsLayerDesign:
     """ """
 
-    def __init__(self, no_group_by: bool, query_type: str, field_lookup: dict, explore, project) -> None:
+    def __init__(
+        self, no_group_by: bool, query_type: str, field_lookup: dict, explore, project, used_views: list
+    ) -> None:
         self.no_group_by = no_group_by
         self.query_type = query_type
         self.field_lookup = field_lookup
+        self.used_views = used_views
         self.explore = explore
         self.project = project
         self._joins = None
 
     def views(self) -> List[MetricsLayerBase]:
         return self.project.views(explore_name=self.explore.name)
+        # return self.project.views()
 
     def joins(self) -> List[MetricsLayerBase]:
         if self._joins is None:
@@ -30,6 +34,11 @@ class MetricsLayerDesign:
             if self.explore.always_join:
                 required_views.extend(self.explore.always_join)
 
+            # required_views = [v.name for v in self.used_views]
+
+            subgraph = self.project.join_graph.subgraph(required_views)
+            print(networkx.to_dict_of_dicts(subgraph))
+            print(list(networkx.topological_sort(subgraph)))
             joins_needed_for_query = []
             for view_name in reversed(sorted(required_views)):
                 joins_needed_for_query.extend(self._find_needed_joins(view_name, joins_needed_for_query))
@@ -65,15 +74,15 @@ class MetricsLayerDesign:
         # Skip the first one because that's *always* the base of the explore
         return [self.explore.get_join(name, by_view_name=True) for name in self._ordered_join_names[1:]]
 
-    @staticmethod
-    def chain_decomposition(graph, root):
-        result = []
-        for decomp in networkx.chain_decomposition(graph, root=root):
-            if decomp[0][0] == root:
-                result = []
-                for edge in decomp:
-                    result.append(edge[0])
-        return result
+    # @staticmethod
+    # def chain_decomposition(graph, root):
+    #     result = []
+    #     for decomp in networkx.chain_decomposition(graph, root=root):
+    #         if decomp[0][0] == root:
+    #             result = []
+    #             for edge in decomp:
+    #                 result.append(edge[0])
+    #     return result
 
     def functional_pk(self):
         sorted_joins = self.joins()
@@ -119,10 +128,10 @@ class MetricsLayerDesign:
                 return Definitions.does_not_exist
 
             # Since there can be many paths independent of each other, I have to check each
-            # path to find what should be the base and comapre the results, if one path claims
+            # path to find what should be the base and compare the results, if one path claims
             # to have a different base from the initial one then that path must the the only
             # one to make that claim (e.g. 2 one_to_many joins going from the same base
-            # is a many_to_many resulting pk). This logic is in the
+            # is a many_to_many resulting pk).
             path = networkx.shortest_path(self._join_graph, working_base, j.from_)
 
             base_sequence = deepcopy([base_view.name])

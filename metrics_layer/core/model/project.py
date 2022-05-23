@@ -5,6 +5,7 @@ from collections import Counter
 
 from .base import AccessDeniedOrDoesNotExistException
 from .dashboard import Dashboard
+from .join_graph import JoinGraph
 from .explore import Explore
 from .field import Field
 from .model import AccessGrant, Model
@@ -33,6 +34,7 @@ class Project:
         self.manifest = manifest
         self.manifest_exists = manifest and manifest.exists()
         self._user = None
+        self._join_graph = None
 
     def __repr__(self):
         text = "models" if len(self._models) != 1 else "model"
@@ -50,6 +52,14 @@ class Project:
 
     def set_user(self, user: dict):
         self._user = user
+
+    @property
+    def join_graph(self):
+        if self._join_graph is None:
+            graph = JoinGraph(self)
+            graph.build()
+            self._join_graph = graph
+        return self._join_graph
 
     def validate(self):
         all_errors = []

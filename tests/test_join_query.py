@@ -82,6 +82,7 @@ def test_query_single_join(connection):
         "ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
+    assert False
 
 
 @pytest.mark.query

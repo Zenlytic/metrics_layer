@@ -15,6 +15,9 @@ identifiers:
 - name: order_id
   type: foreign
   sql: ${order_id}
+- name: customer_id
+  type: foreign
+  sql: ${customer_id}
 
 fields:
   - name: order_line_id
