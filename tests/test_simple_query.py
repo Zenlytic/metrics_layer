@@ -54,6 +54,7 @@ simple_view = {
                 "quarter",
                 "year",
                 "day_of_week",
+                "day_of_month",
                 "hour_of_day",
             ],
             "label": "Order Created",
@@ -187,6 +188,7 @@ def test_simple_query_alias_keyword(config):
         ("year", Definitions.snowflake),
         ("hour_of_day", Definitions.snowflake),
         ("day_of_week", Definitions.snowflake),
+        ("day_of_month", Definitions.snowflake),
         ("time", Definitions.redshift),
         ("date", Definitions.redshift),
         ("week", Definitions.redshift),
@@ -203,6 +205,7 @@ def test_simple_query_alias_keyword(config):
         ("year", Definitions.bigquery),
         ("hour_of_day", Definitions.bigquery),
         ("day_of_week", Definitions.bigquery),
+        ("day_of_month", Definitions.bigquery),
     ],
 )
 @pytest.mark.query
@@ -225,6 +228,7 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
             "year": "DATE_TRUNC('YEAR', simple.order_date)",
             "hour_of_day": "HOUR(simple.order_date)",
             "day_of_week": "DAYOFWEEK(simple.order_date)",
+            "day_of_month": "DAYOFMONTH(simple.order_date)",
         }
         order_by = " ORDER BY simple_total_revenue DESC"
     else:
@@ -237,6 +241,7 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
             "year": "CAST(DATE_TRUNC(CAST(simple.order_date as DATE), YEAR) AS TIMESTAMP)",
             "hour_of_day": f"CAST(simple.order_date AS STRING FORMAT 'HH24')",
             "day_of_week": f"CAST(simple.order_date AS STRING FORMAT 'DAY')",
+            "day_of_month": "EXTRACT(DAY FROM simple.order_date)",
         }
         order_by = ""
 
