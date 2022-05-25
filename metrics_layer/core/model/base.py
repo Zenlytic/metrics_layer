@@ -24,7 +24,7 @@ class MetricsLayerBase:
         return f"<{self.__class__.__name__} name={self.name}>"
 
     def to_dict(self):
-        return self._definition
+        return {**self._definition}
 
     @staticmethod
     def valid_name(name: str):

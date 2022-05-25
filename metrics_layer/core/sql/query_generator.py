@@ -247,13 +247,10 @@ class MetricsLayerQuery(MetricsLayerBase):
 
         # Start By building the Join
         for join in self.design.joins():
-            table = self.design.get_view(join.from_)
+            table = self.design.get_view(join.join_view_name)
 
             # Create a pypika Table based on the Table's name
             db_table = self._table_expression(table)
-            if isinstance(db_table, str):
-                db_table = Table(db_table)
-                # raise NotImplementedError("TODO: handle sub queries (derived tables for joins)")
 
             criteria = LiteralValueCriterion(join.replaced_sql_on(self.query_type))
             join_type = self.get_pypika_join_type(join)
@@ -280,7 +277,7 @@ class MetricsLayerQuery(MetricsLayerBase):
         # Create a pypika Table based on the Table's name or it's derived table sql definition
         if view.derived_table:
             derived_sql = view.derived_table["sql"]
-            table_expr = f"({derived_sql}) as {view.name}"
+            table_expr = Table(f"({derived_sql}) as {view.name}")
         else:
             table_expr = Table(view.sql_table_name, alias=view.name)
         return table_expr

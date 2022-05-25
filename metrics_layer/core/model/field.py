@@ -38,20 +38,18 @@ class Field(MetricsLayerBase, SQLReplacement):
         super().__init__(definition)
 
     def __hash__(self) -> int:
-        result = hashlib.md5(self.id(view_only=True).encode("utf-8"))
+        result = hashlib.md5(self.id().encode("utf-8"))
         return int(result.hexdigest(), base=16)
 
     def __eq__(self, other):
         if isinstance(other, str):
             return False
-        return self.id(view_only=True) == other.id(view_only=True)
+        return self.id() == other.id()
 
-    def id(self, view_only=False, capitalize_alias=False):
+    def id(self, capitalize_alias=False):
         alias = self.alias()
         if capitalize_alias:
             alias = alias.upper()
-        if self.view.explore and not view_only:
-            return f"{self.view.explore.name}.{self.view.name}.{alias}"
         return f"{self.view.name}.{alias}"
 
     @property
@@ -175,8 +173,8 @@ class Field(MetricsLayerBase, SQLReplacement):
         if functional_pk:
             if functional_pk == Definitions.does_not_exist:
                 return True
-            field_pk_id = self.view.primary_key.id(view_only=True)
-            different_functional_pk = field_pk_id != functional_pk.id(view_only=True)
+            field_pk_id = self.view.primary_key.id()
+            different_functional_pk = field_pk_id != functional_pk.id()
         else:
             different_functional_pk = False
         return different_functional_pk
@@ -489,7 +487,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def _week_dimension_group_time_sql(self, sql: str, query_type: str):
         # Monday is the default date for warehouses
-        week_start_day = self.view.explore.week_start_day
+        week_start_day = self.view.week_start_day
         if week_start_day == "monday":
             return self._week_sql_date_trunc(sql, None, query_type)
         offset_lookup = {
@@ -664,18 +662,18 @@ class Field(MetricsLayerBase, SQLReplacement):
         return clean_sql
 
     def _derive_query_type(self):
-        explore = self.view.explore
-        if explore is None:
+        model = self.view.model
+        if model is None:
             raise ValueError(
-                f"Could not find a explore in field {self.alias()} to use to detect the query type, "
+                f"Could not find a model in field {self.alias()} to use to detect the query type, "
                 "please pass the query type explicitly using the query_type argument"
-                "or pass an explore name using the explore_name argument"
+                "or pass an model name using the model_name argument"
             )
-        connection_type = self.view.project.connection_lookup.get(explore.model.connection)
+        connection_type = self.view.project.connection_lookup.get(model.connection)
         if connection_type is None:
             raise ValueError(
-                f"Could not find the connection named {explore.model.connection} "
-                f"in explore {explore.name} to use in detecting the query type, "
+                f"Could not find the connection named {model.connection} "
+                f"in model {model.name} to use in detecting the query type, "
                 "please pass the query type explicitly using the query_type argument"
             )
         return connection_type

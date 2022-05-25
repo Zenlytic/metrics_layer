@@ -73,7 +73,7 @@ def test_query_multiple_join_mql(connection):
         "SUM(order_lines.revenue) as order_lines_total_item_revenue FROM "
         "analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        "LEFT JOIN analytics.customers customers ON orders.customer_id=customers.customer_id "
         "GROUP BY customers.region,orders.new_vs_repeat "
         "ORDER BY order_lines_total_item_revenue DESC) as rev_group;"
     )
@@ -93,7 +93,7 @@ def test_query_multiple_join_all_mql(connection):
         "SUM(order_lines.revenue) as order_lines_total_item_revenue "
         "FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        "LEFT JOIN analytics.customers customers ON orders.customer_id=customers.customer_id "
         "WHERE customers.region != 'West' AND orders.new_vs_repeat <>"
         " 'New' GROUP BY customers.region,orders.new_vs_repeat HAVING (SUM(order_lines.revenue)) > -12 AND "
         "(SUM(order_lines.revenue)) < 122 ORDER BY total_item_revenue ASC,new_vs_repeat ASC) as rev_group;"

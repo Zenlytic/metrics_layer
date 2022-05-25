@@ -119,5 +119,5 @@ class Explore(MetricsLayerBase):
 
         explore_field_names = self.field_names()
         if explore_field_names and not show_excluded:
-            return [f for f in fields if f.id(view_only=True) in explore_field_names]
+            return [f for f in fields if f.id() in explore_field_names]
         return fields

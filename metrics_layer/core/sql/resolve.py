@@ -72,8 +72,8 @@ class SQLQueryResolver(SingleSQLQueryResolver):
 
         explore_queries = {}
         for explore_name in self.explore_metrics.keys():
-            metrics = [f.id(view_only=True) for f in self.explore_metrics[explore_name]]
-            dimensions = [f.id(view_only=True) for f in self.explore_dimensions[explore_name]]
+            metrics = [f.id() for f in self.explore_metrics[explore_name]]
+            dimensions = [f.id() for f in self.explore_dimensions[explore_name]]
 
             # Overwrite the limit arg because these are subqueries
             kws = {**self.kwargs, "limit": None, "return_pypika_query": True}
@@ -183,5 +183,5 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                 key = f"{mapping_info['field']}_{dimension_group}"
                 field = self.project.get_field(key, explore_name=mapping_info["explore_name"])
                 mapped_where = deepcopy(where)
-                mapped_where["field"] = field.id(view_only=True)
+                mapped_where["field"] = field.id()
                 self.explore_where[mapping_info["explore_name"]].append(mapped_where)

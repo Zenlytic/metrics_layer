@@ -193,7 +193,8 @@ class Project:
     def _all_views(self, explore):
         views = []
         for v in self._views:
-            view = View({**v, "explore": explore}, project=self)
+            model = explore.model if explore else None
+            view = View({**v, "explore": explore, "model": model}, project=self)
             if self.can_access_view(view):
                 views.append(view)
         return views
@@ -295,11 +296,11 @@ class Project:
             specified_explore_name, specified_view_name, field_name = Field.field_name_parts(field_name)
             if view_name and specified_view_name != view_name:
                 raise ValueError(
-                    f"You specificed two different view names {specified_view_name} and {view_name}"
+                    f"You specified two different view names {specified_view_name} and {view_name}"
                 )
             if specified_explore_name and explore_name and specified_explore_name != explore_name:
                 raise ValueError(
-                    f"You specificed two different explore names {specified_explore_name} and {explore_name}"
+                    f"You specified two different explore names {specified_explore_name} and {explore_name}"
                 )
             view_name = specified_view_name
             if specified_explore_name:

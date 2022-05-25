@@ -9,13 +9,13 @@ derived_table:
 identifiers: 
 - name: country_id
   type: primary
-  sql: ${country_id}
+  sql: ${country_detail.country_id}
 - name: order_lines_join
   type: join
   reference: order_lines
   relationship: many_to_one
   join_type: left_outer
-  sql_on: "${discounts.country}=${country_id} and ${order_lines.order_date} is not null"
+  sql_on: "${discounts.country}=${country_detail.country_id} and ${order_lines.order_date} is not null"
 
 fields:
   - name: country_id

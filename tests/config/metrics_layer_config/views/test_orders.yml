@@ -12,6 +12,11 @@ identifiers:
 - name: order_id
   type: primary
   sql: ${order_id}
+- name: order_discount_join
+  type: join
+  relationship: one_to_many
+  reference: 'discounts'
+  sql_on: ${orders.order_id}=${discounts.order_id}
 - name: customer_id
   type: foreign
   sql: ${customer_id}

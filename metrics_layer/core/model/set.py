@@ -68,10 +68,7 @@ class Set(MetricsLayerBase):
                         view = self.project.get_view(join_set.from_, explore=self.explore)
                     except AccessDeniedOrDoesNotExistException:
                         return []
-                    return [
-                        f.id(view_only=True)
-                        for f in view.fields(show_hidden=True, expand_dimension_groups=True)
-                    ]
+                    return [f.id() for f in view.fields(show_hidden=True, expand_dimension_groups=True)]
             print(f"WARNING: Could not find set with name {set_name}, disregarding those fields")
             return []
         return _set.field_names()

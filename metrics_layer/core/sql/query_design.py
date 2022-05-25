@@ -1,8 +1,11 @@
+from collections import defaultdict
 from copy import deepcopy
 from typing import List
+import itertools
 
 import networkx
-
+from networkx.algorithms.approximation import greedy_tsp
+from numpy import short
 from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.sql.query_errors import ParseError
@@ -21,6 +24,7 @@ class MetricsLayerDesign:
         self.explore = explore
         self.project = project
         self._joins = None
+        self._required_views = None
 
     def views(self) -> List[MetricsLayerBase]:
         return self.project.views(explore_name=self.explore.name)
@@ -28,22 +32,145 @@ class MetricsLayerDesign:
 
     def joins(self) -> List[MetricsLayerBase]:
         if self._joins is None:
+            required_views = self.required_views()
+
+            # copied_views = deepcopy(required_views)
+            # valid_paths = []
+            # for start, end in itertools.permutations(copied_views, 2):
+            #     short_path = networkx.shortest_path(
+            #         self.project.join_graph.graph, start, end, weight="weight"
+            #     )
+            #     path_weight = networkx.path_weight(self.project.join_graph.graph, short_path, "weight")
+            #     print(short_path)
+            #     print(path_weight)
+            #     print()
+
+            # for v in copied_views:
+            #     print(networkx.shortest_path(self.project.join_graph.graph, v, weight="weight"))
+
+            #     for path in networkx.shortest_path(
+            #         self.project.join_graph.graph, v, weight="weight"
+            #     ).values():
+            #         if all(v in path for v in copied_views):
+            #             valid_paths.append(path)
+            # print("VVV")
+            # print(valid_paths)
+            # if len(valid_paths) > 0:
+            #     finalists = sorted(valid_paths, key=lambda x: len(x))
+            #     print(finalists)
+            #     if len(finalists[0]) > 1:
+            #         srt = lambda x: networkx.path_weight(self.project.join_graph.graph, x, "weight")
+            #         min_weight = min(srt(f) for f in finalists)
+            #         equal = [f for f in finalists if srt(f) == min_weight]
+            #         print(equal)
+            #         required_views = sorted(equal, key=lambda x: "".join(x))[0]
+            #         # required_views = sorted(finalists, key=srt)
+            #     else:
+            #         required_views = finalists[0]
+
+            self._join_subgraph = self.project.join_graph.subgraph(required_views)
+
+            ordered_view_pairs = self.determine_join_order(required_views)
+            # print(networkx.to_dict_of_dicts(self._join_subgraph))
+            # required_views
+            # try:
+            #     if len(required_views) == 1:
+            #         ordered_views = required_views
+            #     else:
+            #         ordered_views = greedy_tsp(self._join_subgraph, weight="weight")[:-1]
+            #         print("SELECT")
+            #         print(ordered_views)
+            #     # list(networkx.topological_sort(self._join_subgraph))
+            # except Exception as e:
+            #     print(e)
+            #     try:
+            #         print("yooo")
+            #         print(
+            #             networkx.is_simple_path(self._join_subgraph, ["orders", "customers", "order_lines"])
+            #         )
+            #         print(greedy_tsp(self._join_subgraph, weight="weight"))
+            #         print(
+            #             list(
+            #                 networkx.bfs_tree(
+            #                     self._join_subgraph,
+            #                     "order_lines",  # sort_neighbors=lambda x: x["weight"]
+            #                 )
+            #             )
+            #         )
+            #     except Exception as ee:
+            #         print(ee)
+            #     ordered_views = required_views
+            # print(ordered_views)
+            # print(self.project.join_graph.ordered_joins(ordered_views))
+            print(ordered_view_pairs)
+            self._joins = self.project.join_graph.ordered_joins(ordered_view_pairs)
+
+            # required_views = [view_name for j in self._joins for view_name in j.required_views()]
+            # print(required_views)
+            # print(networkx.to_dict_of_dicts(self._join_subgraph))
+
+            # print(list(networkx.bfs_tree(subgraph, required_views[0])))
+            # joins_needed_for_query = []
+            # for view_name in reversed(sorted(required_views)):
+            #     joins_needed_for_query.extend(self._find_needed_joins(view_name, joins_needed_for_query))
+            # self._joins = self._sort_joins(joins_needed_for_query)
+        return self._joins
+
+    def determine_join_order(self, required_views: list):
+        print(required_views)
+        if len(required_views) == 1:
+            # There are no joins so we return empty list
+            return []
+        elif len(required_views) == 2:
+            path = self._shortest_path_between_two(required_views)
+            tuples = [(source, target) for source, target in zip(path, path[1:])]
+            return tuples
+        top_path = self._shortest_path_between_two(required_views)
+        print("helloo")
+        print(networkx.bfs_tree(self.project.join_graph.graph, top_path[0]))
+        # TODO we will need to improve this method
+        path = list(networkx.bfs_tree(self._join_subgraph, top_path[0]))
+        print(path)
+        tuples = [(source, target) for source, target in zip(path, path[1:])]
+        return tuples
+
+        copied_views = deepcopy(required_views)
+        accumulated_path = []
+        while len(copied_views) > 1:
+            top_path = self._shortest_path_between_two(copied_views)
+            print(top_path)
+            print(copied_views)
+            next_node = top_path[0]
+            print(next_node)
+            copied_views.pop(copied_views.index(next_node))
+            accumulated_path.append(top_path)
+            # accumulated_path.append(next_node)
+
+        # print(accumulated_path + copied_views)
+        print(accumulated_path)
+        return accumulated_path  # + copied_views
+
+    def _shortest_path_between_two(self, required_views: list):
+        valid_path_and_weights = []
+        for start, end in itertools.permutations(required_views, 2):
+            short_path = networkx.shortest_path(self.project.join_graph.graph, start, end, weight="weight")
+            path_weight = networkx.path_weight(self.project.join_graph.graph, short_path, "weight")
+            valid_path_and_weights.append((short_path, path_weight))
+
+        shortest_path = sorted(valid_path_and_weights, key=lambda x: (x[-1], "".join(x[0])))[0][0]
+        return shortest_path
+
+    def required_views(self):
+        if self._required_views is None:
+
             _, access_filter_fields = self.get_access_filter()
             fields_in_query = list(self.field_lookup.values()) + access_filter_fields
             required_views = list(set([v for field in fields_in_query for v in field.required_views()]))
             if self.explore.always_join:
                 required_views.extend(self.explore.always_join)
 
-            # required_views = [v.name for v in self.used_views]
-
-            subgraph = self.project.join_graph.subgraph(required_views)
-            print(networkx.to_dict_of_dicts(subgraph))
-            print(list(networkx.topological_sort(subgraph)))
-            joins_needed_for_query = []
-            for view_name in reversed(sorted(required_views)):
-                joins_needed_for_query.extend(self._find_needed_joins(view_name, joins_needed_for_query))
-            self._joins = self._sort_joins(joins_needed_for_query)
-        return self._joins
+            self._required_views = required_views
+        return self._required_views
 
     def _find_needed_joins(self, view_name: str, joins_already_added: list):
         joins_to_add = []
@@ -120,31 +247,18 @@ class MetricsLayerDesign:
         # if the branch is from a one_to_many to the base and one_to_many the base is now
         #   the newest one_to_many ref
 
-        working_base = base_view.name
         previous_join_type = None
-        resolve_sequences = []
-        for j in sorted_joins:
+        base_sequence = deepcopy([base_view.name])
+        for i, j in enumerate(sorted_joins):
+            previous_join_type = None if i == 0 else sorted_joins[i - 1].relationship
             if j.relationship == "many_to_many":
                 return Definitions.does_not_exist
 
-            # Since there can be many paths independent of each other, I have to check each
-            # path to find what should be the base and compare the results, if one path claims
-            # to have a different base from the initial one then that path must the the only
-            # one to make that claim (e.g. 2 one_to_many joins going from the same base
-            # is a many_to_many resulting pk).
-            path = networkx.shortest_path(self._join_graph, working_base, j.from_)
-
-            base_sequence = deepcopy([base_view.name])
-            previous_join_type = None
-            for from_, to_ in enumerate(range(1, len(path))):
-                relationship = self._join_graph[path[from_]][path[to_]]["relationship"]
-                if relationship == "one_to_many" and previous_join_type == "many_to_one":
-                    return Definitions.does_not_exist
-                elif relationship == "one_to_many":
-                    base_sequence.append(j.from_)
-                previous_join_type = relationship
-            resolve_sequences.append(base_sequence)
-        primary_key = self._pk_from_join_sequences(resolve_sequences)
+            if j.relationship == "one_to_many" and previous_join_type == "many_to_one":
+                return Definitions.does_not_exist
+            elif j.relationship == "one_to_many":
+                base_sequence.append(j.join_view_name)
+        primary_key = base_sequence[-1]
         return primary_key
 
     def _pk_from_join_sequences(self, join_sequences: list):
@@ -176,7 +290,7 @@ class MetricsLayerDesign:
         for sequence in join_sequences:
             if sequence[-1] != longest_final and not self._is_sublist(longest_sequence, sequence):
                 return Definitions.does_not_exist
-
+        print(longest_final)
         return longest_final
 
     @staticmethod
@@ -213,4 +327,7 @@ class MetricsLayerDesign:
 
     @property
     def base_view_name(self):
-        return self.explore.from_
+        joins = self.joins()
+        if len(joins) > 0:
+            return joins[0].base_view_name
+        return self.required_views()[0]

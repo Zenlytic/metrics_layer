@@ -26,6 +26,14 @@ class View(MetricsLayerBase):
             return self._definition["identifiers"]
         return []
 
+    @property
+    def week_start_day(self):
+        if "model" in self._definition:
+            model = self._definition["model"]
+            if model and model.week_start_day:
+                return model.week_start_day.lower()
+        return "monday"
+
     def get_identifier(self, identifier_name: str):
         return next((i for i in self.identifiers if i["name"] == identifier_name), None)
 
@@ -50,19 +58,16 @@ class View(MetricsLayerBase):
         fields = self.fields(show_hidden=True)
         field_errors = []
 
-        if self.explore and self.default_date:
+        if self.default_date:
             try:
                 # TODO make this more robust where it doesn't always require month to be present
                 if "." in self.default_date:
                     name = self.default_date
                 else:
                     name = f"{self.name}.{self.default_date}"
-                self.project.get_field(f"{name}_month", explore_name=self.explore.name)
+                self.project.get_field(f"{name}_month")
             except (AccessDeniedOrDoesNotExistException, ValueError):
-                field_errors.append(
-                    f"Default date {self.default_date} is unreachable in "
-                    f"view {self.name} in explore {self.explore.name}"
-                )
+                field_errors.append(f"Default date {self.default_date} is unreachable in view {self.name}")
 
         for field in fields:
             field_errors.extend(field.collect_errors())
