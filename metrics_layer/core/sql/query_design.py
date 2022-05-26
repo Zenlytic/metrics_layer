@@ -1,12 +1,9 @@
-from collections import defaultdict
 from copy import deepcopy
 from typing import List
 import itertools
 
 import networkx
-from networkx.algorithms.approximation import greedy_tsp
-from numpy import short
-from metrics_layer.core.model.base import MetricsLayerBase
+from metrics_layer.core.model.base import AccessDeniedOrDoesNotExistException, MetricsLayerBase
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.sql.query_errors import ParseError
 
@@ -14,21 +11,16 @@ from metrics_layer.core.sql.query_errors import ParseError
 class MetricsLayerDesign:
     """ """
 
-    def __init__(
-        self, no_group_by: bool, query_type: str, field_lookup: dict, explore, project, used_views: list
-    ) -> None:
+    def __init__(self, no_group_by: bool, query_type: str, field_lookup: dict, project) -> None:
         self.no_group_by = no_group_by
         self.query_type = query_type
         self.field_lookup = field_lookup
-        self.used_views = used_views
-        self.explore = explore
         self.project = project
         self._joins = None
         self._required_views = None
 
     def views(self) -> List[MetricsLayerBase]:
-        return self.project.views(explore_name=self.explore.name)
-        # return self.project.views()
+        return self.project.views()
 
     def joins(self) -> List[MetricsLayerBase]:
         if self._joins is None:
@@ -70,7 +62,15 @@ class MetricsLayerDesign:
 
             self._join_subgraph = self.project.join_graph.subgraph(required_views)
 
-            ordered_view_pairs = self.determine_join_order(required_views)
+            try:
+                ordered_view_pairs = self.determine_join_order(required_views)
+            except networkx.exception.NetworkXNoPath:
+                raise AccessDeniedOrDoesNotExistException(
+                    f"There was no join path between the views: {required_views}. "
+                    "Check the identifiers on your views and make sure they are joinable.",
+                    object_name=None,
+                    object_type="view",
+                )
             # print(networkx.to_dict_of_dicts(self._join_subgraph))
             # required_views
             # try:
@@ -166,8 +166,8 @@ class MetricsLayerDesign:
             _, access_filter_fields = self.get_access_filter()
             fields_in_query = list(self.field_lookup.values()) + access_filter_fields
             required_views = list(set([v for field in fields_in_query for v in field.required_views()]))
-            if self.explore.always_join:
-                required_views.extend(self.explore.always_join)
+            # if self.explore.always_join:
+            #     required_views.extend(self.explore.always_join)
 
             self._required_views = required_views
         return self._required_views
@@ -261,42 +261,42 @@ class MetricsLayerDesign:
         primary_key = base_sequence[-1]
         return primary_key
 
-    def _pk_from_join_sequences(self, join_sequences: list):
+    # def _pk_from_join_sequences(self, join_sequences: list):
 
-        lengths, final_selections = [], []
-        for sequence in join_sequences:
-            lengths.append(len(sequence))
-            final = sequence[-1]
-            final_selections.append(final)
+    #     lengths, final_selections = [], []
+    #     for sequence in join_sequences:
+    #         lengths.append(len(sequence))
+    #         final = sequence[-1]
+    #         final_selections.append(final)
 
-        # If all conclusions are the same than that's the right pk
-        if len(set(final_selections)) == 1:
-            return final_selections[0]
+    #     # If all conclusions are the same than that's the right pk
+    #     if len(set(final_selections)) == 1:
+    #         return final_selections[0]
 
-        # If there is disagreement in the final conclusions, we need to check for sub lists
-        # E.g. if these are the join sequences:
-        # [customers]
-        # [customers, orders]
-        # [customers, orders, order_lines]
-        # The above is a pk of order_lines, because the differing conclusions are just sub oaths
+    #     # If there is disagreement in the final conclusions, we need to check for sub lists
+    #     # E.g. if these are the join sequences:
+    #     # [customers]
+    #     # [customers, orders]
+    #     # [customers, orders, order_lines]
+    #     # The above is a pk of order_lines, because the differing conclusions are just sub oaths
 
-        # e.g in this case they are not two sub-paths but actually different join paths
-        # [customers, orders]
-        # [customers, discounts]
-        # The above is many_to_many
-        longest_idx = lengths.index(max(lengths))
-        longest_sequence = join_sequences[longest_idx]
-        longest_final = final_selections[longest_idx]
-        for sequence in join_sequences:
-            if sequence[-1] != longest_final and not self._is_sublist(longest_sequence, sequence):
-                return Definitions.does_not_exist
-        print(longest_final)
-        return longest_final
+    #     # e.g in this case they are not two sub-paths but actually different join paths
+    #     # [customers, orders]
+    #     # [customers, discounts]
+    #     # The above is many_to_many
+    #     longest_idx = lengths.index(max(lengths))
+    #     longest_sequence = join_sequences[longest_idx]
+    #     longest_final = final_selections[longest_idx]
+    #     for sequence in join_sequences:
+    #         if sequence[-1] != longest_final and not self._is_sublist(longest_sequence, sequence):
+    #             return Definitions.does_not_exist
+    #     print(longest_final)
+    #     return longest_final
 
-    @staticmethod
-    def _is_sublist(main_list: list, sublist: list):
-        n_contained_lists = len(main_list) - len(sublist) + 1
-        return any(main_list[idx : idx + len(sublist)] == sublist for idx in range(n_contained_lists))
+    # @staticmethod
+    # def _is_sublist(main_list: list, sublist: list):
+    #     n_contained_lists = len(main_list) - len(sublist) + 1
+    #     return any(main_list[idx : idx + len(sublist)] == sublist for idx in range(n_contained_lists))
 
     def get_view(self, name: str) -> MetricsLayerBase:
         try:
@@ -308,21 +308,22 @@ class MetricsLayerDesign:
         return next((j for j in self.joins() if j.name == name), None)
 
     def get_field(self, field_name: str) -> MetricsLayerBase:
-        return self.project.get_field(field_name, explore_name=self.explore.name)
+        return self.project.get_field(field_name)
 
     def get_access_filter(self):
-        if self.explore.access_filters:
-            conditions, fields = [], []
-            for condition_set in self.explore.access_filters:
-                field = self.project.get_field(condition_set["field"], explore_name=self.explore.name)
-                sql = field.sql_query(self.query_type)
-                user_attribute_value = condition_set["user_attribute"]
+        # TODO reimplement
+        # if self.explore.access_filters:
+        #     conditions, fields = [], []
+        #     for condition_set in self.explore.access_filters:
+        #         field = self.project.get_field(condition_set["field"], explore_name=self.explore.name)
+        #         sql = field.sql_query(self.query_type)
+        #         user_attribute_value = condition_set["user_attribute"]
 
-                if self.project._user and self.project._user.get(user_attribute_value):
-                    condition = f"{sql} = '{self.project._user[user_attribute_value]}'"
-                    conditions.append(condition)
-                    fields.append(field)
-            return " and ".join(conditions), fields
+        #         if self.project._user and self.project._user.get(user_attribute_value):
+        #             condition = f"{sql} = '{self.project._user[user_attribute_value]}'"
+        #             conditions.append(condition)
+        #             fields.append(field)
+        #     return " and ".join(conditions), fields
         return None, []
 
     @property

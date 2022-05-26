@@ -153,7 +153,6 @@ def test_functional_pk_resolve_one_to_many(connection):
     query = connection.get_sql_query(
         metrics=["discount_usd"],
         dimensions=["country"],
-        explore_name="discounts_only",
     )
 
     correct = (
@@ -171,35 +170,12 @@ def test_functional_pk_resolve_one_to_many(connection):
 @pytest.mark.query
 def test_ensure_join_fields_are_respected(connection):
     with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
-        connection.get_explore("order_lines_all")
-
         connection.get_sql_query(
-            metrics=["discount_usd"],
+            metrics=["number_of_sessions"],
             dimensions=["discount_promo_name"],
-            explore_name="discounts_only",
         )
 
     assert exc_info.value
-
-
-@pytest.mark.query
-def test_query_single_join_count(connection):
-
-    query = connection.get_sql_query(
-        metrics=["order_lines.count"],
-        dimensions=["channel", "new_vs_repeat"],
-        explore_name="order_lines_all",
-    )
-
-    correct = (
-        "SELECT order_lines.sales_channel as order_lines_channel,"
-        "orders.new_vs_repeat as orders_new_vs_repeat,"
-        "COUNT(order_lines.order_line_id) as order_lines_count FROM "
-        "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
-        "order_lines.order_unique_id=orders.id GROUP BY order_lines.sales_channel,orders.new_vs_repeat "
-        "ORDER BY order_lines_count DESC;"
-    )
-    assert query == correct
 
 
 @pytest.mark.query

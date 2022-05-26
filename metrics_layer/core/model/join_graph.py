@@ -1,4 +1,5 @@
 import networkx
+import hashlib
 
 from collections import defaultdict
 from copy import deepcopy
@@ -30,6 +31,17 @@ class JoinGraph(SQLReplacement):
         if self._graph is None:
             self._graph = self.build()
         return self._graph
+
+    def join_graph_hash(self, view_name: str):
+        components = networkx.weakly_connected_components(self.project.join_graph.graph)
+        sorted_components = sorted(components, key=lambda x: "".join(sorted(list(x))))
+        for i, subgraph in enumerate(sorted_components):
+            if view_name in subgraph:
+                return f"subquery_{i}"
+        raise ValueError(
+            f"View name {view_name} not found in any joinable part of your data model. "
+            "Please make sure this is the right name for the view."
+        )
 
     def ordered_joins(self, view_pairs: list):
         joins = []
@@ -192,3 +204,8 @@ class JoinGraph(SQLReplacement):
             "one_to_one": 1,
         }
         return mapping[relationship]
+
+    @staticmethod
+    def md5_hash(string_to_hash: str):
+        result = hashlib.md5(string_to_hash.encode("utf-8"))
+        return str(result.hexdigest())

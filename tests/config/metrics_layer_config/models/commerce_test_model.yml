@@ -4,6 +4,9 @@ name: test_model
 label: "Test commerce data"
 connection: "connection_name"
 
+mappings: 
+  utm_source: [sessions.utm_source, orders.sub_channel]
+
 access_grants:
   - name: test_access_grant_department_explore
     user_attribute: department

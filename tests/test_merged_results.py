@@ -15,7 +15,7 @@ def test_merged_result_query_additional_metric(connection, query_type):
         merged_result=True,
         verbose=True,
     )
-
+    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_1"
     if query_type == Definitions.bigquery:
         order_date = "CAST(DATE_TRUNC(CAST(order_lines.order_date as DATE), MONTH) AS TIMESTAMP)"
         session_date = "CAST(DATE_TRUNC(CAST(sessions.session_date as DATE), MONTH) AS TIMESTAMP)"
@@ -27,25 +27,25 @@ def test_merged_result_query_additional_metric(connection, query_type):
         order_by = " ORDER BY order_lines_total_item_revenue DESC"
         session_by = " ORDER BY sessions_number_of_sessions DESC"
     correct = (
-        "WITH order_lines_all AS ("
+        f"WITH {cte_1} AS ("
         f"SELECT {order_date} as order_lines_order_month,"
         "SUM(order_lines.revenue) as order_lines_total_item_revenue "
         "FROM analytics.order_line_items order_lines "
         f"GROUP BY {order_date}"
         f"{order_by}) ,"
-        "sessions AS ("
+        f"{cte_2} AS ("
         f"SELECT {session_date} as sessions_session_month,"
         "COUNT(sessions.id) as sessions_number_of_sessions "
         "FROM analytics.sessions sessions "
         f"GROUP BY {session_date}"
         f"{session_by}) "
-        "SELECT order_lines_all.order_lines_total_item_revenue as order_lines_total_item_revenue,"
-        "sessions.sessions_number_of_sessions as sessions_number_of_sessions,"
-        "order_lines_all.order_lines_order_month as order_lines_order_month,"
-        "sessions.sessions_session_month as sessions_session_month,"
-        "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
-        "FROM order_lines_all JOIN sessions "
-        "ON order_lines_all.order_lines_order_month=sessions.sessions_session_month;"
+        f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
+        f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,"
+        f"{cte_1}.order_lines_order_month as order_lines_order_month,"
+        f"{cte_2}.sessions_session_month as sessions_session_month,"
+        f"order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
+        f"FROM {cte_1} JOIN {cte_2} "
+        f"ON {cte_1}.order_lines_order_month={cte_2}.sessions_session_month;"
     )
     assert query == correct
 
@@ -60,35 +60,36 @@ def test_merged_result_query_only_metric(connection, dim):
         verbose=True,
     )
 
+    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_1"
     if "order_month" in dim:
         date_seq = (
-            "order_lines_all.order_lines_order_month as order_lines_order_month,"
-            "sessions.sessions_session_month as sessions_session_month"
+            f"{cte_1}.order_lines_order_month as order_lines_order_month,"
+            f"{cte_2}.sessions_session_month as sessions_session_month"
         )
     else:
         date_seq = (
-            "sessions.sessions_session_month as sessions_session_month,"
-            "order_lines_all.order_lines_order_month as order_lines_order_month"
+            f"{cte_1}.order_lines_order_month as order_lines_order_month,"
+            f"{cte_2}.sessions_session_month as sessions_session_month"
         )
 
     correct = (
-        "WITH order_lines_all AS ("
+        f"WITH {cte_1} AS ("
         f"SELECT DATE_TRUNC('MONTH', order_lines.order_date) as order_lines_order_month,"
         "SUM(order_lines.revenue) as order_lines_total_item_revenue "
         "FROM analytics.order_line_items order_lines "
         f"GROUP BY DATE_TRUNC('MONTH', order_lines.order_date) "
         "ORDER BY order_lines_total_item_revenue DESC) ,"
-        "sessions AS ("
+        f"{cte_2} AS ("
         f"SELECT DATE_TRUNC('MONTH', sessions.session_date) as sessions_session_month,"
         "COUNT(sessions.id) as sessions_number_of_sessions "
         "FROM analytics.sessions sessions "
         f"GROUP BY DATE_TRUNC('MONTH', sessions.session_date) "
         "ORDER BY sessions_number_of_sessions DESC) "
-        "SELECT order_lines_all.order_lines_total_item_revenue as order_lines_total_item_revenue,"
-        f"sessions.sessions_number_of_sessions as sessions_number_of_sessions,{date_seq},"
+        f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
+        f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,{date_seq},"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
-        "FROM order_lines_all JOIN sessions "
-        "ON order_lines_all.order_lines_order_month=sessions.sessions_session_month;"
+        f"FROM {cte_1} JOIN {cte_2} "
+        f"ON {cte_1}.order_lines_order_month={cte_2}.sessions_session_month;"
     )
     assert query == correct
 
@@ -101,20 +102,20 @@ def test_merged_result_query_only_metric_no_dim(connection):
         merged_result=True,
         verbose=True,
     )
-
+    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_1"
     correct = (
-        "WITH order_lines_all AS ("
+        f"WITH {cte_1} AS ("
         "SELECT SUM(order_lines.revenue) as order_lines_total_item_revenue "
         "FROM analytics.order_line_items order_lines "
         "ORDER BY order_lines_total_item_revenue DESC) ,"
-        "sessions AS ("
+        f"{cte_2} AS ("
         "SELECT COUNT(sessions.id) as sessions_number_of_sessions "
         "FROM analytics.sessions sessions "
         "ORDER BY sessions_number_of_sessions DESC) "
-        "SELECT order_lines_all.order_lines_total_item_revenue as order_lines_total_item_revenue,"
-        "sessions.sessions_number_of_sessions as sessions_number_of_sessions,"
+        f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
+        f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
-        "FROM order_lines_all JOIN sessions ON 1=1;"
+        f"FROM {cte_1} JOIN {cte_2} ON 1=1;"
     )
     assert query == correct
 
@@ -128,15 +129,16 @@ def test_merged_result_query_ambig_explore(connection):
         verbose=True,
     )
 
+    cte_1, cte_2 = "discounts_order__subquery_0", "orders_order__subquery_0"
     correct = (
-        "WITH discounts_only AS (SELECT SUM(discounts.discount_amt) as discounts_total_discount_amt "
+        f"WITH {cte_1} AS (SELECT SUM(discounts.discount_amt) as discounts_total_discount_amt "
         "FROM analytics_live.discounts discounts ORDER BY discounts_total_discount_amt DESC) ,"
-        "order_lines_all AS (SELECT COUNT(orders.id) as orders_number_of_orders "
+        f"{cte_2} AS (SELECT COUNT(orders.id) as orders_number_of_orders "
         "FROM analytics.orders orders ORDER BY orders_number_of_orders DESC) "
-        "SELECT discounts_only.discounts_total_discount_amt as discounts_total_discount_amt,"
-        "order_lines_all.orders_number_of_orders as orders_number_of_orders,"
+        f"SELECT {cte_1}.discounts_total_discount_amt as discounts_total_discount_amt,"
+        f"{cte_2}.orders_number_of_orders as orders_number_of_orders,"
         "discounts_total_discount_amt / nullif(orders_number_of_orders, 0) "
-        "as discounts_discount_per_order FROM discounts_only JOIN order_lines_all ON 1=1;"
+        f"as discounts_discount_per_order FROM {cte_1} JOIN {cte_2} ON 1=1;"
     )
     assert query == correct
 
@@ -157,31 +159,32 @@ def test_merged_result_query_only_metric_with_where(connection):
         verbose=True,
     )
 
+    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_1"
     date_seq = (
-        "order_lines_all.order_lines_order_month as order_lines_order_month,"
-        "sessions.sessions_session_month as sessions_session_month"
+        f"{cte_1}.order_lines_order_month as order_lines_order_month,"
+        f"{cte_2}.sessions_session_month as sessions_session_month"
     )
 
     correct = (
-        "WITH order_lines_all AS ("
+        f"WITH {cte_1} AS ("
         f"SELECT DATE_TRUNC('MONTH', order_lines.order_date) as order_lines_order_month,"
         "SUM(order_lines.revenue) as order_lines_total_item_revenue "
         "FROM analytics.order_line_items order_lines "
         "WHERE order_lines.order_date>='2022-01-05T00:00:00' "
         f"GROUP BY DATE_TRUNC('MONTH', order_lines.order_date) "
-        "ORDER BY order_lines_total_item_revenue DESC) ,"
-        "sessions AS ("
+        f"ORDER BY order_lines_total_item_revenue DESC) ,"
+        f"{cte_2} AS ("
         f"SELECT DATE_TRUNC('MONTH', sessions.session_date) as sessions_session_month,"
         "COUNT(sessions.id) as sessions_number_of_sessions "
         "FROM analytics.sessions sessions "
         "WHERE sessions.session_date>='2022-01-05T00:00:00' "
         f"GROUP BY DATE_TRUNC('MONTH', sessions.session_date) "
-        "ORDER BY sessions_number_of_sessions DESC) "
-        "SELECT order_lines_all.order_lines_total_item_revenue as order_lines_total_item_revenue,"
-        f"sessions.sessions_number_of_sessions as sessions_number_of_sessions,{date_seq},"
+        f"ORDER BY sessions_number_of_sessions DESC) "
+        f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
+        f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,{date_seq},"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
-        "FROM order_lines_all JOIN sessions "
-        "ON order_lines_all.order_lines_order_month=sessions.sessions_session_month;"
+        f"FROM {cte_1} JOIN {cte_2} "
+        f"ON {cte_1}.order_lines_order_month={cte_2}.sessions_session_month;"
     )
     assert query == correct
 
@@ -207,29 +210,30 @@ def test_merged_result_query_only_metric_with_having(connection):
         verbose=True,
     )
 
+    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_1"
     date_seq = (
-        "order_lines_all.order_lines_order_month as order_lines_order_month,"
-        "sessions.sessions_session_month as sessions_session_month"
+        f"{cte_1}.order_lines_order_month as order_lines_order_month,"
+        f"{cte_2}.sessions_session_month as sessions_session_month"
     )
 
     correct = (
-        "WITH order_lines_all AS ("
+        f"WITH {cte_1} AS ("
         f"SELECT DATE_TRUNC('MONTH', order_lines.order_date) as order_lines_order_month,"
         "SUM(order_lines.revenue) as order_lines_total_item_revenue "
         "FROM analytics.order_line_items order_lines "
         f"GROUP BY DATE_TRUNC('MONTH', order_lines.order_date) "
-        "ORDER BY order_lines_total_item_revenue DESC) ,"
-        "sessions AS ("
+        f"ORDER BY order_lines_total_item_revenue DESC) ,"
+        f"{cte_2} AS ("
         f"SELECT DATE_TRUNC('MONTH', sessions.session_date) as sessions_session_month,"
         "COUNT(sessions.id) as sessions_number_of_sessions "
         "FROM analytics.sessions sessions "
         f"GROUP BY DATE_TRUNC('MONTH', sessions.session_date) "
-        "ORDER BY sessions_number_of_sessions DESC) "
-        "SELECT order_lines_all.order_lines_total_item_revenue as order_lines_total_item_revenue,"
-        f"sessions.sessions_number_of_sessions as sessions_number_of_sessions,{date_seq},"
+        f"ORDER BY sessions_number_of_sessions DESC) "
+        f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
+        f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,{date_seq},"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
-        "FROM order_lines_all JOIN sessions "
-        "ON order_lines_all.order_lines_order_month=sessions.sessions_session_month "
+        f"FROM {cte_1} JOIN {cte_2} "
+        f"ON {cte_1}.order_lines_order_month={cte_2}.sessions_session_month "
         "WHERE order_lines_revenue_per_session>=40 AND sessions_number_of_sessions<5400;"
     )
     assert query == correct
@@ -237,46 +241,89 @@ def test_merged_result_query_only_metric_with_having(connection):
 
 @pytest.mark.query
 def test_merged_result_query_with_non_component(connection):
-    with pytest.raises(NotImplementedError) as exc_info:
-        connection.get_sql_query(
-            metrics=["revenue_per_session", "average_days_between_orders"],
-            dimensions=["order_lines.order_month"],
-            merged_result=True,
-            verbose=True,
-        )
+    query = connection.get_sql_query(
+        metrics=["revenue_per_session", "average_days_between_orders"],
+        dimensions=["order_lines.order_month"],
+        merged_result=True,
+        verbose=True,
+    )
 
-    assert exc_info.value
+    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_1"
+    cte_3 = "orders_previous_order__subquery_0"
 
-    # correct = (
-    #     "WITH order_lines_all AS ("
-    #     f"SELECT DATE_TRUNC('MONTH', order_lines.order_date) as order_lines_order_month,"
-    #     "SUM(order_lines.revenue) as order_lines_total_item_revenue,"
-    #     "(COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE("
-    #     "DATEDIFF('DAY', orders.previous_order_date, orders.order_date)"
-    #     ", 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(orders.id), "
-    #     "'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) "
-    #     "- SUM(DISTINCT (TO_NUMBER(MD5(orders.id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "
-    #     "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) / CAST((1000000*1.0) "
-    #     "AS DOUBLE PRECISION), 0) / NULLIF(COUNT(DISTINCT CASE WHEN  "
-    #     "(DATEDIFF('DAY', orders.previous_order_date, orders.order_date))  IS NOT NULL "
-    #     "THEN  orders.id  ELSE NULL END), 0)) as orders_average_days_between_orders "
-    #     "FROM analytics.order_line_items order_lines "
-    #     "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-    #     f"GROUP BY DATE_TRUNC('MONTH', order_lines.order_date) "
-    #     "ORDER BY order_lines_total_item_revenue DESC) ,"
-    #     "sessions AS ("
-    #     f"SELECT DATE_TRUNC('MONTH', sessions.session_date) as sessions_session_month,"
-    #     "COUNT(sessions.id) as sessions_number_of_sessions "
-    #     "FROM analytics.sessions sessions "
-    #     f"GROUP BY DATE_TRUNC('MONTH', sessions.session_date) "
-    #     "ORDER BY sessions_number_of_sessions DESC) "
-    #     "SELECT order_lines_all.order_lines_total_item_revenue as order_lines_total_item_revenue,"
-    #     "order_lines_all.orders_average_days_between_orders as orders_average_days_between_orders,"
-    #     "sessions.sessions_number_of_sessions as sessions_number_of_sessions,"
-    #     "order_lines_all.order_lines_order_month as order_lines_order_month,"
-    #     "sessions.sessions_session_month as sessions_session_month,"
-    #     "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
-    #     "FROM order_lines_all JOIN sessions "
-    #     "ON order_lines_all.order_lines_order_month=sessions.sessions_session_month;"
-    # )
-    # assert query == correct
+    correct = (
+        f"WITH {cte_1} AS (SELECT DATE_TRUNC('MONTH', order_lines.order_date) as "
+        "order_lines_order_month,SUM(order_lines.revenue) as order_lines_total_item_revenue "
+        "FROM analytics.order_line_items order_lines "
+        "GROUP BY DATE_TRUNC('MONTH', order_lines.order_date) "
+        "ORDER BY order_lines_total_item_revenue DESC) ,"
+        f"{cte_2} AS (SELECT DATE_TRUNC('MONTH', sessions.session_date) as sessions_session_month,"
+        "COUNT(sessions.id) as sessions_number_of_sessions "
+        "FROM analytics.sessions sessions GROUP BY DATE_TRUNC('MONTH', sessions.session_date) "
+        "ORDER BY sessions_number_of_sessions DESC) ,"
+        f"{cte_3} AS (SELECT DATE_TRUNC('MONTH', orders.previous_order_date) as orders_previous_order_month,"
+        "AVG(DATEDIFF('DAY', orders.previous_order_date, orders.order_date)) as "
+        "orders_average_days_between_orders FROM analytics.orders orders "
+        "GROUP BY DATE_TRUNC('MONTH', orders.previous_order_date) "
+        "ORDER BY orders_average_days_between_orders DESC) "
+        f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
+        f"{cte_3}.orders_average_days_between_orders as orders_average_days_between_orders,"
+        f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,"
+        f"{cte_1}.order_lines_order_month as order_lines_order_month,"
+        f"{cte_3}.orders_previous_order_month as orders_previous_order_month,"
+        f"{cte_2}.sessions_session_month as sessions_session_month,"
+        "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
+        f"FROM {cte_1} JOIN {cte_3} "
+        f"ON {cte_1}.order_lines_order_month={cte_3}.orders_previous_order_month "
+        f"JOIN {cte_2} ON {cte_1}.order_lines_order_month={cte_2}.sessions_session_month;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_merged_result_query_with_extra_dim(connection):
+    query = connection.get_sql_query(
+        metrics=["revenue_per_session", "average_days_between_orders"],
+        dimensions=["order_lines.order_month", "utm_source"],  # maps to sub_channel in orders
+        merged_result=True,
+        verbose=True,
+    )
+
+    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_1"
+    cte_3 = "orders_previous_order__subquery_0"
+
+    correct = (
+        f"WITH {cte_1} AS (SELECT DATE_TRUNC('MONTH', order_lines.order_date) as "
+        "order_lines_order_month,orders.sub_channel as orders_sub_channel,"
+        "SUM(order_lines.revenue) as order_lines_total_item_revenue "
+        "FROM analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
+        "GROUP BY DATE_TRUNC('MONTH', order_lines.order_date),orders.sub_channel "
+        "ORDER BY order_lines_total_item_revenue DESC) ,"
+        f"{cte_2} AS (SELECT DATE_TRUNC('MONTH', sessions.session_date) as sessions_session_month,"
+        "sessions.utm_source as sessions_utm_source,COUNT(sessions.id) as sessions_number_of_sessions "
+        "FROM analytics.sessions sessions GROUP BY DATE_TRUNC('MONTH', sessions.session_date),"
+        "sessions.utm_source ORDER BY sessions_number_of_sessions DESC) ,"
+        f"{cte_3} AS (SELECT DATE_TRUNC('MONTH', orders.previous_order_date) as orders_previous_order_month,"
+        "orders.sub_channel as orders_sub_channel,"
+        "AVG(DATEDIFF('DAY', orders.previous_order_date, orders.order_date)) as "
+        "orders_average_days_between_orders FROM analytics.orders orders "
+        "GROUP BY DATE_TRUNC('MONTH', orders.previous_order_date),orders.sub_channel "
+        "ORDER BY orders_average_days_between_orders DESC) "
+        f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
+        f"{cte_3}.orders_average_days_between_orders as orders_average_days_between_orders,"
+        f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,"
+        f"{cte_1}.order_lines_order_month as order_lines_order_month,"
+        f"{cte_1}.orders_sub_channel as orders_sub_channel,"
+        f"{cte_3}.orders_previous_order_month as orders_previous_order_month,"
+        f"{cte_3}.orders_sub_channel as orders_sub_channel,"
+        f"{cte_2}.sessions_session_month as sessions_session_month,"
+        f"{cte_2}.sessions_utm_source as sessions_utm_source,"
+        "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
+        f"FROM {cte_1} JOIN {cte_3} "
+        f"ON {cte_1}.order_lines_order_month={cte_3}.orders_previous_order_month "
+        f"and {cte_1}.orders_sub_channel={cte_3}.orders_sub_channel "
+        f"JOIN {cte_2} ON {cte_1}.order_lines_order_month={cte_2}.sessions_session_month "
+        f"and {cte_1}.orders_sub_channel={cte_2}.sessions_utm_source;"
+    )
+    assert query == correct

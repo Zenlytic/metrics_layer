@@ -106,6 +106,13 @@ class Field(MetricsLayerBase, SQLReplacement):
         return
 
     @property
+    def canon_date(self):
+        if "canon_date" in self._definition:
+            canon_date = self._definition["canon_date"]
+            return self._add_view_name_if_needed(canon_date)
+        return self._add_view_name_if_needed(self.view.default_date)
+
+    @property
     def drill_fields(self):
         drill_fields = self._definition.get("drill_fields")
         if drill_fields:
@@ -160,7 +167,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             if to_replace == "TABLE":
                 clean_sql = clean_sql.replace("${TABLE}.", "")
             else:
-                field = self.get_field_with_view_info(to_replace, ignore_explore=True)
+                field = self.get_field_with_view_info(to_replace)
                 if field:
                     sql_replace = field.alias(with_view=True)
                 else:
@@ -553,7 +560,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         for to_replace in self.fields_to_replace(sql):
             if to_replace != "TABLE":
                 try:
-                    field = self.get_field_with_view_info(to_replace, ignore_explore=ignore_explore)
+                    field = self.get_field_with_view_info(to_replace)
                 except Exception:
                     field = None
                 to_replace_type = None if field is None else field.type
@@ -609,8 +616,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                 clean_sql = clean_sql.replace("${" + to_replace + "}", sql_replace)
         return clean_sql.strip()
 
-    def get_field_with_view_info(self, field: str, specified_view: str = None, ignore_explore: bool = False):
-        specified_explore, view_name, field_name = self.field_name_parts(field)
+    def get_field_with_view_info(self, field: str, specified_view: str = None):
+        _, view_name, field_name = self.field_name_parts(field)
         if view_name is None and specified_view is None:
             view_name = self.view.name
         elif view_name is None and specified_view:
@@ -618,11 +625,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
         if self.view is None:
             raise AttributeError(f"You must specify which view this field is in '{self.name}'")
-        if self.view.explore and not ignore_explore:
-            explore_name = self.view.explore.name
-        else:
-            explore_name = specified_explore
-        return self.view.project.get_field(field_name, view_name=view_name, explore_name=explore_name)
+        return self.view.project.get_field(field_name, view_name=view_name)
 
     def _translate_looker_tier_to_sql(self, sql: str, tiers: list):
         case_sql = "case "
@@ -677,6 +680,11 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "please pass the query type explicitly using the query_type argument"
             )
         return connection_type
+
+    def _add_view_name_if_needed(self, field_name: str):
+        if "." in field_name:
+            return field_name
+        return f"{self.view.name}.{field_name}"
 
     @staticmethod
     def _name_is_not_valid_sql(name: str):

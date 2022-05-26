@@ -252,15 +252,15 @@ class Project:
         expand_dimension_groups: bool = False,
         show_excluded: bool = False,
     ) -> list:
-        if explore_name is None and view_name is None:
+        if view_name is None:
             return self._all_fields(show_hidden, expand_dimension_groups)
-        elif view_name and explore_name:
-            fields = self._explore_fields(explore_name, show_hidden, expand_dimension_groups, show_excluded)
-            return [f for f in fields if f.view.name == view_name]
-        elif view_name:
-            return self._view_fields(view_name, show_hidden, expand_dimension_groups)
         else:
-            return self._explore_fields(explore_name, show_hidden, expand_dimension_groups, show_excluded)
+            return self._view_fields(view_name, show_hidden, expand_dimension_groups)
+        # elif view_name and explore_name:
+        #     fields = self._explore_fields(explore_name, show_hidden, expand_dimension_groups, show_excluded)
+        #     return [f for f in fields if f.view.name == view_name]
+        # elif view_name:
+        # return self._explore_fields(explore_name, show_hidden, expand_dimension_groups, show_excluded)
 
     def _all_fields(self, show_hidden: bool, expand_dimension_groups: bool):
         return [f for v in self.views() for f in v.fields(show_hidden, expand_dimension_groups)]
@@ -278,14 +278,14 @@ class Project:
             raise ValueError(f"Could not find a view matching the name {view_name}{plus_explore}")
         return view.fields(show_hidden, expand_dimension_groups)
 
-    def _explore_fields(
-        self, explore_name: str, show_hidden: bool, expand_dimension_groups: bool, show_excluded: bool
-    ):
-        explore = self.get_explore(explore_name)
-        if show_excluded:
-            valid_views = self.views_with_explore(explore=explore)
-            return [f for v in valid_views for f in v.fields(show_hidden, expand_dimension_groups)]
-        return explore.explore_fields(show_hidden, expand_dimension_groups, show_excluded)
+    # def _explore_fields(
+    #     self, explore_name: str, show_hidden: bool, expand_dimension_groups: bool, show_excluded: bool
+    # ):
+    #     explore = self.get_explore(explore_name)
+    #     if show_excluded:
+    #         valid_views = self.views_with_explore(explore=explore)
+    #         return [f for v in valid_views for f in v.fields(show_hidden, expand_dimension_groups)]
+    #     return explore.explore_fields(show_hidden, expand_dimension_groups, show_excluded)
 
     @functools.lru_cache(maxsize=None)
     def get_field(
@@ -298,24 +298,24 @@ class Project:
                 raise ValueError(
                     f"You specified two different view names {specified_view_name} and {view_name}"
                 )
-            if specified_explore_name and explore_name and specified_explore_name != explore_name:
-                raise ValueError(
-                    f"You specified two different explore names {specified_explore_name} and {explore_name}"
-                )
+            # if specified_explore_name and explore_name and specified_explore_name != explore_name:
+            #     raise ValueError(
+            #         f"You specified two different explore names {specified_explore_name} and {explore_name}"
+            #     )
             view_name = specified_view_name
-            if specified_explore_name:
-                explore_name = specified_explore_name
+            # if specified_explore_name:
+            #     explore_name = specified_explore_name
 
         field_name = field_name.lower()
 
         fields = self.fields(
-            explore_name=explore_name,
+            # explore_name=explore_name,
             view_name=view_name,
             expand_dimension_groups=True,
             show_excluded=show_excluded,
         )
         matching_fields = [f for f in fields if f.equal(field_name)]
-        return self._matching_field_handler(matching_fields, field_name, explore_name, view_name)
+        return self._matching_field_handler(matching_fields, field_name, view_name)
 
     def get_explore_from_field(self, field_name: str):
         # If it's specified this is really easy
@@ -342,15 +342,15 @@ class Project:
             return matching_fields[0]
 
         elif len(matching_fields) > 1:
-            # if exerything is in the same view we can pick the explore that uses this view as the from_ view
-            if len(set([f.view.name for f in matching_fields])) == 1:
-                view_name = matching_fields[0].view.name
-                matching_explores = [e for e in self.explores() if e.from_ == view_name]
-                # This method will work iff there is exactly one matchng explore
-                if len(matching_explores) == 1:
-                    for f in matching_fields:
-                        if f.view.explore.name == matching_explores[0].name:
-                            return f
+            # # if exerything is in the same view we can pick the explore that uses this view as the from_ view
+            # if len(set([f.view.name for f in matching_fields])) == 1:
+            #     view_name = matching_fields[0].view.name
+            #     matching_explores = [e for e in self.explores() if e.from_ == view_name]
+            #     # This method will work iff there is exactly one matchng explore
+            #     if len(matching_explores) == 1:
+            #         for f in matching_fields:
+            #             if f.view.explore.name == matching_explores[0].name:
+            #                 return f
 
             matching_names = [f.id() for f in matching_fields]
             explore_text = f", in explore {explore_name}" if explore_name else ""
@@ -363,10 +363,8 @@ class Project:
                 "\n\nor pass the argument 'explore_name' to the function, to set the explore"
             )
             raise ValueError(err_msg)
-        elif field_name == "count" and (explore_name or view_name):
+        elif field_name == "count" and view_name:
             definition = {"type": "count", "name": "count", "field_type": "measure"}
-            if explore_name and not view_name:
-                view_name = self.get_explore(explore_name).from_
             return Field(definition, view=self.get_view(view_name))
         else:
             err_msg = f"Field {field_name} not found"

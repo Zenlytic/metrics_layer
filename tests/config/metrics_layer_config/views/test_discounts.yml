@@ -68,7 +68,7 @@ fields:
 
     # For foreign explores you need to specify the explore, view and measure
     # The the one this is defined in, you only need to specify the view and measure (but you can specify both)
-    sql: ${total_discount_amt} / nullif(${order_lines_all.orders.number_of_orders}, 0)
+    sql: ${total_discount_amt} / nullif(${orders.number_of_orders}, 0)
 
     is_merged_result: yes
 
