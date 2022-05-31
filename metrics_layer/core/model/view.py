@@ -27,9 +27,17 @@ class View(MetricsLayerBase):
         return []
 
     @property
+    def model(self):
+        if "model_name" in self._definition:
+            return self.project.get_model(self._definition["model_name"])
+        elif "model" in self._definition:
+            return self._definition["model"]
+        return
+
+    @property
     def week_start_day(self):
-        if "model" in self._definition:
-            model = self._definition["model"]
+        model = self.model
+        if model:
             if model and model.week_start_day:
                 return model.week_start_day.lower()
         return "monday"

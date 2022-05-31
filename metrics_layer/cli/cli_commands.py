@@ -117,11 +117,6 @@ def debug():
 
 @cli_group.command("list")
 @click.option(
-    "--explore",
-    default=None,
-    help="The name of the explore (only applicable for fields, dimensions, metrics, and views)",
-)
-@click.option(
     "--view", default=None, help="The name of the view (only applicable for fields, dimensions, and metrics)"
 )
 @click.option("--show-hidden", is_flag=True, help="Set this flag if you want to see hidden fields")
@@ -137,22 +132,14 @@ def list_(type, explore, view, show_hidden):
         items = metrics_layer.list_models(names_only=True)
     elif type == "connections":
         items = metrics_layer.list_connections(names_only=True)
-    elif type == "explores":
-        items = metrics_layer.list_explores(names_only=True, show_hidden=show_hidden)
     elif type == "views":
-        items = metrics_layer.list_views(names_only=True, explore_name=explore, show_hidden=show_hidden)
+        items = metrics_layer.list_views(names_only=True, show_hidden=show_hidden)
     elif type == "fields":
-        items = metrics_layer.list_fields(
-            names_only=True, view_name=view, explore_name=explore, show_hidden=show_hidden
-        )
+        items = metrics_layer.list_fields(names_only=True, view_name=view, show_hidden=show_hidden)
     elif type == "dimensions":
-        items = metrics_layer.list_dimensions(
-            names_only=True, view_name=view, explore_name=explore, show_hidden=show_hidden
-        )
+        items = metrics_layer.list_dimensions(names_only=True, view_name=view, show_hidden=show_hidden)
     elif type == "metrics":
-        items = metrics_layer.list_metrics(
-            names_only=True, view_name=view, explore_name=explore, show_hidden=show_hidden
-        )
+        items = metrics_layer.list_metrics(names_only=True, view_name=view, show_hidden=show_hidden)
     elif type == "profiles":
         if profile:
             items = metrics_layer.config.get_all_profiles(names_only=True)
@@ -164,7 +151,7 @@ def list_(type, explore, view, show_hidden):
     else:
         click.echo(
             f"Could not find the type {type}, please use one of the options: "
-            "models, connections, explores, views, fields, metrics, dimensions"
+            "models, connections, views, fields, metrics, dimensions"
         )
     if items:
         click.echo(f"Found {len(items)} {type if len(items) > 1 else type[:-1]}:\n")

@@ -1,5 +1,4 @@
 import re
-import warnings
 from copy import deepcopy
 from typing import Dict, List
 
@@ -44,7 +43,6 @@ class MetricsLayerQuery(MetricsLayerBase):
         having = definition.get("having", None)
         order_by = definition.get("order_by", None)
 
-        # always_where = self.design.explore.sql_always_where
         access_filter_literal, _ = self.design.get_access_filter()
         if where or access_filter_literal:
             wheres = where

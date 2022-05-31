@@ -32,14 +32,9 @@ class Model(MetricsLayerBase):
         return []
 
     def printable_attributes(self):
-        to_print = ["name", "type", "label", "group_label", "connection", "explore_names"]
+        to_print = ["name", "type", "label", "group_label", "connection"]
         attributes = self.to_dict()
-        attributes["explore_names"] = [e["name"] for e in attributes["explores"]]
         return {key: attributes.get(key) for key in to_print if attributes.get(key) is not None}
-
-    @property
-    def explores(self):
-        return self._definition.get("explores", [])
 
     @property
     def access_grants(self):

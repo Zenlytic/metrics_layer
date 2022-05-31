@@ -495,6 +495,7 @@ class Field(MetricsLayerBase, SQLReplacement):
     def _week_dimension_group_time_sql(self, sql: str, query_type: str):
         # Monday is the default date for warehouses
         week_start_day = self.view.week_start_day
+        print(week_start_day)
         if week_start_day == "monday":
             return self._week_sql_date_trunc(sql, None, query_type)
         offset_lookup = {

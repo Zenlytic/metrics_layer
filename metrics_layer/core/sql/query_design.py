@@ -11,54 +11,21 @@ from metrics_layer.core.sql.query_errors import ParseError
 class MetricsLayerDesign:
     """ """
 
-    def __init__(self, no_group_by: bool, query_type: str, field_lookup: dict, project) -> None:
+    def __init__(self, no_group_by: bool, query_type: str, field_lookup: dict, model, project) -> None:
         self.no_group_by = no_group_by
         self.query_type = query_type
         self.field_lookup = field_lookup
         self.project = project
+        self.model = model
         self._joins = None
         self._required_views = None
 
     def views(self) -> List[MetricsLayerBase]:
-        return self.project.views()
+        return self.project.views(model=self.model)
 
     def joins(self) -> List[MetricsLayerBase]:
         if self._joins is None:
             required_views = self.required_views()
-
-            # copied_views = deepcopy(required_views)
-            # valid_paths = []
-            # for start, end in itertools.permutations(copied_views, 2):
-            #     short_path = networkx.shortest_path(
-            #         self.project.join_graph.graph, start, end, weight="weight"
-            #     )
-            #     path_weight = networkx.path_weight(self.project.join_graph.graph, short_path, "weight")
-            #     print(short_path)
-            #     print(path_weight)
-            #     print()
-
-            # for v in copied_views:
-            #     print(networkx.shortest_path(self.project.join_graph.graph, v, weight="weight"))
-
-            #     for path in networkx.shortest_path(
-            #         self.project.join_graph.graph, v, weight="weight"
-            #     ).values():
-            #         if all(v in path for v in copied_views):
-            #             valid_paths.append(path)
-            # print("VVV")
-            # print(valid_paths)
-            # if len(valid_paths) > 0:
-            #     finalists = sorted(valid_paths, key=lambda x: len(x))
-            #     print(finalists)
-            #     if len(finalists[0]) > 1:
-            #         srt = lambda x: networkx.path_weight(self.project.join_graph.graph, x, "weight")
-            #         min_weight = min(srt(f) for f in finalists)
-            #         equal = [f for f in finalists if srt(f) == min_weight]
-            #         print(equal)
-            #         required_views = sorted(equal, key=lambda x: "".join(x))[0]
-            #         # required_views = sorted(finalists, key=srt)
-            #     else:
-            #         required_views = finalists[0]
 
             self._join_subgraph = self.project.join_graph.subgraph(required_views)
 
@@ -71,53 +38,12 @@ class MetricsLayerDesign:
                     object_name=None,
                     object_type="view",
                 )
-            # print(networkx.to_dict_of_dicts(self._join_subgraph))
-            # required_views
-            # try:
-            #     if len(required_views) == 1:
-            #         ordered_views = required_views
-            #     else:
-            #         ordered_views = greedy_tsp(self._join_subgraph, weight="weight")[:-1]
-            #         print("SELECT")
-            #         print(ordered_views)
-            #     # list(networkx.topological_sort(self._join_subgraph))
-            # except Exception as e:
-            #     print(e)
-            #     try:
-            #         print("yooo")
-            #         print(
-            #             networkx.is_simple_path(self._join_subgraph, ["orders", "customers", "order_lines"])
-            #         )
-            #         print(greedy_tsp(self._join_subgraph, weight="weight"))
-            #         print(
-            #             list(
-            #                 networkx.bfs_tree(
-            #                     self._join_subgraph,
-            #                     "order_lines",  # sort_neighbors=lambda x: x["weight"]
-            #                 )
-            #             )
-            #         )
-            #     except Exception as ee:
-            #         print(ee)
-            #     ordered_views = required_views
-            # print(ordered_views)
-            # print(self.project.join_graph.ordered_joins(ordered_views))
-            print(ordered_view_pairs)
+
             self._joins = self.project.join_graph.ordered_joins(ordered_view_pairs)
 
-            # required_views = [view_name for j in self._joins for view_name in j.required_views()]
-            # print(required_views)
-            # print(networkx.to_dict_of_dicts(self._join_subgraph))
-
-            # print(list(networkx.bfs_tree(subgraph, required_views[0])))
-            # joins_needed_for_query = []
-            # for view_name in reversed(sorted(required_views)):
-            #     joins_needed_for_query.extend(self._find_needed_joins(view_name, joins_needed_for_query))
-            # self._joins = self._sort_joins(joins_needed_for_query)
         return self._joins
 
     def determine_join_order(self, required_views: list):
-        print(required_views)
         if len(required_views) == 1:
             # There are no joins so we return empty list
             return []
@@ -126,29 +52,10 @@ class MetricsLayerDesign:
             tuples = [(source, target) for source, target in zip(path, path[1:])]
             return tuples
         top_path = self._shortest_path_between_two(required_views)
-        print("helloo")
-        print(networkx.bfs_tree(self.project.join_graph.graph, top_path[0]))
         # TODO we will need to improve this method
         path = list(networkx.bfs_tree(self._join_subgraph, top_path[0]))
-        print(path)
         tuples = [(source, target) for source, target in zip(path, path[1:])]
         return tuples
-
-        copied_views = deepcopy(required_views)
-        accumulated_path = []
-        while len(copied_views) > 1:
-            top_path = self._shortest_path_between_two(copied_views)
-            print(top_path)
-            print(copied_views)
-            next_node = top_path[0]
-            print(next_node)
-            copied_views.pop(copied_views.index(next_node))
-            accumulated_path.append(top_path)
-            # accumulated_path.append(next_node)
-
-        # print(accumulated_path + copied_views)
-        print(accumulated_path)
-        return accumulated_path  # + copied_views
 
     def _shortest_path_between_two(self, required_views: list):
         valid_path_and_weights = []
@@ -165,51 +72,41 @@ class MetricsLayerDesign:
 
             _, access_filter_fields = self.get_access_filter()
             fields_in_query = list(self.field_lookup.values()) + access_filter_fields
-            required_views = list(set([v for field in fields_in_query for v in field.required_views()]))
-            # if self.explore.always_join:
-            #     required_views.extend(self.explore.always_join)
-
-            self._required_views = required_views
+            self._required_views = self._fields_to_unique_views(fields_in_query)
         return self._required_views
 
-    def _find_needed_joins(self, view_name: str, joins_already_added: list):
-        joins_to_add = []
+    @staticmethod
+    def _fields_to_unique_views(field_list: list):
+        return list(set([v for field in field_list for v in field.required_views()]))
 
-        join_already_added = any(view_name == j.from_ for j in joins_already_added)
-        if not join_already_added and view_name != self.explore.from_:
-            join = self.explore.get_join(view_name, by_view_name=True)
-            if join is None:
-                raise ValueError(
-                    f"Could not locate join from view {view_name} for explore {self.explore.name}"
-                )
-            joins_to_add.append(join)
-            for view_name in join.required_views():
-                joins_to_add.extend(self._find_needed_joins(view_name, joins_already_added + [join]))
-        return joins_to_add
+    # def _find_needed_joins(self, view_name: str, joins_already_added: list):
+    #     joins_to_add = []
 
-    def _sort_joins(self, joins_needed: list):
-        if len(joins_needed) == 0:
-            return []
+    #     join_already_added = any(view_name == j.from_ for j in joins_already_added)
+    #     if not join_already_added and view_name != self.explore.from_:
+    #         join = self.explore.get_join(view_name, by_view_name=True)
+    #         if join is None:
+    #             raise ValueError(
+    #                 f"Could not locate join from view {view_name} for explore {self.explore.name}"
+    #             )
+    #         joins_to_add.append(join)
+    #         for view_name in join.required_views():
+    #             joins_to_add.extend(self._find_needed_joins(view_name, joins_already_added + [join]))
+    #     return joins_to_add
 
-        self._join_graph = networkx.DiGraph()
-        for join in joins_needed:
-            for view_name in join.required_views():
-                if view_name != join.from_:
-                    self._join_graph.add_edge(view_name, join.from_, relationship=join.relationship)
+    # def _sort_joins(self, joins_needed: list):
+    #     if len(joins_needed) == 0:
+    #         return []
 
-        self._ordered_join_names = list(networkx.topological_sort(self._join_graph))
-        # Skip the first one because that's *always* the base of the explore
-        return [self.explore.get_join(name, by_view_name=True) for name in self._ordered_join_names[1:]]
+    #     self._join_graph = networkx.DiGraph()
+    #     for join in joins_needed:
+    #         for view_name in join.required_views():
+    #             if view_name != join.from_:
+    #                 self._join_graph.add_edge(view_name, join.from_, relationship=join.relationship)
 
-    # @staticmethod
-    # def chain_decomposition(graph, root):
-    #     result = []
-    #     for decomp in networkx.chain_decomposition(graph, root=root):
-    #         if decomp[0][0] == root:
-    #             result = []
-    #             for edge in decomp:
-    #                 result.append(edge[0])
-    #     return result
+    #     self._ordered_join_names = list(networkx.topological_sort(self._join_graph))
+    #     # Skip the first one because that's *always* the base of the explore
+    #     return [self.explore.get_join(name, by_view_name=True) for name in self._ordered_join_names[1:]]
 
     def functional_pk(self):
         sorted_joins = self.joins()
@@ -261,43 +158,6 @@ class MetricsLayerDesign:
         primary_key = base_sequence[-1]
         return primary_key
 
-    # def _pk_from_join_sequences(self, join_sequences: list):
-
-    #     lengths, final_selections = [], []
-    #     for sequence in join_sequences:
-    #         lengths.append(len(sequence))
-    #         final = sequence[-1]
-    #         final_selections.append(final)
-
-    #     # If all conclusions are the same than that's the right pk
-    #     if len(set(final_selections)) == 1:
-    #         return final_selections[0]
-
-    #     # If there is disagreement in the final conclusions, we need to check for sub lists
-    #     # E.g. if these are the join sequences:
-    #     # [customers]
-    #     # [customers, orders]
-    #     # [customers, orders, order_lines]
-    #     # The above is a pk of order_lines, because the differing conclusions are just sub oaths
-
-    #     # e.g in this case they are not two sub-paths but actually different join paths
-    #     # [customers, orders]
-    #     # [customers, discounts]
-    #     # The above is many_to_many
-    #     longest_idx = lengths.index(max(lengths))
-    #     longest_sequence = join_sequences[longest_idx]
-    #     longest_final = final_selections[longest_idx]
-    #     for sequence in join_sequences:
-    #         if sequence[-1] != longest_final and not self._is_sublist(longest_sequence, sequence):
-    #             return Definitions.does_not_exist
-    #     print(longest_final)
-    #     return longest_final
-
-    # @staticmethod
-    # def _is_sublist(main_list: list, sublist: list):
-    #     n_contained_lists = len(main_list) - len(sublist) + 1
-    #     return any(main_list[idx : idx + len(sublist)] == sublist for idx in range(n_contained_lists))
-
     def get_view(self, name: str) -> MetricsLayerBase:
         try:
             return next(t for t in self.views() if t.name == name)
@@ -308,22 +168,32 @@ class MetricsLayerDesign:
         return next((j for j in self.joins() if j.name == name), None)
 
     def get_field(self, field_name: str) -> MetricsLayerBase:
-        return self.project.get_field(field_name)
+        return self.project.get_field(field_name, model=self.model)
 
     def get_access_filter(self):
-        # TODO reimplement
-        # if self.explore.access_filters:
-        #     conditions, fields = [], []
-        #     for condition_set in self.explore.access_filters:
-        #         field = self.project.get_field(condition_set["field"], explore_name=self.explore.name)
-        #         sql = field.sql_query(self.query_type)
-        #         user_attribute_value = condition_set["user_attribute"]
+        views_in_request = self._fields_to_unique_views(list(self.field_lookup.values()))
+        print(views_in_request)
+        conditions, fields = [], []
+        for view_name in views_in_request:
+            view = self.get_view(view_name)
+            print(view.access_filters)
+            if view.access_filters:
+                print("yo")
+                for condition_set in view.access_filters:
+                    print(condition_set)
+                    field = self.project.get_field(condition_set["field"])
+                    sql = field.sql_query(self.query_type)
+                    user_attribute_value = condition_set["user_attribute"]
 
-        #         if self.project._user and self.project._user.get(user_attribute_value):
-        #             condition = f"{sql} = '{self.project._user[user_attribute_value]}'"
-        #             conditions.append(condition)
-        #             fields.append(field)
-        #     return " and ".join(conditions), fields
+                    print(self.project._user)
+                    print(self.project._user.get(user_attribute_value))
+                    if self.project._user and self.project._user.get(user_attribute_value):
+                        condition = f"{sql} = '{self.project._user[user_attribute_value]}'"
+                        conditions.append(condition)
+                        fields.append(field)
+
+        if conditions and fields:
+            return " and ".join(conditions), fields
         return None, []
 
     @property

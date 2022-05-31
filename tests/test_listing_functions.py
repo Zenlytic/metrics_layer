@@ -9,9 +9,6 @@ def test_list_metrics(config):
     metrics = conn.list_metrics()
     assert len(metrics) == 24
 
-    metrics = conn.list_metrics(explore_name="order_lines_all")
-    assert len(metrics) == 23
-
     metrics = conn.list_metrics(view_name="order_lines", names_only=True)
     assert len(metrics) == 7
     assert set(metrics) == {
@@ -61,9 +58,7 @@ def test_list_dimensions(config):
 
 @pytest.mark.project
 def test_project_expand_fields(config):
-    fields = config.project.fields(
-        explore_name="order_lines_all", show_hidden=False, expand_dimension_groups=True
-    )
+    fields = config.project.fields(show_hidden=False, expand_dimension_groups=True)
 
     dim_groups_alias = [f.alias() for f in fields if f.view.name == "orders" and f.name == "order"]
 

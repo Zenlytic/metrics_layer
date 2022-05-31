@@ -50,7 +50,6 @@ class Set(MetricsLayerBase):
     def _internal_get_fields_from_set(self, set_name: str):
         if set_name == "ALL_FIELDS":
             all_fields = self.project.fields(
-                explore_name=self.explore_name,
                 view_name=self.view_name,
                 show_hidden=True,
                 expand_dimension_groups=True,
@@ -61,14 +60,6 @@ class Set(MetricsLayerBase):
         _, view_name, set_name = self.field_name_parts(set_name)
         _set = self.project.get_set(set_name, view_name=view_name)
         if _set is None:
-            if self.explore:
-                join_set = next((j for j in self.explore.joins() if j.name == set_name), None)
-                if join_set:
-                    try:
-                        view = self.project.get_view(join_set.from_, explore=self.explore)
-                    except AccessDeniedOrDoesNotExistException:
-                        return []
-                    return [f.id() for f in view.fields(show_hidden=True, expand_dimension_groups=True)]
             print(f"WARNING: Could not find set with name {set_name}, disregarding those fields")
             return []
         return _set.field_names()

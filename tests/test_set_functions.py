@@ -6,9 +6,6 @@ def test_sets(connection):
     sets = connection.config.project.sets()
     assert len(sets) == 5
 
-    sets = connection.config.project.sets(explore_name="order_lines_all")
-    assert len(sets) == 5
-
     sets = connection.config.project.sets(view_name="orders")
     assert len(sets) == 5
 

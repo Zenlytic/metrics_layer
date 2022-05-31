@@ -7,16 +7,6 @@ from metrics_layer.core.sql.query_generator import MetricsLayerQuery
 
 
 class SingleSQLQueryResolver:
-    """
-    Method of resolving the explore name:
-        if there is not explore passed (using the format explore_name.field_name), we'll search for
-        just the field name and iff that field is used in only one explore, set that as the active explore.
-            - Any fields specified that are not in that explore will raise an error
-
-        if it's passed explicitly, use the first metric's explore, and raise an error if anything conflicts
-        with that explore
-    """
-
     def __init__(
         self,
         metrics: list,
@@ -65,6 +55,7 @@ class SingleSQLQueryResolver:
             no_group_by=self.no_group_by,
             query_type=self.query_type,
             field_lookup=self.field_lookup,
+            model=self.model,
             project=self.project,
         )
 
@@ -87,30 +78,6 @@ class SingleSQLQueryResolver:
     def get_used_views(self):
         unique_view_names = {f.view.name for f in self.field_lookup.values()}
         return [self.project.get_view(name) for name in unique_view_names]
-
-    # def derive_explore(self, verbose: bool):
-    #     # Only checking metrics when they exist reduces the number of obvious explores a user has to specify
-    #     if len(self.metrics) > 0:
-    #         all_fields = self.metrics
-    #     else:
-    #         all_fields = self.dimensions
-
-    #     if len(all_fields) == 0:
-    #         raise ValueError("You need to include at least one metric or dimension for the query to run")
-
-    #     initial_field = all_fields[0]
-    #     working_explore_name = self.project.get_explore_from_field(initial_field)
-    #     for field_name in all_fields[1:]:
-    #         explore_name = self.project.get_explore_from_field(field_name)
-    #         if explore_name != working_explore_name:
-    #             raise ValueError(
-    #                 f"""The explore found in metric {initial_field}, {working_explore_name}
-    #                 does not match the explore found in {field_name}, {explore_name}"""
-    #             )
-
-    #     if verbose:
-    #         print(f"Setting query explore to: {working_explore_name}")
-    #     return working_explore_name
 
     def parse_input(self):
         # if self.explore.symmetric_aggregates == "no":
@@ -147,7 +114,7 @@ class SingleSQLQueryResolver:
             self.field_lookup[name] = self.get_field_with_error_handling(name, "Order by field")
 
     def get_field_with_error_handling(self, field_name: str, error_prefix: str):
-        field = self.project.get_field(field_name)
+        field = self.project.get_field(field_name, model=self.model)
         if field is None:
             raise ValueError(f"{error_prefix} {field_name} not found")
         return field

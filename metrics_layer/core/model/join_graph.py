@@ -4,7 +4,7 @@ import hashlib
 from collections import defaultdict
 from copy import deepcopy
 from .base import SQLReplacement
-from .join import Join2
+from .join import Join
 
 
 class IdentifierTypes:
@@ -53,7 +53,7 @@ class JoinGraph(SQLReplacement):
     def get_join(self, base_view_name: str, join_view_name: str):
         join_info = self.graph[base_view_name][join_view_name]
         join_definition = {**join_info, "base_view_name": base_view_name, "join_view_name": join_view_name}
-        return Join2(join_definition, project=self.project)
+        return Join(join_definition, project=self.project)
 
     def build(self):
         graph = networkx.DiGraph()

@@ -53,15 +53,8 @@ class DashboardElement(MetricsLayerBase):
             err_msg = f"Could not find model {self.model} referenced in dashboard {self.dashboard.name}"
             errors.append(err_msg)
 
-        if not self._function_executes(self.project.get_explore, self.explore):
-            err_msg = (
-                f"Could not find explore {self.explore} in model {self.model} "
-                f"referenced in dashboard {self.dashboard.name}"
-            )
-            errors.append(err_msg)
-
         for field in self.metrics + self.slice_by:
-            if not self._function_executes(self.project.get_field, field, explore_name=self.explore):
+            if not self._function_executes(self.project.get_field, field):
                 err_msg = (
                     f"Could not find field {field} in explore {self.explore} "
                     f"referenced in dashboard {self.dashboard.name}"
@@ -69,7 +62,7 @@ class DashboardElement(MetricsLayerBase):
                 errors.append(err_msg)
 
         for f in self._raw_filters():
-            if not self._function_executes(self.project.get_field, f["field"], explore_name=self.explore):
+            if not self._function_executes(self.project.get_field, f["field"]):
                 err_msg = (
                     f"Could not find field {f['field']} in explore {self.explore} "
                     f"referenced in a filter in dashboard {self.dashboard.name}"
@@ -119,17 +112,10 @@ class Dashboard(MetricsLayerBase):
     def collect_errors(self):
         errors = []
         for f in self._raw_filters():
-            if "explore" not in f:
-                errors.append(self._missing_filter_explore_error(f))
-                continue
-
             try:
-                self.project.get_field(f["field"], explore_name=f["explore"])
+                self.project.get_field(f["field"])
             except Exception:
-                err_msg = (
-                    f"Could not find field {f['field']} in explore {f['explore']} "
-                    f"referenced in a filter in dashboard {self.name}"
-                )
+                err_msg = f"Could not find field {f['field']} referenced in a filter in dashboard {self.name}"
                 errors.append(err_msg)
 
         for element in self.elements():

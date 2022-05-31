@@ -2,11 +2,10 @@ version: 1
 type: view
 name: customers
 
-# sql_table_name: analytics.customers
 sql_table_name: "{{ ref('customers') }}"
-
 default_date: first_order
 row_label: "Customer"
+required_access_grants: [test_access_grant_department_customers]
 
 
 identifiers: 

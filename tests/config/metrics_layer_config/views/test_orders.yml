@@ -21,6 +21,10 @@ identifiers:
   type: foreign
   sql: ${customer_id}
   
+access_filters:
+  - field: customers.region
+    user_attribute: owned_region
+
 fields:
   - name: order_id
     field_type: "dimension"
