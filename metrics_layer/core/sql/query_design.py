@@ -172,21 +172,15 @@ class MetricsLayerDesign:
 
     def get_access_filter(self):
         views_in_request = self._fields_to_unique_views(list(self.field_lookup.values()))
-        print(views_in_request)
         conditions, fields = [], []
         for view_name in views_in_request:
             view = self.get_view(view_name)
-            print(view.access_filters)
             if view.access_filters:
-                print("yo")
                 for condition_set in view.access_filters:
-                    print(condition_set)
                     field = self.project.get_field(condition_set["field"])
                     sql = field.sql_query(self.query_type)
                     user_attribute_value = condition_set["user_attribute"]
 
-                    print(self.project._user)
-                    print(self.project._user.get(user_attribute_value))
                     if self.project._user and self.project._user.get(user_attribute_value):
                         condition = f"{sql} = '{self.project._user[user_attribute_value]}'"
                         conditions.append(condition)
