@@ -1,4 +1,4 @@
-from .base import AccessDeniedOrDoesNotExistException, MetricsLayerBase
+from .base import MetricsLayerBase
 
 
 class Set(MetricsLayerBase):

@@ -66,9 +66,24 @@ class Project:
         for model in self.models():
             all_errors.extend(model.collect_errors())
 
-        for explore in self.explores():
-            errors = explore.validate_fields()
-            all_errors.extend(errors)
+        all_errors.extend(self.join_graph.collect_errors())
+
+        for view in self.views():
+            try:
+                view.sql_table_name
+            except ValueError as e:
+                all_errors.append(str(e))
+
+            referenced_fields = view.referenced_fields()
+            view_errors = view.collect_errors()
+            all_errors.extend(
+                [
+                    f"Could not locate reference {field} in view {view.name}"
+                    for field in referenced_fields
+                    if isinstance(field, str)
+                ]
+            )
+            all_errors.extend(view_errors)
 
         for dashboard in self.dashboards():
             errors = dashboard.collect_errors()

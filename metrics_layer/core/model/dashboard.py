@@ -55,17 +55,14 @@ class DashboardElement(MetricsLayerBase):
 
         for field in self.metrics + self.slice_by:
             if not self._function_executes(self.project.get_field, field):
-                err_msg = (
-                    f"Could not find field {field} in explore {self.explore} "
-                    f"referenced in dashboard {self.dashboard.name}"
-                )
+                err_msg = f"Could not find field {field} referenced in dashboard {self.dashboard.name}"
                 errors.append(err_msg)
 
         for f in self._raw_filters():
             if not self._function_executes(self.project.get_field, f["field"]):
                 err_msg = (
-                    f"Could not find field {f['field']} in explore {self.explore} "
-                    f"referenced in a filter in dashboard {self.dashboard.name}"
+                    f"Could not find field {f['field']} referenced"
+                    f" in a filter in dashboard {self.dashboard.name}"
                 )
                 errors.append(err_msg)
         return errors

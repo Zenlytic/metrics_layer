@@ -1,5 +1,4 @@
 import networkx
-import hashlib
 
 from collections import defaultdict
 from copy import deepcopy
@@ -19,15 +18,12 @@ class JoinGraph(SQLReplacement):
         self._join_preference = ["one_to_one", "many_to_one", "one_to_many", "many_to_many"]
         self._graph = None
 
-    def views(self):
-        return self.project.views()
-
     def subgraph(self, view_names: list):
         return self.graph.subgraph(view_names)
 
     @property
     def graph(self):
-        self._graph = self.build()
+        # self._graph = self.build()
         if self._graph is None:
             self._graph = self.build()
         return self._graph
@@ -48,6 +44,18 @@ class JoinGraph(SQLReplacement):
         for base_view, join_view in view_pairs:
             join = self.get_join(base_view, join_view)
             joins.append(join)
+        return joins
+
+    def collect_errors(self):
+        errors = []
+        for join in self.joins():
+            errors.extend(join.collect_errors())
+        return errors
+
+    def joins(self):
+        joins = []
+        for base_view_name, join_view_name in self.graph.edges():
+            joins.append(self.get_join(base_view_name, join_view_name))
         return joins
 
     def get_join(self, base_view_name: str, join_view_name: str):
@@ -79,30 +87,16 @@ class JoinGraph(SQLReplacement):
                             second_view_name=join_view_name,
                         )
 
-                        # If we already defined this join we don't want to add it again, creating a cycle
-                        if (
-                            graph.has_edge(join_view_name, view.name)
-                            and join_info["relationship"] == "one_to_one"
-                        ):
-                            continue
-
-                        valid_relationship = join_info["relationship"] not in {"one_to_many", "many_to_many"}
-                        _allowed_fan_out = join_view_name in identifier.get("allowed_fanouts", [])
-                        allowed_if_fan_out = (not valid_relationship) and _allowed_fan_out
-
-                        valid_graph_edge = True  # valid_relationship or allowed_if_fan_out
                         # Make sure the new join is preferable to the old one
                         if graph.has_edge(view.name, join_view_name):
                             existing = graph[view.name][join_view_name]["relationship"]
                             existing_score = self._join_preference.index(existing)
                             new_score = self._join_preference.index(join_info["relationship"])
                             # Only if the new identifier gives us a more preferable join will we change
-                            if existing_score > new_score and valid_graph_edge:
+                            if existing_score > new_score:
                                 graph.add_edge(view.name, join_view_name, **join_info)
                         else:
-                            if valid_graph_edge:
-                                graph.add_edge(view.name, join_view_name, **join_info)
-        # print(networkx.to_dict_of_dicts(graph))
+                            graph.add_edge(view.name, join_view_name, **join_info)
         return graph
 
     def _identifier_map(self):
@@ -124,16 +118,8 @@ class JoinGraph(SQLReplacement):
                     )
                     # We need to invert the join here because this is the inverse
                     # direction of how the join was defined
-                    # added_first = False
-                    # if join_identifier["relationship"] != "one_to_many":
-                    if True:
-                        result[view.name][identifier["reference"]] = self._verify_identifier_join(
-                            join_identifier
-                        )
-                        # added_first = True
-                    # if identifier["relationship"] != "one_to_many" and not added_first:
-                    if True:
-                        result[identifier["reference"]][view.name] = self._verify_identifier_join(identifier)
+                    result[view.name][identifier["reference"]] = self._verify_identifier_join(join_identifier)
+                    result[identifier["reference"]][view.name] = self._verify_identifier_join(identifier)
         return result
 
     def _identifier_to_join(self, first_identifier, first_view_name, second_identifier, second_view_name):
@@ -204,8 +190,3 @@ class JoinGraph(SQLReplacement):
             "one_to_one": 1,
         }
         return mapping[relationship]
-
-    @staticmethod
-    def md5_hash(string_to_hash: str):
-        result = hashlib.md5(string_to_hash.encode("utf-8"))
-        return str(result.hexdigest())

@@ -79,24 +79,19 @@ class Join(MetricsLayerBase, SQLReplacement):
             fields_to_replace = self.fields_to_replace(self.sql_on)
 
             for field in fields_to_replace:
-                _, join_name, column_name = Field.field_name_parts(field)
-                view_name = self._resolve_view_name(join_name)
+                _, view_name, column_name = Field.field_name_parts(field)
                 try:
-                    view = self._get_view_internal(view_name)
+                    view = self.project.get_view(view_name)
                 except Exception:
                     err_msg = f"Could not find view {view_name} in {self.name}"
                     errors.append(err_msg)
                     continue
 
                 try:
-                    self.project.get_field(
-                        column_name,
-                        view_name=view.name,
-                        show_excluded=True,
-                    )
+                    self.project.get_field(column_name, view_name=view.name)
                 except Exception:
                     errors.append(
-                        f"Could not find field {column_name} in {self.name} " f"referencing view {view_name}"
+                        f"Could not find field {column_name} in {self.name} referencing view {view_name}"
                     )
 
         return errors

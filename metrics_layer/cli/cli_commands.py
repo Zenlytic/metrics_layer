@@ -48,8 +48,8 @@ def validate():
     errors = metrics_layer.config.project.validate()
 
     if len(errors) == 0:
-        n_explores = len(metrics_layer.config.project.explores())
-        echo(f"Project passed (checked {n_explores} explore{'s' if n_explores > 1 else ''})!")
+        n_models = len(metrics_layer.config.project.models())
+        echo(f"Project passed (checked {n_models} model{'s' if n_models > 1 else ''})!")
     else:
         echo(f"Found {len(errors)} error{'s' if len(errors)> 1 else ''} in the project:\n")
         for error in errors:
@@ -121,7 +121,7 @@ def debug():
 )
 @click.option("--show-hidden", is_flag=True, help="Set this flag if you want to see hidden fields")
 @click.argument("type")
-def list_(type, explore, view, show_hidden):
+def list_(type, view, show_hidden):
     """List attributes in a metrics layer project,
     i.e. models, connections, explores, views, fields, metrics, dimensions"""
     profile = SeedMetricsLayer.get_profile()
@@ -133,7 +133,7 @@ def list_(type, explore, view, show_hidden):
     elif type == "connections":
         items = metrics_layer.list_connections(names_only=True)
     elif type == "views":
-        items = metrics_layer.list_views(names_only=True, show_hidden=show_hidden)
+        items = metrics_layer.list_views(names_only=True)
     elif type == "fields":
         items = metrics_layer.list_fields(names_only=True, view_name=view, show_hidden=show_hidden)
     elif type == "dimensions":
@@ -168,15 +168,10 @@ def list_(type, explore, view, show_hidden):
     help="The type of object to show. One of: model, connection, explore, view, field, metric, dimension",  # noqa
 )
 @click.option(
-    "--explore",
-    default=None,
-    help="The name of the explore (only applicable for fields, dimensions, metrics, and views)",
-)
-@click.option(
     "--view", default=None, help="The name of the view (only applicable for fields, dimensions, and metrics)"
 )
 @click.argument("name")
-def show(type, name, explore, view):
+def show(type, name, view):
     """Show information on an attribute in a metrics layer project, by name"""
     profile = SeedMetricsLayer.get_profile()
     metrics_layer = SeedMetricsLayer._init_profile(profile)
@@ -186,20 +181,18 @@ def show(type, name, explore, view):
         attributes = metrics_layer.get_model(name)
     elif type == "connection":
         attributes = metrics_layer.get_connection(name)
-    elif type == "explore":
-        attributes = metrics_layer.get_explore(name)
     elif type == "view":
-        attributes = metrics_layer.get_view(name, explore_name=explore)
+        attributes = metrics_layer.get_view(name)
     elif type == "field":
-        attributes = metrics_layer.get_field(name, view_name=view, explore_name=explore)
+        attributes = metrics_layer.get_field(name, view_name=view)
     elif type == "dimension":
-        attributes = metrics_layer.get_dimension(name, view_name=view, explore_name=explore)
+        attributes = metrics_layer.get_dimension(name, view_name=view)
     elif type == "metric":
-        attributes = metrics_layer.get_metric(name, view_name=view, explore_name=explore)
+        attributes = metrics_layer.get_metric(name, view_name=view)
     else:
         click.echo(
             f"Could not find the type {type}, please use one of the options: "
-            "models, connections, explores, views, fields, metrics, dimensions"
+            "models, connections, views, fields, metrics, dimensions"
         )
 
     if attributes:
