@@ -68,19 +68,11 @@ def test_sets(connection):
     ]
 
 
-def test_explore_sets(connection):
-    explore = connection.config.project.get_explore("order_lines_all")
-
-    explore_field_names = explore.field_names()
-    excluded = ["discounts.country", "orders.do_not_use"]
-    assert not any(fn in explore_field_names for fn in excluded)
-
-
 def test_drill_fields(connection):
-    field = connection.config.project.get_field("orders.number_of_orders", explore_name="order_lines_all")
+    field = connection.config.project.get_field("orders.number_of_orders")
 
     drill_field_names = field.drill_fields
-    assert field.id() == "order_lines_all.orders.number_of_orders"
+    assert field.id() == "orders.number_of_orders"
     assert drill_field_names == [
         "orders.order_id",
         "orders.customer_id",

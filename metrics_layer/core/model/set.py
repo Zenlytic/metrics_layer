@@ -50,10 +50,7 @@ class Set(MetricsLayerBase):
     def _internal_get_fields_from_set(self, set_name: str):
         if set_name == "ALL_FIELDS":
             all_fields = self.project.fields(
-                view_name=self.view_name,
-                show_hidden=True,
-                expand_dimension_groups=True,
-                show_excluded=True,
+                view_name=self.view_name, show_hidden=True, expand_dimension_groups=True
             )
             return [f"{f.view.name}.{f.alias()}" for f in all_fields]
 
