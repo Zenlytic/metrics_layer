@@ -121,6 +121,16 @@ fields:
     type: sum
     sql: ${revenue_dimension}
 
+  # - name: total_lifetime_revenue
+  #   field_type: measure
+  #   type: sum_cumulative
+  #   sql: ${revenue_dimension}
+
+  # - name: cumulative_customers
+  #   field_type: measure
+  #   type: count_distinct_cumulative
+  #   sql: ${customer_id}
+
   - name: total_modified_revenue
     field_type: "measure"
     type: sum
