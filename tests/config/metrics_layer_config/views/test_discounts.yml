@@ -11,6 +11,7 @@ row_label: "Discount"
 identifiers:
 - name: order_id
   type: foreign
+  allowed_fanouts: [order_lines]
   sql: ${order_id}
 - name: country_id
   type: foreign

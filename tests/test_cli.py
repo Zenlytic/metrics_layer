@@ -227,9 +227,9 @@ def test_cli_validate_joins(config, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 1 error in the project:\n\n"
-        "\nCould not find field wrong_name_order_id in join between orders"
-        " and discounts referencing view orders\n\n"
+        "Found 2 errors in the project:\n\n"
+        "\nCould not find field wrong_name_order_id in join between orders and discounts referencing view orders\n\n"  # noqa
+        "\nCould not find field wrong_name_order_id in join between discounts and orders referencing view orders\n\n"  # noqa
     )
 
 

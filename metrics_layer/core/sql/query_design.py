@@ -27,10 +27,16 @@ class MetricsLayerDesign:
         if self._joins is None:
             required_views = self.required_views()
 
+            print(networkx.to_dict_of_dicts(self.project.join_graph.graph))
             self._join_subgraph = self.project.join_graph.subgraph(required_views)
+            print(self._join_subgraph)
 
             try:
-                ordered_view_pairs = self.determine_join_order(required_views)
+                print(required_views)
+                # ordered_view_pairs = self.determine_join_order(required_views)
+                ordered_view_pairs = self.determine_join_order2(required_views)
+                print("DONE")
+                print(ordered_view_pairs)
             except networkx.exception.NetworkXNoPath:
                 raise AccessDeniedOrDoesNotExistException(
                     f"There was no join path between the views: {required_views}. "
@@ -42,6 +48,49 @@ class MetricsLayerDesign:
             self._joins = self.project.join_graph.ordered_joins(ordered_view_pairs)
 
         return self._joins
+
+    def determine_join_order2(self, required_views: list):
+        if len(required_views) == 1:
+            return []
+
+        print(required_views)
+        print("eeee")
+        print(networkx.to_dict_of_dicts(self._join_subgraph))
+        try:
+            # ordered_view_pairs = self.determine_join_order(required_views)
+            # path = list(networkx.topological_sort(self._join_subgraph))
+            # ordered_view_pairs = [(source, target) for source, target in zip(path, path[1:])]
+            ordered_view_pairs = list(networkx.topological_sort(networkx.line_graph(self._join_subgraph)))
+            print(ordered_view_pairs)
+            ordered_view_pairs = self._clean_view_pairs(ordered_view_pairs)
+            unique_joined_views = [v for p in ordered_view_pairs for v in p]
+
+            print(ordered_view_pairs)
+            print(required_views)
+            if len(required_views) > 1 and any(v not in unique_joined_views for v in required_views):
+                print("raising")
+                raise networkx.exception.NetworkXNoPath
+            return ordered_view_pairs
+
+        except networkx.exception.NetworkXUnfeasible:
+            print("top")
+            print(networkx.to_dict_of_dicts(self._join_subgraph))
+            if len(required_views) == 2:
+                path = self._shortest_path_between_two(required_views)
+                print(path)
+                return [(source, target) for source, target in zip(path, path[1:])]
+            print("wwwww")
+            print(networkx.line_graph(self._join_subgraph))
+            print()
+            for view_pair in sorted(networkx.line_graph(self._join_subgraph).nodes):
+                pairs = list(networkx.bfs_tree(networkx.line_graph(self._join_subgraph), view_pair))
+                pairs = self._clean_view_pairs(pairs)
+                print(pairs)
+                unique_joined_views = [v for p in pairs for v in p]
+
+                if all(v in unique_joined_views for v in required_views):
+                    break
+            return pairs
 
     def determine_join_order(self, required_views: list):
         if len(required_views) == 1:
@@ -64,8 +113,25 @@ class MetricsLayerDesign:
             path_weight = networkx.path_weight(self.project.join_graph.graph, short_path, "weight")
             valid_path_and_weights.append((short_path, path_weight))
 
+        if len(valid_path_and_weights) == 0:
+            raise networkx.exception.NetworkXNoPath
+
         shortest_path = sorted(valid_path_and_weights, key=lambda x: (x[-1], "".join(x[0])))[0][0]
         return shortest_path
+
+    def _clean_view_pairs(self, pairs: list):
+        clean_pairs = []
+        print("APIRS")
+        for i, pair in enumerate(pairs):
+            included_in_query = [list(p) if j == 0 else [p[-1]] for j, p in enumerate(pairs[:i])]
+            included_in_query = [v for sub_list in included_in_query for v in sub_list]
+            print(included_in_query)
+            print(pair)
+            duplicate_join = any(pair[-1] == p[-1] for p in pairs[:i])
+            inverted_join = any(sorted(pair) == sorted(p) for p in pairs[:i])
+            if not duplicate_join and not inverted_join and not pair[-1] in included_in_query:
+                clean_pairs.append(pair)
+        return clean_pairs
 
     def required_views(self):
         if self._required_views is None:
@@ -110,6 +176,9 @@ class MetricsLayerDesign:
 
     def functional_pk(self):
         sorted_joins = self.joins()
+        print(sorted_joins)
+        if sorted_joins:
+            print([j.relationship for j in sorted_joins])
         if len(sorted_joins) == 0:
             return self.get_view(self.base_view_name).primary_key
         elif any(j.relationship == "many_to_many" for j in sorted_joins):

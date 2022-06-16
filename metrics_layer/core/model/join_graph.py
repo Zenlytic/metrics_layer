@@ -23,7 +23,7 @@ class JoinGraph(SQLReplacement):
 
     @property
     def graph(self):
-        # self._graph = self.build()
+        self.build()
         if self._graph is None:
             self._graph = self.build()
         return self._graph
@@ -86,6 +86,9 @@ class JoinGraph(SQLReplacement):
                             second_identifier=join_identifier,
                             second_view_name=join_view_name,
                         )
+                        is_fanout = join_info["relationship"] in {"one_to_many", "many_to_many"}
+                        if is_fanout and join_view_name not in identifier.get("allowed_fanouts", []):
+                            continue
 
                         # Make sure the new join is preferable to the old one
                         if graph.has_edge(view.name, join_view_name):
@@ -97,6 +100,7 @@ class JoinGraph(SQLReplacement):
                                 graph.add_edge(view.name, join_view_name, **join_info)
                         else:
                             graph.add_edge(view.name, join_view_name, **join_info)
+        # print(networkx.to_dict_of_dicts(graph))
         return graph
 
     def _identifier_map(self):
@@ -118,8 +122,8 @@ class JoinGraph(SQLReplacement):
                     )
                     # We need to invert the join here because this is the inverse
                     # direction of how the join was defined
-                    result[view.name][identifier["reference"]] = self._verify_identifier_join(join_identifier)
-                    result[identifier["reference"]][view.name] = self._verify_identifier_join(identifier)
+                    result[view.name][identifier["reference"]] = self._verify_identifier_join(identifier)
+                    result[identifier["reference"]][view.name] = self._verify_identifier_join(join_identifier)
         return result
 
     def _identifier_to_join(self, first_identifier, first_view_name, second_identifier, second_view_name):

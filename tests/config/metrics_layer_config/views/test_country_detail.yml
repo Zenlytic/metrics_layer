@@ -13,7 +13,7 @@ identifiers:
 - name: order_lines_join
   type: join
   reference: order_lines
-  relationship: many_to_one
+  relationship: one_to_many
   join_type: left_outer
   sql_on: "${discounts.country}=${country_detail.country_id} and ${order_lines.order_date} is not null"
 
