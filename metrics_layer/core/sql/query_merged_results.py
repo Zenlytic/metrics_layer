@@ -1,13 +1,11 @@
 from pypika import AliasedQuery, Criterion
-from pypika.terms import LiteralValue
 
-from metrics_layer.core.model.base import MetricsLayerBase
+from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
 from metrics_layer.core.model.filter import LiteralValueCriterion
 from metrics_layer.core.sql.query_dialect import query_lookup
-from metrics_layer.core.sql.query_filter import MetricsLayerFilter
 
 
-class MetricsLayerMergedResultsQuery(MetricsLayerBase):
+class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
     """ """
 
     def __init__(self, definition: dict) -> None:
@@ -23,7 +21,7 @@ class MetricsLayerMergedResultsQuery(MetricsLayerBase):
         complete_query = base_cte_query.select(*select)
 
         if self.having:
-            where = self.get_where_from_having()
+            where = self.get_where_from_having(project=self.project)
             complete_query = complete_query.where(Criterion.all(where))
 
         sql = str(complete_query.limit(self.limit))
@@ -32,7 +30,7 @@ class MetricsLayerMergedResultsQuery(MetricsLayerBase):
         return sql
 
     def build_cte_from(self):
-        base_cte_query = self._get_base_query()
+        base_cte_query = self._base_query()
         for join_hash, query in self.queries_to_join.items():
             base_cte_query = base_cte_query.with_(query, join_hash)
 
@@ -79,21 +77,3 @@ class MetricsLayerMergedResultsQuery(MetricsLayerBase):
             select.append(self.sql(field.strict_replaced_query(), alias=alias))
 
         return select
-
-    def get_where_from_having(self):
-        where = []
-        for having_clause in self.having:
-            having_clause["query_type"] = self.query_type
-            f = MetricsLayerFilter(definition=having_clause, design=None, filter_type="where")
-            field = self.project.get_field(having_clause["field"])
-            where.append(f.criterion(field.alias(with_view=True)))
-        return where
-
-    def _get_base_query(self):
-        return self.query_lookup[self.query_type]
-
-    @staticmethod
-    def sql(sql: str, alias: str = None):
-        if alias:
-            return LiteralValue(sql + f" as {alias}")
-        return LiteralValue(sql)

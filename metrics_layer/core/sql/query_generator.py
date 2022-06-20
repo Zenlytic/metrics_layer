@@ -1,14 +1,11 @@
-import re
-from copy import deepcopy
 from typing import Dict, List
 
-from pypika import Criterion, JoinType, Order, Table
+from pypika import Criterion, Order, Table
 from pypika.terms import LiteralValue
 
-from metrics_layer.core.model.base import MetricsLayerBase
+from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.field import Field
-from metrics_layer.core.model.join import Join
 from metrics_layer.core.model.view import View
 from metrics_layer.core.model.filter import LiteralValueCriterion
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
@@ -17,7 +14,7 @@ from metrics_layer.core.sql.query_errors import ArgumentError
 from metrics_layer.core.sql.query_filter import MetricsLayerFilter
 
 
-class MetricsLayerQuery(MetricsLayerBase):
+class MetricsLayerQuery(MetricsLayerQueryBase):
     """ """
 
     def __init__(self, definition: Dict, design: MetricsLayerDesign, suppress_warnings: bool = False) -> None:
@@ -74,20 +71,6 @@ class MetricsLayerQuery(MetricsLayerBase):
     def _parse_filter_object(self, filter_object, filter_type: str, access_filter: str = None):
         results = []
         extra_kwargs = dict(filter_type=filter_type, design=self.design)
-
-        # always_where_is_valid = always_where and "{%" not in always_where
-        # if always_where_is_valid:
-        #     filter_literal = MetricsLayerFilter(definition={"literal": always_where}, **extra_kwargs)
-        #     results.append(filter_literal)
-
-        # if always_where and not always_where_is_valid and not self.suppress_warnings:
-        #     warnings.warn(
-        #         (
-        #             "Always where clause NOT being applied due to "
-        #             f"Looker conditional in the clause (to suppress these warnings pass"
-        #             f" the argument 'suppress_warnings=True' to the function):\n\n {always_where}"
-        #         )
-        #     )
 
         if access_filter:
             filter_literal = MetricsLayerFilter(definition={"literal": access_filter}, **extra_kwargs)
@@ -232,7 +215,7 @@ class MetricsLayerQuery(MetricsLayerBase):
     # Code to handle the FROM portion of the query
     def get_join_query_from(self):
         # Build the base_join table
-        base_join_query = self._get_base_query()
+        base_join_query = self._base_query()
 
         # Base table from statement
         table = self.design.get_view(self.design.base_view_name)
@@ -257,15 +240,12 @@ class MetricsLayerQuery(MetricsLayerBase):
         return base_join_query
 
     def get_single_table_query_from(self):
-        base_query = self._get_base_query()
+        base_query = self._base_query()
 
         table = self.design.get_view(self.design.base_view_name)
         base_query = base_query.from_(self._table_expression(table))
 
         return base_query
-
-    def _get_base_query(self):
-        return self.query_lookup[self.query_type]
 
     def _table_expression(self, view: View):
         # Create a pypika Table based on the Table's name or it's derived table sql definition
@@ -275,18 +255,6 @@ class MetricsLayerQuery(MetricsLayerBase):
         else:
             table_expr = Table(view.sql_table_name, alias=view.name)
         return table_expr
-
-    @staticmethod
-    def get_pypika_join_type(join: Join):
-        if join.type == "left_outer":
-            return JoinType.left
-        elif join.type == "inner":
-            return JoinType.inner
-        elif join.type == "full_outer":
-            return JoinType.outer
-        elif join.type == "cross":
-            return JoinType.cross
-        return JoinType.left
 
     # Code for the GROUP BY part of the query
     def get_group_by_columns(self):
@@ -306,20 +274,3 @@ class MetricsLayerQuery(MetricsLayerBase):
         else:
             query = field.sql_query(query_type=self.query_type)
         return self.sql(query, alias)
-
-    @staticmethod
-    def sql(sql: str, alias: str = None):
-        if alias:
-            return LiteralValue(sql + f" as {alias}")
-        return LiteralValue(sql)
-
-    @staticmethod
-    def strip_alias(sql: str):
-        stripped_sql = deepcopy(sql)
-        matches = re.findall(r"(?i)\ as\ ", stripped_sql)
-        if matches:
-            alias = " AS "
-            for match in matches:
-                stripped_sql = stripped_sql.replace(match, alias)
-            return alias.join(stripped_sql.split(alias)[:-1])
-        return sql

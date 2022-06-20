@@ -1,3 +1,4 @@
+import sqlparse
 from typing import Union
 
 from metrics_layer.core.convert import MQLConverter
@@ -78,6 +79,9 @@ class MetricsLayerConnection:
             )
             query = resolver.get_query()
             connection = resolver.connection
+
+        if kwargs.get("pretty", False):
+            query = self.pretty_sql(query)
 
         if kwargs.get("return_connection", False):
             return query, connection
@@ -181,3 +185,7 @@ class MetricsLayerConnection:
 
     def get_dashboard(self, dashboard_name: str):
         return self.config.project.get_dashboard(dashboard_name)
+
+    @staticmethod
+    def pretty_sql(sql: str, keyword_case="lower"):
+        return sqlparse.format(sql, reindent=True, keyword_case=keyword_case)

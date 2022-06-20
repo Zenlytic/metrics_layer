@@ -28,6 +28,7 @@ class SingleSQLQueryResolver:
         self.suppress_warnings = kwargs.get("suppress_warnings", False)
         self.limit = kwargs.get("limit")
         self.return_pypika_query = kwargs.get("return_pypika_query")
+        self.force_group_by = kwargs.get("force_group_by", False)
         self.config = config
         self.project = self.config.project
         self.metrics = metrics
@@ -112,7 +113,7 @@ class SingleSQLQueryResolver:
         for name in self.dimensions:
             field = self.get_field_with_error_handling(name, "Dimension")
             # We will not use a group by if the primary key of the main resulting table is included
-            if field.primary_key == "yes" and field.view.name == metric_view:
+            if field.primary_key == "yes" and field.view.name == metric_view and not self.force_group_by:
                 self.no_group_by = True
             self.field_lookup[name] = field
 

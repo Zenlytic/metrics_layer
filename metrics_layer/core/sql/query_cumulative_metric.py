@@ -2,12 +2,12 @@ from copy import deepcopy
 
 from pypika import JoinType, Criterion, Table
 
+from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
 from metrics_layer.core.model.definitions import Definitions
-from metrics_layer.core.model.base import AccessDeniedOrDoesNotExistException, MetricsLayerBase
+from metrics_layer.core.model.base import AccessDeniedOrDoesNotExistException
 from metrics_layer.core.model.filter import LiteralValueCriterion
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_dialect import query_lookup
-from metrics_layer.core.sql.query_filter import MetricsLayerFilter
 from metrics_layer.core.sql.query_generator import MetricsLayerQuery
 
 SNOWFLAKE_DATE_SPINE = (
@@ -16,7 +16,7 @@ SNOWFLAKE_DATE_SPINE = (
 BIGQUERY_DATE_SPINE = "select date from unnest(generate_date_array('2000-01-01', '2040-01-01')) as date"
 
 
-class CumulativeMetricsQuery(MetricsLayerBase):
+class CumulativeMetricsQuery(MetricsLayerQueryBase):
     """ """
 
     def __init__(self, definition: dict, design: MetricsLayerDesign, suppress_warnings: bool = False) -> None:
@@ -130,7 +130,7 @@ class CumulativeMetricsQuery(MetricsLayerBase):
         base_cte_query = base_cte_query.select(*select)
 
         if self.having:
-            where = self.get_where_from_having()
+            where = self.get_where_from_having(project=self.design)
             base_cte_query = base_cte_query.where(Criterion.all(where))
 
         sql = str(base_cte_query)
@@ -196,21 +196,8 @@ class CumulativeMetricsQuery(MetricsLayerBase):
         for field_name in [referenced_metric.id()] + self.dimensions:
             field = self.design.get_field(field_name)
             field_sql = field.sql_query(query_type=self.query_type, alias_only=True)
-            select.append(MetricsLayerQuery.sql(field_sql, alias=field.alias(with_view=True)))
+            select.append(self.sql(field_sql, alias=field.alias(with_view=True)))
 
         from_query = from_query.select(*select)
 
         return from_query, cumulative_metric.cte_prefix()
-
-    # TODO un-duplicate
-    def get_where_from_having(self):
-        where = []
-        for having_clause in self.having:
-            having_clause["query_type"] = self.query_type
-            f = MetricsLayerFilter(definition=having_clause, design=None, filter_type="where")
-            field = self.design.get_field(having_clause["field"])
-            where.append(f.criterion(field.alias(with_view=True)))
-        return where
-
-    def _base_query(self):
-        return query_lookup[self.query_type]

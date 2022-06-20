@@ -31,7 +31,7 @@ class MetricsLayerDesign:
         self._join_subgraph = self.project.join_graph.subgraph(required_views)
 
         try:
-            ordered_view_pairs = self.determine_join_order2(required_views)
+            ordered_view_pairs = self.determine_join_order(required_views)
         except networkx.exception.NetworkXNoPath:
             raise AccessDeniedOrDoesNotExistException(
                 f"There was no join path between the views: {required_views}. "
@@ -42,7 +42,7 @@ class MetricsLayerDesign:
 
         return self.project.join_graph.ordered_joins(ordered_view_pairs)
 
-    def determine_join_order2(self, required_views: list):
+    def determine_join_order(self, required_views: list):
         if len(required_views) == 1:
             return []
 
