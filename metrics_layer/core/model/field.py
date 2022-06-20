@@ -98,6 +98,13 @@ class Field(MetricsLayerBase, SQLReplacement):
         return self.alias().replace("_", " ").title()
 
     @property
+    def measure(self):
+        measure = self._definition.get("measure")
+        if measure:
+            return self.get_field_with_view_info(measure)
+        return
+
+    @property
     def datatype(self):
         if "datatype" in self._definition:
             return self._definition["datatype"]
@@ -120,6 +127,12 @@ class Field(MetricsLayerBase, SQLReplacement):
             return Set(set_definition, project=self.view.project).field_names()
         return drill_fields
 
+    def cte_prefix(self, aggregated: bool = True):
+        if self.type == "cumulative":
+            prefix = "aggregated" if aggregated else "subquery"
+            return f"{prefix}_{self.alias(with_view=True)}"
+        return
+
     def alias(self, with_view: bool = False):
         if self.field_type == "dimension_group":
             if self.type == "time":
@@ -135,6 +148,8 @@ class Field(MetricsLayerBase, SQLReplacement):
     def sql_query(self, query_type: str = None, functional_pk: str = None, alias_only: bool = False):
         if not query_type:
             query_type = self._derive_query_type()
+        if self.type == "cumulative" and alias_only:
+            return f"{self.cte_prefix()}.{self.measure.alias(with_view=True)}"
         if self.field_type == "measure":
             return self.aggregate_sql_query(query_type, functional_pk, alias_only=alias_only)
         return self.raw_sql_query(query_type, alias_only=alias_only)
@@ -686,6 +701,14 @@ class Field(MetricsLayerBase, SQLReplacement):
         if "." in field_name:
             return field_name
         return f"{self.view.name}.{field_name}"
+
+    def is_cumulative(self):
+        explicitly_cumulative = self.type == "cumulative"
+        if self.sql:
+            has_references = any(field.type == "cumulative" for field in self.referenced_fields(self.sql))
+        else:
+            has_references = False
+        return explicitly_cumulative or has_references
 
     @staticmethod
     def _name_is_not_valid_sql(name: str):

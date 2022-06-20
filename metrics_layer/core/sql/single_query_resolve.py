@@ -4,6 +4,7 @@ from sqlparse.tokens import Name, Punctuation
 from metrics_layer.core.parse.config import ConfigError, MetricsLayerConfiguration
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_generator import MetricsLayerQuery
+from metrics_layer.core.sql.query_cumulative_metric import CumulativeMetricsQuery
 
 
 class SingleSQLQueryResolver:
@@ -20,6 +21,7 @@ class SingleSQLQueryResolver:
     ):
         self.field_lookup = {}
         self.no_group_by = False
+        self.has_cumulative_metric = False
         self.verbose = kwargs.get("verbose", False)
         self.select_raw_sql = kwargs.get("select_raw_sql", [])
         self.explore_name = kwargs.get("explore_name")
@@ -69,9 +71,16 @@ class SingleSQLQueryResolver:
             "limit": self.limit,
             "return_pypika_query": self.return_pypika_query,
         }
-        query = MetricsLayerQuery(
-            query_definition, design=self.design, suppress_warnings=self.suppress_warnings
-        ).get_query(semicolon=semicolon)
+        if self.has_cumulative_metric:
+            query_generator = CumulativeMetricsQuery(
+                query_definition, design=self.design, suppress_warnings=self.suppress_warnings
+            )
+        else:
+            query_generator = MetricsLayerQuery(
+                query_definition, design=self.design, suppress_warnings=self.suppress_warnings
+            )
+
+        query = query_generator.get_query(semicolon=semicolon)
 
         return query
 
@@ -89,7 +98,10 @@ class SingleSQLQueryResolver:
             raise ValueError("Ambiguous field names in the metrics and dimensions")
 
         for name in self.metrics:
-            self.field_lookup[name] = self.get_field_with_error_handling(name, "Metric")
+            field = self.get_field_with_error_handling(name, "Metric")
+            if field.type == "cumulative":
+                self.has_cumulative_metric = True
+            self.field_lookup[name] = field
 
         # Dimensions exceptions:
         #   They are coming from a different explore than the metric, not joinable (handled in get_field)

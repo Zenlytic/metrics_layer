@@ -121,15 +121,26 @@ fields:
     type: sum
     sql: ${revenue_dimension}
 
-  # - name: total_lifetime_revenue
-  #   field_type: measure
-  #   type: sum_cumulative
-  #   sql: ${revenue_dimension}
+  - name: total_lifetime_revenue
+    field_type: measure
+    type: cumulative
+    measure: total_revenue
 
-  # - name: cumulative_customers
-  #   field_type: measure
-  #   type: count_distinct_cumulative
-  #   sql: ${customer_id}
+  - name: cumulative_customers
+    field_type: measure
+    type: cumulative
+    measure: customers.number_of_customers
+    window: 1 year
+
+  - name: cumulative_aov
+    field_type: measure
+    type: cumulative
+    measure: average_order_value_custom
+
+  - name: ltv
+    field_type: measure
+    type: number
+    sql: ${total_lifetime_revenue} / nullif(${cumulative_customers}, 0)
 
   - name: total_modified_revenue
     field_type: "measure"
