@@ -510,7 +510,6 @@ class Field(MetricsLayerBase, SQLReplacement):
     def _week_dimension_group_time_sql(self, sql: str, query_type: str):
         # Monday is the default date for warehouses
         week_start_day = self.view.week_start_day
-        print(week_start_day)
         if week_start_day == "monday":
             return self._week_sql_date_trunc(sql, None, query_type)
         offset_lookup = {
@@ -543,6 +542,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         errors = []
         if not self.valid_name(self.name):
             errors.append(self.name_error("field", self.name))
+
         if self.type == "time" and "intervals" in self._definition:
             errors.append(
                 f"Field {self.name} is of type time, but has property "
@@ -559,7 +559,10 @@ class Field(MetricsLayerBase, SQLReplacement):
         if self.sql and ("{%" in self.sql or self.sql == ""):
             return None
 
-        if self.sql_start and self.sql_end and self.type == "duration":
+        if self.type == "cumulative":
+            referenced_fields = [self.measure]
+
+        elif self.sql_start and self.sql_end and self.type == "duration":
             start_fields = self.referenced_fields(self.sql_start)
             end_fields = self.referenced_fields(self.sql_end)
             referenced_fields = start_fields + end_fields

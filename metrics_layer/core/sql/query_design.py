@@ -70,22 +70,9 @@ class MetricsLayerDesign:
                     break
             return pairs
 
-    # def determine_join_order(self, required_views: list):
-    #     if len(required_views) == 1:
-    #         # There are no joins so we return empty list
-    #         return []
-    #     elif len(required_views) == 2:
-    #         path = self._shortest_path_between_two(required_views)
-    #         tuples = [(source, target) for source, target in zip(path, path[1:])]
-    #         return tuples
-    #     top_path = self._shortest_path_between_two(required_views)
-    #     # TODO we will need to improve this method
-    #     path = list(networkx.bfs_tree(self._join_subgraph, top_path[0]))
-    #     tuples = [(source, target) for source, target in zip(path, path[1:])]
-    #     return tuples
-
     def _shortest_path_between_two(self, required_views: list):
         valid_path_and_weights = []
+        # We need to do this because we don't know a priori which is the target and which is the finish
         for start, end in itertools.permutations(required_views, 2):
             short_path = networkx.shortest_path(self.project.join_graph.graph, start, end, weight="weight")
             path_weight = networkx.path_weight(self.project.join_graph.graph, short_path, "weight")

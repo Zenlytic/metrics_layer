@@ -31,10 +31,6 @@ class CumulativeMetricsQuery(MetricsLayerBase):
 
         super().__init__(definition)
 
-    # no date strict aggregation, but windows dont work
-    # data same as def, obvious join
-    # date but diff from default all cumulative revenue FOR ALL TIME (windows dont work) for that date group
-    # duration no strict aggregation, windows dont work
     def get_query(self, semicolon: bool = True):
         self.cumulative_metrics, self.cumulative_number_metrics, self.non_cumulative_metrics = [], [], []
         for field_name in self.metrics + self.having:
@@ -152,8 +148,6 @@ class CumulativeMetricsQuery(MetricsLayerBase):
 
     def cumulative_subquery(self, cumulative_metric):
         sub_definition = deepcopy(self._definition)
-        print(cumulative_metric)
-        print(cumulative_metric.cte_prefix)
         cumulative_metric_cte_alias = cumulative_metric.cte_prefix(aggregated=False)
         referenced_metric = cumulative_metric.measure
         sub_definition["metrics"] = [referenced_metric.id()]
@@ -207,9 +201,6 @@ class CumulativeMetricsQuery(MetricsLayerBase):
         from_query = from_query.select(*select)
 
         return from_query, cumulative_metric.cte_prefix()
-
-    # def cumulative_metric_alias(self, cumulative_metric):
-    #     return f"subquery_{cumulative_metric.alias(with_view=True)}"
 
     # TODO un-duplicate
     def get_where_from_having(self):
