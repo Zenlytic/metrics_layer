@@ -32,30 +32,10 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         super().__init__(definition)
 
     def get_query(self, semicolon: bool = True):
-        self.cumulative_metrics, self.cumulative_number_metrics, self.non_cumulative_metrics = [], [], []
-        for field_name in self.metrics + self.having:
-            if isinstance(field_name, str):
-                field = self.design.get_field(field_name)
-            else:
-                field = self.design.get_field(field_name["field"])
+        self.cumulative_metrics, self.non_cumulative_metrics = self.separate_metrics()
+        has_non_cumulative_metrics = len(self.non_cumulative_metrics) > 0
 
-            if field.is_cumulative():
-                if field.type == "number":
-                    self.cumulative_number_metrics.append(field)
-                    for reference in field.referenced_fields(field.sql):
-                        if reference.is_cumulative():
-                            self.cumulative_metrics.append(reference)
-                        else:
-                            self.non_cumulative_metrics.append(reference)
-                else:
-                    self.cumulative_metrics.append(field)
-            else:
-                self.non_cumulative_metrics.append(field)
-
-        self.non_cumulative_metrics = self.design.deduplicate_fields(self.non_cumulative_metrics)
-        self.cumulative_metrics = self.design.deduplicate_fields(self.cumulative_metrics)
-
-        base_cte_query = query_lookup[self.query_type]
+        base_cte_query = self._base_query()
 
         date_spine_query = self.date_spine(self.query_type)
 
@@ -67,24 +47,11 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
             aggregate_subquery, aggregate_alias = self.aggregate_cumulative_subquery(cumulative_metric)
             base_cte_query = base_cte_query.with_(Table(aggregate_subquery), aggregate_alias)
 
-        if len(self.non_cumulative_metrics) > 0:
-            sub_definition = deepcopy(self._definition)
-            sub_definition["metrics"] = [metric.id() for metric in self.non_cumulative_metrics]
-            sub_definition["having"] = []
+        if has_non_cumulative_metrics:
+            query, base_cte_name = self.non_cumulative_subquery()
+            base_cte_query = base_cte_query.with_(Table(query), base_cte_name)
 
-            field_lookup = {k: v for k, v in self.design.field_lookup.items()}
-            self.design.field_lookup = {k: v for k, v in field_lookup.items() if v.field_type != "measure"}
-            for metric in self.non_cumulative_metrics:
-                self.design.field_lookup[metric.id()] = metric
-            query_generator = MetricsLayerQuery(
-                sub_definition, design=self.design, suppress_warnings=self.suppress_warnings
-            )
-            query = query_generator.get_query(semicolon=False)
-            self.design.field_lookup = field_lookup
-
-            base_cte_query = base_cte_query.with_(Table(query), self.base_cte_name)
-
-        if len(self.non_cumulative_metrics) > 0:
+        if has_non_cumulative_metrics:
             base = Table(self.base_cte_name)
             cumulative_idx = 0
         else:
@@ -94,39 +61,10 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         base_cte_query = base_cte_query.from_(base)
 
         for cumulative_metric in self.cumulative_metrics[cumulative_idx:]:
-            cte_alias = cumulative_metric.cte_prefix()
-
-            conditions = []
-            for field_name in self.dimensions:
-                field = self.design.get_field(field_name)
-                field_alias = field.alias(with_view=True)
-                conditions.append(f"{base.get_table_name()}.{field_alias}={cte_alias}.{field_alias}")
-
-            if len(conditions) > 0:
-                raw_criteria = " and ".join(conditions)
-            else:
-                raw_criteria = "1=1"
-            criteria = LiteralValueCriterion(raw_criteria)
+            criteria, cte_alias = self._derive_join(cumulative_metric, base)
             base_cte_query = base_cte_query.join(Table(cte_alias), JoinType.left).on(criteria)
 
-        select = []
-        for field_name in self.dimensions + self.metrics:
-            field = self.design.get_field(field_name)
-            if field.type == "number" and field.is_cumulative():
-
-                field_sql = field.sql_query(query_type=self.query_type, alias_only=True)
-            elif field.is_cumulative():
-                field_sql = field.measure.alias(with_view=True)
-            else:
-                field_sql = field.alias(with_view=True)
-
-            if not field.is_cumulative():
-                field_sql = f"{base.get_table_name()}.{field_sql}"
-            elif field.type != "number":
-                field_sql = f"{field.cte_prefix()}.{field_sql}"
-
-            select.append(MetricsLayerQuery.sql(field_sql, alias=field.alias(with_view=True)))
-
+        select = self._get_select_columns(base)
         base_cte_query = base_cte_query.select(*select)
 
         if self.having:
@@ -138,6 +76,30 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
             sql += ";"
         return sql
 
+    def separate_metrics(self):
+        cumulative_metrics, non_cumulative_metrics = [], []
+        for field_name in self.metrics + self.having:
+            if isinstance(field_name, str):
+                field = self.design.get_field(field_name)
+            else:
+                field = self.design.get_field(field_name["field"])
+
+            if field.is_cumulative():
+                if field.type == "number":
+                    for reference in field.referenced_fields(field.sql):
+                        if reference.is_cumulative():
+                            cumulative_metrics.append(reference)
+                        else:
+                            non_cumulative_metrics.append(reference)
+                else:
+                    cumulative_metrics.append(field)
+            else:
+                non_cumulative_metrics.append(field)
+
+        non_cumulative_metrics = self.design.deduplicate_fields(non_cumulative_metrics)
+        cumulative_metrics = self.design.deduplicate_fields(cumulative_metrics)
+        return cumulative_metrics, non_cumulative_metrics
+
     @staticmethod
     def date_spine(query_type: str):
         if query_type in {Definitions.snowflake, Definitions.redshift}:
@@ -147,16 +109,24 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         raise NotImplementedError(f"Database {query_type} not implemented yet")
 
     def cumulative_subquery(self, cumulative_metric):
-        sub_definition = deepcopy(self._definition)
         cumulative_metric_cte_alias = cumulative_metric.cte_prefix(aggregated=False)
-        referenced_metric = cumulative_metric.measure
-        sub_definition["metrics"] = [referenced_metric.id()]
+        query = self._subquery(metrics=[cumulative_metric.measure], no_group_by=True)
+        return query, cumulative_metric_cte_alias
+
+    def non_cumulative_subquery(self):
+        query = self._subquery(metrics=self.non_cumulative_metrics, no_group_by=False)
+        return query, self.base_cte_name
+
+    def _subquery(self, metrics: list, no_group_by: bool):
+        sub_definition = deepcopy(self._definition)
+        sub_definition["metrics"] = [metric.id() for metric in metrics]
         sub_definition["having"] = []
 
-        self.design.no_group_by = True
         field_lookup = {k: v for k, v in self.design.field_lookup.items()}
         self.design.field_lookup = {k: v for k, v in field_lookup.items() if v.field_type != "measure"}
-        self.design.field_lookup[referenced_metric.id()] = referenced_metric
+        self.design.no_group_by = no_group_by
+        for metric in metrics:
+            self.design.field_lookup[metric.id()] = metric
         query_generator = MetricsLayerQuery(
             sub_definition, design=self.design, suppress_warnings=self.suppress_warnings
         )
@@ -164,7 +134,7 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         self.design.no_group_by = False
         self.design.field_lookup = field_lookup
 
-        return query, cumulative_metric_cte_alias
+        return query
 
     def aggregate_cumulative_subquery(self, cumulative_metric):
         cte_alias = cumulative_metric.cte_prefix(aggregated=False)
@@ -187,7 +157,7 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
 
         less_than_now = f"{cte_alias}.{date_field_name}<={self.date_spine_cte_name}.date"
 
-        # For a 7 day window
+        # TODO For a 7 day window
         # window = f"{cte_alias}.{date_field_name}>DATEADD(day, -7, {self.date_spine_cte_name}.date)"
         criteria = LiteralValueCriterion(less_than_now)
         from_query = from_query.join(Table(cte_alias), JoinType.inner).on(criteria)
@@ -201,3 +171,40 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         from_query = from_query.select(*select)
 
         return from_query, cumulative_metric.cte_prefix()
+
+    def _derive_join(self, cumulative_metric, base_table: Table):
+        cte_alias = cumulative_metric.cte_prefix()
+
+        conditions = []
+        for field_name in self.dimensions:
+            field = self.design.get_field(field_name)
+            field_alias = field.alias(with_view=True)
+            conditions.append(f"{base_table.get_table_name()}.{field_alias}={cte_alias}.{field_alias}")
+
+        if len(conditions) > 0:
+            raw_criteria = " and ".join(conditions)
+        else:
+            raw_criteria = "1=1"
+
+        criteria = LiteralValueCriterion(raw_criteria)
+        return criteria, cte_alias
+
+    def _get_select_columns(self, base_table: Table):
+        select = []
+        for field_name in self.dimensions + self.metrics:
+            field = self.design.get_field(field_name)
+            if field.type == "number" and field.is_cumulative():
+
+                field_sql = field.sql_query(query_type=self.query_type, alias_only=True)
+            elif field.is_cumulative():
+                field_sql = field.measure.alias(with_view=True)
+            else:
+                field_sql = field.alias(with_view=True)
+
+            if not field.is_cumulative():
+                field_sql = f"{base_table.get_table_name()}.{field_sql}"
+            elif field.type != "number":
+                field_sql = f"{field.cte_prefix()}.{field_sql}"
+
+            select.append(MetricsLayerQuery.sql(field_sql, alias=field.alias(with_view=True)))
+        return select
