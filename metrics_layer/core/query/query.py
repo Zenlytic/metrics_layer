@@ -108,7 +108,11 @@ class MetricsLayerConnection:
         return all_fields
 
     def get_field(self, field_name: str, view_name: str = None):
-        return self.config.project.get_field(field_name, view_name=view_name)
+        models = self.list_models()
+        kws = {}
+        if len(models) == 1:
+            kws = {"model": models[0]}
+        return self.config.project.get_field(field_name, view_name=view_name, **kws)
 
     def list_metrics(
         self,

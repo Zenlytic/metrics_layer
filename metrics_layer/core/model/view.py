@@ -1,5 +1,6 @@
 import re
 
+
 from .base import AccessDeniedOrDoesNotExistException, MetricsLayerBase
 from .field import Field
 from .set import Set
@@ -68,12 +69,11 @@ class View(MetricsLayerBase):
 
         if self.default_date:
             try:
-                # TODO make this more robust where it doesn't always require month to be present
                 if "." in self.default_date:
                     name = self.default_date
                 else:
                     name = f"{self.name}.{self.default_date}"
-                self.project.get_field(f"{name}_month")
+                self.project.get_field_by_name(name)
             except (AccessDeniedOrDoesNotExistException, ValueError):
                 field_errors.append(f"Default date {self.default_date} is unreachable in view {self.name}")
 

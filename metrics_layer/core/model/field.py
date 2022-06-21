@@ -2,7 +2,7 @@ import hashlib
 import re
 from copy import deepcopy
 
-from .base import MetricsLayerBase, SQLReplacement
+from .base import AccessDeniedOrDoesNotExistException, MetricsLayerBase, SQLReplacement
 from .definitions import Definitions
 from .filter import Filter
 from .set import Set
@@ -580,7 +580,8 @@ class Field(MetricsLayerBase, SQLReplacement):
             if to_replace != "TABLE":
                 try:
                     field = self.get_field_with_view_info(to_replace)
-                except Exception:
+
+                except AccessDeniedOrDoesNotExistException:
                     field = None
                 to_replace_type = None if field is None else field.type
 
@@ -718,3 +719,11 @@ class Field(MetricsLayerBase, SQLReplacement):
         name_is_keyword = name is not None and name.lower() in SQL_KEYWORDS
         digit_first_char = name[0] in {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
         return name_is_keyword or digit_first_char
+
+    def join_graphs(self):
+        if self.is_merged_result:
+            return [f"merged_result_{self.id()}"]
+        base = self.view.project.join_graph.join_graph_hash(self.view.name)
+        edges = self.view.project.join_graph.merged_results_graph(self.view.model).in_edges(self.id())
+        extended = [f"merged_result_{mr}" for mr, _ in edges]
+        return [base] + extended

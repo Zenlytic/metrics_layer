@@ -104,14 +104,8 @@ class MetricsLayerDesign:
     def _fields_to_unique_views(field_list: list):
         return list(set([v for field in field_list for v in field.required_views()]))
 
-    @staticmethod
-    def deduplicate_fields(field_list: list):
-        result, running_field_list = [], []
-        for field in field_list:
-            if field.id() not in running_field_list:
-                running_field_list.append(field.id())
-                result.append(field)
-        return result
+    def deduplicate_fields(self, field_list: list):
+        return self.project.deduplicate_fields(field_list)
 
     def functional_pk(self):
         sorted_joins = self.joins()

@@ -63,11 +63,11 @@ class Project:
 
     def validate(self):
         all_errors = []
+
         for model in self.models():
             all_errors.extend(model.collect_errors())
 
         all_errors.extend(self.join_graph.collect_errors())
-
         for view in self.views():
             try:
                 view.sql_table_name
@@ -129,7 +129,7 @@ class Project:
             )
 
     def models(self) -> list:
-        return [Model(m) for m in self._models]
+        return [Model(m, project=self) for m in self._models]
 
     def get_model(self, model_name: str) -> Model:
         return next((m for m in self.models() if m.name == model_name), None)
@@ -252,6 +252,19 @@ class Project:
 
     @functools.lru_cache(maxsize=None)
     def get_field(self, field_name: str, view_name: str = None, model: Model = None) -> Field:
+        field_name, view_name = self._parse_field_and_view_name(field_name, view_name)
+
+        fields = self.fields(view_name=view_name, expand_dimension_groups=True, model=model)
+        matching_fields = [f for f in fields if f.equal(field_name)]
+        return self._matching_field_handler(matching_fields, field_name, view_name)
+
+    def get_field_by_name(self, field_name: str, view_name: str = None, model: Model = None):
+        field_name, view_name = self._parse_field_and_view_name(field_name, view_name)
+        fields = self.fields(view_name=view_name, expand_dimension_groups=False, model=model)
+        matching_fields = [f for f in fields if f.name == field_name]
+        return self._matching_field_handler(matching_fields, field_name, view_name)
+
+    def _parse_field_and_view_name(self, field_name: str, view_name: str):
         # Handle the case where the view syntax is passed: view_name.field_name
         if "." in field_name:
             _, specified_view_name, field_name = Field.field_name_parts(field_name)
@@ -260,12 +273,7 @@ class Project:
                     f"You specified two different view names {specified_view_name} and {view_name}"
                 )
             view_name = specified_view_name
-
-        field_name = field_name.lower()
-
-        fields = self.fields(view_name=view_name, expand_dimension_groups=True, model=model)
-        matching_fields = [f for f in fields if f.equal(field_name)]
-        return self._matching_field_handler(matching_fields, field_name, view_name)
+        return field_name.lower(), view_name
 
     def _matching_field_handler(self, matching_fields: list, field_name: str, view_name: str = None):
         if len(matching_fields) == 1:
@@ -301,3 +309,12 @@ class Project:
                 f"project to resolve the dbt ref('{ref_name}') in view {view_name}"
             )
         return self.manifest.resolve_name(ref_name)
+
+    @staticmethod
+    def deduplicate_fields(field_list: list):
+        result, running_field_list = [], []
+        for field in field_list:
+            if field.id() not in running_field_list:
+                running_field_list.append(field.id())
+                result.append(field)
+        return result

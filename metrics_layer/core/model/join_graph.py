@@ -23,7 +23,6 @@ class JoinGraph(SQLReplacement):
 
     @property
     def graph(self):
-        self.build()
         if self._graph is None:
             self._graph = self.build()
         return self._graph
@@ -100,7 +99,37 @@ class JoinGraph(SQLReplacement):
                                 graph.add_edge(view.name, join_view_name, **join_info)
                         else:
                             graph.add_edge(view.name, join_view_name, **join_info)
+
         # print(networkx.to_dict_of_dicts(graph))
+        return graph
+
+    def merged_results_graph(self, model):
+        merged_results = [field for field in self.project.fields() if field.is_merged_result]
+        mappings = model.get_mappings()
+
+        graph = networkx.DiGraph()
+        for merged_result in merged_results:
+            root_node = merged_result.id()
+            graph.add_node(root_node)
+
+            join_group_hashes = []
+            for ref_field in merged_result.referenced_fields(merged_result.sql):
+                canon_date = self.project.get_field_by_name(ref_field.canon_date)
+                graph.add_edge(root_node, ref_field.id())
+                for timeframe in canon_date.timeframes:
+                    canon_date.dimension_group = timeframe
+                    graph.add_edge(root_node, canon_date.id())
+                join_group_hashes.append(self.project.join_graph.join_graph_hash(ref_field.view.name))
+
+            for from_field, mapping in mappings.items():
+                to_field = mapping["field"]
+                if (
+                    mapping["from_join_hash"] in join_group_hashes
+                    and mapping["to_join_hash"] in join_group_hashes
+                ):
+                    graph.add_edge(root_node, self.project.get_field(from_field).id())
+                    graph.add_edge(root_node, self.project.get_field(to_field).id())
+
         return graph
 
     def _identifier_map(self):

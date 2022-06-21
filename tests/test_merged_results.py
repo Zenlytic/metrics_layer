@@ -95,6 +95,27 @@ def test_merged_result_query_only_metric(connection, dim):
 
 
 @pytest.mark.query
+def test_merged_result_join_graph(connection):
+    field = connection.get_field("revenue_per_session")
+    assert field.join_graphs() == ["merged_result_order_lines.revenue_per_session"]
+
+    field = connection.get_field("total_item_revenue")
+    assert field.join_graphs() == ["subquery_0", "merged_result_order_lines.revenue_per_session"]
+
+    field = connection.get_field("order_lines.order_date")
+    assert field.join_graphs() == ["subquery_0", "merged_result_order_lines.revenue_per_session"]
+
+    field = connection.get_field("orders.order_date")
+    assert field.join_graphs() == ["subquery_0", "merged_result_discounts.discount_per_order"]
+
+    field = connection.get_field("sub_channel")
+    assert field.join_graphs() == ["subquery_0", "merged_result_order_lines.revenue_per_session"]
+
+    field = connection.get_field("new_vs_repeat")
+    assert field.join_graphs() == ["subquery_0"]
+
+
+@pytest.mark.query
 def test_merged_result_query_only_metric_no_dim(connection):
     query = connection.get_sql_query(
         metrics=["revenue_per_session"],
