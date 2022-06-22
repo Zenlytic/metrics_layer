@@ -723,6 +723,13 @@ class Field(MetricsLayerBase, SQLReplacement):
     def join_graphs(self):
         if self.is_merged_result:
             return [f"merged_result_{self.id()}"]
+
+        if self.view.model is None:
+            raise ValueError(
+                f"Could not find a model in view {self.view.name}, "
+                "please pass the model or set the model_name argument in the view"
+            )
+
         base = self.view.project.join_graph.join_graph_hash(self.view.name)
         edges = self.view.project.join_graph.merged_results_graph(self.view.model).in_edges(self.id())
         extended = [f"merged_result_{mr}" for mr, _ in edges]

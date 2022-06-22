@@ -250,6 +250,26 @@ class Project:
             raise ValueError(f"Could not find a view matching the name {view_name}{plus_model}")
         return view.fields(show_hidden, expand_dimension_groups)
 
+    def joinable_fields(self, field_list: list, expand_dimension_groups: bool = False):
+        join_graph = None
+        join_graph_options = []
+        for field in field_list:
+            # print(field)
+            if field.is_merged_result:
+                join_graph = field.join_graphs()[0]
+            # print(field.join_graphs())
+            join_graph_options.extend(field.join_graphs())
+
+        # If we have an option for a non-merged result, we'll take that unless it's required by another field
+        most_common = Counter(join_graph_options).most_common()
+        most_common = [(j[0], j[-1] - 1 if "merged_result" in j[0] else j[-1]) for j in most_common]
+
+        if join_graph is None:
+            join_graph = sorted(most_common, key=lambda x: -1 * x[1])[0][0]
+
+        all_fields = self.fields(expand_dimension_groups=expand_dimension_groups)
+        return [f for f in all_fields if join_graph in f.join_graphs()]
+
     @functools.lru_cache(maxsize=None)
     def get_field(self, field_name: str, view_name: str = None, model: Model = None) -> Field:
         field_name, view_name = self._parse_field_and_view_name(field_name, view_name)

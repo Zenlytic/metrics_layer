@@ -6,7 +6,7 @@ sql_table_name: "{{ ref('customers') }}"
 default_date: first_order
 row_label: "Customer"
 required_access_grants: [test_access_grant_department_customers]
-
+model_name: test_model
 
 identifiers: 
 - name: customer_id

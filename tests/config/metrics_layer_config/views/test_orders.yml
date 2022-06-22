@@ -4,6 +4,7 @@ name: orders
 
 sql_table_name: analytics.orders
 required_access_grants: [test_access_grant_department_view]
+model_name: test_model
 
 default_date: order
 row_label: "Order"

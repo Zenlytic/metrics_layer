@@ -72,6 +72,7 @@ def test_sets(connection):
     ]
 
 
+@pytest.mark.project
 def test_drill_fields(connection):
     field = connection.config.project.get_field("orders.number_of_orders")
 
@@ -87,3 +88,57 @@ def test_drill_fields(connection):
     field = connection.config.project.get_field("orders.total_revenue")
     assert field.drill_fields is None
     assert field.id() == "orders.total_revenue"
+
+
+@pytest.mark.project
+def test_joinable_fields_join(connection):
+    field = connection.config.project.get_field("orders.number_of_orders")
+
+    joinable_fields = connection.config.project.joinable_fields([field], expand_dimension_groups=True)
+    names = [f.id() for f in joinable_fields]
+    must_exclude = ["order_lines.revenue_per_session", "sessions.number_of_sessions"]
+    must_include = [
+        "orders.order_date",
+        "order_lines.order_id",
+        "customers.number_of_customers",
+        "country_detail.rainfall",
+        "discount_detail.discount_usd",
+        "discounts.discount_code",
+    ]
+    assert all(name in names for name in must_include)
+    assert all(name not in names for name in must_exclude)
+
+    test_fields = [field]
+    add_fields = [
+        "order_lines.order_month",
+        "order_lines.product_name",
+        "customers.gender",
+        "order_lines.ending_on_hand_qty",
+    ]
+    for field_name in add_fields:
+        test_fields.append(connection.config.project.get_field(field_name))
+
+    joinable_fields = connection.config.project.joinable_fields(test_fields, expand_dimension_groups=True)
+    names = [f.id() for f in joinable_fields]
+    assert all(name in names for name in must_include)
+
+
+@pytest.mark.project
+def test_joinable_fields_merged(connection):
+    field = connection.config.project.get_field("order_lines.revenue_per_session")
+
+    # Add tests for exclusions here
+    joinable_fields = connection.config.project.joinable_fields([field], expand_dimension_groups=True)
+    names = [f.id() for f in joinable_fields]
+    must_exclude = ["customers.gender", "orders.order_date"]
+    must_include = [
+        "order_lines.order_date",
+        "order_lines.total_item_revenue",
+        "order_lines.revenue_per_session",
+        "orders.sub_channel",
+        "sessions.utm_source",
+        "sessions.session_year",
+        "sessions.number_of_sessions",
+    ]
+    assert all(name in names for name in must_include)
+    assert all(name not in names for name in must_exclude)

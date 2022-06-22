@@ -16,6 +16,7 @@ class JoinGraph(SQLReplacement):
     def __init__(self, project) -> None:
         self.project = project
         self._join_preference = ["one_to_one", "many_to_one", "one_to_many", "many_to_many"]
+        self._merged_result_graph = None
         self._graph = None
 
     def subgraph(self, view_names: list):
@@ -104,33 +105,34 @@ class JoinGraph(SQLReplacement):
         return graph
 
     def merged_results_graph(self, model):
-        merged_results = [field for field in self.project.fields() if field.is_merged_result]
-        mappings = model.get_mappings()
+        if self._merged_result_graph is None:
+            merged_results = [field for field in self.project.fields() if field.is_merged_result]
+            mappings = model.get_mappings()
 
-        graph = networkx.DiGraph()
-        for merged_result in merged_results:
-            root_node = merged_result.id()
-            graph.add_node(root_node)
+            graph = networkx.DiGraph()
+            for merged_result in merged_results:
+                root_node = merged_result.id()
+                graph.add_node(root_node)
 
-            join_group_hashes = []
-            for ref_field in merged_result.referenced_fields(merged_result.sql):
-                canon_date = self.project.get_field_by_name(ref_field.canon_date)
-                graph.add_edge(root_node, ref_field.id())
-                for timeframe in canon_date.timeframes:
-                    canon_date.dimension_group = timeframe
-                    graph.add_edge(root_node, canon_date.id())
-                join_group_hashes.append(self.project.join_graph.join_graph_hash(ref_field.view.name))
+                join_group_hashes = []
+                for ref_field in merged_result.referenced_fields(merged_result.sql):
+                    canon_date = self.project.get_field_by_name(ref_field.canon_date)
+                    graph.add_edge(root_node, ref_field.id())
+                    for timeframe in canon_date.timeframes:
+                        canon_date.dimension_group = timeframe
+                        graph.add_edge(root_node, canon_date.id())
+                    join_group_hashes.append(self.project.join_graph.join_graph_hash(ref_field.view.name))
 
-            for from_field, mapping in mappings.items():
-                to_field = mapping["field"]
-                if (
-                    mapping["from_join_hash"] in join_group_hashes
-                    and mapping["to_join_hash"] in join_group_hashes
-                ):
-                    graph.add_edge(root_node, self.project.get_field(from_field).id())
-                    graph.add_edge(root_node, self.project.get_field(to_field).id())
-
-        return graph
+                for from_field, mapping in mappings.items():
+                    to_field = mapping["field"]
+                    if (
+                        mapping["from_join_hash"] in join_group_hashes
+                        and mapping["to_join_hash"] in join_group_hashes
+                    ):
+                        graph.add_edge(root_node, self.project.get_field(from_field).id())
+                        graph.add_edge(root_node, self.project.get_field(to_field).id())
+            self._merged_result_graph = graph
+        return self._merged_result_graph
 
     def _identifier_map(self):
         result = defaultdict(list)

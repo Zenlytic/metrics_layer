@@ -1,6 +1,7 @@
 version: 1
 type: view
 name: country_detail
+model_name: test_model
 
 derived_table:
   sql: SELECT * FROM ANALYTICS.COUNTRY_DETAIL

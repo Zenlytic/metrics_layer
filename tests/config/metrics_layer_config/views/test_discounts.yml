@@ -1,6 +1,7 @@
 version: 1
 type: view
 name: discounts
+model_name: test_model
 
 sql_table_name: "-- if dev -- dev_db.discounts
                  -- if prod -- analytics_live.discounts"

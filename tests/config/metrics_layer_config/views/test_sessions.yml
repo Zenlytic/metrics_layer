@@ -3,6 +3,7 @@ type: view
 name: sessions
 
 sql_table_name: analytics.sessions
+model_name: test_model
 
 default_date: session
 row_label: Session
