@@ -17,7 +17,7 @@ class DashboardElement(MetricsLayerBase):
         super().__init__(definition)
 
     def validate(self, definition: dict):
-        required_keys = ["model", "explore"]
+        required_keys = ["model"]
         for k in required_keys:
             if k not in definition:
                 raise ValueError(f"Dashboard Element missing required key {k}")
@@ -135,8 +135,6 @@ class Dashboard(MetricsLayerBase):
         for f in self._raw_filters():
             clean_filters = Filter(f).filter_dict(json_safe)
             for clean_filter in clean_filters:
-                if "explore" not in clean_filter:
-                    raise ValueError(self._missing_filter_explore_error(filter_obj=clean_filter))
                 all_filters.append(clean_filter)
         return all_filters
 

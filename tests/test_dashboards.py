@@ -15,7 +15,6 @@ def test_dashboard_located(connection):
     assert first_element.title == "First element"
     assert first_element.type == "plot"
     assert first_element.model == "test_model"
-    assert first_element.explore == "order_lines_all"
     assert first_element.metric == "orders.total_revenue"
     assert first_element.slice_by == ["orders.new_vs_repeat", "order_lines.product_name"]
 
@@ -26,7 +25,6 @@ def test_dashboard_to_dict(connection):
     dash_dict = dash.to_dict()
     assert dash_dict["name"] == "sales_dashboard"
     correct = {
-        "explore": "order_lines_all",
         "expression": "equal_to",
         "field": "orders.new_vs_repeat",
         "value": "New",
@@ -45,7 +43,6 @@ def test_dashboard_to_dict(connection):
     assert first_element["title"] == "First element"
     assert first_element["type"] == "plot"
     assert first_element["model"] == "test_model"
-    assert first_element["explore"] == "order_lines_all"
     assert first_element["metric"] == "orders.total_revenue"
     assert first_element["slice_by"] == ["orders.new_vs_repeat", "order_lines.product_name"]
 
@@ -53,54 +50,53 @@ def test_dashboard_to_dict(connection):
 @pytest.mark.parametrize(
     "raw_filter_dict",
     [
-        {"explore": "orders", "field": "customers.gender", "value": "Male"},
-        {"explore": "orders", "field": "customers.gender", "value": "-Male"},
-        {"explore": "orders", "field": "customers.gender", "value": "-Ma%"},
-        {"explore": "orders", "field": "customers.gender", "value": "-%Ma"},
-        {"explore": "orders", "field": "customers.gender", "value": "-%ale%"},
-        {"explore": "orders", "field": "customers.gender", "value": "Fe%"},
-        {"explore": "orders", "field": "customers.gender", "value": "%Fe"},
-        {"explore": "orders", "field": "customers.gender", "value": "%male%"},
-        {"explore": "orders", "field": "orders.revenue_dimension", "value": "=100"},
-        {"explore": "orders", "field": "orders.revenue_dimension", "value": ">100"},
-        {"explore": "orders", "field": "orders.revenue_dimension", "value": "<100"},
-        {"explore": "orders", "field": "orders.revenue_dimension", "value": "<=120"},
-        {"explore": "orders", "field": "orders.revenue_dimension", "value": ">=120"},
-        {"explore": "orders", "field": "orders.revenue_dimension", "value": "!=120"},
-        {"explore": "orders", "field": "orders.revenue_dimension", "value": "<>120"},
-        {"explore": "orders", "field": "orders.order_month", "value": "after 2021-02-03"},
-        {"explore": "orders", "field": "orders.order_month", "value": "before 2021-02-03"},
-        {"explore": "orders", "field": "orders.order_date", "value": "today"},
-        {"explore": "orders", "field": "orders.order_date", "value": "yesterday"},
-        {"explore": "orders", "field": "orders.order_week", "value": "this week"},
-        {"explore": "orders", "field": "orders.order_month", "value": "this month"},
-        {"explore": "orders", "field": "orders.order_month", "value": "this quarter"},
-        {"explore": "orders", "field": "orders.order_month", "value": "this year"},
-        {"explore": "orders", "field": "orders.order_week", "value": "last week"},
-        {"explore": "orders", "field": "orders.order_month", "value": "last month"},
-        {"explore": "orders", "field": "orders.order_month", "value": "last quarter"},
-        {"explore": "orders", "field": "orders.order_month", "value": "last year"},
-        {"explore": "orders", "field": "orders.order_week", "value": "week to date"},
-        {"explore": "orders", "field": "orders.order_month", "value": "month to date"},
-        {"explore": "orders", "field": "orders.order_quarter", "value": "quarter to date"},
-        {"explore": "orders", "field": "orders.order_year", "value": "year to date"},
-        {"explore": "orders", "field": "orders.order_week", "value": "last week to date"},
-        {"explore": "orders", "field": "orders.order_week", "value": "52 weeks ago to date"},
-        {"explore": "orders", "field": "orders.order_month", "value": "12 months ago to date"},
-        {"explore": "orders", "field": "orders.order_year", "value": "1 year ago to date"},
-        {"explore": "orders", "field": "orders.order_year", "value": "1 year ago for 3 months"},
-        {"explore": "orders", "field": "orders.order_year", "value": "1 year ago for 30 days"},
-        {"explore": "orders", "field": "orders.order_year", "value": "2 years ago"},
-        {"explore": "orders", "field": "orders.order_year", "value": "3 months"},
-        {"explore": "orders", "field": "customers.gender", "value": "Male, Female"},
-        {"explore": "orders", "field": "customers.gender", "value": "-Male, -Female"},
-        {"explore": "orders", "field": "customers.gender", "value": "-NULL"},
-        {"explore": "orders", "field": "customers.gender", "value": "NULL"},
-        {"explore": "orders", "field": "customers.is_churned", "value": "TRUE"},
-        {"explore": "orders", "field": "customers.is_churned", "value": True},
-        {"explore": "orders", "field": "customers.is_churned", "value": False},
-        {"explore": "orders", "field": "customers.gender", "value": "-Male, Female"},
-        {"field": "customers.gender", "value": "BREAK_ON_EXPLORE"},
+        {"field": "customers.gender", "value": "Male"},
+        {"field": "customers.gender", "value": "-Male"},
+        {"field": "customers.gender", "value": "-Ma%"},
+        {"field": "customers.gender", "value": "-%Ma"},
+        {"field": "customers.gender", "value": "-%ale%"},
+        {"field": "customers.gender", "value": "Fe%"},
+        {"field": "customers.gender", "value": "%Fe"},
+        {"field": "customers.gender", "value": "%male%"},
+        {"field": "orders.revenue_dimension", "value": "=100"},
+        {"field": "orders.revenue_dimension", "value": ">100"},
+        {"field": "orders.revenue_dimension", "value": "<100"},
+        {"field": "orders.revenue_dimension", "value": "<=120"},
+        {"field": "orders.revenue_dimension", "value": ">=120"},
+        {"field": "orders.revenue_dimension", "value": "!=120"},
+        {"field": "orders.revenue_dimension", "value": "<>120"},
+        {"field": "orders.order_month", "value": "after 2021-02-03"},
+        {"field": "orders.order_month", "value": "before 2021-02-03"},
+        {"field": "orders.order_date", "value": "today"},
+        {"field": "orders.order_date", "value": "yesterday"},
+        {"field": "orders.order_week", "value": "this week"},
+        {"field": "orders.order_month", "value": "this month"},
+        {"field": "orders.order_month", "value": "this quarter"},
+        {"field": "orders.order_month", "value": "this year"},
+        {"field": "orders.order_week", "value": "last week"},
+        {"field": "orders.order_month", "value": "last month"},
+        {"field": "orders.order_month", "value": "last quarter"},
+        {"field": "orders.order_month", "value": "last year"},
+        {"field": "orders.order_week", "value": "week to date"},
+        {"field": "orders.order_month", "value": "month to date"},
+        {"field": "orders.order_quarter", "value": "quarter to date"},
+        {"field": "orders.order_year", "value": "year to date"},
+        {"field": "orders.order_week", "value": "last week to date"},
+        {"field": "orders.order_week", "value": "52 weeks ago to date"},
+        {"field": "orders.order_month", "value": "12 months ago to date"},
+        {"field": "orders.order_year", "value": "1 year ago to date"},
+        {"field": "orders.order_year", "value": "1 year ago for 3 months"},
+        {"field": "orders.order_year", "value": "1 year ago for 30 days"},
+        {"field": "orders.order_year", "value": "2 years ago"},
+        {"field": "orders.order_year", "value": "3 months"},
+        {"field": "customers.gender", "value": "Male, Female"},
+        {"field": "customers.gender", "value": "-Male, -Female"},
+        {"field": "customers.gender", "value": "-NULL"},
+        {"field": "customers.gender", "value": "NULL"},
+        {"field": "customers.is_churned", "value": "TRUE"},
+        {"field": "customers.is_churned", "value": True},
+        {"field": "customers.is_churned", "value": False},
+        {"field": "customers.gender", "value": "-Male, Female"},
     ],
 )
 def test_dashboard_filter_processing(connection, raw_filter_dict):
@@ -262,15 +258,13 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         .strftime(date_format),
         "2 years ago": pendulum.now("UTC").subtract(years=2).end_of("year").strftime(date_format),
     }
-    if raw_filter_dict["value"] in {"-Male, Female", "BREAK_ON_EXPLORE"}:
+    if raw_filter_dict["value"] == "-Male, Female":
         with pytest.raises(ValueError) as exc_info:
             dash.parsed_filters()
         assert exc_info.value
-
     else:
         parsed_filters = dash.parsed_filters()
         assert len(parsed_filters) in {1, 2}
-        assert parsed_filters[0]["explore"] == "orders"
         assert parsed_filters[0]["field"] == raw_filter_dict["field"]
         assert parsed_filters[0]["expression"].value == expression_lookup[raw_filter_dict["value"]]
         assert parsed_filters[0]["value"] == value_lookup[raw_filter_dict["value"]]
