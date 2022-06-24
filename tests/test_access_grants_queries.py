@@ -1,6 +1,6 @@
 import pytest
 
-from metrics_layer.core.model.project import AccessDeniedOrDoesNotExistException
+from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException
 
 
 def test_access_grants_join_permission_block(connection):

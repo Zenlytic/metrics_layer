@@ -2,7 +2,8 @@ import hashlib
 import re
 from copy import deepcopy
 
-from .base import AccessDeniedOrDoesNotExistException, MetricsLayerBase, SQLReplacement
+from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
+from .base import MetricsLayerBase, SQLReplacement
 from .definitions import Definitions
 from .filter import Filter
 from .set import Set
@@ -70,7 +71,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
         if "sql" in definition and "filters" in definition:
             if definition["sql"] == "*":
-                raise ValueError(
+                raise QueryError(
                     "To apply filters to a count measure you must have the primary_key specified "
                     "for the view. You can do this by adding the tag 'primary_key: yes' to the "
                     "necessary dimension"
@@ -356,7 +357,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                     to_replace = field.sql_query(query_type, functional_pk, alias_only=alias_only)
                 replaced = replaced.replace(proper_to_replace, f"({to_replace})")
         else:
-            raise ValueError(f"handle case for sql: {sql}")
+            raise NotImplementedError(f"handle case for sql: {sql}")
         return replaced
 
     def required_views(self):
@@ -385,7 +386,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         required_keys = ["name", "field_type"]
         for k in required_keys:
             if k not in definition:
-                raise ValueError(f"Field missing required key '{k}' The field passed was {definition}")
+                raise QueryError(f"Field missing required key '{k}' The field passed was {definition}")
 
     def to_dict(self, query_type: str = None):
         output = {**self._definition}
@@ -468,7 +469,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         try:
             return meta_lookup[query_type][self.dimension_group](sql_start, sql_end)
         except KeyError:
-            raise KeyError(
+            raise QueryError(
                 f"Unable to find a valid method for running "
                 f"{self.dimension_group} with query type {query_type}"
             )
@@ -606,7 +607,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             clean_sql_end = self._replace_sql_query(self.sql_end, query_type, alias_only=alias_only)
             return self.apply_dimension_group_duration_sql(clean_sql_start, clean_sql_end, query_type)
 
-        raise ValueError(f"Unknown type of SQL query for field {self.name}")
+        raise QueryError(f"Unknown type of SQL query for field {self.name}")
 
     def _replace_sql_query(self, sql_query: str, query_type: str, alias_only: bool = False):
         if sql_query is None or "{%" in sql_query or sql_query == "":
@@ -687,14 +688,14 @@ class Field(MetricsLayerBase, SQLReplacement):
     def _derive_query_type(self):
         model = self.view.model
         if model is None:
-            raise ValueError(
+            raise QueryError(
                 f"Could not find a model in field {self.alias()} to use to detect the query type, "
                 "please pass the query type explicitly using the query_type argument"
                 "or pass an model name using the model_name argument"
             )
         connection_type = self.view.project.connection_lookup.get(model.connection)
         if connection_type is None:
-            raise ValueError(
+            raise QueryError(
                 f"Could not find the connection named {model.connection} "
                 f"in model {model.name} to use in detecting the query type, "
                 "please pass the query type explicitly using the query_type argument"
@@ -725,7 +726,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             return [f"merged_result_{self.id()}"]
 
         if self.view.model is None:
-            raise ValueError(
+            raise QueryError(
                 f"Could not find a model in view {self.view.name}, "
                 "please pass the model or set the model_name argument in the view"
             )

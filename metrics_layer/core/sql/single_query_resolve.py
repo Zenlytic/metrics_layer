@@ -1,6 +1,7 @@
 import sqlparse
 from sqlparse.tokens import Name, Punctuation
 
+from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.parse.config import ConfigError, MetricsLayerConfiguration
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_generator import MetricsLayerQuery
@@ -96,7 +97,7 @@ class SingleSQLQueryResolver:
         all_field_names = self.metrics + self.dimensions
         if len(set(all_field_names)) != len(all_field_names):
             # TODO improve this error message
-            raise ValueError("Ambiguous field names in the metrics and dimensions")
+            raise QueryError("Ambiguous field names in the metrics and dimensions")
 
         for name in self.metrics:
             field = self.get_field_with_error_handling(name, "Metric")
@@ -129,7 +130,7 @@ class SingleSQLQueryResolver:
     def get_field_with_error_handling(self, field_name: str, error_prefix: str):
         field = self.project.get_field(field_name, model=self.model)
         if field is None:
-            raise ValueError(f"{error_prefix} {field_name} not found")
+            raise QueryError(f"{error_prefix} {field_name} not found")
         return field
 
     def parse_field_names(self, where, having, order_by):
@@ -180,7 +181,7 @@ class SingleSQLQueryResolver:
             for cond in conditions:
                 if "field" not in cond:
                     break
-            raise KeyError(f"Identifier was missing required 'field' key: {cond}")
+            raise QueryError(f"Identifier was missing required 'field' key: {cond}")
 
     @staticmethod
     def _check_for_dict(conditions: list):

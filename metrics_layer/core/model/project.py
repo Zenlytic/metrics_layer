@@ -3,7 +3,7 @@ import hashlib
 import json
 from collections import Counter
 
-from .base import AccessDeniedOrDoesNotExistException
+from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
 from .dashboard import Dashboard
 from .join_graph import JoinGraph
 from .explore import Explore
@@ -71,7 +71,7 @@ class Project:
         for view in self.views():
             try:
                 view.sql_table_name
-            except ValueError as e:
+            except QueryError as e:
                 all_errors.append(str(e))
 
             referenced_fields = view.referenced_fields()
@@ -141,7 +141,7 @@ class Project:
         try:
             return next((ag for ag in self.access_grants() if ag.name == grant_name))
         except StopIteration:
-            raise ValueError(f"Could not find the access grant {grant_name} in your project.")
+            raise QueryError(f"Could not find the access grant {grant_name} in your project.")
 
     def can_access_dashboard(self, dashboard: Dashboard):
         return self._can_access_object(dashboard)
@@ -247,7 +247,7 @@ class Project:
         view = self.get_view(view_name, model=model)
         if not view:
             plus_model = f" in model {model.name}" if model else ""
-            raise ValueError(f"Could not find a view matching the name {view_name}{plus_model}")
+            raise QueryError(f"Could not find a view matching the name {view_name}{plus_model}")
         return view.fields(show_hidden, expand_dimension_groups)
 
     def joinable_fields(self, field_list: list, expand_dimension_groups: bool = False):
@@ -289,7 +289,7 @@ class Project:
         if "." in field_name:
             _, specified_view_name, field_name = Field.field_name_parts(field_name)
             if view_name and specified_view_name != view_name:
-                raise ValueError(
+                raise QueryError(
                     f"You specified two different view names {specified_view_name} and {view_name}"
                 )
             view_name = specified_view_name
@@ -308,7 +308,7 @@ class Project:
                 "view name like this: 'view_name.field_name' "
                 "\n\nor change the names of the fields to ensure uniqueness"
             )
-            raise ValueError(err_msg)
+            raise QueryError(err_msg)
         elif field_name == "count" and view_name:
             definition = {"type": "count", "name": "count", "field_type": "measure"}
             return Field(definition, view=self.get_view(view_name))
@@ -324,7 +324,7 @@ class Project:
 
     def resolve_dbt_ref(self, ref_name: str, view_name: str = None):
         if not self.manifest_exists:
-            raise ValueError(
+            raise QueryError(
                 f"Could not find a dbt project co-located with this "
                 f"project to resolve the dbt ref('{ref_name}') in view {view_name}"
             )

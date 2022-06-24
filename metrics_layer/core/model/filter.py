@@ -7,6 +7,8 @@ import pendulum
 from pypika.terms import LiteralValue
 from pypika import Criterion
 
+from metrics_layer.core.exceptions import QueryError
+
 from .base import MetricsLayerBase
 
 
@@ -106,7 +108,7 @@ class Filter(MetricsLayerBase):
         required_keys = ["field", "value"]
         for k in required_keys:
             if k not in definition:
-                raise ValueError(f"Filter missing required key '{k}' The filter passed was {definition}")
+                raise QueryError(f"Filter missing required key '{k}' The filter passed was {definition}")
 
     def filter_dict(self, json_safe: bool = False) -> list:
         filter_dict = self._filter_dict(self.field, self.value)
@@ -336,7 +338,7 @@ class Filter(MetricsLayerBase):
                 cleaned_value = [f"{category[1:].strip()}" for category in value.split(", ")]
 
             elif any(category[0] == "-" for category in value.split(", ")):
-                raise ValueError("Invalid filter some elements are negated with '-' and some are not")
+                raise QueryError("Invalid filter some elements are negated with '-' and some are not")
 
             else:
                 expression = MetricsLayerFilterExpressionType.IsIn
@@ -462,4 +464,4 @@ class Filter(MetricsLayerBase):
         try:
             return criterion_strategies[expression_type](field)
         except KeyError:
-            raise NotImplementedError(f"Unknown filter expression_type: {expression_type}.")
+            raise QueryError(f"Unknown filter expression_type: {expression_type}.")

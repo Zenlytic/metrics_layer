@@ -1,7 +1,8 @@
 import re
 
 
-from .base import AccessDeniedOrDoesNotExistException, MetricsLayerBase
+from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
+from .base import MetricsLayerBase
 from .field import Field
 from .set import Set
 
@@ -50,7 +51,7 @@ class View(MetricsLayerBase):
         required_keys = ["name", "fields"]
         for k in required_keys:
             if k not in definition:
-                raise ValueError(f"View missing required key {k}")
+                raise QueryError(f"View missing required key {k}")
 
     def printable_attributes(self):
         to_print = ["name", "type", "label", "group_label", "sql_table_name", "number_of_fields"]
@@ -74,7 +75,7 @@ class View(MetricsLayerBase):
                 else:
                     name = f"{self.name}.{self.default_date}"
                 self.project.get_field_by_name(name)
-            except (AccessDeniedOrDoesNotExistException, ValueError):
+            except (AccessDeniedOrDoesNotExistException, QueryError):
                 field_errors.append(f"Default date {self.default_date} is unreachable in view {self.name}")
 
         for field in fields:
@@ -159,7 +160,7 @@ class View(MetricsLayerBase):
         try:
             condition = next((cond for cond in conditions if cond.strip() == looker_env))
         except StopIteration:
-            raise ValueError(
+            raise QueryError(
                 f"""Your sql_table_name: '{sql_table_name}' contains a conditional and
                 we could not match that to the conditional value you passed: {looker_env}"""
             )

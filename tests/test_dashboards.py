@@ -1,6 +1,8 @@
 import pendulum
 import pytest
 
+from metrics_layer.core.exceptions import QueryError
+
 
 def test_dashboard_located(connection):
     dash = connection.get_dashboard("sales_dashboard")
@@ -259,7 +261,7 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         "2 years ago": pendulum.now("UTC").subtract(years=2).end_of("year").strftime(date_format),
     }
     if raw_filter_dict["value"] == "-Male, Female":
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(QueryError) as exc_info:
             dash.parsed_filters()
         assert exc_info.value
     else:
@@ -330,7 +332,7 @@ def test_dashboard_element_filter_processing(connection, raw_filter_dict):
     }
 
     if raw_filter_dict["value"] == "-Male, Female":
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(QueryError) as exc_info:
             element.parsed_filters()
         assert exc_info.value
 

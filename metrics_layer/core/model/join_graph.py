@@ -1,5 +1,6 @@
 import networkx
 
+from metrics_layer.core.exceptions import QueryError
 from collections import defaultdict
 from copy import deepcopy
 from .base import SQLReplacement
@@ -34,7 +35,7 @@ class JoinGraph(SQLReplacement):
         for i, subgraph in enumerate(sorted_components):
             if view_name in subgraph:
                 return f"subquery_{i}"
-        raise ValueError(
+        raise QueryError(
             f"View name {view_name} not found in any joinable part of your data model. "
             "Please make sure this is the right name for the view."
         )
@@ -200,7 +201,7 @@ class JoinGraph(SQLReplacement):
         elif base_type == IdentifierTypes.foreign and join_type == IdentifierTypes.foreign:
             return "many_to_many"
         else:
-            raise ValueError(
+            raise QueryError(
                 "This join type cannot be determined from the identifier properties. "
                 f"Make sure you've set the properties correctly. Base type: {base_type},"
                 f" join type: {join_type}"

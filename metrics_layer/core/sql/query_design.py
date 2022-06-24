@@ -3,7 +3,8 @@ from typing import List
 import itertools
 
 import networkx
-from metrics_layer.core.model.base import AccessDeniedOrDoesNotExistException, MetricsLayerBase
+from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException
+from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.sql.query_errors import ParseError
 

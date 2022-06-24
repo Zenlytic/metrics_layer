@@ -3,6 +3,7 @@ from datetime import datetime
 import pendulum
 import pytest
 
+from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.model import Definitions, Project
 
@@ -292,7 +293,7 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
     conn = MetricsLayerConnection(config=config)
     raises_error = interval == "hour" and query_type == Definitions.bigquery
     if raises_error:
-        with pytest.raises(KeyError) as exc_info:
+        with pytest.raises(QueryError) as exc_info:
             conn.get_sql_query(
                 metrics=["total_revenue"],
                 dimensions=[f"{interval}s_waiting"],

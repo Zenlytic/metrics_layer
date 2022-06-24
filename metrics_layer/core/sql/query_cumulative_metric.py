@@ -4,11 +4,12 @@ from pypika import JoinType, Criterion, Table
 
 from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
 from metrics_layer.core.model.definitions import Definitions
-from metrics_layer.core.model.base import AccessDeniedOrDoesNotExistException
+from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException
 from metrics_layer.core.model.filter import LiteralValueCriterion
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_dialect import query_lookup
 from metrics_layer.core.sql.query_generator import MetricsLayerQuery
+from metrics_layer.core.sql.query_filter import MetricsLayerFilter
 
 SNOWFLAKE_DATE_SPINE = (
     "select dateadd(day, seq4(), '2000-01-01') as date from table(generator(rowcount => 365*40))"
@@ -72,6 +73,7 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
             where = self.get_where_from_having(project=self.design)
             base_cte_query = base_cte_query.where(Criterion.all(where))
 
+        base_cte_query = base_cte_query.limit(self.limit)
         sql = str(base_cte_query)
         if semicolon:
             sql += ";"
@@ -111,17 +113,40 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
 
     def cumulative_subquery(self, cumulative_metric):
         cumulative_metric_cte_alias = cumulative_metric.cte_prefix(aggregated=False)
-        query = self._subquery(metrics=[cumulative_metric.measure], no_group_by=True)
+        reference_metric = cumulative_metric.measure
+        dimensions = [self.design.get_field(d) for d in self.dimensions]
+        date_field = self._get_default_date(reference_metric, cumulative_metric)
+        if not any(date_field.name == d.name and date_field.view.name == d.view.name for d in dimensions):
+            dimensions.append(date_field)
+        dimension_ids = [d.id() for d in dimensions]
+
+        where = []
+        for w in self.where:
+            where_field = self.design.get_field(w["field"])
+            if not self._is_default_date(where_field):
+                where.append(w)
+
+        query = self._subquery(
+            metrics=[reference_metric], dimensions=dimension_ids, where=where, no_group_by=True
+        )
         return query, cumulative_metric_cte_alias
 
     def non_cumulative_subquery(self):
-        query = self._subquery(metrics=self.non_cumulative_metrics, no_group_by=False)
+        query = self._subquery(
+            metrics=self.non_cumulative_metrics,
+            dimensions=self.dimensions,
+            where=self.where,
+            no_group_by=False,
+        )
         return query, self.base_cte_name
 
-    def _subquery(self, metrics: list, no_group_by: bool):
+    def _subquery(self, metrics: list, dimensions: list, where: list, no_group_by: bool):
         sub_definition = deepcopy(self._definition)
         sub_definition["metrics"] = [metric.id() for metric in metrics]
+        sub_definition["dimensions"] = dimensions
+        sub_definition["where"] = where
         sub_definition["having"] = []
+        sub_definition["limit"] = None
 
         field_lookup = {k: v for k, v in self.design.field_lookup.items()}
         self.design.field_lookup = {k: v for k, v in field_lookup.items() if v.field_type != "measure"}
@@ -170,7 +195,24 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
 
         from_query = from_query.where(LiteralValueCriterion(f"{date_spine_reference}<={self.current_date}"))
 
+        having = []
+        for w in self.where:
+            where_field = self.design.get_field(w["field"])
+            if self._is_default_date(where_field):
+                date_having = deepcopy(w)
+                date_field.dimension_group = where_field.dimension_group
+                date_having["field"] = date_field.id()
+                date_having["query_type"] = self.query_type
+                f = MetricsLayerFilter(definition=date_having, design=None, filter_type="having")
+                date_spine_sql = date_field.apply_dimension_group_time_sql(
+                    date_spine_reference, self.query_type
+                )
+                having.append(f.criterion(date_spine_sql))
+
         from_query = from_query.groupby(self.sql(date_spine_reference))
+
+        if having:
+            from_query = from_query.having(LiteralValueCriterion(Criterion.all(having)))
 
         return from_query, cumulative_metric.cte_prefix()
 

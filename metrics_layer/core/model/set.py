@@ -1,4 +1,5 @@
 from .base import MetricsLayerBase
+from metrics_layer.core.exceptions import QueryError
 
 
 class Set(MetricsLayerBase):
@@ -13,7 +14,7 @@ class Set(MetricsLayerBase):
         required_keys = ["name", "fields"]
         for k in required_keys:
             if k not in definition:
-                raise ValueError(f"Set missing required key {k}")
+                raise QueryError(f"Set missing required key {k}")
 
     def field_names(self):
         all_field_names, names_to_exclude = [], []
@@ -67,4 +68,4 @@ class Set(MetricsLayerBase):
         elif view_name is None and self.view_name:
             return self.view_name
         else:
-            raise ValueError(f"Cannot find a valid view name for the field {field_name} in set {self.name}")
+            raise QueryError(f"Cannot find a valid view name for the field {field_name} in set {self.name}")

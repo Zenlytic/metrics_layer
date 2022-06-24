@@ -6,6 +6,7 @@ import git
 import requests
 
 from metrics_layer.core import utils
+from metrics_layer.core.exceptions import QueryError
 
 BASE_PATH = os.path.dirname(__file__)
 
@@ -156,5 +157,5 @@ class LookerGithubRepo(BaseRepo):
         data = {"client_id": client_id, "client_secret": client_secret}
         response = requests.post(f"{looker_url}/api/3.1/login", data=data)
         if response.status_code == 403:
-            raise ValueError("Looker credentials not valid, please check your credentials")
+            raise QueryError("Looker credentials not valid, please check your credentials")
         return response.json()["access_token"]

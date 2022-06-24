@@ -1,4 +1,5 @@
 from .base import MetricsLayerBase
+from metrics_layer.core.exceptions import QueryError
 
 
 class AccessGrant(MetricsLayerBase):
@@ -11,7 +12,7 @@ class AccessGrant(MetricsLayerBase):
         required_keys = ["name", "user_attribute", "allowed_values"]
         for k in required_keys:
             if k not in definition:
-                raise ValueError(f"Access Grant missing required key {k}")
+                raise QueryError(f"Access Grant missing required key {k}")
 
 
 class Model(MetricsLayerBase):
@@ -25,7 +26,7 @@ class Model(MetricsLayerBase):
         required_keys = ["name", "connection"]
         for k in required_keys:
             if k not in definition:
-                raise ValueError(f"Model missing required key {k}")
+                raise QueryError(f"Model missing required key {k}")
 
     @property
     def access_grants(self):
@@ -52,7 +53,7 @@ class Model(MetricsLayerBase):
                 from_field = self.project.get_field(mapped_from_field)
                 from_join_hash = self.project.join_graph.join_graph_hash(from_field.view.name)
                 if from_field.field_type in {"dimension_group", "measure"}:
-                    raise ValueError(
+                    raise QueryError(
                         "This mapping is invalid because it contains a dimension group or "
                         f"a measure. Mappings can only contain dimensions. Mapping with {from_field.id()}"
                     )

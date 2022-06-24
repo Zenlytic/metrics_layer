@@ -1,6 +1,7 @@
 from collections import defaultdict
 from copy import deepcopy
 
+from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.parse.config import MetricsLayerConfiguration
 from metrics_layer.core.sql.query_merged_results import MetricsLayerMergedResultsQuery
 from metrics_layer.core.sql.single_query_resolve import SingleSQLQueryResolver
@@ -134,7 +135,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         for merged_metric in self.merged_metrics:
             for ref_field in merged_metric.referenced_fields(merged_metric.sql):
                 if isinstance(ref_field, str):
-                    raise ValueError(f"Unable to find the field {ref_field} in the project")
+                    raise QueryError(f"Unable to find the field {ref_field} in the project")
 
                 join_group_hash = self.project.join_graph.join_graph_hash(ref_field.view.name)
                 canon_date = ref_field.canon_date.replace(".", "_")
@@ -195,7 +196,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                         self.query_dimensions[join_hash].append(field)
                     else:
                         if field_key not in dimension_mapping:
-                            raise ValueError(
+                            raise QueryError(
                                 f"Could not find mapping from field {field_key} to other views. "
                                 "Please add a mapping to your view definition to allow this."
                             )
@@ -231,14 +232,14 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         all_model_names = {f.view.model_name for f in all_fields}
 
         if len(all_model_names) == 0:
-            raise ValueError(
+            raise QueryError(
                 "No models found in this data model. Please specify a model "
                 "to connect a data warehouse to your data model."
             )
         elif len(all_model_names) == 1:
             return self.project.get_model(list(all_model_names)[0])
         else:
-            raise ValueError(
+            raise QueryError(
                 "More than one model found in this data model. Please specify a model "
                 "to use by either passing the name of the model using 'model_name' parameter or by  "
                 "setting the `model_name` property on the view."

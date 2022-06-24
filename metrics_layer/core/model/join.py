@@ -1,6 +1,7 @@
 from copy import deepcopy
 
-from .base import AccessDeniedOrDoesNotExistException, MetricsLayerBase, SQLReplacement
+from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
+from .base import MetricsLayerBase, SQLReplacement
 from .field import Field
 from .set import Set
 
@@ -33,7 +34,7 @@ class Join(MetricsLayerBase, SQLReplacement):
                     base_view_name = definition["base_view_name"]
                 if "join_view_name" in definition:
                     join_view_name = definition["join_view_name"]
-                raise ValueError(
+                raise QueryError(
                     f"Join missing required key {k} in join with view {base_view_name} and {join_view_name}"
                 )
 
@@ -47,13 +48,13 @@ class Join(MetricsLayerBase, SQLReplacement):
         multiple_join_keys = sum(all_join_arguments) > 1
 
         if no_join_keys:
-            raise ValueError(
+            raise QueryError(
                 f"No join arguments found in join {definition['base_view_name']}, "
                 "please pass sql_on or foreign_key"
             )
 
         if multiple_join_keys:
-            raise ValueError(
+            raise QueryError(
                 f"Multiple join arguments found in join {definition['base_view_name']}"
                 ", please pass only one of: sql_on, foreign_key"
             )

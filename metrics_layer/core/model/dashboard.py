@@ -1,5 +1,6 @@
 from copy import deepcopy
 
+from metrics_layer.core.exceptions import QueryError
 from .base import MetricsLayerBase
 from .filter import Filter
 
@@ -20,7 +21,7 @@ class DashboardElement(MetricsLayerBase):
         required_keys = ["model"]
         for k in required_keys:
             if k not in definition:
-                raise ValueError(f"Dashboard Element missing required key {k}")
+                raise QueryError(f"Dashboard Element missing required key {k}")
 
     def to_dict(self):
         definition = deepcopy(self._definition)
@@ -98,7 +99,7 @@ class Dashboard(MetricsLayerBase):
         required_keys = ["name", "layout"]
         for k in required_keys:
             if k not in definition:
-                raise ValueError(f"Dashboard missing required key {k}")
+                raise QueryError(f"Dashboard missing required key {k}")
 
     def to_dict(self):
         definition = deepcopy(self._definition)
