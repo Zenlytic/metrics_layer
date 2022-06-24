@@ -29,6 +29,7 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         self.date_spine_cte_name = design.date_spine_cte_name
         self.base_cte_name = design.base_cte_name
 
+        self._default_date_memo = {}
         super().__init__(definition)
 
     def get_query(self, semicolon: bool = True):
@@ -140,22 +141,13 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         cte_alias = cumulative_metric.cte_prefix(aggregated=False)
 
         referenced_metric = cumulative_metric.measure
-        date_name = referenced_metric.view.default_date
-        date_field_name = f"{date_name}_date"
-        try:
-            self.design.get_field(f"{referenced_metric.view.name}.{date_field_name}")
-        except Exception:
-            raise AccessDeniedOrDoesNotExistException(
-                f"Could not find date needed to aggregate cumulative metric {cumulative_metric.name}, "
-                f"looking for date field named {date_field_name} in view {referenced_metric.view.name}",
-                object_type="field",
-                object_name=date_field_name,
-            )
+        date_field = self._get_default_date(referenced_metric, cumulative_metric)
 
         from_query = self._base_query()
         from_query = from_query.from_(Table(self.date_spine_cte_name))
 
-        less_than_now = f"{cte_alias}.{date_field_name}<={self.date_spine_cte_name}.date"
+        date_spine_reference = f"{self.date_spine_cte_name}.date"
+        less_than_now = f"{cte_alias}.{date_field.alias(with_view=True)}<={date_spine_reference}"
 
         # TODO For a 7 day window
         # window = f"{cte_alias}.{date_field_name}>DATEADD(day, -7, {self.date_spine_cte_name}.date)"
@@ -165,12 +157,46 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         select = []
         for field_name in [referenced_metric.id()] + self.dimensions:
             field = self.design.get_field(field_name)
-            field_sql = field.sql_query(query_type=self.query_type, alias_only=True)
+            # Date field is the default date but not the default date on the referenced metric
+            # I need to check if the date field is the default date on any other metric in the query,
+            # and if so use the date spine instead of the date field itself
+            if self._is_default_date(field):
+                field_sql = date_spine_reference
+            else:
+                field_sql = field.sql_query(query_type=self.query_type, alias_only=True)
             select.append(self.sql(field_sql, alias=field.alias(with_view=True)))
 
         from_query = from_query.select(*select)
 
+        from_query = from_query.where(LiteralValueCriterion(f"{date_spine_reference}<={self.current_date}"))
+
+        from_query = from_query.groupby(self.sql(date_spine_reference))
+
         return from_query, cumulative_metric.cte_prefix()
+
+    def _is_default_date(self, field):
+        date_aliases = []
+        for cumulative_metric in self.cumulative_metrics:
+            date_field = self._get_default_date(cumulative_metric.measure, cumulative_metric)
+            date_aliases.append(date_field.alias(with_view=True))
+        return field.alias(with_view=True) in date_aliases
+
+    def _get_default_date(self, field, cumulative_metric):
+        date_name = field.view.default_date
+        date_field_name = f"{date_name}_date"
+        date_key = f"{field.view.name}.{date_field_name}"
+        if date_key in self._default_date_memo:
+            return self._default_date_memo[date_key]
+        try:
+            self._default_date_memo[date_key] = self.design.get_field(date_key)
+        except Exception:
+            raise AccessDeniedOrDoesNotExistException(
+                f"Could not find date needed to aggregate cumulative metric {cumulative_metric.name}, "
+                f"looking for date field named {date_field_name} in view {field.view.name}",
+                object_type="field",
+                object_name=date_field_name,
+            )
+        return self._default_date_memo[date_key]
 
     def _derive_join(self, cumulative_metric, base_table: Table):
         cte_alias = cumulative_metric.cte_prefix()
@@ -208,3 +234,14 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
 
             select.append(MetricsLayerQuery.sql(field_sql, alias=field.alias(with_view=True)))
         return select
+
+    @property
+    def current_date(self):
+        if self.query_type == Definitions.snowflake:
+            return "current_date()"
+        elif self.query_type == Definitions.redshift:
+            return "current_date()"
+        elif self.query_type == Definitions.bigquery:
+            return "current_date()"
+        else:
+            raise NotImplementedError(f"Query type {self.query_type} not supported")
