@@ -132,6 +132,8 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         return query, cumulative_metric_cte_alias
 
     def non_cumulative_subquery(self):
+        print(self.dimensions)
+        print(self.where)
         query = self._subquery(
             metrics=self.non_cumulative_metrics,
             dimensions=self.dimensions,
@@ -153,6 +155,7 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         self.design.no_group_by = no_group_by
         for metric in metrics:
             self.design.field_lookup[metric.id()] = metric
+        print(sub_definition)
         query_generator = MetricsLayerQuery(
             sub_definition, design=self.design, suppress_warnings=self.suppress_warnings
         )
@@ -200,6 +203,7 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
             where_field = self.design.get_field(w["field"])
             if self._is_default_date(where_field):
                 date_having = deepcopy(w)
+                dimension_group = deepcopy(date_field.dimension_group)
                 date_field.dimension_group = where_field.dimension_group
                 date_having["field"] = date_field.id()
                 date_having["query_type"] = self.query_type
@@ -207,6 +211,7 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
                 date_spine_sql = date_field.apply_dimension_group_time_sql(
                     date_spine_reference, self.query_type
                 )
+                date_field.dimension_group = dimension_group
                 having.append(f.criterion(date_spine_sql))
 
         from_query = from_query.groupby(self.sql(date_spine_reference))
@@ -220,8 +225,8 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         date_aliases = []
         for cumulative_metric in self.cumulative_metrics:
             date_field = self._get_default_date(cumulative_metric.measure, cumulative_metric)
-            date_aliases.append(date_field.alias(with_view=True))
-        return field.alias(with_view=True) in date_aliases
+            date_aliases.append(f"{date_field.view.name}.{date_field.name}")
+        return f"{field.view.name}.{field.name}" in date_aliases
 
     def _get_default_date(self, field, cumulative_metric):
         date_name = field.view.default_date

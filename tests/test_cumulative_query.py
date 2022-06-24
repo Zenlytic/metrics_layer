@@ -132,7 +132,10 @@ def test_cumulative_query_metrics_and_time(connection):
     query = connection.get_sql_query(
         metrics=["total_lifetime_revenue", "total_item_revenue"],
         dimensions=["orders.order_date"],
-        where={"field": "orders.order_date", "expression": "greater_than", "value": "2018-01-02"},
+        where=[
+            {"field": "orders.order_month", "expression": "greater_than", "value": "2018-01-02"},
+            {"field": "orders.order_raw", "expression": "less_than", "value": "2019-01-01"},
+        ],
         limit=400,
     )
 
@@ -147,11 +150,11 @@ def test_cumulative_query_metrics_and_time(connection):
         "FROM date_spine JOIN subquery_orders_total_lifetime_revenue "
         "ON subquery_orders_total_lifetime_revenue.orders_order_date<=date_spine.date "
         "WHERE date_spine.date<=current_date() GROUP BY date_spine.date "
-        "HAVING DATE_TRUNC('DAY', date_spine.date)>'2018-01-02') ,"
+        "HAVING DATE_TRUNC('MONTH', date_spine.date)>'2018-01-02' AND date_spine.date<'2019-01-01') ,"
         "base AS (SELECT DATE_TRUNC('DAY', orders.order_date) as orders_order_date,"
         "SUM(order_lines.revenue) as order_lines_total_item_revenue FROM analytics.order_line_items "
         "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        "WHERE DATE_TRUNC('DAY', orders.order_date)>'2018-01-02' "
+        "WHERE DATE_TRUNC('MONTH', orders.order_date)>'2018-01-02' AND orders.order_date<'2019-01-01' "
         "GROUP BY DATE_TRUNC('DAY', orders.order_date) ORDER BY order_lines_total_item_revenue DESC) "
         "SELECT base.orders_order_date as orders_order_date,"
         "aggregated_orders_total_lifetime_revenue.orders_total_revenue "
