@@ -183,6 +183,7 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         from_query = from_query.join(Table(cte_alias), JoinType.inner).on(criteria)
 
         select = []
+        default_date_is_present, group_by = False, []
         for field_name in [referenced_metric.id()] + self.dimensions:
             field = self.design.get_field(field_name)
             # Date field is the default date but not the default date on the referenced metric
@@ -190,8 +191,11 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
             # and if so use the date spine instead of the date field itself
             if self._is_default_date(field):
                 field_sql = date_spine_reference
+                default_date_is_present = True
             else:
                 field_sql = field.sql_query(query_type=self.query_type, alias_only=True)
+                if field.field_type != "measure":
+                    group_by.append(self.sql(field_sql))
             select.append(self.sql(field_sql, alias=field.alias(with_view=True)))
 
         from_query = from_query.select(*select)
@@ -214,9 +218,15 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
                 date_field.dimension_group = dimension_group
                 having.append(f.criterion(date_spine_sql))
 
-        from_query = from_query.groupby(self.sql(date_spine_reference))
+        if default_date_is_present:
+            group_by.append(self.sql(date_spine_reference))
 
-        if having:
+        if group_by:
+            print("GRPU")
+            print(group_by)
+            from_query = from_query.groupby(*group_by)
+
+        if having and default_date_is_present:
             from_query = from_query.having(LiteralValueCriterion(Criterion.all(having)))
 
         return from_query, cumulative_metric.cte_prefix()

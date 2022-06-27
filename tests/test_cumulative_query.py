@@ -16,8 +16,7 @@ def test_cumulative_query_metric_only_one(connection):
         "aggregated_orders_total_lifetime_revenue AS ("
         "SELECT SUM(orders_total_revenue) as orders_total_revenue FROM date_spine "
         "JOIN subquery_orders_total_lifetime_revenue ON subquery_orders_total_lifetime_revenue"
-        ".orders_order_date<=date_spine.date WHERE date_spine.date<=current_date() "
-        "GROUP BY date_spine.date) "
+        ".orders_order_date<=date_spine.date WHERE date_spine.date<=current_date()) "
         "SELECT aggregated_orders_total_lifetime_revenue.orders_total_revenue "
         "as orders_total_lifetime_revenue FROM aggregated_orders_total_lifetime_revenue;"
     )
@@ -26,7 +25,10 @@ def test_cumulative_query_metric_only_one(connection):
 
 @pytest.mark.query
 def test_cumulative_query_metric_with_number(connection):
-    query = connection.get_sql_query(metrics=["average_order_value_custom", "cumulative_aov"])
+    query = connection.get_sql_query(
+        metrics=["average_order_value_custom", "cumulative_aov"],
+        where=[{"field": "orders.order_raw", "expression": "greater_than", "value": "2018-01-02"}],
+    )
 
     date_spine = "select dateadd(day, seq4(), '2000-01-01') as date from table(generator(rowcount => 365*40))"
     correct = (
@@ -37,11 +39,11 @@ def test_cumulative_query_metric_with_number(connection):
         ",aggregated_orders_cumulative_aov AS (SELECT (SUM(orders_total_revenue)) "
         "/ (COUNT(orders_number_of_orders)) as orders_average_order_value_custom FROM "
         "date_spine JOIN subquery_orders_cumulative_aov ON subquery_orders_cumulative_aov."
-        "orders_order_date<=date_spine.date WHERE date_spine.date<=current_date() GROUP BY date_spine.date)"
+        "orders_order_date<=date_spine.date WHERE date_spine.date<=current_date())"
         " ,base AS (SELECT (SUM(orders.revenue)) "
         "/ (COUNT(orders.id)) as orders_average_order_value_custom FROM analytics.orders "
-        "orders ORDER BY orders_average_order_value_custom DESC) SELECT "
-        "base.orders_average_order_value_custom as orders_average_order_value_custom,"
+        "orders WHERE orders.order_date>'2018-01-02' ORDER BY orders_average_order_value_custom DESC) "
+        "SELECT base.orders_average_order_value_custom as orders_average_order_value_custom,"
         "aggregated_orders_cumulative_aov.orders_average_order_value_custom as "
         "orders_cumulative_aov FROM base LEFT JOIN aggregated_orders_cumulative_aov ON 1=1;"
     )
@@ -71,15 +73,14 @@ def test_cumulative_query_metric_only_two(connection, query_type):
         "aggregated_orders_total_lifetime_revenue AS ("
         "SELECT SUM(orders_total_revenue) as orders_total_revenue FROM date_spine "
         "JOIN subquery_orders_total_lifetime_revenue ON subquery_orders_total_lifetime_revenue"
-        ".orders_order_date<=date_spine.date WHERE date_spine.date<=current_date() GROUP BY date_spine.date) ,"  # noqa
+        ".orders_order_date<=date_spine.date WHERE date_spine.date<=current_date()) ,"
         "subquery_orders_cumulative_customers AS ("
         f"SELECT {customers_date_def} as customers_first_order_date,"
         "customers.customer_id as customers_number_of_customers FROM analytics.customers customers) ,"
         "aggregated_orders_cumulative_customers AS ("
         "SELECT COUNT(customers_number_of_customers) as customers_number_of_customers FROM date_spine "
         "JOIN subquery_orders_cumulative_customers ON subquery_orders_cumulative_customers"
-        ".customers_first_order_date<=date_spine.date WHERE date_spine.date<=current_date() "
-        "GROUP BY date_spine.date) "
+        ".customers_first_order_date<=date_spine.date WHERE date_spine.date<=current_date()) "
         "SELECT (aggregated_orders_total_lifetime_revenue.orders_total_revenue) "
         "/ nullif((aggregated_orders_cumulative_customers.customers_number_of_customers), 0) "
         "as orders_ltv,aggregated_orders_total_lifetime_revenue.orders_total_revenue "
@@ -110,7 +111,8 @@ def test_cumulative_query_metric_dimension_no_time(connection):
         "SELECT SUM(orders_total_revenue) as orders_total_revenue,orders_new_vs_repeat "
         "as orders_new_vs_repeat FROM date_spine "
         "JOIN subquery_orders_total_lifetime_revenue ON subquery_orders_total_lifetime_revenue"
-        ".orders_order_date<=date_spine.date WHERE date_spine.date<=current_date() GROUP BY date_spine.date) "  # noqa
+        ".orders_order_date<=date_spine.date WHERE date_spine.date<=current_date() "
+        "GROUP BY orders_new_vs_repeat) "
         ",base AS (SELECT orders.new_vs_repeat as orders_new_vs_repeat,SUM(order_lines.revenue) "
         "as order_lines_total_item_revenue FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
@@ -183,7 +185,8 @@ def test_cumulative_query_metric_dimension_and_time(connection):
         "SELECT SUM(orders_total_revenue) as orders_total_revenue,orders_new_vs_repeat "
         "as orders_new_vs_repeat,date_spine.date as orders_order_date FROM date_spine "
         "JOIN subquery_orders_total_lifetime_revenue ON subquery_orders_total_lifetime_revenue"
-        ".orders_order_date<=date_spine.date WHERE date_spine.date<=current_date() GROUP BY date_spine.date) "  # noqa
+        ".orders_order_date<=date_spine.date WHERE date_spine.date<=current_date() "
+        "GROUP BY orders_new_vs_repeat,date_spine.date) "
         "SELECT aggregated_orders_total_lifetime_revenue.orders_new_vs_repeat "
         "as orders_new_vs_repeat,aggregated_orders_total_lifetime_revenue.orders_order_date "
         "as orders_order_date,aggregated_orders_total_lifetime_revenue.orders_total_revenue "
@@ -208,7 +211,7 @@ def test_cumulative_query_metrics_dimensions_and_time(connection):
         "orders_total_revenue,orders_new_vs_repeat as orders_new_vs_repeat,date_spine.date as "
         "orders_order_date FROM date_spine JOIN subquery_orders_total_lifetime_revenue "
         "ON subquery_orders_total_lifetime_revenue.orders_order_date<=date_spine.date"
-        " WHERE date_spine.date<=current_date() GROUP BY date_spine.date) "
+        " WHERE date_spine.date<=current_date() GROUP BY orders_new_vs_repeat,date_spine.date) "
         ",subquery_orders_cumulative_customers AS (SELECT orders.new_vs_repeat "
         "as orders_new_vs_repeat,DATE_TRUNC('DAY', orders.order_date) as orders_order_date,"
         "DATE_TRUNC('DAY', customers.first_order_date) as customers_first_order_date,"
@@ -218,7 +221,7 @@ def test_cumulative_query_metrics_dimensions_and_time(connection):
         "as customers_number_of_customers,orders_new_vs_repeat as orders_new_vs_repeat,date_spine.date "
         "as orders_order_date FROM date_spine JOIN subquery_orders_cumulative_customers "
         "ON subquery_orders_cumulative_customers.customers_first_order_date<=date_spine.date"
-        " WHERE date_spine.date<=current_date() GROUP BY date_spine.date) "
+        " WHERE date_spine.date<=current_date() GROUP BY orders_new_vs_repeat,date_spine.date) "
         ",base AS (SELECT orders.new_vs_repeat as orders_new_vs_repeat,DATE_TRUNC('DAY', orders.order_date) "
         "as orders_order_date,SUM(order_lines.revenue) as order_lines_total_item_revenue "
         "FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
