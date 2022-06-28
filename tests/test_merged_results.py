@@ -115,13 +115,16 @@ def test_merged_result_join_graph(connection):
     assert field.join_graphs() == ["subquery_0"]
 
     field = connection.get_field("gender")
-    assert field.join_graphs() == ["subquery_0", "subquery_2"]
+    assert field.join_graphs() == ["subquery_0", "subquery_1", "subquery_2"]
 
     field = connection.get_field("number_of_sessions")
     assert field.join_graphs() == ["subquery_2", "merged_result_order_lines.revenue_per_session"]
 
     field = connection.get_field("session_id")
     assert field.join_graphs() == ["subquery_2"]
+
+    field = connection.get_field("traffic_id")
+    assert field.join_graphs() == ["subquery_3"]
 
 
 @pytest.mark.query

@@ -61,7 +61,8 @@ class JoinGraph(SQLReplacement):
     @staticmethod
     def _subgraph_nodes_from_components(graph, components):
         edges = networkx.edge_dfs(graph, source=components)
-        return list(set(node for edge in edges for node in edge))
+        all_edges = list(edges) + [list(components)]
+        return list(set(node for edge in all_edges for node in edge))
 
     def ordered_joins(self, view_pairs: list):
         joins = []
