@@ -75,9 +75,14 @@ class MetricsLayerDesign:
         valid_path_and_weights = []
         # We need to do this because we don't know a priori which is the target and which is the finish
         for start, end in itertools.permutations(required_views, 2):
-            short_path = networkx.shortest_path(self.project.join_graph.graph, start, end, weight="weight")
-            path_weight = networkx.path_weight(self.project.join_graph.graph, short_path, "weight")
-            valid_path_and_weights.append((short_path, path_weight))
+            try:
+                short_path = networkx.shortest_path(
+                    self.project.join_graph.graph, start, end, weight="weight"
+                )
+                path_weight = networkx.path_weight(self.project.join_graph.graph, short_path, "weight")
+                valid_path_and_weights.append((short_path, path_weight))
+            except networkx.exception.NetworkXNoPath:
+                pass
 
         if len(valid_path_and_weights) == 0:
             raise networkx.exception.NetworkXNoPath

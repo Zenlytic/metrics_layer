@@ -68,6 +68,12 @@ class View(MetricsLayerBase):
         fields = self.fields(show_hidden=True)
         field_errors = []
 
+        if self.model is None:
+            field_errors.append(
+                f"Could not find a model in view {self.name}. "
+                "Use the model_name property to specify the model."
+            )
+
         if self.default_date:
             try:
                 if "." in self.default_date:

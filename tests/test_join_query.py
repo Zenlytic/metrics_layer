@@ -179,6 +179,21 @@ def test_ensure_join_fields_are_respected(connection):
 
 
 @pytest.mark.query
+def test_ensure_only_join_is_respected(fresh_project):
+    # This is valid and the connection exists in the join graph
+    fresh_project.join_graph.graph["order_lines"]["orders"]
+
+    # Once we tell to only use the discounts view, the above will no longer exist
+    fresh_project._views[0]["identifiers"][1]["only_join"] = ["discounts"]
+    new_graph = fresh_project.join_graph.build()
+
+    with pytest.raises(KeyError) as exc_info:
+        new_graph["order_lines"]["orders"]
+
+    assert exc_info.value
+
+
+@pytest.mark.query
 def test_query_single_join_metric_with_sub_field(connection):
 
     query = connection.get_sql_query(

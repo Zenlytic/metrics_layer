@@ -289,6 +289,26 @@ def test_cli_validate_names(config, fresh_project, mocker):
 
 
 @pytest.mark.cli
+def test_cli_validate_model_name_in_view(config, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    project._views[1].pop("model_name")
+    config.project = project
+    conn = MetricsLayerConnection(config=config)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nCould not find a model in view orders. Use the model_name property to specify the model.\n\n"
+    )
+
+
+@pytest.mark.cli
 def test_cli_debug(connection, mocker):
     def query_runner_mock(query, connection, run_pre_queries=True):
         assert query == "select 1 as id;"
