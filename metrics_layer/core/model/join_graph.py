@@ -29,16 +29,39 @@ class JoinGraph(SQLReplacement):
             self._graph = self.build()
         return self._graph
 
-    def join_graph_hash(self, view_name: str):
-        components = networkx.weakly_connected_components(self.project.join_graph.graph)
-        sorted_components = sorted(components, key=lambda x: "".join(sorted(list(x))))
-        for i, subgraph in enumerate(sorted_components):
-            if view_name in subgraph:
+    def join_graph_hash(self, view_name: str) -> str:
+        graph = self.project.join_graph.graph
+        sorted_components = self._strongly_connected_components(graph)
+
+        for i, components in enumerate(sorted_components):
+            if view_name in components:
                 return f"subquery_{i}"
         raise QueryError(
             f"View name {view_name} not found in any joinable part of your data model. "
             "Please make sure this is the right name for the view."
         )
+
+    def weak_join_graph_hashes(self, view_name: str) -> list:
+        graph = self.project.join_graph.graph
+        sorted_components = self._strongly_connected_components(graph)
+
+        join_graph_hashes = []
+        for i, components in enumerate(sorted_components):
+            subgraph_nodes = self._subgraph_nodes_from_components(graph, components)
+            if view_name in subgraph_nodes:
+                join_graph_hashes.append(f"subquery_{i}")
+
+        return join_graph_hashes
+
+    def _strongly_connected_components(self, graph):
+        components = networkx.strongly_connected_components(graph)
+        sorted_components = sorted(components, key=len, reverse=True)  # Sort by largest component
+        return sorted_components
+
+    @staticmethod
+    def _subgraph_nodes_from_components(graph, components):
+        edges = networkx.edge_dfs(graph, source=components)
+        return list(set(node for edge in edges for node in edge))
 
     def ordered_joins(self, view_pairs: list):
         joins = []

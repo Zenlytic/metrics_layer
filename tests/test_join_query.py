@@ -172,7 +172,7 @@ def test_ensure_join_fields_are_respected(connection):
     with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
         connection.get_sql_query(
             metrics=["number_of_sessions"],
-            dimensions=["discount_promo_name"],
+            dimensions=["total_item_revenue"],
         )
 
     assert exc_info.value

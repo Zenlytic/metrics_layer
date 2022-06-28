@@ -15,7 +15,7 @@ def test_merged_result_query_additional_metric(connection, query_type):
         merged_result=True,
         verbose=True,
     )
-    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_1"
+    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_2"
     if query_type == Definitions.bigquery:
         order_date = "CAST(DATE_TRUNC(CAST(order_lines.order_date as DATE), MONTH) AS TIMESTAMP)"
         session_date = "CAST(DATE_TRUNC(CAST(sessions.session_date as DATE), MONTH) AS TIMESTAMP)"
@@ -60,7 +60,7 @@ def test_merged_result_query_only_metric(connection, dim):
         verbose=True,
     )
 
-    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_1"
+    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_2"
     if "order_month" in dim:
         date_seq = (
             f"{cte_1}.order_lines_order_month as order_lines_order_month,"
@@ -114,6 +114,15 @@ def test_merged_result_join_graph(connection):
     field = connection.get_field("new_vs_repeat")
     assert field.join_graphs() == ["subquery_0"]
 
+    field = connection.get_field("gender")
+    assert field.join_graphs() == ["subquery_0", "subquery_2"]
+
+    field = connection.get_field("number_of_sessions")
+    assert field.join_graphs() == ["subquery_2", "merged_result_order_lines.revenue_per_session"]
+
+    field = connection.get_field("session_id")
+    assert field.join_graphs() == ["subquery_2"]
+
 
 @pytest.mark.query
 def test_merged_result_query_only_metric_no_dim(connection):
@@ -123,7 +132,7 @@ def test_merged_result_query_only_metric_no_dim(connection):
         merged_result=True,
         verbose=True,
     )
-    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_1"
+    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_2"
     correct = (
         f"WITH {cte_1} AS ("
         "SELECT SUM(order_lines.revenue) as order_lines_total_item_revenue "
@@ -180,7 +189,7 @@ def test_merged_result_query_only_metric_with_where(connection):
         verbose=True,
     )
 
-    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_1"
+    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_2"
     date_seq = (
         f"{cte_1}.order_lines_order_month as order_lines_order_month,"
         f"{cte_2}.sessions_session_month as sessions_session_month"
@@ -231,7 +240,7 @@ def test_merged_result_query_only_metric_with_having(connection):
         verbose=True,
     )
 
-    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_1"
+    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_2"
     date_seq = (
         f"{cte_1}.order_lines_order_month as order_lines_order_month,"
         f"{cte_2}.sessions_session_month as sessions_session_month"
@@ -269,7 +278,7 @@ def test_merged_result_query_with_non_component(connection):
         verbose=True,
     )
 
-    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_1"
+    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_2"
     cte_3 = "orders_previous_order__subquery_0"
 
     correct = (
@@ -310,7 +319,7 @@ def test_merged_result_query_with_extra_dim(connection):
         verbose=True,
     )
 
-    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_1"
+    cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_2"
     cte_3 = "orders_previous_order__subquery_0"
 
     correct = (

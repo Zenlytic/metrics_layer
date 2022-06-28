@@ -731,7 +731,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "please pass the model or set the model_name argument in the view"
             )
 
-        base = self.view.project.join_graph.join_graph_hash(self.view.name)
+        base = self.view.project.join_graph.weak_join_graph_hashes(self.view.name)
         edges = self.view.project.join_graph.merged_results_graph(self.view.model).in_edges(self.id())
         extended = [f"merged_result_{mr}" for mr, _ in edges]
-        return [base] + extended
+        return base + extended
