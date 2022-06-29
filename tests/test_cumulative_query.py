@@ -130,6 +130,27 @@ def test_cumulative_query_metric_dimension_no_time(connection):
 
 
 @pytest.mark.query
+def test_cumulative_query_metrics_month_time_frame(connection):
+    query = connection.get_sql_query(metrics=["total_lifetime_revenue"], dimensions=["orders.order_month"])
+
+    correct = (
+        "WITH date_spine AS (select dateadd(day, seq4(), '2000-01-01') as date from "
+        "table(generator(rowcount => 365*40))) ,subquery_orders_total_lifetime_revenue AS ("
+        "SELECT DATE_TRUNC('MONTH', orders.order_date) as orders_order_month,orders.revenue "
+        "as orders_total_revenue FROM analytics.orders orders) ,"
+        "aggregated_orders_total_lifetime_revenue AS (SELECT SUM(orders_total_revenue) "
+        "as orders_total_revenue,date_spine.date as orders_order_month FROM (SELECT DISTINCT "
+        "DATE_TRUNC('MONTH', date) as date FROM date_spine) date_spine JOIN "
+        "subquery_orders_total_lifetime_revenue ON subquery_orders_total_lifetime_revenue.orders_order_month"
+        "<=date_spine.date WHERE date_spine.date<=current_date() GROUP BY date_spine.date) "
+        "SELECT aggregated_orders_total_lifetime_revenue.orders_order_month as orders_order_month,"
+        "aggregated_orders_total_lifetime_revenue.orders_total_revenue as orders_total_lifetime_revenue "
+        "FROM aggregated_orders_total_lifetime_revenue;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_cumulative_query_metrics_and_time(connection):
     query = connection.get_sql_query(
         metrics=["total_lifetime_revenue", "total_item_revenue"],

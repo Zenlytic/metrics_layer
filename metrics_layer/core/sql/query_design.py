@@ -54,6 +54,7 @@ class MetricsLayerDesign:
 
             if len(required_views) > 1 and any(v not in unique_joined_views for v in required_views):
                 raise networkx.exception.NetworkXNoPath
+
             return ordered_view_pairs
 
         except networkx.exception.NetworkXUnfeasible:
@@ -65,11 +66,12 @@ class MetricsLayerDesign:
             for view_pair in sorted(networkx.line_graph(self._join_subgraph).nodes):
                 pairs = list(networkx.bfs_tree(networkx.line_graph(self._join_subgraph), view_pair))
                 pairs = self._clean_view_pairs(pairs)
-                unique_joined_views = [v for p in pairs for v in p]
+                unique_joined_views = set(v for p in pairs for v in p)
 
                 if all(v in unique_joined_views for v in required_views):
-                    break
-            return pairs
+                    return pairs
+
+            raise networkx.exception.NetworkXNoPath
 
     def _shortest_path_between_two(self, required_views: list):
         valid_path_and_weights = []

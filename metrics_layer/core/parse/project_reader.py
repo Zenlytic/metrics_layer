@@ -1,6 +1,5 @@
 import json
 import os
-from glob import glob
 from collections import OrderedDict
 from copy import deepcopy
 
@@ -259,7 +258,7 @@ class ProjectReader:
 
     @staticmethod
     def search_dbt_project(repo, pattern: str):
-        return glob(f"{repo.dbt_path}**/{pattern}", recursive=True)
+        return BaseRepo.glob_search(repo.dbt_path, pattern)
 
     def _parse_dbt_manifest(self, manifest: dict):
         views = self._make_dbt_views(manifest)

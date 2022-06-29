@@ -38,11 +38,16 @@ class BaseRepo:
     def delete(self):
         raise NotImplementedError()
 
-    def search(self):
-        raise NotImplementedError()
+    def search(self, pattern: str):
+        """Example arg: pattern='*.model.*'"""
+        return self.glob_search(self.folder, pattern)
 
     def fetch(self):
         raise NotImplementedError()
+
+    @staticmethod
+    def glob_search(folder: str, pattern: str):
+        return [f for f in glob(f"{folder}**/{pattern}", recursive=True) if "site-packages" not in f]
 
 
 class LocalRepo(BaseRepo):
@@ -57,10 +62,6 @@ class LocalRepo(BaseRepo):
         self.warehouse_type = warehouse_type
         self.folder = f"{os.path.join(os.getcwd(), self.repo_path)}/"
         self.branch_options = []
-
-    def search(self, pattern: str):
-        """Example arg: pattern='*.model.*'"""
-        return glob(f"{self.folder}**/{pattern}", recursive=True)
 
     def fetch(self):
         pass
@@ -80,10 +81,6 @@ class GithubRepo(BaseRepo):
         self.dbt_path = self.folder
         self.branch = branch
         self.branch_options = []
-
-    def search(self, pattern: str):
-        """Example arg: pattern='*.model.*'"""
-        return glob(f"{self.folder}**/{pattern}", recursive=True)
 
     def fetch(self):
         self.fetch_github_repo(self.repo_url, self.repo_destination, self.branch)

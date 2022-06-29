@@ -1,3 +1,4 @@
+import functools
 from copy import deepcopy
 
 from pypika import JoinType, Criterion, Table
@@ -111,6 +112,27 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
             return BIGQUERY_DATE_SPINE
         raise NotImplementedError(f"Database {query_type} not implemented yet")
 
+    def date_spine_by_time_frame(self):
+        dimension_group = self.default_date_dimension_group()
+        valid = {"date", "week", "month", "quarter", "year"}
+        if dimension_group not in valid:
+            dimension_group = "date"
+            date_name = self.cumulative_metrics[0].measure.view.default_date
+            key = f"{self.cumulative_metrics[0].measure.view.name}.{date_name}_{dimension_group}"
+            self.dimensions.append(key)
+            return self.date_spine_cte_name
+        elif dimension_group == "date":
+            return self.date_spine_cte_name
+        else:
+            referenced_metric = self.cumulative_metrics[0].measure
+            date_field = self._get_default_date(referenced_metric, self.cumulative_metrics[0])
+            query = self._base_query()
+            select = self.sql(
+                date_field.apply_dimension_group_time_sql("date", query_type=self.query_type), alias="date"
+            )
+            query = query.from_(Table(self.date_spine_cte_name)).select(select).distinct()
+            return query
+
     def cumulative_subquery(self, cumulative_metric):
         cumulative_metric_cte_alias = cumulative_metric.cte_prefix(aggregated=False)
         reference_metric = cumulative_metric.measure
@@ -132,8 +154,6 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         return query, cumulative_metric_cte_alias
 
     def non_cumulative_subquery(self):
-        print(self.dimensions)
-        print(self.where)
         query = self._subquery(
             metrics=self.non_cumulative_metrics,
             dimensions=self.dimensions,
@@ -155,7 +175,7 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         self.design.no_group_by = no_group_by
         for metric in metrics:
             self.design.field_lookup[metric.id()] = metric
-        print(sub_definition)
+
         query_generator = MetricsLayerQuery(
             sub_definition, design=self.design, suppress_warnings=self.suppress_warnings
         )
@@ -172,7 +192,12 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         date_field = self._get_default_date(referenced_metric, cumulative_metric)
 
         from_query = self._base_query()
-        from_query = from_query.from_(Table(self.date_spine_cte_name))
+        date_spine = self.date_spine_by_time_frame()
+        if date_spine != self.date_spine_cte_name:
+            date_table = Table(f"({date_spine})", alias=self.date_spine_cte_name)
+        else:
+            date_table = Table(self.date_spine_cte_name)
+        from_query = from_query.from_(date_table)
 
         date_spine_reference = f"{self.date_spine_cte_name}.date"
         less_than_now = f"{cte_alias}.{date_field.alias(with_view=True)}<={date_spine_reference}"
@@ -222,8 +247,6 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
             group_by.append(self.sql(date_spine_reference))
 
         if group_by:
-            print("GRPU")
-            print(group_by)
             from_query = from_query.groupby(*group_by)
 
         if having and default_date_is_present:
@@ -234,13 +257,25 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
     def _is_default_date(self, field):
         date_aliases = []
         for cumulative_metric in self.cumulative_metrics:
-            date_field = self._get_default_date(cumulative_metric.measure, cumulative_metric)
-            date_aliases.append(f"{date_field.view.name}.{date_field.name}")
+            date_name = cumulative_metric.measure.view.default_date
+            if "." in date_name:
+                date_aliases.append(date_name)
+            else:
+                date_aliases.append(f"{cumulative_metric.measure.view.name}.{date_name}")
         return f"{field.view.name}.{field.name}" in date_aliases
+
+    @functools.lru_cache(maxsize=None)
+    def default_date_dimension_group(self):
+        for dimension_name in self.dimensions:
+            dimension = self.design.get_field(dimension_name)
+            if self._is_default_date(dimension):
+                return dimension.dimension_group
+        return "date"
 
     def _get_default_date(self, field, cumulative_metric):
         date_name = field.view.default_date
-        date_field_name = f"{date_name}_date"
+        dimension_group = self.default_date_dimension_group()
+        date_field_name = f"{date_name}_{dimension_group}"
         date_key = f"{field.view.name}.{date_field_name}"
         if date_key in self._default_date_memo:
             return self._default_date_memo[date_key]
