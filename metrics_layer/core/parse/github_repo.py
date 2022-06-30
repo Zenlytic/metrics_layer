@@ -47,7 +47,7 @@ class BaseRepo:
 
     @staticmethod
     def glob_search(folder: str, pattern: str):
-        return [f for f in glob(f"{folder}**/{pattern}", recursive=True) if "site-packages" not in f]
+        return [f for f in glob(f"{folder}**/{pattern}", recursive=True) if "venv" not in f]
 
 
 class LocalRepo(BaseRepo):
