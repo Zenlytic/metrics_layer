@@ -64,25 +64,61 @@ class MetricsLayerDesign:
                 return [(source, target) for source, target in zip(path, path[1:])]
 
             g = self.project.join_graph.graph
+            # print(networkx.to_dict_of_dicts(g))
             raw_edges = networkx.line_graph(g).nodes
             sub_line_graph_nodes = networkx.line_graph(self._join_subgraph).nodes
             edges = [e for e in raw_edges if e[0] in required_views or e[1] in required_views]
             # Sorting puts the edges in the subgraph first, then sorts alphabetically
             for view_pair in sorted(edges, key=lambda x: (int(x in sub_line_graph_nodes) * -1, x)):
-                _, paths = networkx.single_source_dijkstra(networkx.line_graph(g), source=view_pair)
-                for pairs in paths.values():
-                    pairs = self._clean_view_pairs(pairs)
-                    unique_joined_views = set(v for p in pairs for v in p)
-
-                    if all(v in unique_joined_views for v in required_views):
-                        return pairs
+                try:
+                    return self._greedy_build_join(g, view_pair, required_views)
+                except ValueError:
+                    pass
 
             raise networkx.exception.NetworkXNoPath
 
-    def _shortest_path_between_two(self, required_views: list):
+    def _greedy_build_join(self, graph, starting_pair: tuple, required_views: list):
+        _, paths = networkx.single_source_dijkstra(networkx.line_graph(graph), source=starting_pair)
+        for pairs in paths.values():
+            pairs = self._clean_view_pairs(pairs)
+            unique_joined_views = set(v for p in pairs for v in p)
+
+            missing_views = [v for v in required_views if v not in unique_joined_views]
+            if len(missing_views) == 0:
+                return pairs
+            else:
+                pairs = self._add_missing_views(missing_views, pairs, len(missing_views))
+                return pairs
+
+    def _add_missing_views(self, missing_views: str, pairs: list, missing_n: int):
+        potential_anchors = [pairs[0][0]] + [p[-1] for p in pairs]
+        still_missing = []
+        for view_name in sorted(missing_views):
+            to_test = []
+            for potential_anchor in potential_anchors:
+                to_test.append((potential_anchor, view_name))
+
+            try:
+                short_path = self._shortest_path_between_two(to_test, permute=False)
+                path_ext = [(source, target) for source, target in zip(short_path, short_path[1:])]
+                pairs.extend(path_ext)
+            except networkx.exception.NetworkXNoPath:
+                still_missing.append(view_name)
+
+        if len(still_missing) == 0:
+            return pairs
+        elif len(still_missing) == missing_n:
+            raise ValueError
+        return self._add_missing_views(still_missing, pairs, len(missing_views))
+
+    def _shortest_path_between_two(self, required_views: list, permute: bool = True):
         valid_path_and_weights = []
         # We need to do this because we don't know a priori which is the target and which is the finish
-        for start, end in itertools.permutations(required_views, 2):
+        if permute:
+            view_pairs = itertools.permutations(required_views, 2)
+        else:
+            view_pairs = required_views
+        for start, end in view_pairs:
             try:
                 short_path = networkx.shortest_path(
                     self.project.join_graph.graph, start, end, weight="weight"
