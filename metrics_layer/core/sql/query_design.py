@@ -63,13 +63,15 @@ class MetricsLayerDesign:
                 path = self._shortest_path_between_two(required_views)
                 return [(source, target) for source, target in zip(path, path[1:])]
 
+            g = self.project.join_graph.graph
             for view_pair in sorted(networkx.line_graph(self._join_subgraph).nodes):
-                pairs = list(networkx.bfs_tree(networkx.line_graph(self._join_subgraph), view_pair))
-                pairs = self._clean_view_pairs(pairs)
-                unique_joined_views = set(v for p in pairs for v in p)
+                _, paths = networkx.single_source_dijkstra(networkx.line_graph(g), source=view_pair)
+                for pairs in paths.values():
+                    pairs = self._clean_view_pairs(pairs)
+                    unique_joined_views = set(v for p in pairs for v in p)
 
-                if all(v in unique_joined_views for v in required_views):
-                    return pairs
+                    if all(v in unique_joined_views for v in required_views):
+                        return pairs
 
             raise networkx.exception.NetworkXNoPath
 

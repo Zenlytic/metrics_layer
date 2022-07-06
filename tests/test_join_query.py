@@ -392,7 +392,7 @@ def test_query_quad_join(connection):
         "FROM analytics_live.discounts discounts LEFT JOIN analytics.order_line_items order_lines "
         "ON discounts.order_id=order_lines.order_unique_id LEFT JOIN analytics.orders orders "
         "ON order_lines.order_unique_id=orders.id LEFT JOIN analytics.customers customers "
-        "ON order_lines.customer_id=customers.customer_id "
+        "ON orders.customer_id=customers.customer_id "
         "GROUP BY customers.region,orders.new_vs_repeat,discounts.code "
         "ORDER BY order_lines_total_item_revenue DESC;"
     )
@@ -563,6 +563,29 @@ def test_query_single_join_count_and_filter(connection):
         "as orders_new_order_count FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "GROUP BY order_lines.sales_channel ORDER BY orders_new_order_count DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_implicit_add_three_views(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_customers"],
+        dimensions=["discount_code", "rainfall"],
+    )
+
+    correct = (
+        "SELECT discounts.code as discounts_discount_code,country_detail.rain "
+        "as country_detail_rainfall,COUNT(DISTINCT(customers.customer_id)) "
+        "as customers_number_of_customers FROM analytics_live.discounts discounts "
+        "LEFT JOIN (SELECT * FROM ANALYTICS.COUNTRY_DETAIL) as country_detail "
+        "ON discounts.country=country_detail.country LEFT JOIN "
+        "analytics.order_line_items order_lines ON discounts.country="
+        "country_detail.country and DATE_TRUNC('DAY', order_lines.order_date) "
+        "is not null LEFT JOIN analytics.customers customers "
+        "ON order_lines.customer_id=customers.customer_id "
+        "GROUP BY discounts.code,country_detail.rain "
+        "ORDER BY customers_number_of_customers DESC;"
     )
     assert query == correct
 

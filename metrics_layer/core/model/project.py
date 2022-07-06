@@ -254,10 +254,8 @@ class Project:
         join_graph = None
         join_graph_options = []
         for field in field_list:
-            # print(field)
             if field.is_merged_result:
                 join_graph = field.join_graphs()[0]
-            # print(field.join_graphs())
             join_graph_options.extend(field.join_graphs())
 
         # If we have an option for a non-merged result, we'll take that unless it's required by another field
