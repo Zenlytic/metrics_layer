@@ -64,7 +64,11 @@ class MetricsLayerDesign:
                 return [(source, target) for source, target in zip(path, path[1:])]
 
             g = self.project.join_graph.graph
-            for view_pair in sorted(networkx.line_graph(self._join_subgraph).nodes):
+            raw_edges = networkx.line_graph(g).nodes
+            sub_line_graph_nodes = networkx.line_graph(self._join_subgraph).nodes
+            edges = [e for e in raw_edges if e[0] in required_views or e[1] in required_views]
+            # Sorting puts the edges in the subgraph first, then sorts alphabetically
+            for view_pair in sorted(edges, key=lambda x: (int(x in sub_line_graph_nodes) * -1, x)):
                 _, paths = networkx.single_source_dijkstra(networkx.line_graph(g), source=view_pair)
                 for pairs in paths.values():
                     pairs = self._clean_view_pairs(pairs)
