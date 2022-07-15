@@ -57,8 +57,9 @@ def test_cli_seed(
         if data["type"] == "model":
             assert data["name"] == "base_model"
             assert data["connection"] == "testing_snowflake"
-            assert len(data["explores"]) in {2, 1}  # 2 for first test 1 for second
+
         elif data["type"] == "view" and data["name"] == "orders":
+            assert data["model_name"] == "base_model"
             if query_type in {Definitions.snowflake, Definitions.redshift}:
                 assert data["sql_table_name"] == "ANALYTICS.ORDERS"
             else:
