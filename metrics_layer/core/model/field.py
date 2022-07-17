@@ -480,7 +480,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         meta_lookup = {
             Definitions.snowflake: {
                 "raw": lambda s, qt: s,
-                "time": lambda s, qt: f"CAST({s} as TIMESTAMP)",
+                "time": lambda s, qt: f"CAST({s} AS TIMESTAMP)",
                 "date": lambda s, qt: f"DATE_TRUNC('DAY', {s})",
                 "week": self._week_dimension_group_time_sql,
                 "month": lambda s, qt: f"DATE_TRUNC('MONTH', {s})",
@@ -492,12 +492,12 @@ class Field(MetricsLayerBase, SQLReplacement):
             },
             Definitions.bigquery: {
                 "raw": lambda s, qt: s,
-                "time": lambda s, qt: f"CAST({s} as TIMESTAMP)",
-                "date": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} as DATE), DAY) AS {self.datatype.upper()})",
+                "time": lambda s, qt: f"CAST({s} AS TIMESTAMP)",
+                "date": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} AS DATE), DAY) AS {self.datatype.upper()})",
                 "week": self._week_dimension_group_time_sql,
-                "month": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} as DATE), MONTH) AS {self.datatype.upper()})",  # noqa
-                "quarter": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} as DATE), QUARTER) AS {self.datatype.upper()})",  # noqa
-                "year": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} as DATE), YEAR) AS {self.datatype.upper()})",
+                "month": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} AS DATE), MONTH) AS {self.datatype.upper()})",  # noqa
+                "quarter": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} AS DATE), QUARTER) AS {self.datatype.upper()})",  # noqa
+                "year": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} AS DATE), YEAR) AS {self.datatype.upper()})",
                 "hour_of_day": lambda s, qt: f"CAST({s} AS STRING FORMAT 'HH24')",
                 "day_of_week": lambda s, qt: f"CAST({s} AS STRING FORMAT 'DAY')",
                 "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM {s})",
@@ -506,7 +506,19 @@ class Field(MetricsLayerBase, SQLReplacement):
         # Snowflake and redshift have identical syntax in this case
         meta_lookup[Definitions.redshift] = meta_lookup[Definitions.snowflake]
 
+        if self.view.project.timezone:
+            sql = self._apply_timezone_to_sql(sql, self.view.project.timezone, query_type)
         return meta_lookup[query_type][self.dimension_group](sql, query_type)
+
+    def _apply_timezone_to_sql(self, sql: str, timezone: str, query_type: str):
+        if query_type == Definitions.snowflake:
+            return f"CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP_NTZ)"
+        elif query_type == Definitions.bigquery:
+            return f"DATETIME(CAST({sql} AS DATETIME), '{timezone}')"
+        elif query_type == Definitions.redshift:
+            return f"CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP_NTZ)"
+        else:
+            raise QueryError(f"Unable to apply timezone to sql for query type {query_type}")
 
     def _week_dimension_group_time_sql(self, sql: str, query_type: str):
         # Monday is the default date for warehouses
@@ -529,7 +541,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     @staticmethod
     def _week_sql_date_trunc(sql, offset, query_type):
-        casted = f"CAST({sql} as DATE)"
+        casted = f"CAST({sql} AS DATE)"
         if query_type in {Definitions.snowflake, Definitions.redshift}:
             if offset is None:
                 return f"DATE_TRUNC('WEEK', {casted})"

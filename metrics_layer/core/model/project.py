@@ -34,6 +34,7 @@ class Project:
         self.manifest = manifest
         self.manifest_exists = manifest and manifest.exists()
         self._user = None
+        self._timezone = None
         self._join_graph = None
 
     def __repr__(self):
@@ -52,6 +53,18 @@ class Project:
 
     def set_user(self, user: dict):
         self._user = user
+
+    def set_timezone(self, timezone: str):
+        self._timezone = timezone
+
+    @property
+    def timezone(self):
+        if self._timezone:
+            return self._timezone
+        for m in self.models():
+            if m.timezone:
+                return m.timezone
+        return None
 
     @property
     def join_graph(self):

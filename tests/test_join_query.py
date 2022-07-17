@@ -161,7 +161,7 @@ def test_functional_pk_resolve_one_to_many(connection):
         "FROM analytics.discount_detail discount_detail "
         "LEFT JOIN analytics_live.discounts discounts ON "
         "discounts.discount_id=discount_detail.discount_id "
-        "AND DATE_TRUNC('WEEK', CAST(discounts.order_date as DATE)) is not null "
+        "AND DATE_TRUNC('WEEK', CAST(discounts.order_date AS DATE)) is not null "
         "GROUP BY discounts.country ORDER BY discount_detail_discount_usd DESC;"
     )
     assert query == correct
@@ -241,7 +241,7 @@ def test_query_single_join_with_forced_additional_join(connection):
         "(country_detail.rain)  IS NOT NULL THEN  country_detail.country  ELSE NULL END), "
         "0)) as country_detail_avg_rainfall FROM analytics.discount_detail discount_detail "
         "LEFT JOIN analytics_live.discounts discounts ON discounts.discount_id=discount_detail.discount_id "
-        "AND DATE_TRUNC(CAST(discounts.order_date as DATE), WEEK) is not null LEFT JOIN "
+        "AND DATE_TRUNC(CAST(discounts.order_date AS DATE), WEEK) is not null LEFT JOIN "
         "(SELECT * FROM ANALYTICS.COUNTRY_DETAIL) as country_detail "
         "ON discounts.country=country_detail.country "
         "GROUP BY discount_detail.promo_name;"
@@ -458,7 +458,7 @@ def test_query_multiple_join_where_literal(connection):
         "analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
-        "WHERE DATE_TRUNC('WEEK', CAST(customers.first_order_date as DATE)) > '2021-07-12' "
+        "WHERE DATE_TRUNC('WEEK', CAST(customers.first_order_date AS DATE)) > '2021-07-12' "
         "GROUP BY customers.region,orders.new_vs_repeat ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct

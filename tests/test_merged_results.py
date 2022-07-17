@@ -17,8 +17,8 @@ def test_merged_result_query_additional_metric(connection, query_type):
     )
     cte_1, cte_2 = "order_lines_order__subquery_0", "sessions_session__subquery_2"
     if query_type == Definitions.bigquery:
-        order_date = "CAST(DATE_TRUNC(CAST(order_lines.order_date as DATE), MONTH) AS TIMESTAMP)"
-        session_date = "CAST(DATE_TRUNC(CAST(sessions.session_date as DATE), MONTH) AS TIMESTAMP)"
+        order_date = "CAST(DATE_TRUNC(CAST(order_lines.order_date AS DATE), MONTH) AS TIMESTAMP)"
+        session_date = "CAST(DATE_TRUNC(CAST(sessions.session_date AS DATE), MONTH) AS TIMESTAMP)"
         order_by = ""
         session_by = ""
     else:

@@ -57,8 +57,8 @@ def test_cumulative_query_metric_only_two(connection, query_type):
 
     if query_type == Definitions.bigquery:
         date_spine = "select date from unnest(generate_date_array('2000-01-01', '2040-01-01')) as date"
-        orders_date_def = "CAST(DATE_TRUNC(CAST(orders.order_date as DATE), DAY) AS TIMESTAMP)"
-        customers_date_def = "CAST(DATE_TRUNC(CAST(customers.first_order_date as DATE), DAY) AS TIMESTAMP)"
+        orders_date_def = "CAST(DATE_TRUNC(CAST(orders.order_date AS DATE), DAY) AS TIMESTAMP)"
+        customers_date_def = "CAST(DATE_TRUNC(CAST(customers.first_order_date AS DATE), DAY) AS TIMESTAMP)"
     else:
         date_spine = (
             "select dateadd(day, seq4(), '2000-01-01') as date from table(generator(rowcount => 365*40))"
