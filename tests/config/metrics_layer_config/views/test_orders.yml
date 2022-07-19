@@ -131,7 +131,7 @@ fields:
     field_type: measure
     type: cumulative
     measure: customers.number_of_customers
-    window: 1 year
+    cumulative_where: ${customers.cancelled_date} < ${cumulative_date}
 
   - name: cumulative_aov
     field_type: measure

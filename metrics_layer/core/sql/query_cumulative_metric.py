@@ -140,6 +140,9 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         date_field = self._get_default_date(reference_metric, cumulative_metric)
         if not any(date_field.name == d.name and date_field.view.name == d.view.name for d in dimensions):
             dimensions.append(date_field)
+
+        if cumulative_metric.cumulative_where:
+            dimensions.extend(self._cumulative_where_fields(cumulative_metric))
         dimension_ids = [d.id() for d in dimensions]
 
         where = []
@@ -201,6 +204,11 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
 
         date_spine_reference = f"{self.date_spine_cte_name}.date"
         less_than_now = f"{cte_alias}.{date_field.alias(with_view=True)}<={date_spine_reference}"
+
+        # For a cumulative filter like setting cancelled date to less than the date_spine value
+        if cumulative_metric.cumulative_where:
+            c_where = self._replace_cumulative_where(cumulative_metric, date_spine_reference)
+            less_than_now = less_than_now + " AND " + c_where
 
         # TODO For a 7 day window
         # window = f"{cte_alias}.{date_field_name}>DATEADD(day, -7, {self.date_spine_cte_name}.date)"
@@ -271,6 +279,39 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
             if self._is_default_date(dimension):
                 return dimension.dimension_group
         return "date"
+
+    def _replace_cumulative_where(self, cumulative_metric, date_spine_reference: str):
+        cte_prefix = cumulative_metric.cte_prefix(aggregated=False)
+        dimension_group = self.default_date_dimension_group()
+        c_where = cumulative_metric.cumulative_where
+        replaced_where = c_where.replace("${cumulative_date}", date_spine_reference)
+
+        for ref in self._cumulative_where_fields(cumulative_metric, refs_only=True):
+            field = self.design.get_field(ref)
+
+            if field.field_type == "dimension_group" and field.dimension_group != dimension_group:
+                field.dimension_group = dimension_group
+
+            sql = field.sql_query(query_type=self.query_type, alias_only=True)
+            replaced_where = replaced_where.replace("${" + ref + "}", f"{cte_prefix}.{sql}")
+
+        return replaced_where
+
+    def _cumulative_where_fields(self, cumulative_metric, refs_only=False):
+        dimension_group = self.default_date_dimension_group()
+        c_where = deepcopy(cumulative_metric.cumulative_where)
+        c_where = c_where.replace("${cumulative_date}", "")
+        refs = cumulative_metric.fields_to_replace(c_where)
+        if refs_only:
+            return refs
+
+        fields = []
+        for r in refs:
+            field = self.design.get_field(r)
+            if field.field_type == "dimension_group" and field.dimension_group != dimension_group:
+                field = self.design.get_field(f"{field.view.name}.{field.name}_{dimension_group}")
+            fields.append(field)
+        return fields
 
     def _get_default_date(self, field, cumulative_metric):
         date_name = field.view.default_date

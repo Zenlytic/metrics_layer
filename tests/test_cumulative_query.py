@@ -59,12 +59,14 @@ def test_cumulative_query_metric_only_two(connection, query_type):
         date_spine = "select date from unnest(generate_date_array('2000-01-01', '2040-01-01')) as date"
         orders_date_def = "CAST(DATE_TRUNC(CAST(orders.order_date AS DATE), DAY) AS TIMESTAMP)"
         customers_date_def = "CAST(DATE_TRUNC(CAST(customers.first_order_date AS DATE), DAY) AS TIMESTAMP)"
+        cancel_date = "CAST(DATE_TRUNC(CAST(customers.cancelled_date AS DATE), DAY) AS TIMESTAMP)"
     else:
         date_spine = (
             "select dateadd(day, seq4(), '2000-01-01') as date from table(generator(rowcount => 365*40))"
         )
         orders_date_def = "DATE_TRUNC('DAY', orders.order_date)"
         customers_date_def = "DATE_TRUNC('DAY', customers.first_order_date)"
+        cancel_date = "DATE_TRUNC('DAY', customers.cancelled_date)"
     correct = (
         f"WITH date_spine AS ({date_spine}) ,"
         "subquery_orders_total_lifetime_revenue AS ("
@@ -75,12 +77,13 @@ def test_cumulative_query_metric_only_two(connection, query_type):
         "JOIN subquery_orders_total_lifetime_revenue ON subquery_orders_total_lifetime_revenue"
         ".orders_order_date<=date_spine.date WHERE date_spine.date<=current_date()) ,"
         "subquery_orders_cumulative_customers AS ("
-        f"SELECT {customers_date_def} as customers_first_order_date,"
-        "customers.customer_id as customers_number_of_customers FROM analytics.customers customers) ,"
-        "aggregated_orders_cumulative_customers AS ("
+        f"SELECT {customers_date_def} as customers_first_order_date,{cancel_date} "
+        "as customers_cancelled_date,customers.customer_id as customers_number_of_customers "
+        "FROM analytics.customers customers) ,aggregated_orders_cumulative_customers AS ("
         "SELECT COUNT(customers_number_of_customers) as customers_number_of_customers FROM date_spine "
         "JOIN subquery_orders_cumulative_customers ON subquery_orders_cumulative_customers"
-        ".customers_first_order_date<=date_spine.date WHERE date_spine.date<=current_date()) "
+        ".customers_first_order_date<=date_spine.date AND subquery_orders_cumulative_customers"
+        ".customers_cancelled_date < date_spine.date WHERE date_spine.date<=current_date()) "
         "SELECT (aggregated_orders_total_lifetime_revenue.orders_total_revenue) "
         "/ nullif((aggregated_orders_cumulative_customers.customers_number_of_customers), 0) "
         "as orders_ltv,aggregated_orders_total_lifetime_revenue.orders_total_revenue "
@@ -131,21 +134,27 @@ def test_cumulative_query_metric_dimension_no_time(connection):
 
 @pytest.mark.query
 def test_cumulative_query_metrics_month_time_frame(connection):
-    query = connection.get_sql_query(metrics=["total_lifetime_revenue"], dimensions=["orders.order_month"])
+    query = connection.get_sql_query(
+        metrics=["cumulative_customers"], dimensions=["customers.first_order_month"]
+    )
 
     correct = (
-        "WITH date_spine AS (select dateadd(day, seq4(), '2000-01-01') as date from "
-        "table(generator(rowcount => 365*40))) ,subquery_orders_total_lifetime_revenue AS ("
-        "SELECT DATE_TRUNC('MONTH', orders.order_date) as orders_order_month,orders.revenue "
-        "as orders_total_revenue FROM analytics.orders orders) ,"
-        "aggregated_orders_total_lifetime_revenue AS (SELECT SUM(orders_total_revenue) "
-        "as orders_total_revenue,date_spine.date as orders_order_month FROM (SELECT DISTINCT "
-        "DATE_TRUNC('MONTH', date) as date FROM date_spine) date_spine JOIN "
-        "subquery_orders_total_lifetime_revenue ON subquery_orders_total_lifetime_revenue.orders_order_month"
-        "<=date_spine.date WHERE date_spine.date<=current_date() GROUP BY date_spine.date) "
-        "SELECT aggregated_orders_total_lifetime_revenue.orders_order_month as orders_order_month,"
-        "aggregated_orders_total_lifetime_revenue.orders_total_revenue as orders_total_lifetime_revenue "
-        "FROM aggregated_orders_total_lifetime_revenue;"
+        "WITH date_spine AS (select dateadd(day, seq4(), '2000-01-01') as date "
+        "from table(generator(rowcount => 365*40))) ,subquery_orders_cumulative_customers AS ("
+        "SELECT DATE_TRUNC('MONTH', customers.first_order_date) as customers_first_order_month,"
+        "DATE_TRUNC('MONTH', customers.cancelled_date) as customers_cancelled_month,"
+        "customers.customer_id as customers_number_of_customers FROM analytics.customers customers) ,"
+        "aggregated_orders_cumulative_customers AS (SELECT COUNT(customers_number_of_customers) "
+        "as customers_number_of_customers,date_spine.date as customers_first_order_month "
+        "FROM (SELECT DISTINCT DATE_TRUNC('MONTH', date) as date FROM date_spine) date_spine "
+        "JOIN subquery_orders_cumulative_customers ON subquery_orders_cumulative_customers"
+        ".customers_first_order_month<=date_spine.date AND "
+        "subquery_orders_cumulative_customers.customers_cancelled_month < date_spine.date "
+        "WHERE date_spine.date<=current_date() GROUP BY date_spine.date) "
+        "SELECT aggregated_orders_cumulative_customers.customers_first_order_month "
+        "as customers_first_order_month,aggregated_orders_cumulative_customers"
+        ".customers_number_of_customers as orders_cumulative_customers "
+        "FROM aggregated_orders_cumulative_customers;"
     )
     assert query == correct
 
@@ -236,13 +245,15 @@ def test_cumulative_query_metrics_dimensions_and_time(connection):
         ",subquery_orders_cumulative_customers AS (SELECT orders.new_vs_repeat "
         "as orders_new_vs_repeat,DATE_TRUNC('DAY', orders.order_date) as orders_order_date,"
         "DATE_TRUNC('DAY', customers.first_order_date) as customers_first_order_date,"
+        "DATE_TRUNC('DAY', customers.cancelled_date) as customers_cancelled_date,"
         "customers.customer_id as customers_number_of_customers FROM analytics.orders orders "
         "LEFT JOIN analytics.customers customers ON orders.customer_id=customers.customer_id) ,"
         "aggregated_orders_cumulative_customers AS (SELECT COUNT(customers_number_of_customers) "
         "as customers_number_of_customers,orders_new_vs_repeat as orders_new_vs_repeat,date_spine.date "
         "as orders_order_date FROM date_spine JOIN subquery_orders_cumulative_customers "
-        "ON subquery_orders_cumulative_customers.customers_first_order_date<=date_spine.date"
-        " WHERE date_spine.date<=current_date() GROUP BY orders_new_vs_repeat,date_spine.date) "
+        "ON subquery_orders_cumulative_customers.customers_first_order_date<=date_spine.date AND "
+        "subquery_orders_cumulative_customers.customers_cancelled_date < date_spine.date "
+        "WHERE date_spine.date<=current_date() GROUP BY orders_new_vs_repeat,date_spine.date) "
         ",base AS (SELECT orders.new_vs_repeat as orders_new_vs_repeat,DATE_TRUNC('DAY', orders.order_date) "
         "as orders_order_date,SUM(order_lines.revenue) as order_lines_total_item_revenue "
         "FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
