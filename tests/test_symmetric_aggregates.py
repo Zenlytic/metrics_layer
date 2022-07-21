@@ -75,9 +75,8 @@ def test_query_count_with_one_to_many(connection):
         "CASE WHEN  (case when order_lines.sales_channel='Email' then "
         "order_lines.order_id end)  IS NOT NULL THEN  case when order_lines.sales_channel='Email'"
         " then order_lines.order_line_id end  ELSE NULL END), 0) as order_lines_number_of_email_purchased_items "  # noqa
-        "FROM analytics.order_line_items order_lines "
-        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        "LEFT JOIN analytics_live.discounts discounts ON orders.id=discounts.order_id "
+        "FROM analytics_live.discounts discounts "
+        "LEFT JOIN analytics.order_line_items order_lines ON discounts.order_id=order_lines.order_unique_id "
         "GROUP BY discounts.code ORDER BY order_lines_number_of_email_purchased_items DESC;"
     )
     assert query == correct

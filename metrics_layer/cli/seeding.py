@@ -5,6 +5,7 @@ from metrics_layer.core.model.definitions import Definitions
 
 class SeedMetricsLayer:
     def __init__(self, profile, connection=None, database=None, schema=None, table=None):
+        self.default_model_name = "base_model"
         self.profile_name = profile
         self.metrics_layer, self.connection = self._init_connection(self.profile_name, connection)
         self.database = database if database else self.connection.database
@@ -86,12 +87,21 @@ class SeedMetricsLayer:
         if self.table:
             data = data[data["TABLE_NAME"].str.lower() == self.table.lower()].copy()
 
+        if getattr(self.metrics_layer.config.repo, "repo_path", None):
+            folder = self.metrics_layer.config.repo.repo_path
+        else:
+            folder = os.getcwd()
+
+        reader = ProjectReader(LocalRepo(folder))
+        reader.load()
+
+        model_name = self.get_model_name(reader)
         # Each iteration represents either a single table or a single view
         views = []
         for i, table_name in enumerate(data["TABLE_NAME"].unique()):
             column_df = data[data["TABLE_NAME"].str.lower() == table_name.lower()].copy()
             schema_name = column_df["TABLE_SCHEMA"].values[0]
-            view = self.make_view(column_df, table_name, schema_name)
+            view = self.make_view(column_df, model_name, table_name, schema_name)
 
             if self.table:
                 progress = ""
@@ -100,15 +110,7 @@ class SeedMetricsLayer:
             print(f"Got information on {table_name} {progress}")
             views.append(view)
 
-        models = self.make_models(views)
-
-        if getattr(self.metrics_layer.config.repo, "repo_path", None):
-            folder = self.metrics_layer.config.repo.repo_path
-        else:
-            folder = os.getcwd()
-
-        reader = ProjectReader(LocalRepo(folder))
-        reader.load()
+        models = self.make_models()
 
         views_only = False
         if len(reader._models) > 0:
@@ -120,17 +122,21 @@ class SeedMetricsLayer:
         # Dump the models to yaml files
         reader.dump(folder, views_only=views_only)
 
-    def make_models(self, views: list):
+    def get_model_name(self, reader):
+        if len(reader._models) > 0:
+            return reader._models[0]["name"]
+        return self.default_model_name
+
+    def make_models(self):
         model = {
             "version": 1,
             "type": "model",
-            "name": "base_model",
+            "name": self.default_model_name,
             "connection": self.connection.name,
-            "explores": [{"name": view["name"]} for view in views],
         }
         return [model]
 
-    def make_view(self, column_data, table_name: str, schema_name: str):
+    def make_view(self, column_data, model_name: str, table_name: str, schema_name: str):
         view_name = self.clean_name(table_name)
         count_measure = {"field_type": "measure", "name": "count", "type": "count"}
         fields = self.make_fields(column_data) + [count_measure]
@@ -142,6 +148,7 @@ class SeedMetricsLayer:
             "version": 1,
             "type": "view",
             "name": view_name,
+            "model_name": model_name,
             "sql_table_name": sql_table_name,
             "default_date": next((f["name"] for f in fields if f["field_type"] == "dimension_group"), None),
             "row_label": "TODO - Label row",

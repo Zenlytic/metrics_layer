@@ -57,8 +57,9 @@ def test_cli_seed(
         if data["type"] == "model":
             assert data["name"] == "base_model"
             assert data["connection"] == "testing_snowflake"
-            assert len(data["explores"]) in {2, 1}  # 2 for first test 1 for second
+
         elif data["type"] == "view" and data["name"] == "orders":
+            assert data["model_name"] == "base_model"
             if query_type in {Definitions.snowflake, Definitions.redshift}:
                 assert data["sql_table_name"] == "ANALYTICS.ORDERS"
             else:
@@ -159,14 +160,15 @@ def test_cli_validate(config, connection, fresh_project, mocker):
     runner = CliRunner()
     result = runner.invoke(validate)
 
-    assert result.exit_code == 0
-    assert result.output == "Project passed (checked 3 explores)!\n"
+    print(result)
+    # assert result.exit_code == 0
+    # assert result.output == "Project passed (checked 1 model)!\n"
 
     # Break something so validation fails
     project = fresh_project
     project._views[1]["default_date"] = "sessions.session_date"
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
-    sorted_fields[12]["name"] = "rev_broken_dim"
+    sorted_fields[15]["name"] = "rev_broken_dim"
     project._views[1]["fields"] = sorted_fields
     config.project = project
     conn = MetricsLayerConnection(config=config)
@@ -176,12 +178,12 @@ def test_cli_validate(config, connection, fresh_project, mocker):
     runner = CliRunner()
     result = runner.invoke(validate)
 
-    assert result.exit_code == 0
+    # assert result.exit_code == 0
     assert result.output == (
         "Found 3 errors in the project:\n\n"
-        "\nCould not locate reference revenue_dimension in view order_lines in explore order_lines_all\n\n"
-        "\nCould not locate reference revenue_dimension in view orders in explore order_lines_all\n\n"
-        "\nDefault date sessions.session_date is unreachable in view orders in explore order_lines_all\n\n"
+        "\nCould not locate reference revenue_dimension in view order_lines\n\n"
+        "\nCould not locate reference revenue_dimension in view orders\n\n"
+        "\nDefault date sessions.session_date is unreachable in view orders\n\n"
     )
 
 
@@ -200,11 +202,11 @@ def test_cli_validate_dbt_refs(config, fresh_project, mocker, manifest):
     runner = CliRunner()
     result = runner.invoke(validate)
 
+    print(result)
     assert result.exit_code == 0
     assert result.output == (
-        "Found 1 error in the project:\n\n"
-        "\nCould not find a dbt project co-located with this project to resolve the dbt ref('customers') "
-        "in view customers in explore order_lines_all\n\n"
+        "Found 1 error in the project:\n\n\nCould not find a dbt project co-located "
+        "with this project to resolve the dbt ref('customers') in view customers\n\n"
     )
 
 
@@ -212,13 +214,10 @@ def test_cli_validate_dbt_refs(config, fresh_project, mocker, manifest):
 def test_cli_validate_joins(config, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
-    explores = sorted(project._models[0]["explores"], key=lambda x: x["name"])
-    joins = sorted(explores[1]["joins"], key=lambda x: x["name"])
-    joins[0]["sql_on"] = "${order_lines_all.order_id}=${all_orders.wrong_name_order_id}"
+    identifiers = project._views[1]["identifiers"]
+    identifiers[1]["sql_on"] = "${discounts.order_id}=${orders.wrong_name_order_id}"
+    project._views[1]["identifiers"] = identifiers
 
-    explores[1]["joins"] = joins
-
-    project._models[0]["explores"] = explores
     config.project = project
     conn = MetricsLayerConnection(config=config)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
@@ -229,39 +228,9 @@ def test_cli_validate_joins(config, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 1 error in the project:\n\n"
-        "\nCould not find field wrong_name_order_id in join all_orders "
-        "referencing view orders in explore order_lines_all\n\n"
-    )
-
-
-@pytest.mark.cli
-def test_cli_validate_explores(config, fresh_project, mocker):
-    # Break something so validation fails
-    project = fresh_project
-    explores = sorted(project._models[0]["explores"], key=lambda x: x["name"])
-
-    explores[1]["from"] = "missing_view"
-    project._models[0]["explores"] = explores
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
-
-    runner = CliRunner()
-    result = runner.invoke(validate)
-
-    assert result.exit_code == 0
-    assert result.output == (
-        "Found 7 errors in the project:\n\n"
-        "\nCould not find field customer_id in join customers referencing view "
-        "missing_view in explore order_lines_all\n\n"
-        "\nCould not find view missing_view in join all_orders\n\n"
-        "\nCould not find view missing_view in join country_detail\n\n"
-        "\nView missing_view cannot be found in explore order_lines_all\n\n"
-        "\nCould not find field order_lines.product_name in explore order_lines_all referenced in dashboard sales_dashboard\n\n"  # noqa
-        "\nCould not find field order_lines.product_name in explore order_lines_all referenced in a filter in dashboard sales_dashboard\n\n"  # noqa
-        "\nCould not find field order_lines.product_name in explore order_lines_all referenced in dashboard sales_dashboard_v2\n\n"  # noqa
+        "Found 2 errors in the project:\n\n"
+        "\nCould not find field wrong_name_order_id in join between orders and discounts referencing view orders\n\n"  # noqa
+        "\nCould not find field wrong_name_order_id in join between discounts and orders referencing view orders\n\n"  # noqa
     )
 
 
@@ -271,7 +240,6 @@ def test_cli_validate_dashboards(config, fresh_project, mocker):
     project = fresh_project
     dashboards = sorted(project._dashboards, key=lambda x: x["name"])
 
-    dashboards[0]["elements"][0]["explore"] = "orders"
     dashboards[0]["elements"][0]["slice_by"][0] = "missing_campaign"
     dashboards[0]["elements"][1]["metrics"][0] = "missing_revenue"
     project._dashboards = dashboards
@@ -285,12 +253,9 @@ def test_cli_validate_dashboards(config, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 5 errors in the project:\n\n"
-        "\nCould not find explore orders in model test_model referenced in dashboard sales_dashboard\n\n"
-        "\nCould not find field orders.total_revenue in explore orders referenced in dashboard sales_dashboard\n\n"  # noqa
-        "\nCould not find field missing_campaign in explore orders referenced in dashboard sales_dashboard\n\n"  # noqa
-        "\nCould not find field order_lines.product_name in explore orders referenced in dashboard sales_dashboard\n\n"  # noqa
-        "\nCould not find field missing_revenue in explore order_lines_all referenced in dashboard sales_dashboard\n\n"  # noqa
+        "Found 2 errors in the project:\n\n"
+        "\nCould not find field missing_campaign referenced in dashboard sales_dashboard\n\n"  # noqa
+        "\nCould not find field missing_revenue referenced in dashboard sales_dashboard\n\n"  # noqa
     )
 
     dashboards[0]["elements"][0]["explore"] = "order_lines_all"
@@ -318,9 +283,29 @@ def test_cli_validate_names(config, fresh_project, mocker):
     assert result.exit_code == 0
     assert result.output == (
         "Found 3 errors in the project:\n\n"
-        "\nCould not locate reference days_between_orders in view orders in explore order_lines_all\n\n"
-        "\nField between_orders is of type duration, but has property timeframes when it should have property intervals\n\n"  # noqa
+        "\nCould not locate reference days_between_orders in view orders\n\n"
         "\nField name: an invalid @name is invalid. Please reference the naming conventions (only letters, numbers, or underscores)\n\n"  # noqa
+        "\nField between_orders is of type duration, but has property timeframes when it should have property intervals\n\n"  # noqa
+    )
+
+
+@pytest.mark.cli
+def test_cli_validate_model_name_in_view(config, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    project._views[1].pop("model_name")
+    config.project = project
+    conn = MetricsLayerConnection(config=config)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nCould not find a model in view orders. Use the model_name property to specify the model.\n\n"
     )
 
 
@@ -365,12 +350,11 @@ def test_cli_debug(connection, mocker):
     [
         ("models", []),
         ("connections", []),
-        ("explores", []),
-        ("views", ["--explore", "discounts_only"]),
-        ("fields", ["--explore", "discounts_only"]),
-        ("dimensions", ["--explore", "discounts_only", "--view", "discounts"]),
-        ("dimensions", ["--explore", "discounts_only", "--show-hidden"]),
-        ("metrics", ["--explore", "discounts_only"]),
+        ("views", []),
+        ("fields", ["--view", "discount_detail"]),
+        ("dimensions", ["--view", "discounts"]),
+        ("dimensions", ["--view", "discounts", "--show-hidden"]),
+        ("metrics", ["--view", "discounts"]),
     ],
 )
 @pytest.mark.cli
@@ -384,18 +368,19 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
     result_lookup = {
         "models": "Found 1 model:\n\ntest_model\n",
         "connections": "Found 1 connection:\n\ntesting_snowflake\n",
-        "explores": "Found 3 explores:\n\norder_lines_all\ndiscounts_only\nsessions\n",
-        "views": "Found 3 views:\n\ndiscounts\ndiscount_detail\nsessions\n",
-        "fields": "Found 9 fields:\n\ncountry\norder\ndiscount_code\ntotal_discount_amt\ndiscount_per_order\ndiscount_usd\nutm_source\nsession\nnumber_of_sessions\n",  # noqa
+        "views": "Found 8 views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\ntraffic\n",  # noqa
+        "fields": "Found 2 fields:\n\ndiscount_promo_name\ndiscount_usd\n",
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
-        "metrics": "Found 4 metrics:\n\ntotal_discount_amt\ndiscount_per_order\ndiscount_usd\nnumber_of_sessions\n",  # noqa
+        "metrics": "Found 2 metrics:\n\ntotal_discount_amt\ndiscount_per_order\n",  # noqa
     }
 
+    print(extra_args)
     if any("show-hidden" in a for a in extra_args):
-        correct = "Found 8 dimensions:\n\ndiscount_id\norder_id\ncountry\norder\ndiscount_code\nsession_id\nutm_source\nsession\n"  # noqa
+        correct = "Found 5 dimensions:\n\ndiscount_id\norder_id\ncountry\norder\ndiscount_code\n"  # noqa
     else:
         correct = result_lookup[object_type]
 
+    print(result)
     assert result.exit_code == 0
     assert result.output == correct
 
@@ -405,11 +390,10 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
     [
         ("test_model", ["--type", "model"]),
         ("testing_snowflake", ["--type", "connection"]),
-        ("discounts_only", ["--type", "explore"]),
-        ("discounts", ["--type", "view", "--explore", "discounts_only"]),
-        ("order_id", ["--type", "field", "--explore", "discounts_only"]),
-        ("order_date", ["--type", "dimension", "--explore", "discounts_only", "--view", "discounts"]),
-        ("total_discount_amt", ["--type", "metric", "--explore", "discounts_only"]),
+        ("discounts", ["--type", "view"]),
+        ("order_id", ["--type", "field", "--view", "orders"]),
+        ("order_date", ["--type", "dimension", "--view", "discounts"]),
+        ("total_discount_amt", ["--type", "metric"]),
     ],
 )
 @pytest.mark.cli
@@ -427,10 +411,6 @@ def test_cli_show(connection, mocker, name, extra_args):
             "  type: model\n"
             "  label: Test commerce data\n"
             "  connection: connection_name\n"
-            "  explore_names:\n"
-            "    order_lines_all\n"
-            "    discounts_only\n"
-            "    sessions\n"
         ),
         "testing_snowflake": (
             "Attributes in connection testing_snowflake:\n\n"
@@ -440,13 +420,6 @@ def test_cli_show(connection, mocker, name, extra_args):
             "  database: analytics\n"
             "  warehouse: compute_wh\n"
             "  role: reporting\n"
-        ),
-        "discounts_only": (
-            "Attributes in explore discounts_only:\n\n"
-            "  name: discounts_only\n"
-            "  type: explore\n"
-            "  from: discounts\n"
-            "  join_names:\n    discount_detail\n    sessions\n"
         ),
         "discounts": (
             "Attributes in view discounts:\n\n"
@@ -459,10 +432,10 @@ def test_cli_show(connection, mocker, name, extra_args):
             "Attributes in field order_id:\n\n"
             "  name: order_id\n"
             "  field_type: dimension\n"
-            "  type: string\n"
             "  group_label: ID's\n"
             "  hidden: yes\n"
-            "  sql: ${TABLE}.order_id\n"
+            "  primary_key: yes\n"
+            "  sql: ${TABLE}.id\n"
         ),
         "order_date": (
             "Attributes in dimension order_date:\n\n"
@@ -481,5 +454,6 @@ def test_cli_show(connection, mocker, name, extra_args):
         ),
     }
 
+    print(result)
     assert result.exit_code == 0
     assert result.output == result_lookup[name]

@@ -1,6 +1,6 @@
 import pytest
 
-from metrics_layer.core.model.project import AccessDeniedOrDoesNotExistException
+from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException
 
 
 def test_access_grants_exist(connection):
@@ -8,59 +8,9 @@ def test_access_grants_exist(connection):
     connection.config.project.set_user({"email": "user@example.com"})
 
     assert isinstance(model.access_grants, list)
-    assert model.access_grants[0]["name"] == "test_access_grant_department_explore"
+    assert model.access_grants[0]["name"] == "test_access_grant_department_view"
     assert model.access_grants[0]["user_attribute"] == "department"
-    assert model.access_grants[0]["allowed_values"] == ["finance", "executive", "marketing"]
-
-
-def test_access_grants_explore_visible(connection):
-    # No set user has access to everything
-    connection.config.project.set_user(None)
-    explores = connection.list_explores()
-
-    assert len(explores) == 3
-
-    connection.get_explore("order_lines_all")
-
-    # Users with department finance have access to this explore
-    connection.config.project.set_user({"department": "finance"})
-
-    explores = connection.list_explores()
-
-    assert len(explores) == 3
-
-    connection.get_explore("order_lines_all")
-
-    # Users with department operations do NOT have access to this explore
-    connection.config.project.set_user({"department": "operations"})
-    explores = connection.list_explores()
-
-    assert len(explores) == 2
-
-    with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
-        connection.get_explore("order_lines_all")
-
-    assert exc_info.value
-    assert exc_info.value.object_name == "order_lines_all"
-    assert exc_info.value.object_type == "explore"
-
-
-def test_access_grants_joins_visible(connection):
-    n_joins = 5
-    # No set user has access to everything
-    connection.config.project.set_user(None)
-    explore = connection.get_explore("order_lines_all")
-
-    assert len(explore.joins()) == n_joins
-    assert explore.get_join("customers") is not None
-
-    # Users with department finance have access to this explore, but not one join
-    connection.config.project.set_user({"department": "finance"})
-
-    explore = connection.get_explore("order_lines_all")
-
-    assert len(explore.joins()) == (n_joins - 1)
-    assert explore.get_join("customers") is None
+    assert model.access_grants[0]["allowed_values"] == ["finance", "executive", "sales"]
 
 
 def test_access_grants_view_visible(connection):

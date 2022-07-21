@@ -6,6 +6,18 @@ sql_table_name: analytics.order_line_items
 
 default_date: order
 row_label: "Order line item"
+model_name: test_model
+
+identifiers: 
+- name: order_line_id
+  type: primary
+  sql: ${order_line_id}
+- name: order_id
+  type: foreign
+  sql: ${order_id}
+- name: customer_id
+  type: foreign
+  sql: ${customer_id}
 
 fields:
   - name: order_line_id
@@ -149,7 +161,7 @@ fields:
 
     # For foreign explores you need to specify the explore, view and measure
     # The the one this is defined in, you only need to specify the view and measure (but you can specify both)
-    sql: ${total_item_revenue} / nullif(${sessions.sessions.number_of_sessions}, 0)
+    sql: ${total_item_revenue} / nullif(${sessions.number_of_sessions}, 0)
 
     is_merged_result: yes
     # This should throw an error if there is no canon_date defined for both of them, and

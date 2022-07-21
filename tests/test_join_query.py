@@ -1,6 +1,6 @@
 import pytest
 
-from metrics_layer.core.model.project import AccessDeniedOrDoesNotExistException
+from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException
 
 
 @pytest.mark.query
@@ -91,8 +91,7 @@ def test_query_single_dimension(connection):
 
     correct = (
         "SELECT orders.new_vs_repeat as orders_new_vs_repeat FROM "
-        "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
-        "order_lines.order_unique_id=orders.id GROUP BY orders.new_vs_repeat "
+        "analytics.orders orders GROUP BY orders.new_vs_repeat "
         "ORDER BY orders_new_vs_repeat ASC;"
     )
     assert query == correct
@@ -154,52 +153,55 @@ def test_functional_pk_resolve_one_to_many(connection):
     query = connection.get_sql_query(
         metrics=["discount_usd"],
         dimensions=["country"],
-        explore_name="discounts_only",
     )
 
     correct = (
         "SELECT discounts.country as discounts_country,"
         "SUM(discount_detail.total_usd) as discount_detail_discount_usd "
-        "FROM analytics_live.discounts discounts "
-        "LEFT JOIN analytics.discount_detail discount_detail "
-        "ON discounts.discount_id=discount_detail.discount_id "
+        "FROM analytics.discount_detail discount_detail "
+        "LEFT JOIN analytics_live.discounts discounts ON "
+        "discounts.discount_id=discount_detail.discount_id "
+        "AND DATE_TRUNC('WEEK', CAST(discounts.order_date AS DATE)) is not null "
         "GROUP BY discounts.country ORDER BY discount_detail_discount_usd DESC;"
     )
     assert query == correct
 
 
 @pytest.mark.query
-def test_ensure_join_fields_are_respected(connection):
+def test_ensure_join_fields_are_respected_two(connection):
     with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
-        connection.get_explore("order_lines_all")
-
         connection.get_sql_query(
-            metrics=["discount_usd"],
-            dimensions=["discount_promo_name"],
-            explore_name="discounts_only",
+            metrics=["number_of_sessions"],
+            dimensions=["total_item_revenue"],
         )
 
     assert exc_info.value
 
 
 @pytest.mark.query
-def test_query_single_join_count(connection):
+def test_ensure_join_fields_are_respected_three_or_more(connection):
+    with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
+        connection.get_sql_query(
+            metrics=["number_of_sessions"],
+            dimensions=["total_item_revenue", "new_vs_repeat", "gender"],
+        )
 
-    query = connection.get_sql_query(
-        metrics=["order_lines.count"],
-        dimensions=["channel", "new_vs_repeat"],
-        explore_name="order_lines_all",
-    )
+    assert exc_info.value
 
-    correct = (
-        "SELECT order_lines.sales_channel as order_lines_channel,"
-        "orders.new_vs_repeat as orders_new_vs_repeat,"
-        "COUNT(order_lines.order_line_id) as order_lines_count FROM "
-        "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
-        "order_lines.order_unique_id=orders.id GROUP BY order_lines.sales_channel,orders.new_vs_repeat "
-        "ORDER BY order_lines_count DESC;"
-    )
-    assert query == correct
+
+@pytest.mark.query
+def test_ensure_only_join_is_respected(fresh_project):
+    # This is valid and the connection exists in the join graph
+    fresh_project.join_graph.graph["order_lines"]["orders"]
+
+    # Once we tell to only use the discounts view, the above will no longer exist
+    fresh_project._views[0]["identifiers"][1]["only_join"] = ["discounts"]
+    new_graph = fresh_project.join_graph.build()
+
+    with pytest.raises(KeyError) as exc_info:
+        new_graph["order_lines"]["orders"]
+
+    assert exc_info.value
 
 
 @pytest.mark.query
@@ -221,6 +223,7 @@ def test_query_single_join_metric_with_sub_field(connection):
     assert query == correct
 
 
+# TODO need one like this with order lines and rainfall
 @pytest.mark.query
 def test_query_single_join_with_forced_additional_join(connection):
     query = connection.get_sql_query(
@@ -236,15 +239,12 @@ def test_query_single_join_with_forced_additional_join(connection):
         "CAST(FARM_FINGERPRINT(CAST(country_detail.country AS STRING)) AS BIGNUMERIC))) AS FLOAT64) "
         "/ CAST((1000000*1.0) AS FLOAT64), 0) / NULLIF(COUNT(DISTINCT CASE WHEN  "
         "(country_detail.rain)  IS NOT NULL THEN  country_detail.country  ELSE NULL END), "
-        "0)) as country_detail_avg_rainfall FROM analytics.order_line_items order_lines "
-        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        "LEFT JOIN analytics_live.discounts discounts ON orders.id=discounts.order_id "
-        "LEFT JOIN analytics.discount_detail discount_detail "
-        "ON discounts.discount_id=discount_detail.discount_id "
-        "AND DATE_TRUNC(CAST(discounts.order_date as DATE), WEEK) is not null "
-        "LEFT JOIN (SELECT * FROM ANALYTICS.COUNTRY_DETAIL) as country_detail "
-        "ON discounts.country=country_detail.country and CAST(DATE_TRUNC(CAST(order_lines.order_date "
-        "as DATE), DAY) AS TIMESTAMP) is not null GROUP BY discount_detail.promo_name;"
+        "0)) as country_detail_avg_rainfall FROM analytics.discount_detail discount_detail "
+        "LEFT JOIN analytics_live.discounts discounts ON discounts.discount_id=discount_detail.discount_id "
+        "AND DATE_TRUNC(CAST(discounts.order_date AS DATE), WEEK) is not null LEFT JOIN "
+        "(SELECT * FROM ANALYTICS.COUNTRY_DETAIL) as country_detail "
+        "ON discounts.country=country_detail.country "
+        "GROUP BY discount_detail.promo_name;"
     )
     assert query == correct
 
@@ -375,6 +375,31 @@ def test_query_multiple_join(connection):
 
 
 @pytest.mark.query
+def test_query_quad_join(connection):
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["region", "new_vs_repeat", "discount_code"],
+    )
+
+    correct = (
+        "SELECT customers.region as customers_region,orders.new_vs_repeat as orders_new_vs_repeat,"
+        "discounts.code as discounts_discount_code,COALESCE(CAST((SUM(DISTINCT "
+        "(CAST(FLOOR(COALESCE(order_lines.revenue, 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) +"
+        " (TO_NUMBER(MD5(order_lines.order_line_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)"
+        "::NUMERIC(38, 0)) - SUM(DISTINCT (TO_NUMBER(MD5(order_lines.order_line_id), "
+        "'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) / "
+        "CAST((1000000*1.0) AS DOUBLE PRECISION), 0) as order_lines_total_item_revenue "
+        "FROM analytics_live.discounts discounts LEFT JOIN analytics.order_line_items order_lines "
+        "ON discounts.order_id=order_lines.order_unique_id "
+        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        "LEFT JOIN analytics.orders orders ON orders.id=discounts.order_id "
+        "GROUP BY customers.region,orders.new_vs_repeat,discounts.code "
+        "ORDER BY order_lines_total_item_revenue DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_query_multiple_join_with_duration(connection):
     query = connection.get_sql_query(
         metrics=["total_sessions"],
@@ -389,9 +414,8 @@ def test_query_multiple_join_with_duration(connection):
         "- SUM(DISTINCT (TO_NUMBER(MD5(case when customers.is_churned=false then customers.customer_id end), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "  # noqa
         "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) / CAST((1000000*1.0) AS DOUBLE PRECISION), 0) "
         "as customers_total_sessions "
-        "FROM analytics.order_line_items order_lines "
-        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        "FROM analytics.orders orders "
+        "LEFT JOIN analytics.customers customers ON orders.customer_id=customers.customer_id "
         "GROUP BY DATEDIFF('MONTH', orders.previous_order_date, orders.order_date) "
         "ORDER BY customers_total_sessions DESC;"
     )
@@ -434,7 +458,7 @@ def test_query_multiple_join_where_literal(connection):
         "analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
-        "WHERE DATE_TRUNC('WEEK', CAST(customers.first_order_date as DATE)) > '2021-07-12' "
+        "WHERE DATE_TRUNC('WEEK', CAST(customers.first_order_date AS DATE)) > '2021-07-12' "
         "GROUP BY customers.region,orders.new_vs_repeat ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
@@ -544,6 +568,27 @@ def test_query_single_join_count_and_filter(connection):
 
 
 @pytest.mark.query
+def test_query_implicit_add_three_views(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_customers"],
+        dimensions=["discount_code", "rainfall"],
+    )
+
+    correct = (
+        "SELECT discounts.code as discounts_discount_code,country_detail.rain "
+        "as country_detail_rainfall,COUNT(DISTINCT(customers.customer_id)) "
+        "as customers_number_of_customers FROM analytics_live.discounts discounts "
+        "LEFT JOIN (SELECT * FROM ANALYTICS.COUNTRY_DETAIL) as country_detail "
+        "ON discounts.country=country_detail.country "
+        "LEFT JOIN analytics.orders orders ON orders.id=discounts.order_id "
+        "LEFT JOIN analytics.customers customers ON orders.customer_id=customers.customer_id "
+        "GROUP BY discounts.code,country_detail.rain "
+        "ORDER BY customers_number_of_customers DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_query_number_measure_w_dimension_reference(connection):
     query = connection.get_sql_query(
         metrics=["ending_on_hand_qty"],
@@ -583,21 +628,5 @@ def test_query_bool_and_date_filter(connection, bool_value):
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
         f"WHERE {negation}customers.is_churned AND DATE_TRUNC('DAY', order_lines.order_date)>'2022-04-03' "
         "GROUP BY order_lines.sales_channel ORDER BY order_lines_total_item_revenue DESC;"
-    )
-    assert query == correct
-
-
-@pytest.mark.query
-def test_cross_join(connection):
-    query = connection.get_sql_query(
-        metrics=["sessions.number_of_sessions"],
-        explore_name="discounts_only",
-    )
-
-    correct = (
-        "SELECT NULLIF(COUNT(DISTINCT CASE WHEN  (sessions.id)  IS NOT NULL THEN "
-        " sessions.id  ELSE NULL END), 0) as sessions_number_of_sessions "
-        "FROM analytics_live.discounts discounts CROSS JOIN analytics.sessions sessions "
-        "ORDER BY sessions_number_of_sessions DESC;"
     )
     assert query == correct

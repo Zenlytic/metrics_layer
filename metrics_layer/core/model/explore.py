@@ -1,4 +1,5 @@
-from .base import AccessDeniedOrDoesNotExistException, MetricsLayerBase
+from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
+from .base import MetricsLayerBase
 from .join import Join
 from .set import Set
 
@@ -27,7 +28,7 @@ class Explore(MetricsLayerBase):
         required_keys = ["name", "model", "from_"]
         for k in required_keys:
             if k not in definition:
-                raise ValueError(f"Explore missing required key {k}")
+                raise QueryError(f"Explore missing required key {k}")
 
     def printable_attributes(self):
         to_print = ["name", "type", "from", "label", "group_label", "model_name", "join_names"]
@@ -53,7 +54,7 @@ class Explore(MetricsLayerBase):
                 continue
             try:
                 view.sql_table_name
-            except ValueError as e:
+            except QueryError as e:
                 errors.append(f"{str(e)} in explore {self.name}")
 
             referenced_fields = view.referenced_fields()
@@ -119,5 +120,5 @@ class Explore(MetricsLayerBase):
 
         explore_field_names = self.field_names()
         if explore_field_names and not show_excluded:
-            return [f for f in fields if f.id(view_only=True) in explore_field_names]
+            return [f for f in fields if f.id() in explore_field_names]
         return fields

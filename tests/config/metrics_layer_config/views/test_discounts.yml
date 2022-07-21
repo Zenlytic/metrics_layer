@@ -1,12 +1,22 @@
 version: 1
 type: view
 name: discounts
+model_name: test_model
 
 sql_table_name: "-- if dev -- dev_db.discounts
                  -- if prod -- analytics_live.discounts"
 
 default_date: order
 row_label: "Discount"
+
+identifiers:
+- name: order_id
+  type: foreign
+  allowed_fanouts: [order_lines]
+  sql: ${order_id}
+- name: country_id
+  type: foreign
+  sql: ${country}
 
 fields:
   - name: discount_id
@@ -60,7 +70,7 @@ fields:
 
     # For foreign explores you need to specify the explore, view and measure
     # The the one this is defined in, you only need to specify the view and measure (but you can specify both)
-    sql: ${total_discount_amt} / nullif(${order_lines_all.orders.number_of_orders}, 0)
+    sql: ${total_discount_amt} / nullif(${orders.number_of_orders}, 0)
 
     is_merged_result: yes
 

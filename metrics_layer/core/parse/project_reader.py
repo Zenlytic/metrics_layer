@@ -1,6 +1,5 @@
 import json
 import os
-from glob import glob
 from collections import OrderedDict
 from copy import deepcopy
 
@@ -9,6 +8,7 @@ import ruamel.yaml
 import yaml
 
 from metrics_layer.core.utils import merge_nested_dict
+from metrics_layer.core.exceptions import QueryError
 
 from .github_repo import BaseRepo
 
@@ -248,9 +248,9 @@ class ProjectReader:
     def _load_manifest_json(self, repo):
         manifest_files = self.search_dbt_project(repo, pattern="manifest.json")
         if len(manifest_files) > 1:
-            raise ValueError("found multiple manifest.json files for your dbt project")
+            raise QueryError("found multiple manifest.json files for your dbt project")
         if len(manifest_files) == 0:
-            raise ValueError("could not find a manifest.json file for your dbt project")
+            raise QueryError("could not find a manifest.json file for your dbt project")
 
         with open(manifest_files[0], "r") as f:
             manifest = json.load(f)
@@ -258,7 +258,7 @@ class ProjectReader:
 
     @staticmethod
     def search_dbt_project(repo, pattern: str):
-        return glob(f"{repo.dbt_path}**/{pattern}", recursive=True)
+        return BaseRepo.glob_search(repo.dbt_path, pattern)
 
     def _parse_dbt_manifest(self, manifest: dict):
         views = self._make_dbt_views(manifest)
@@ -285,7 +285,7 @@ class ProjectReader:
         time_grains = list(sorted(view_metrics, key=lambda x: len(x["time_grains"])))[-1]
 
         if len(unique_timestamps) > 1:
-            raise ValueError(
+            raise QueryError(
                 "cannot handle dbt metrics with different primary timestamps in a view / dbt model"
             )
         dimension_group = self._make_dbt_dimension_group(unique_timestamps[0], time_grains)
@@ -342,11 +342,11 @@ class ProjectReader:
     @staticmethod
     def _make_dbt_metric(metric: dict):
         if len(metric["sql"].split(" ")) > 1:
-            raise ValueError(
+            raise QueryError(
                 "We do not currently support dbt sql statements that are more than an identifier"
             )
         if any(f["operator"] != "equal_to" for f in metric.get("filters", [])):
-            raise ValueError("We do not currently support dbt filter statements that are not equal_to")
+            raise QueryError("We do not currently support dbt filter statements that are not equal_to")
         metric_dict = {
             "name": metric["name"],
             "model": metric["model"].replace("ref('", "").replace("')", ""),

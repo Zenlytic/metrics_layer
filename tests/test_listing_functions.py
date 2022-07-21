@@ -7,10 +7,7 @@ from metrics_layer.core import MetricsLayerConnection
 def test_list_metrics(config):
     conn = MetricsLayerConnection(config=config)
     metrics = conn.list_metrics()
-    assert len(metrics) == 24
-
-    metrics = conn.list_metrics(explore_name="order_lines_all")
-    assert len(metrics) == 23
+    assert len(metrics) == 28
 
     metrics = conn.list_metrics(view_name="order_lines", names_only=True)
     assert len(metrics) == 7
@@ -29,16 +26,10 @@ def test_list_metrics(config):
 def test_list_dimensions(config):
     conn = MetricsLayerConnection(config=config)
     dimensions = conn.list_dimensions(show_hidden=True)
-    assert len(dimensions) == 42
+    assert len(dimensions) == 45
 
     dimensions = conn.list_dimensions()
-    assert len(dimensions) == 30
-
-    dimensions = conn.list_dimensions(explore_name="order_lines_all", show_hidden=True)
-    assert len(dimensions) == 29
-
-    dimensions = conn.list_dimensions(explore_name="order_lines_all")
-    assert len(dimensions) == 18
+    assert len(dimensions) == 32
 
     dimensions = conn.list_dimensions(view_name="order_lines", names_only=True, show_hidden=True)
     dimensions_present = {
@@ -61,9 +52,7 @@ def test_list_dimensions(config):
 
 @pytest.mark.project
 def test_project_expand_fields(config):
-    fields = config.project.fields(
-        explore_name="order_lines_all", show_hidden=False, expand_dimension_groups=True
-    )
+    fields = config.project.fields(show_hidden=False, expand_dimension_groups=True)
 
     dim_groups_alias = [f.alias() for f in fields if f.view.name == "orders" and f.name == "order"]
 

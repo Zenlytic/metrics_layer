@@ -126,38 +126,6 @@ def test_query_mql_as_subset(connection):
     assert query == correct
 
 
-@pytest.mark.skip("TODO add list dimensions support")
-def test_query_mql_list_dimensions(connection):
-
-    query = connection.get_sql_query(
-        sql="SELECT * FROM MQL(LIST_DIMENSIONS)",
-    )
-
-    correct = "SELECT * FROM (SELECT ... TODO"
-    assert query == correct
-
-
-@pytest.mark.skip("TODO add list metrics support")
-def test_query_mql_list_metrics(connection):
-
-    query = connection.get_sql_query(
-        sql="SELECT * FROM MQL(LIST_METRICS)",
-    )
-
-    correct = "SELECT * FROM (SELECT ... TODO"
-    assert query == correct
-
-
-@pytest.mark.skip("TODO add define metric support")
-def test_query_mql_define(connection):
-    query = connection.get_sql_query(
-        sql="SELECT * FROM MQL(DEFINE total_item_revenue)",
-    )
-
-    correct = "SELECT * FROM (SELECT ... TODO"
-    assert query == correct
-
-
 @pytest.mark.query
 def test_query_mql_pass_through_query(connection):
     correct = "SELECT channelinfo.channel, channelinfo.channel_owner FROM analytics.channeldata channelinfo;"

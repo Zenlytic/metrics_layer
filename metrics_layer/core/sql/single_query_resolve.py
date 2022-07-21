@@ -1,22 +1,14 @@
 import sqlparse
 from sqlparse.tokens import Name, Punctuation
 
+from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.parse.config import ConfigError, MetricsLayerConfiguration
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_generator import MetricsLayerQuery
+from metrics_layer.core.sql.query_cumulative_metric import CumulativeMetricsQuery
 
 
 class SingleSQLQueryResolver:
-    """
-    Method of resolving the explore name:
-        if there is not explore passed (using the format explore_name.field_name), we'll search for
-        just the field name and iff that field is used in only one explore, set that as the active explore.
-            - Any fields specified that are not in that explore will raise an error
-
-        if it's passed explicitly, use the first metric's explore, and raise an error if anything conflicts
-        with that explore
-    """
-
     def __init__(
         self,
         metrics: list,
@@ -24,29 +16,29 @@ class SingleSQLQueryResolver:
         where: str = None,  # Either a list of json or a string
         having: str = None,  # Either a list of json or a string
         order_by: str = None,  # Either a list of json or a string
+        model=None,
         config: MetricsLayerConfiguration = None,
         **kwargs,
     ):
         self.field_lookup = {}
         self.no_group_by = False
+        self.has_cumulative_metric = False
         self.verbose = kwargs.get("verbose", False)
         self.select_raw_sql = kwargs.get("select_raw_sql", [])
         self.explore_name = kwargs.get("explore_name")
         self.suppress_warnings = kwargs.get("suppress_warnings", False)
         self.limit = kwargs.get("limit")
         self.return_pypika_query = kwargs.get("return_pypika_query")
+        self.force_group_by = kwargs.get("force_group_by", False)
         self.config = config
         self.project = self.config.project
         self.metrics = metrics
         self.dimensions = dimensions
         self.parse_field_names(where, having, order_by)
+        self.model = model
 
-        if not self.explore_name:
-            self.explore_name = self.derive_explore(self.verbose)
-
-        self.explore = self.project.get_explore(self.explore_name)
         try:
-            self.connection = self.config.get_connection(self.explore.model.connection)
+            self.connection = self.config.get_connection(model.connection)
         except ConfigError:
             self.connection = None
 
@@ -67,7 +59,7 @@ class SingleSQLQueryResolver:
             no_group_by=self.no_group_by,
             query_type=self.query_type,
             field_lookup=self.field_lookup,
-            explore=self.explore,
+            model=self.model,
             project=self.project,
         )
 
@@ -81,59 +73,48 @@ class SingleSQLQueryResolver:
             "limit": self.limit,
             "return_pypika_query": self.return_pypika_query,
         }
-        query = MetricsLayerQuery(
-            query_definition, design=self.design, suppress_warnings=self.suppress_warnings
-        ).get_query(semicolon=semicolon)
+        if self.has_cumulative_metric:
+            query_generator = CumulativeMetricsQuery(
+                query_definition, design=self.design, suppress_warnings=self.suppress_warnings
+            )
+        else:
+            query_generator = MetricsLayerQuery(
+                query_definition, design=self.design, suppress_warnings=self.suppress_warnings
+            )
+
+        query = query_generator.get_query(semicolon=semicolon)
 
         return query
 
-    def derive_explore(self, verbose: bool):
-        # Only checking metrics when they exist reduces the number of obvious explores a user has to specify
-        if len(self.metrics) > 0:
-            all_fields = self.metrics
-        else:
-            all_fields = self.dimensions
-
-        if len(all_fields) == 0:
-            raise ValueError("You need to include at least one metric or dimension for the query to run")
-
-        initial_field = all_fields[0]
-        working_explore_name = self.project.get_explore_from_field(initial_field)
-        for field_name in all_fields[1:]:
-            explore_name = self.project.get_explore_from_field(field_name)
-            if explore_name != working_explore_name:
-                raise ValueError(
-                    f"""The explore found in metric {initial_field}, {working_explore_name}
-                    does not match the explore found in {field_name}, {explore_name}"""
-                )
-
-        if verbose:
-            print(f"Setting query explore to: {working_explore_name}")
-        return working_explore_name
+    def get_used_views(self):
+        unique_view_names = {f.view.name for f in self.field_lookup.values()}
+        return [self.project.get_view(name) for name in unique_view_names]
 
     def parse_input(self):
-        # TODO handle this case in the future
-        if self.explore.symmetric_aggregates == "no":
-            raise NotImplementedError(
-                "MetricsLayer does not currently support turning off symmetric aggregates"
-            )
+        # if self.explore.symmetric_aggregates == "no":
+        #     raise NotImplementedError("MetricsLayer does not support turning off symmetric aggregates")
 
         all_field_names = self.metrics + self.dimensions
         if len(set(all_field_names)) != len(all_field_names):
             # TODO improve this error message
-            raise ValueError("Ambiguous field names in the metrics and dimensions")
+            raise QueryError("Ambiguous field names in the metrics and dimensions")
 
         for name in self.metrics:
-            self.field_lookup[name] = self.get_field_with_error_handling(name, "Metric")
+            field = self.get_field_with_error_handling(name, "Metric")
+            if field.type == "cumulative":
+                self.has_cumulative_metric = True
+            self.field_lookup[name] = field
 
         # Dimensions exceptions:
         #   They are coming from a different explore than the metric, not joinable (handled in get_field)
         #   They are not found in the selected explore (handled here)
+        # TODO make this better
+        metric_view = None if len(self.metrics) == 0 else self.field_lookup[self.metrics[0]].view.name
 
         for name in self.dimensions:
             field = self.get_field_with_error_handling(name, "Dimension")
             # We will not use a group by if the primary key of the main resulting table is included
-            if field.primary_key == "yes" and field.view.name == self.explore.from_:
+            if field.primary_key == "yes" and field.view.name == metric_view and not self.force_group_by:
                 self.no_group_by = True
             self.field_lookup[name] = field
 
@@ -147,9 +128,9 @@ class SingleSQLQueryResolver:
             self.field_lookup[name] = self.get_field_with_error_handling(name, "Order by field")
 
     def get_field_with_error_handling(self, field_name: str, error_prefix: str):
-        field = self.project.get_field(field_name, explore_name=self.explore_name)
+        field = self.project.get_field(field_name, model=self.model)
         if field is None:
-            raise ValueError(f"{error_prefix} {field_name} not found in explore {self.explore_name}")
+            raise QueryError(f"{error_prefix} {field_name} not found")
         return field
 
     def parse_field_names(self, where, having, order_by):
@@ -200,7 +181,7 @@ class SingleSQLQueryResolver:
             for cond in conditions:
                 if "field" not in cond:
                     break
-            raise KeyError(f"Identifier was missing required 'field' key: {cond}")
+            raise QueryError(f"Identifier was missing required 'field' key: {cond}")
 
     @staticmethod
     def _check_for_dict(conditions: list):

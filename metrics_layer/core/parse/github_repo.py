@@ -6,6 +6,7 @@ import git
 import requests
 
 from metrics_layer.core import utils
+from metrics_layer.core.exceptions import QueryError
 
 BASE_PATH = os.path.dirname(__file__)
 
@@ -37,11 +38,16 @@ class BaseRepo:
     def delete(self):
         raise NotImplementedError()
 
-    def search(self):
-        raise NotImplementedError()
+    def search(self, pattern: str):
+        """Example arg: pattern='*.model.*'"""
+        return self.glob_search(self.folder, pattern)
 
     def fetch(self):
         raise NotImplementedError()
+
+    @staticmethod
+    def glob_search(folder: str, pattern: str):
+        return [f for f in glob(f"{folder}**/{pattern}", recursive=True) if "venv" not in f]
 
 
 class LocalRepo(BaseRepo):
@@ -56,10 +62,6 @@ class LocalRepo(BaseRepo):
         self.warehouse_type = warehouse_type
         self.folder = f"{os.path.join(os.getcwd(), self.repo_path)}/"
         self.branch_options = []
-
-    def search(self, pattern: str):
-        """Example arg: pattern='*.model.*'"""
-        return glob(f"{self.folder}**/{pattern}", recursive=True)
 
     def fetch(self):
         pass
@@ -79,10 +81,6 @@ class GithubRepo(BaseRepo):
         self.dbt_path = self.folder
         self.branch = branch
         self.branch_options = []
-
-    def search(self, pattern: str):
-        """Example arg: pattern='*.model.*'"""
-        return glob(f"{self.folder}**/{pattern}", recursive=True)
 
     def fetch(self):
         self.fetch_github_repo(self.repo_url, self.repo_destination, self.branch)
@@ -156,5 +154,5 @@ class LookerGithubRepo(BaseRepo):
         data = {"client_id": client_id, "client_secret": client_secret}
         response = requests.post(f"{looker_url}/api/3.1/login", data=data)
         if response.status_code == 403:
-            raise ValueError("Looker credentials not valid, please check your credentials")
+            raise QueryError("Looker credentials not valid, please check your credentials")
         return response.json()["access_token"]

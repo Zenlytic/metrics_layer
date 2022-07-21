@@ -1,4 +1,5 @@
-from .base import AccessDeniedOrDoesNotExistException, MetricsLayerBase
+from .base import MetricsLayerBase
+from metrics_layer.core.exceptions import QueryError
 
 
 class Set(MetricsLayerBase):
@@ -13,7 +14,7 @@ class Set(MetricsLayerBase):
         required_keys = ["name", "fields"]
         for k in required_keys:
             if k not in definition:
-                raise ValueError(f"Set missing required key {k}")
+                raise QueryError(f"Set missing required key {k}")
 
     def field_names(self):
         all_field_names, names_to_exclude = [], []
@@ -50,28 +51,13 @@ class Set(MetricsLayerBase):
     def _internal_get_fields_from_set(self, set_name: str):
         if set_name == "ALL_FIELDS":
             all_fields = self.project.fields(
-                explore_name=self.explore_name,
-                view_name=self.view_name,
-                show_hidden=True,
-                expand_dimension_groups=True,
-                show_excluded=True,
+                view_name=self.view_name, show_hidden=True, expand_dimension_groups=True
             )
             return [f"{f.view.name}.{f.alias()}" for f in all_fields]
 
         _, view_name, set_name = self.field_name_parts(set_name)
         _set = self.project.get_set(set_name, view_name=view_name)
         if _set is None:
-            if self.explore:
-                join_set = next((j for j in self.explore.joins() if j.name == set_name), None)
-                if join_set:
-                    try:
-                        view = self.project.get_view(join_set.from_, explore=self.explore)
-                    except AccessDeniedOrDoesNotExistException:
-                        return []
-                    return [
-                        f.id(view_only=True)
-                        for f in view.fields(show_hidden=True, expand_dimension_groups=True)
-                    ]
             print(f"WARNING: Could not find set with name {set_name}, disregarding those fields")
             return []
         return _set.field_names()
@@ -82,4 +68,4 @@ class Set(MetricsLayerBase):
         elif view_name is None and self.view_name:
             return self.view_name
         else:
-            raise ValueError(f"Cannot find a valid view name for the field {field_name} in set {self.name}")
+            raise QueryError(f"Cannot find a valid view name for the field {field_name} in set {self.name}")

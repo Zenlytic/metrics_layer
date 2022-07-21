@@ -1,3 +1,6 @@
+from metrics_layer.core.exceptions import QueryError
+
+
 class Manifest:
     def __init__(self, definition: dict):
         self._definition = definition
@@ -8,7 +11,7 @@ class Manifest:
     def _resolve_node(self, name: str):
         key = next((k for k in self._definition["nodes"].keys() if name == k.split(".")[-1]), None)
         if key is None:
-            raise ValueError(
+            raise QueryError(
                 f"Could not find the ref {name} in the co-located dbt project."
                 " Please check the name in your dbt project."
             )

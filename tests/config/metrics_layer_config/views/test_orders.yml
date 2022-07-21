@@ -4,9 +4,27 @@ name: orders
 
 sql_table_name: analytics.orders
 required_access_grants: [test_access_grant_department_view]
+model_name: test_model
 
 default_date: order
 row_label: "Order"
+
+identifiers:
+- name: order_id
+  type: primary
+  sql: ${order_id}
+- name: order_discount_join
+  type: join
+  relationship: one_to_many
+  reference: 'discounts'
+  sql_on: ${orders.order_id}=${discounts.order_id}
+- name: customer_id
+  type: foreign
+  sql: ${customer_id}
+  
+access_filters:
+  - field: customers.region
+    user_attribute: owned_region
 
 fields:
   - name: order_id
@@ -103,6 +121,27 @@ fields:
     field_type: "measure"
     type: sum
     sql: ${revenue_dimension}
+
+  - name: total_lifetime_revenue
+    field_type: measure
+    type: cumulative
+    measure: total_revenue
+
+  - name: cumulative_customers
+    field_type: measure
+    type: cumulative
+    measure: customers.number_of_customers
+    cumulative_where: ${customers.cancelled_date} < ${cumulative_date}
+
+  - name: cumulative_aov
+    field_type: measure
+    type: cumulative
+    measure: average_order_value_custom
+
+  - name: ltv
+    field_type: measure
+    type: number
+    sql: ${total_lifetime_revenue} / nullif(${cumulative_customers}, 0)
 
   - name: total_modified_revenue
     field_type: "measure"

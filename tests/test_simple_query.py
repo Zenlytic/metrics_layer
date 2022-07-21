@@ -3,6 +3,7 @@ from datetime import datetime
 import pendulum
 import pytest
 
+from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.model import Definitions, Project
 
@@ -180,6 +181,50 @@ def test_simple_query_alias_keyword(config):
 @pytest.mark.parametrize(
     "group,query_type",
     [
+        ("date", Definitions.snowflake),
+        ("week", Definitions.snowflake),
+        ("date", Definitions.redshift),
+        ("week", Definitions.redshift),
+        ("date", Definitions.bigquery),
+        ("week", Definitions.bigquery),
+    ],
+)
+@pytest.mark.query
+def test_simple_query_dimension_group_timezone(config, group: str, query_type: str):
+    project = Project(models=[simple_model], views=[simple_view])
+    project.set_timezone("America/New_York")
+    config.project = project
+    conn = MetricsLayerConnection(config=config)
+    query = conn.get_sql_query(
+        metrics=["total_revenue"], dimensions=[f"order_{group}"], query_type=query_type
+    )
+
+    if query_type in {Definitions.snowflake, Definitions.redshift}:
+        result_lookup = {
+            "date": "DATE_TRUNC('DAY', CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ))",  # noqa
+            "week": "DATE_TRUNC('WEEK', CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS DATE) + 1) - 1",  # noqa
+        }
+        order_by = " ORDER BY simple_total_revenue DESC"
+    else:
+        result_lookup = {
+            "date": "CAST(DATE_TRUNC(CAST(DATETIME(CAST(simple.order_date AS DATETIME), 'America/New_York') AS DATE), DAY) AS TIMESTAMP)",  # noqa
+            "week": "CAST(DATE_TRUNC(CAST(DATETIME(CAST(simple.order_date AS DATETIME), 'America/New_York') AS DATE) + 1, WEEK) - 1 AS TIMESTAMP)",  # noqa
+        }
+        order_by = ""
+
+    date_result = result_lookup[group]
+
+    correct = (
+        f"SELECT {date_result} as simple_order_{group},SUM(simple.revenue) as "
+        f"simple_total_revenue FROM analytics.orders simple GROUP BY {date_result}"
+        f"{order_by};"
+    )
+    assert query == correct
+
+
+@pytest.mark.parametrize(
+    "group,query_type",
+    [
         ("time", Definitions.snowflake),
         ("date", Definitions.snowflake),
         ("week", Definitions.snowflake),
@@ -220,9 +265,9 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
 
     if query_type in {Definitions.snowflake, Definitions.redshift}:
         result_lookup = {
-            "time": "CAST(simple.order_date as TIMESTAMP)",
+            "time": "CAST(simple.order_date AS TIMESTAMP)",
             "date": "DATE_TRUNC('DAY', simple.order_date)",
-            "week": "DATE_TRUNC('WEEK', CAST(simple.order_date as DATE) + 1) - 1",
+            "week": "DATE_TRUNC('WEEK', CAST(simple.order_date AS DATE) + 1) - 1",
             "month": "DATE_TRUNC('MONTH', simple.order_date)",
             "quarter": "DATE_TRUNC('QUARTER', simple.order_date)",
             "year": "DATE_TRUNC('YEAR', simple.order_date)",
@@ -233,12 +278,12 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
         order_by = " ORDER BY simple_total_revenue DESC"
     else:
         result_lookup = {
-            "time": "CAST(simple.order_date as TIMESTAMP)",
-            "date": "CAST(DATE_TRUNC(CAST(simple.order_date as DATE), DAY) AS TIMESTAMP)",
-            "week": "CAST(DATE_TRUNC(CAST(simple.order_date as DATE) + 1, WEEK) - 1 AS TIMESTAMP)",
-            "month": "CAST(DATE_TRUNC(CAST(simple.order_date as DATE), MONTH) AS TIMESTAMP)",
-            "quarter": "CAST(DATE_TRUNC(CAST(simple.order_date as DATE), QUARTER) AS TIMESTAMP)",
-            "year": "CAST(DATE_TRUNC(CAST(simple.order_date as DATE), YEAR) AS TIMESTAMP)",
+            "time": "CAST(simple.order_date AS TIMESTAMP)",
+            "date": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), DAY) AS TIMESTAMP)",
+            "week": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE) + 1, WEEK) - 1 AS TIMESTAMP)",
+            "month": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), MONTH) AS TIMESTAMP)",
+            "quarter": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), QUARTER) AS TIMESTAMP)",
+            "year": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), YEAR) AS TIMESTAMP)",
             "hour_of_day": f"CAST(simple.order_date AS STRING FORMAT 'HH24')",
             "day_of_week": f"CAST(simple.order_date AS STRING FORMAT 'DAY')",
             "day_of_month": "EXTRACT(DAY FROM simple.order_date)",
@@ -292,7 +337,7 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
     conn = MetricsLayerConnection(config=config)
     raises_error = interval == "hour" and query_type == Definitions.bigquery
     if raises_error:
-        with pytest.raises(KeyError) as exc_info:
+        with pytest.raises(QueryError) as exc_info:
             conn.get_sql_query(
                 metrics=["total_revenue"],
                 dimensions=[f"{interval}s_waiting"],
@@ -456,23 +501,23 @@ def test_simple_query_with_where_dim_group(config, field, expression, value, que
         and isinstance(value, str)
         and field == "order_date"
     ):
-        condition = "CAST(DATE_TRUNC(CAST(simple.order_date as DATE), DAY) AS TIMESTAMP)>'2021-08-04'"
+        condition = "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), DAY) AS TIMESTAMP)>'2021-08-04'"
     elif query_type == Definitions.bigquery and isinstance(value, datetime) and field == "order_date":
-        condition = "CAST(DATE_TRUNC(CAST(simple.order_date as DATE), DAY) AS TIMESTAMP)>TIMESTAMP('2021-08-04 00:00:00')"  # noqa
+        condition = "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), DAY) AS TIMESTAMP)>TIMESTAMP('2021-08-04 00:00:00')"  # noqa
     elif (
         query_type == Definitions.bigquery and isinstance(value, datetime) and field == "previous_order_date"
     ):
-        condition = "CAST(DATE_TRUNC(CAST(simple.previous_order_date as DATE), DAY) AS DATETIME)>DATETIME('2021-08-04 00:00:00')"  # noqa
+        condition = "CAST(DATE_TRUNC(CAST(simple.previous_order_date AS DATE), DAY) AS DATETIME)>DATETIME('2021-08-04 00:00:00')"  # noqa
     elif query_type == Definitions.bigquery and isinstance(value, datetime) and field == "first_order_date":
-        condition = "CAST(DATE_TRUNC(CAST(simple.first_order_date as DATE), DAY) AS DATE)>DATE('2021-08-04 00:00:00')"  # noqa
+        condition = "CAST(DATE_TRUNC(CAST(simple.first_order_date AS DATE), DAY) AS DATE)>DATE('2021-08-04 00:00:00')"  # noqa
     elif sf_or_rs and expression == "matches":
         last_year = pendulum.now("UTC").year - 1
         condition = f"DATE_TRUNC('DAY', simple.{field})>='{last_year}-01-01T00:00:00' AND "
         condition += f"DATE_TRUNC('DAY', simple.{field})<='{last_year}-12-31T23:59:59'"
     elif query_type == Definitions.bigquery and expression == "matches":
         last_year = pendulum.now("UTC").year - 1
-        condition = f"CAST(DATE_TRUNC(CAST(simple.{field} as DATE), DAY) AS TIMESTAMP)>=TIMESTAMP('{last_year}-01-01T00:00:00') AND "  # noqa
-        condition += f"CAST(DATE_TRUNC(CAST(simple.{field} as DATE), DAY) AS TIMESTAMP)<=TIMESTAMP('{last_year}-12-31T23:59:59')"  # noqa
+        condition = f"CAST(DATE_TRUNC(CAST(simple.{field} AS DATE), DAY) AS TIMESTAMP)>=TIMESTAMP('{last_year}-01-01T00:00:00') AND "  # noqa
+        condition += f"CAST(DATE_TRUNC(CAST(simple.{field} AS DATE), DAY) AS TIMESTAMP)<=TIMESTAMP('{last_year}-12-31T23:59:59')"  # noqa
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
@@ -684,45 +729,5 @@ def test_simple_query_with_all(config):
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
         "analytics.orders simple WHERE simple.sales_channel<>'Email' "
         "GROUP BY simple.sales_channel HAVING SUM(simple.revenue)>12 ORDER BY total_revenue ASC;"
-    )
-    assert query == correct
-
-
-@pytest.mark.query
-def test_simple_query_sql_always_where(config):
-    modified_explore = {
-        **simple_model["explores"][0],
-        "sql_always_where": "UPPER(${new_vs_repeat}) = 'REPEAT'",
-    }
-
-    project = Project(models=[{**simple_model, "explores": [modified_explore]}], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
-    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"])
-
-    correct = (
-        "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-        "analytics.orders simple WHERE UPPER(simple.new_vs_repeat) = 'REPEAT' GROUP BY simple.sales_channel "
-        "ORDER BY simple_total_revenue DESC;"
-    )
-    assert query == correct
-
-
-@pytest.mark.query
-def test_simple_query_invalid_sql_always_where(config):
-    # Looker conditional example
-    modified_explore = {
-        **simple_model["explores"][0],
-        "sql_always_where": "{% if order_line.current_date_range._is_filtered %} ${new_vs_repeat} = 'Repeat'",
-    }
-
-    project = Project(models=[{**simple_model, "explores": [modified_explore]}], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
-    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"], suppress_warnings=True)
-
-    correct = (
-        "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-        "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC;"
     )
     assert query == correct

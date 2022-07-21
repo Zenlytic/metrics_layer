@@ -1,5 +1,6 @@
 from copy import deepcopy
 
+from metrics_layer.core.exceptions import QueryError
 from .base import MetricsLayerBase
 from .filter import Filter
 
@@ -17,10 +18,10 @@ class DashboardElement(MetricsLayerBase):
         super().__init__(definition)
 
     def validate(self, definition: dict):
-        required_keys = ["model", "explore"]
+        required_keys = ["model"]
         for k in required_keys:
             if k not in definition:
-                raise ValueError(f"Dashboard Element missing required key {k}")
+                raise QueryError(f"Dashboard Element missing required key {k}")
 
     def to_dict(self):
         definition = deepcopy(self._definition)
@@ -53,26 +54,16 @@ class DashboardElement(MetricsLayerBase):
             err_msg = f"Could not find model {self.model} referenced in dashboard {self.dashboard.name}"
             errors.append(err_msg)
 
-        if not self._function_executes(self.project.get_explore, self.explore):
-            err_msg = (
-                f"Could not find explore {self.explore} in model {self.model} "
-                f"referenced in dashboard {self.dashboard.name}"
-            )
-            errors.append(err_msg)
-
         for field in self.metrics + self.slice_by:
-            if not self._function_executes(self.project.get_field, field, explore_name=self.explore):
-                err_msg = (
-                    f"Could not find field {field} in explore {self.explore} "
-                    f"referenced in dashboard {self.dashboard.name}"
-                )
+            if not self._function_executes(self.project.get_field, field):
+                err_msg = f"Could not find field {field} referenced in dashboard {self.dashboard.name}"
                 errors.append(err_msg)
 
         for f in self._raw_filters():
-            if not self._function_executes(self.project.get_field, f["field"], explore_name=self.explore):
+            if not self._function_executes(self.project.get_field, f["field"]):
                 err_msg = (
-                    f"Could not find field {f['field']} in explore {self.explore} "
-                    f"referenced in a filter in dashboard {self.dashboard.name}"
+                    f"Could not find field {f['field']} referenced"
+                    f" in a filter in dashboard {self.dashboard.name}"
                 )
                 errors.append(err_msg)
         return errors
@@ -108,7 +99,7 @@ class Dashboard(MetricsLayerBase):
         required_keys = ["name", "layout"]
         for k in required_keys:
             if k not in definition:
-                raise ValueError(f"Dashboard missing required key {k}")
+                raise QueryError(f"Dashboard missing required key {k}")
 
     def to_dict(self):
         definition = deepcopy(self._definition)
@@ -119,17 +110,10 @@ class Dashboard(MetricsLayerBase):
     def collect_errors(self):
         errors = []
         for f in self._raw_filters():
-            if "explore" not in f:
-                errors.append(self._missing_filter_explore_error(f))
-                continue
-
             try:
-                self.project.get_field(f["field"], explore_name=f["explore"])
+                self.project.get_field(f["field"])
             except Exception:
-                err_msg = (
-                    f"Could not find field {f['field']} in explore {f['explore']} "
-                    f"referenced in a filter in dashboard {self.name}"
-                )
+                err_msg = f"Could not find field {f['field']} referenced in a filter in dashboard {self.name}"
                 errors.append(err_msg)
 
         for element in self.elements():
@@ -152,8 +136,6 @@ class Dashboard(MetricsLayerBase):
         for f in self._raw_filters():
             clean_filters = Filter(f).filter_dict(json_safe)
             for clean_filter in clean_filters:
-                if "explore" not in clean_filter:
-                    raise ValueError(self._missing_filter_explore_error(filter_obj=clean_filter))
                 all_filters.append(clean_filter)
         return all_filters
 

@@ -2,11 +2,16 @@ version: 1
 type: view
 name: customers
 
-# sql_table_name: analytics.customers
 sql_table_name: "{{ ref('customers') }}"
-
 default_date: first_order
 row_label: "Customer"
+required_access_grants: [test_access_grant_department_customers]
+model_name: test_model
+
+identifiers: 
+- name: customer_id
+  type: primary
+  sql: ${customer_id}
 
 fields:
   - name: customer_id
@@ -31,7 +36,7 @@ fields:
     ]
     sql: "${TABLE}.first_order_date"
 
-  - name: second_order
+  - name: cancelled
     field_type: "dimension_group"
     type: time
     timeframes: [
@@ -43,7 +48,7 @@ fields:
       quarter,
       year
     ]
-    sql: "${TABLE}.second_order_date"
+    sql: "${TABLE}.cancelled_date"
 
   - name: number_of_customers
     field_type: measure

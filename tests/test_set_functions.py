@@ -6,9 +6,6 @@ def test_sets(connection):
     sets = connection.config.project.sets()
     assert len(sets) == 5
 
-    sets = connection.config.project.sets(explore_name="order_lines_all")
-    assert len(sets) == 5
-
     sets = connection.config.project.sets(view_name="orders")
     assert len(sets) == 5
 
@@ -65,25 +62,22 @@ def test_sets(connection):
         "orders.number_of_orders",
         "orders.average_days_between_orders",
         "orders.total_revenue",
+        "orders.total_lifetime_revenue",
+        "orders.cumulative_customers",
+        "orders.cumulative_aov",
+        "orders.ltv",
         "orders.total_modified_revenue",
         "orders.average_order_value_custom",
         "orders.new_order_count",
     ]
 
 
-def test_explore_sets(connection):
-    explore = connection.config.project.get_explore("order_lines_all")
-
-    explore_field_names = explore.field_names()
-    excluded = ["discounts.country", "orders.do_not_use"]
-    assert not any(fn in explore_field_names for fn in excluded)
-
-
+@pytest.mark.project
 def test_drill_fields(connection):
-    field = connection.config.project.get_field("orders.number_of_orders", explore_name="order_lines_all")
+    field = connection.config.project.get_field("orders.number_of_orders")
 
     drill_field_names = field.drill_fields
-    assert field.id() == "order_lines_all.orders.number_of_orders"
+    assert field.id() == "orders.number_of_orders"
     assert drill_field_names == [
         "orders.order_id",
         "orders.customer_id",
@@ -94,3 +88,57 @@ def test_drill_fields(connection):
     field = connection.config.project.get_field("orders.total_revenue")
     assert field.drill_fields is None
     assert field.id() == "orders.total_revenue"
+
+
+@pytest.mark.project
+def test_joinable_fields_join(connection):
+    field = connection.config.project.get_field("orders.number_of_orders")
+
+    joinable_fields = connection.config.project.joinable_fields([field], expand_dimension_groups=True)
+    names = [f.id() for f in joinable_fields]
+    must_exclude = ["order_lines.revenue_per_session", "sessions.number_of_sessions"]
+    must_include = [
+        "orders.order_date",
+        "order_lines.order_id",
+        "customers.number_of_customers",
+        "country_detail.rainfall",
+        "discount_detail.discount_usd",
+        "discounts.discount_code",
+    ]
+    assert all(name in names for name in must_include)
+    assert all(name not in names for name in must_exclude)
+
+    test_fields = [field]
+    add_fields = [
+        "order_lines.order_month",
+        "order_lines.product_name",
+        "customers.gender",
+        "order_lines.ending_on_hand_qty",
+    ]
+    for field_name in add_fields:
+        test_fields.append(connection.config.project.get_field(field_name))
+
+    joinable_fields = connection.config.project.joinable_fields(test_fields, expand_dimension_groups=True)
+    names = [f.id() for f in joinable_fields]
+    assert all(name in names for name in must_include)
+
+
+@pytest.mark.project
+def test_joinable_fields_merged(connection):
+    field = connection.config.project.get_field("order_lines.revenue_per_session")
+
+    # Add tests for exclusions here
+    joinable_fields = connection.config.project.joinable_fields([field], expand_dimension_groups=True)
+    names = [f.id() for f in joinable_fields]
+    must_exclude = ["customers.gender", "orders.order_date"]
+    must_include = [
+        "order_lines.order_date",
+        "order_lines.total_item_revenue",
+        "order_lines.revenue_per_session",
+        "orders.sub_channel",
+        "sessions.utm_source",
+        "sessions.session_year",
+        "sessions.number_of_sessions",
+    ]
+    assert all(name in names for name in must_include)
+    assert all(name not in names for name in must_exclude)

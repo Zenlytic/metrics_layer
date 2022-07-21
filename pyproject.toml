@@ -11,13 +11,13 @@ repository = "https://github.com/Zenlytic/metrics_layer"
 documentation = "https://zenlytic.github.io/zenlytic-docs"
 
 [tool.poetry.dependencies]
-python = ">=3.7.1, <3.10"
+python = ">=3.8.1, <3.10"
 lkml = "^1.1.0"
 requests = "^2.26.0"
 GitPython = "^3.1.20"
 sqlparse = "^0.4.1"
 PyPika = "^0.48.8"
-pandas = {version = "^1.2.2", optional = true}
+pandas = "^1.2.2"
 snowflake-connector-python = {version = "~2.7.6", optional = true}
 pyarrow = {version = "6.0.0", optional = true}
 google-cloud-bigquery = {version = "^2.24.1", optional = true}
@@ -27,11 +27,12 @@ dbt-extractor = {version = "^0.4.0", optional = true}
 dbt-snowflake = {version = "^1.0.0", optional = true}
 dbt-bigquery = {version = "^1.0.0", optional = true}
 dbt-redshift = {version = "^1.0.0", optional = true}
-networkx = "^2.6.3"
+networkx = "^2.8.2"
 click = "^8.0"
 colorama = "^0.4.4"
 "ruamel.yaml" = "^0.17.20"
 pendulum = "^2.1.2"
+PyYAML = "^6.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
@@ -43,11 +44,11 @@ pytest-cov = "^2.12.1"
 pytest-mock = "^3.6.1"
 
 [tool.poetry.extras]
-snowflake = ["snowflake-connector-python", "pyarrow", "pandas", "dbt-snowflake"]
-bigquery = ["google-cloud-bigquery", "pyarrow", "pandas", "dbt-bigquery"]
-redshift = ["redshift-connector", "dbt-redshift", "pandas"]
+snowflake = ["snowflake-connector-python", "pyarrow", "dbt-snowflake"]
+bigquery = ["google-cloud-bigquery", "pyarrow", "dbt-bigquery"]
+redshift = ["redshift-connector", "dbt-redshift"]
 dbt = ["dbt-core", "dbt-extractor"]
-all = ["snowflake-connector-python", "google-cloud-bigquery", "pyarrow", "pandas", "dbt-core", "dbt-extractor", "dbt-snowflake", "dbt-bigquery", "dbt-redshift", "redshift-connector"]
+all = ["snowflake-connector-python", "google-cloud-bigquery", "pyarrow", "dbt-core", "dbt-extractor", "dbt-snowflake", "dbt-bigquery", "dbt-redshift", "redshift-connector"]
 
 [tool.poetry-version-plugin]
 source = "init"

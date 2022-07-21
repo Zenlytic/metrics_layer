@@ -3,8 +3,9 @@ import hashlib
 import json
 from collections import Counter
 
-from .base import AccessDeniedOrDoesNotExistException
+from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
 from .dashboard import Dashboard
+from .join_graph import JoinGraph
 from .explore import Explore
 from .field import Field
 from .model import AccessGrant, Model
@@ -33,6 +34,8 @@ class Project:
         self.manifest = manifest
         self.manifest_exists = manifest and manifest.exists()
         self._user = None
+        self._timezone = None
+        self._join_graph = None
 
     def __repr__(self):
         text = "models" if len(self._models) != 1 else "model"
@@ -51,14 +54,49 @@ class Project:
     def set_user(self, user: dict):
         self._user = user
 
+    def set_timezone(self, timezone: str):
+        self._timezone = timezone
+
+    @property
+    def timezone(self):
+        if self._timezone:
+            return self._timezone
+        for m in self.models():
+            if m.timezone:
+                return m.timezone
+        return None
+
+    @property
+    def join_graph(self):
+        if self._join_graph is None:
+            graph = JoinGraph(self)
+            graph.build()
+            self._join_graph = graph
+        return self._join_graph
+
     def validate(self):
         all_errors = []
+
         for model in self.models():
             all_errors.extend(model.collect_errors())
 
-        for explore in self.explores():
-            errors = explore.validate_fields()
-            all_errors.extend(errors)
+        all_errors.extend(self.join_graph.collect_errors())
+        for view in self.views():
+            try:
+                view.sql_table_name
+            except QueryError as e:
+                all_errors.append(str(e))
+
+            referenced_fields = view.referenced_fields()
+            view_errors = view.collect_errors()
+            all_errors.extend(
+                [
+                    f"Could not locate reference {field} in view {view.name}"
+                    for field in referenced_fields
+                    if isinstance(field, str)
+                ]
+            )
+            all_errors.extend(view_errors)
 
         for dashboard in self.dashboards():
             errors = dashboard.collect_errors()
@@ -104,7 +142,7 @@ class Project:
             )
 
     def models(self) -> list:
-        return [Model(m) for m in self._models]
+        return [Model(m, project=self) for m in self._models]
 
     def get_model(self, model_name: str) -> Model:
         return next((m for m in self.models() if m.name == model_name), None)
@@ -113,13 +151,13 @@ class Project:
         return [AccessGrant(g) for m in self.models() for g in m.access_grants]
 
     def get_access_grant(self, grant_name: str):
-        return next((ag for ag in self.access_grants() if ag.name == grant_name), None)
+        try:
+            return next((ag for ag in self.access_grants() if ag.name == grant_name))
+        except StopIteration:
+            raise QueryError(f"Could not find the access grant {grant_name} in your project.")
 
     def can_access_dashboard(self, dashboard: Dashboard):
         return self._can_access_object(dashboard)
-
-    def can_access_explore(self, explore: Explore):
-        return self._can_access_object(explore)
 
     def can_access_join(self, join, explore: Explore):
         can_access_explore = self.can_access_explore(explore)
@@ -154,54 +192,20 @@ class Project:
                 return all(decisions)
         return True
 
-    def _all_explores(self):
-        explores = []
-        for m in self.models():
-            for e in m.explores:
-                explore = Explore({**e, "model": m}, project=self)
-                user_allowed = self.can_access_explore(explore)
-                if user_allowed:
-                    explores.append(explore)
-        return explores
-
-    def explores(self, show_hidden: bool = True) -> list:
-        explores = self._all_explores()
-        if show_hidden:
-            return explores
-        return [e for e in explores if e.hidden == "no" or not e.hidden]
-
-    def get_explore(self, explore_name: str) -> Explore:
-        try:
-            return next((e for e in self.explores() if e.name == explore_name))
-        except StopIteration:
-            raise AccessDeniedOrDoesNotExistException(
-                f"Could not find or you do not have access to explore {explore_name}",
-                object_name=explore_name,
-                object_type="explore",
-            )
-
-    def _all_views(self, explore):
+    def _all_views(self, model):
         views = []
         for v in self._views:
-            view = View({**v, "explore": explore}, project=self)
+            view = View({**v, "model": model}, project=self)
             if self.can_access_view(view):
                 views.append(view)
         return views
 
-    def views(self, explore_name: str = None, explore: Explore = None) -> list:
-        if explore_name:
-            return self.views_with_explore(explore_name=explore_name)
-        return self._all_views(explore)
+    def views(self, model: Model = None) -> list:
+        return self._all_views(model)
 
-    def views_with_explore(self, explore_name: str = None, explore: Explore = None):
-        if explore_name and explore is None:
-            explore = self.get_explore(explore_name)
-        view_names = [explore.from_] + [j.from_ for j in explore.joins()]
-        return [v for v in self.views(explore=explore) if v.name in view_names]
-
-    def get_view(self, view_name: str, explore: Explore = None) -> View:
+    def get_view(self, view_name: str, model: Model = None) -> View:
         try:
-            return next((v for v in self.views(explore=explore) if v.name == view_name))
+            return next((v for v in self.views(model=model) if v.name == view_name))
         except StopIteration:
             raise AccessDeniedOrDoesNotExistException(
                 f"Could not find or you do not have access to view {view_name}",
@@ -209,10 +213,8 @@ class Project:
                 object_type="view",
             )
 
-    def sets(self, view_name: str = None, explore_name: str = None):
-        if explore_name:
-            views = self.views(explore_name=explore_name)
-        elif view_name:
+    def sets(self, view_name: str = None):
+        if view_name:
             try:
                 views = [self.get_view(view_name)]
             except AccessDeniedOrDoesNotExistException:
@@ -235,132 +237,94 @@ class Project:
     @functools.lru_cache(maxsize=None)
     def fields(
         self,
-        explore_name: str = None,
         view_name: str = None,
         show_hidden: bool = True,
         expand_dimension_groups: bool = False,
-        show_excluded: bool = False,
+        model: Model = None,
     ) -> list:
-        if explore_name is None and view_name is None:
-            return self._all_fields(show_hidden, expand_dimension_groups)
-        elif view_name and explore_name:
-            fields = self._explore_fields(explore_name, show_hidden, expand_dimension_groups, show_excluded)
-            return [f for f in fields if f.view.name == view_name]
-        elif view_name:
-            return self._view_fields(view_name, show_hidden, expand_dimension_groups)
+        if view_name is None:
+            return self._all_fields(show_hidden, expand_dimension_groups, model)
         else:
-            return self._explore_fields(explore_name, show_hidden, expand_dimension_groups, show_excluded)
+            return self._view_fields(view_name, show_hidden, expand_dimension_groups, model)
 
-    def _all_fields(self, show_hidden: bool, expand_dimension_groups: bool):
-        return [f for v in self.views() for f in v.fields(show_hidden, expand_dimension_groups)]
+    def _all_fields(self, show_hidden: bool, expand_dimension_groups: bool, model: Model):
+        return [f for v in self.views(model=model) for f in v.fields(show_hidden, expand_dimension_groups)]
 
     def _view_fields(
         self,
         view_name: str,
         show_hidden: bool = True,
         expand_dimension_groups: bool = False,
-        explore: Explore = None,
+        model: Model = None,
     ):
-        view = self.get_view(view_name, explore=explore)
+        view = self.get_view(view_name, model=model)
         if not view:
-            plus_explore = f" in explore {explore.name}" if explore else ""
-            raise ValueError(f"Could not find a view matching the name {view_name}{plus_explore}")
+            plus_model = f" in model {model.name}" if model else ""
+            raise QueryError(f"Could not find a view matching the name {view_name}{plus_model}")
         return view.fields(show_hidden, expand_dimension_groups)
 
-    def _explore_fields(
-        self, explore_name: str, show_hidden: bool, expand_dimension_groups: bool, show_excluded: bool
-    ):
-        explore = self.get_explore(explore_name)
-        if show_excluded:
-            valid_views = self.views_with_explore(explore=explore)
-            return [f for v in valid_views for f in v.fields(show_hidden, expand_dimension_groups)]
-        return explore.explore_fields(show_hidden, expand_dimension_groups, show_excluded)
+    def joinable_fields(self, field_list: list, expand_dimension_groups: bool = False):
+        join_graph = None
+        join_graph_options = []
+        for field in field_list:
+            if field.is_merged_result:
+                join_graph = field.join_graphs()[0]
+            join_graph_options.extend(field.join_graphs())
+
+        # If we have an option for a non-merged result, we'll take that unless it's required by another field
+        most_common = Counter(join_graph_options).most_common()
+        most_common = [(j[0], j[-1] - 1 if "merged_result" in j[0] else j[-1]) for j in most_common]
+
+        if join_graph is None:
+            join_graph = sorted(most_common, key=lambda x: -1 * x[1])[0][0]
+
+        all_fields = self.fields(expand_dimension_groups=expand_dimension_groups)
+        return [f for f in all_fields if join_graph in f.join_graphs()]
 
     @functools.lru_cache(maxsize=None)
-    def get_field(
-        self, field_name: str, explore_name: str = None, view_name: str = None, show_excluded: bool = False
-    ) -> Field:
-        # Handle the case where the explore syntax is passed: explore_name.view_name.field_name
+    def get_field(self, field_name: str, view_name: str = None, model: Model = None) -> Field:
+        field_name, view_name = self._parse_field_and_view_name(field_name, view_name)
+
+        fields = self.fields(view_name=view_name, expand_dimension_groups=True, model=model)
+        matching_fields = [f for f in fields if f.equal(field_name)]
+        return self._matching_field_handler(matching_fields, field_name, view_name)
+
+    def get_field_by_name(self, field_name: str, view_name: str = None, model: Model = None):
+        field_name, view_name = self._parse_field_and_view_name(field_name, view_name)
+        fields = self.fields(view_name=view_name, expand_dimension_groups=False, model=model)
+        matching_fields = [f for f in fields if f.name == field_name]
+        return self._matching_field_handler(matching_fields, field_name, view_name)
+
+    def _parse_field_and_view_name(self, field_name: str, view_name: str):
+        # Handle the case where the view syntax is passed: view_name.field_name
         if "." in field_name:
-            specified_explore_name, specified_view_name, field_name = Field.field_name_parts(field_name)
+            _, specified_view_name, field_name = Field.field_name_parts(field_name)
             if view_name and specified_view_name != view_name:
-                raise ValueError(
-                    f"You specificed two different view names {specified_view_name} and {view_name}"
-                )
-            if specified_explore_name and explore_name and specified_explore_name != explore_name:
-                raise ValueError(
-                    f"You specificed two different explore names {specified_explore_name} and {explore_name}"
+                raise QueryError(
+                    f"You specified two different view names {specified_view_name} and {view_name}"
                 )
             view_name = specified_view_name
-            if specified_explore_name:
-                explore_name = specified_explore_name
+        return field_name.lower(), view_name
 
-        field_name = field_name.lower()
-
-        fields = self.fields(
-            explore_name=explore_name,
-            view_name=view_name,
-            expand_dimension_groups=True,
-            show_excluded=show_excluded,
-        )
-        matching_fields = [f for f in fields if f.equal(field_name)]
-        return self._matching_field_handler(matching_fields, field_name, explore_name, view_name)
-
-    def get_explore_from_field(self, field_name: str):
-        # If it's specified this is really easy
-        explore_name, view_name, to_match = Field.field_name_parts(field_name)
-        if explore_name is not None:
-            return explore_name
-
-        # If it's not we have to check all explores to make sure the field isn't ambiguously referenced
-        all_fields_with_explore_duplicates = []
-        for explore in self.explores():
-            for view in self.views_with_explore(explore_name=explore.name):
-                all_fields_with_explore_duplicates.extend(view.fields(expand_dimension_groups=True))
-
-        matching_fields = [f for f in all_fields_with_explore_duplicates if f.alias() == to_match]
-        if view_name:
-            matching_fields = [f for f in matching_fields if f.view.name == view_name]
-        match = self._matching_field_handler(matching_fields, field_name)
-        return match.view.explore.name
-
-    def _matching_field_handler(
-        self, matching_fields: list, field_name: str, explore_name: str = None, view_name: str = None
-    ):
+    def _matching_field_handler(self, matching_fields: list, field_name: str, view_name: str = None):
         if len(matching_fields) == 1:
             return matching_fields[0]
 
         elif len(matching_fields) > 1:
-            # if exerything is in the same view we can pick the explore that uses this view as the from_ view
-            if len(set([f.view.name for f in matching_fields])) == 1:
-                view_name = matching_fields[0].view.name
-                matching_explores = [e for e in self.explores() if e.from_ == view_name]
-                # This method will work iff there is exactly one matchng explore
-                if len(matching_explores) == 1:
-                    for f in matching_fields:
-                        if f.view.explore.name == matching_explores[0].name:
-                            return f
-
             matching_names = [f.id() for f in matching_fields]
-            explore_text = f", in explore {explore_name}" if explore_name else ""
             view_text = f", in view {view_name}" if view_name else ""
             err_msg = (
-                f"Multiple fields found for the name {field_name}{explore_text}{view_text}"
+                f"Multiple fields found for the name {field_name}{view_text}"
                 f" - those fields were {matching_names} \n\nPlease specify a "
-                "view name like this: 'view_name.field_name' or "
-                "an explore and view like this 'explore_name.view_name.field_name'"
-                "\n\nor pass the argument 'explore_name' to the function, to set the explore"
+                "view name like this: 'view_name.field_name' "
+                "\n\nor change the names of the fields to ensure uniqueness"
             )
-            raise ValueError(err_msg)
-        elif field_name == "count" and (explore_name or view_name):
+            raise QueryError(err_msg)
+        elif field_name == "count" and view_name:
             definition = {"type": "count", "name": "count", "field_type": "measure"}
-            if explore_name and not view_name:
-                view_name = self.get_explore(explore_name).from_
             return Field(definition, view=self.get_view(view_name))
         else:
             err_msg = f"Field {field_name} not found"
-            if explore_name:
-                err_msg += f" in explore {explore_name}"
             if view_name:
                 err_msg += f" in view {view_name}"
             err_msg += ", please check that this field exists AND that you have access to it. \n\n"
@@ -371,8 +335,17 @@ class Project:
 
     def resolve_dbt_ref(self, ref_name: str, view_name: str = None):
         if not self.manifest_exists:
-            raise ValueError(
+            raise QueryError(
                 f"Could not find a dbt project co-located with this "
                 f"project to resolve the dbt ref('{ref_name}') in view {view_name}"
             )
         return self.manifest.resolve_name(ref_name)
+
+    @staticmethod
+    def deduplicate_fields(field_list: list):
+        result, running_field_list = [], []
+        for field in field_list:
+            if field.id() not in running_field_list:
+                running_field_list.append(field.id())
+                result.append(field)
+        return result

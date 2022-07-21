@@ -1,3 +1,4 @@
+import sqlparse
 from typing import Union
 
 from metrics_layer.core.convert import MQLConverter
@@ -79,6 +80,9 @@ class MetricsLayerConnection:
             query = resolver.get_query()
             connection = resolver.connection
 
+        if kwargs.get("pretty", False):
+            query = self.pretty_sql(query)
+
         if kwargs.get("return_connection", False):
             return query, connection
         return query
@@ -88,44 +92,42 @@ class MetricsLayerConnection:
         df = runner.run_query(**{**self.kwargs, **kwargs})
         return df
 
-    def define(self, metric: str, explore_name: str = None, query_type: str = None):
-        field = self.config.project.get_field(metric, explore_name=explore_name)
+    def define(self, metric: str, query_type: str = None):
+        field = self.config.project.get_field(metric)
         return field.sql_query(query_type)
 
     def list_fields(
         self,
-        explore_name: str = None,
         view_name: str = None,
         names_only: bool = False,
         show_hidden: bool = False,
     ):
-        all_fields = self.config.project.fields(
-            explore_name=explore_name, view_name=view_name, show_hidden=show_hidden
-        )
+        all_fields = self.config.project.fields(view_name=view_name, show_hidden=show_hidden)
         if names_only:
             return [m.name for m in all_fields]
         return all_fields
 
-    def get_field(self, field_name: str, explore_name: str = None, view_name: str = None):
-        return self.config.project.get_field(field_name, explore_name=explore_name, view_name=view_name)
+    def get_field(self, field_name: str, view_name: str = None):
+        models = self.list_models()
+        kws = {}
+        if len(models) == 1:
+            kws = {"model": models[0]}
+        return self.config.project.get_field(field_name, view_name=view_name, **kws)
 
     def list_metrics(
         self,
-        explore_name: str = None,
         view_name: str = None,
         names_only: bool = False,
         show_hidden: bool = False,
     ):
-        all_fields = self.config.project.fields(
-            explore_name=explore_name, view_name=view_name, show_hidden=show_hidden
-        )
+        all_fields = self.config.project.fields(view_name=view_name, show_hidden=show_hidden)
         metrics = [f for f in all_fields if f.field_type == "measure"]
         if names_only:
             return [m.name for m in metrics]
         return metrics
 
-    def get_metric(self, metric_name: str, explore_name: str = None, view_name: str = None):
-        metrics = self.list_metrics(explore_name=explore_name, view_name=view_name)
+    def get_metric(self, metric_name: str, view_name: str = None):
+        metrics = self.list_metrics(view_name=view_name)
         try:
             metric = next((m for m in metrics if m.equal(metric_name)))
             return metric
@@ -134,50 +136,34 @@ class MetricsLayerConnection:
 
     def list_dimensions(
         self,
-        explore_name: str = None,
         view_name: str = None,
         names_only: bool = False,
         show_hidden: bool = False,
     ):
-        all_fields = self.config.project.fields(
-            explore_name=explore_name, view_name=view_name, show_hidden=show_hidden
-        )
+        all_fields = self.config.project.fields(view_name=view_name, show_hidden=show_hidden)
         dimensions = [f for f in all_fields if f.field_type in {"dimension", "dimension_group"}]
         if names_only:
             return [d.name for d in dimensions]
         return dimensions
 
-    def get_dimension(self, dimension_name: str, explore_name: str = None, view_name: str = None):
-        dimensions = self.list_dimensions(explore_name=explore_name, view_name=view_name)
+    def get_dimension(self, dimension_name: str, view_name: str = None):
+        dimensions = self.list_dimensions(view_name=view_name)
         try:
             dimension = next((d for d in dimensions if d.equal(dimension_name)))
             return dimension
         except ParseError as e:
             raise e(f"Could not find dimension {dimension_name} in the project config")
 
-    def list_views(self, names_only=False, explore_name: str = None, show_hidden: bool = False):
-        views = self.config.project.views(explore_name=explore_name)
+    def list_views(self, names_only=False):
+        views = self.config.project.views()
         if names_only:
             return [v.name for v in views]
         return views
 
-    def get_view(self, view_name: str, explore_name: str = None):
-        if explore_name:
-            explore = self.get_explore(explore_name)
-        else:
-            explore = None
-        return self.config.project.get_view(view_name, explore=explore)
+    def get_view(self, view_name: str):
+        return self.config.project.get_view(view_name)
 
-    def list_explores(self, names_only=False, show_hidden: bool = False):
-        explores = self.config.project.explores(show_hidden=show_hidden)
-        if names_only:
-            return [e.name for e in explores]
-        return explores
-
-    def get_explore(self, explore_name: str):
-        return self.config.project.get_explore(explore_name=explore_name)
-
-    def list_connections(self, names_only=False, show_hidden: bool = False):
+    def list_connections(self, names_only=False):
         connections = self.config.connections()
         if names_only:
             return [c.name for c in connections]
@@ -186,7 +172,7 @@ class MetricsLayerConnection:
     def get_connection(self, connection_name: str):
         return self.config.get_connection(connection_name)
 
-    def list_models(self, names_only=False, show_hidden: bool = False):
+    def list_models(self, names_only=False):
         models = self.config.project.models()
         if names_only:
             return [m.name for m in models]
@@ -195,7 +181,7 @@ class MetricsLayerConnection:
     def get_model(self, model_name: str):
         return self.config.project.get_model(model_name)
 
-    def list_dashboards(self, names_only=False, show_hidden: bool = False):
+    def list_dashboards(self, names_only=False):
         dashboards = self.config.project.dashboards()
         if names_only:
             return [d.name for d in dashboards]
@@ -203,3 +189,7 @@ class MetricsLayerConnection:
 
     def get_dashboard(self, dashboard_name: str):
         return self.config.project.get_dashboard(dashboard_name)
+
+    @staticmethod
+    def pretty_sql(sql: str, keyword_case="lower"):
+        return sqlparse.format(sql, reindent=True, keyword_case=keyword_case)
