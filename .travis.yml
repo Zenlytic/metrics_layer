@@ -2,7 +2,7 @@ jobs:
   include:
   - language: python
     python:
-      - 3.8.11
+      - 3.8
       # - 3.9
     before_install:
       - python --version
