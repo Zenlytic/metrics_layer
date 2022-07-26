@@ -295,6 +295,13 @@ class Project:
         matching_fields = [f for f in fields if f.name == field_name]
         return self._matching_field_handler(matching_fields, field_name, view_name)
 
+    @functools.lru_cache(maxsize=None)
+    def get_field_by_tag(self, tag_name: str, view_name: str = None, model: Model = None):
+        tag_options = {tag_name, f"{tag_name}s"} if tag_name[-1] != "s" else {tag_name, tag_name[:-1]}
+        fields = self.fields(view_name=view_name, expand_dimension_groups=True, model=model)
+        matching_fields = [f for f in fields if f.tags and any(t in tag_options for t in f.tags)]
+        return self._matching_field_handler(matching_fields, tag_name, view_name)
+
     def _parse_field_and_view_name(self, field_name: str, view_name: str):
         # Handle the case where the view syntax is passed: view_name.field_name
         if "." in field_name:

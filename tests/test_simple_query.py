@@ -3,7 +3,7 @@ from datetime import datetime
 import pendulum
 import pytest
 
-from metrics_layer.core.exceptions import QueryError
+from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException
 from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.model import Definitions, Project
 
@@ -327,7 +327,10 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
         ("month", Definitions.bigquery),
         ("quarter", Definitions.bigquery),
         ("year", Definitions.bigquery),
-        ("hour", Definitions.bigquery),  # Should raise error
+        ("hour", Definitions.bigquery),
+        ("minute", Definitions.bigquery),
+        ("second", Definitions.bigquery),
+        ("millisecond", Definitions.bigquery),  # Should raise error
     ],
 )
 @pytest.mark.query
@@ -335,9 +338,9 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
     project = Project(models=[simple_model], views=[simple_view])
     config.project = project
     conn = MetricsLayerConnection(config=config)
-    raises_error = interval == "hour" and query_type == Definitions.bigquery
+    raises_error = interval == "millisecond" and query_type == Definitions.bigquery
     if raises_error:
-        with pytest.raises(QueryError) as exc_info:
+        with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
             conn.get_sql_query(
                 metrics=["total_revenue"],
                 dimensions=[f"{interval}s_waiting"],
@@ -365,6 +368,9 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
         order_by = " ORDER BY simple_total_revenue DESC"
     else:
         result_lookup = {
+            "second": "TIMESTAMP_DIFF(CAST(simple.order_date as TIMESTAMP), CAST(simple.view_date as TIMESTAMP), SECOND)",
+            "minute": "TIMESTAMP_DIFF(CAST(simple.order_date as TIMESTAMP), CAST(simple.view_date as TIMESTAMP), MINUTE)",
+            "hour": "TIMESTAMP_DIFF(CAST(simple.order_date as TIMESTAMP), CAST(simple.view_date as TIMESTAMP), HOUR)",
             "day": "DATE_DIFF(CAST(simple.order_date as DATE), CAST(simple.view_date as DATE), DAY)",
             "week": "DATE_DIFF(CAST(simple.order_date as DATE), CAST(simple.view_date as DATE), ISOWEEK)",
             "month": "DATE_DIFF(CAST(simple.order_date as DATE), CAST(simple.view_date as DATE), MONTH)",

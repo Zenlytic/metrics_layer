@@ -5,6 +5,7 @@ from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.parse.config import ConfigError, MetricsLayerConfiguration
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_generator import MetricsLayerQuery
+from metrics_layer.core.sql.query_funnel import FunnelQuery
 from metrics_layer.core.sql.query_cumulative_metric import CumulativeMetricsQuery
 
 
@@ -13,6 +14,7 @@ class SingleSQLQueryResolver:
         self,
         metrics: list,
         dimensions: list = [],
+        funnel: dict = {},
         where: str = None,  # Either a list of json or a string
         having: str = None,  # Either a list of json or a string
         order_by: str = None,  # Either a list of json or a string
@@ -34,6 +36,7 @@ class SingleSQLQueryResolver:
         self.project = self.config.project
         self.metrics = metrics
         self.dimensions = dimensions
+        self.funnel, self.is_funnel_query = self.parse_funnel(funnel)
         self.parse_field_names(where, having, order_by)
         self.model = model
 
@@ -66,6 +69,7 @@ class SingleSQLQueryResolver:
         query_definition = {
             "metrics": self.metrics,
             "dimensions": self.dimensions,
+            "funnel": self.funnel,
             "where": self.where,
             "having": self.having,
             "order_by": self.order_by,
@@ -73,10 +77,19 @@ class SingleSQLQueryResolver:
             "limit": self.limit,
             "return_pypika_query": self.return_pypika_query,
         }
-        if self.has_cumulative_metric:
+        if self.has_cumulative_metric and self.is_funnel_query:
+            raise QueryError("Cumulative metrics cannot be used with funnel queries")
+
+        elif self.has_cumulative_metric:
             query_generator = CumulativeMetricsQuery(
                 query_definition, design=self.design, suppress_warnings=self.suppress_warnings
             )
+
+        elif self.is_funnel_query:
+            query_generator = FunnelQuery(
+                query_definition, design=self.design, suppress_warnings=self.suppress_warnings
+            )
+
         else:
             query_generator = MetricsLayerQuery(
                 query_definition, design=self.design, suppress_warnings=self.suppress_warnings
@@ -151,6 +164,16 @@ class SingleSQLQueryResolver:
             self._order_by_field_names = self.parse_identifiers_from_clause(self.order_by)
         else:
             self._order_by_field_names = self.parse_identifiers_from_dicts(self.order_by)
+
+    def parse_funnel(self, funnel: dict):
+        if funnel != {}:
+            if all(k in funnel for k in ["steps", "within"]):
+                is_funnel_query = True
+            else:
+                raise QueryError("Funnel query must have 'steps' and 'within' keys")
+        else:
+            is_funnel_query = False
+        return funnel, is_funnel_query
 
     @staticmethod
     def _is_literal(clause):

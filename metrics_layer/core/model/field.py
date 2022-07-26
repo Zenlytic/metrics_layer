@@ -445,6 +445,10 @@ class Field(MetricsLayerBase, SQLReplacement):
         return None
 
     def apply_dimension_group_duration_sql(self, sql_start: str, sql_end: str, query_type: str):
+        return self.dimension_group_duration_sql(sql_start, sql_end, query_type, self.dimension_group)
+
+    @staticmethod
+    def dimension_group_duration_sql(sql_start: str, sql_end: str, query_type: str, dimension_group: str):
         meta_lookup = {
             Definitions.snowflake: {
                 "seconds": lambda start, end: f"DATEDIFF('SECOND', {start}, {end})",
@@ -457,6 +461,9 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "years": lambda start, end: f"DATEDIFF('YEAR', {start}, {end})",
             },
             Definitions.bigquery: {
+                "seconds": lambda start, end: f"TIMESTAMP_DIFF(CAST({end} as TIMESTAMP), CAST({start} as TIMESTAMP), SECOND)",  # noqa
+                "minutes": lambda start, end: f"TIMESTAMP_DIFF(CAST({end} as TIMESTAMP), CAST({start} as TIMESTAMP), MINUTE)",  # noqa
+                "hours": lambda start, end: f"TIMESTAMP_DIFF(CAST({end} as TIMESTAMP), CAST({start} as TIMESTAMP), HOUR)",  # noqa
                 "days": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), DAY)",
                 "weeks": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), ISOWEEK)",
                 "months": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), MONTH)",
@@ -467,11 +474,11 @@ class Field(MetricsLayerBase, SQLReplacement):
         # Snowflake and redshift have identical syntax in this case
         meta_lookup[Definitions.redshift] = meta_lookup[Definitions.snowflake]
         try:
-            return meta_lookup[query_type][self.dimension_group](sql_start, sql_end)
+            return meta_lookup[query_type][dimension_group](sql_start, sql_end)
         except KeyError:
             raise QueryError(
                 f"Unable to find a valid method for running "
-                f"{self.dimension_group} with query type {query_type}"
+                f"{dimension_group} with query type {query_type}"
             )
 
     def apply_dimension_group_time_sql(self, sql: str, query_type: str):
@@ -645,7 +652,6 @@ class Field(MetricsLayerBase, SQLReplacement):
                     sql_replace = field.raw_sql_query(query_type, alias_only=alias_only)
                 else:
                     sql_replace = to_replace
-
                 clean_sql = clean_sql.replace("${" + to_replace + "}", sql_replace)
         return clean_sql.strip()
 
