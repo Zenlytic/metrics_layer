@@ -31,7 +31,7 @@ class FunnelQuery(MetricsLayerQueryBase):
         event_date = self.get_event_date()
         event_date_field = self.design.get_field(event_date)
         event_date_alias = event_date_field.alias(with_view=True)
-        event_condition_fields = list(set(s["field"] for s in self.funnel["steps"]))
+        event_condition_fields = list(set(f["field"] for step in self.funnel["steps"] for f in step))
         link_field = self.design.project.get_field_by_tag("customer")
         link_alias = link_field.alias(with_view=True)
         base_cte_query = self._base_query()
@@ -49,7 +49,7 @@ class FunnelQuery(MetricsLayerQueryBase):
             from_query = from_query.from_(base_table)
 
             # Add within clause for the step TODO make step a array
-            where = self.where_for_event([step], step_number, event_date_alias)
+            where = self.where_for_event(step, step_number, event_date_alias)
             if previous_step_number == 0:
                 from_query = from_query.select(
                     base_table.star, self.sql(event_date_alias, alias=self.step_1_time)
