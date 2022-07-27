@@ -630,3 +630,36 @@ def test_query_bool_and_date_filter(connection, bool_value):
         "GROUP BY order_lines.sales_channel ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+@pytest.mark.parametrize("filter_type", ["having", "where"])
+def test_query_sub_group_by_filter(connection, filter_type):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders"],
+        dimensions=["region"],
+        **{
+            filter_type: [
+                {
+                    "field": "total_item_revenue",
+                    "group_by": "customers.customer_id",
+                    "expression": "greater_than",
+                    "value": 1000,
+                }
+            ]
+        },
+    )
+
+    correct = (
+        "WITH filter_subquery_0 AS (SELECT customers.customer_id as customers_customer_id "
+        "FROM analytics.order_line_items order_lines LEFT JOIN analytics.customers customers "
+        "ON order_lines.customer_id=customers.customer_id GROUP BY customers.customer_id "
+        "HAVING SUM(order_lines.revenue)>1000 ORDER BY customers_customer_id ASC) "
+        "SELECT customers.region as customers_region,COUNT(orders.id) as orders_number_of_orders "
+        "FROM analytics.orders orders LEFT JOIN analytics.customers customers "
+        "ON orders.customer_id=customers.customer_id "
+        "WHERE customers.customer_id IN (SELECT DISTINCT customers_customer_id "
+        "FROM filter_subquery_0) GROUP BY customers.region "
+        "ORDER BY orders_number_of_orders DESC;"
+    )
+    assert query == correct

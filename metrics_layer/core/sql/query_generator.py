@@ -28,6 +28,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         # A collection of all the column and aggregate filters in the query + order by
         self.where_filters = []
         self.having_filters = []
+        self.having_group_by_filters = []
         self.order_by_args = []
 
         self.parse_definition(definition)
@@ -42,10 +43,9 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
 
         access_filter_literal, _ = self.design.get_access_filter()
         if where or access_filter_literal:
-            wheres = where
-            self.where_filters.extend(
-                self._parse_filter_object(wheres, "where", access_filter=access_filter_literal)
-            )
+            wheres = self._parse_filter_object(where, "where", access_filter=access_filter_literal)
+            self.where_filters.extend([f for f in wheres if not f.is_group_by])
+            self.having_group_by_filters.extend([f for f in wheres if f.is_group_by])
 
         if having and self.no_group_by:
             raise ArgumentError(
@@ -54,7 +54,9 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
             )
 
         if having:
-            self.having_filters.extend(self._parse_filter_object(having, "having"))
+            having_filters = self._parse_filter_object(having, "having")
+            self.having_group_by_filters.extend([f for f in having_filters if f.is_group_by])
+            self.having_filters.extend([f for f in having_filters if not f.is_group_by])
 
         if order_by and self.no_group_by:
             raise ArgumentError(
@@ -136,6 +138,15 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         if self.having_filters and not self.no_group_by:
             having = [f.sql_query() for f in self.having_filters]
             base_query = base_query.having(Criterion.all(having))
+
+        if self.having_group_by_filters:
+            group_by_where = []
+            for i, f in enumerate(sorted(self.having_group_by_filters)):
+                cte_alias = f"filter_subquery_{i}"
+                cte_query = f.cte(query_class=MetricsLayerQuery, design_class=MetricsLayerDesign)
+                base_query = base_query.with_(Table(cte_query), cte_alias)
+                group_by_where.append(f.group_by_sql_query(cte_alias=cte_alias, query_generator=self))
+            base_query = base_query.where(Criterion.all(group_by_where))
 
         # Handle order by
         if self.order_by_args and not self.no_group_by:

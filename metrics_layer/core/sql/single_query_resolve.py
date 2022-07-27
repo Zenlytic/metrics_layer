@@ -199,7 +199,7 @@ class SingleSQLQueryResolver:
     @staticmethod
     def parse_identifiers_from_dicts(conditions: list):
         try:
-            return [cond["field"] for cond in conditions]
+            return [cond["field"] for cond in conditions if "group_by" not in cond]
         except KeyError:
             for cond in conditions:
                 if "field" not in cond:

@@ -3,9 +3,10 @@ from copy import deepcopy
 from typing import Dict
 
 import sqlparse
-from pypika import Criterion
+from pypika import Criterion, Table
 from pypika.terms import LiteralValue
 from sqlparse.tokens import Error, Name, Punctuation
+from metrics_layer.core.exceptions import QueryError
 
 from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.model.definitions import Definitions
@@ -51,6 +52,10 @@ class MetricsLayerFilter(MetricsLayerBase):
 
         super().__init__(definition)
 
+    @property
+    def is_group_by(self):
+        return self.group_by is not None
+
     def validate(self, definition: Dict) -> None:
         """
         Validate the Filter definition
@@ -91,10 +96,22 @@ class MetricsLayerFilter(MetricsLayerBase):
 
     def sql_query(self):
         if self.is_literal_filter:
-
             return LiteralValueCriterion(self.replace_fields_literal_filter())
         functional_pk = self.design.functional_pk()
         return self.criterion(self.field.sql_query(self.query_type, functional_pk))
+
+    def group_by_sql_query(self, cte_alias, query_generator):
+        group_by_field = self.design.get_field(self.group_by)
+        base = query_generator._base_query()
+        subquery = base.from_(Table(cte_alias)).select(group_by_field.alias(with_view=True)).distinct()
+        definition = {
+            "query_type": self.query_type,
+            "field": self.group_by,
+            "expression": MetricsLayerFilterExpressionType.IsIn.value,
+            "value": subquery,
+        }
+        f = MetricsLayerFilter(definition=definition, design=None, filter_type="where")
+        return f.criterion(group_by_field.sql_query(self.query_type))
 
     def replace_fields_literal_filter(self):
         tokens = self._parse_sql_literal(self.literal)
@@ -149,3 +166,31 @@ class MetricsLayerFilter(MetricsLayerBase):
                 criteria.append(Filter.sql_query(field_sql, f["expression"], value))
             return Criterion.all(criteria)
         return Filter.sql_query(field_sql, self.expression_type, self.value)
+
+    def cte(self, query_class, design_class):
+        if not self.is_group_by:
+            raise QueryError("A CTE is invalid for a filter with no group_by property")
+
+        having_filter = {k: v for k, v in self._definition.items() if k != "group_by"}
+        field_names = [self.group_by, having_filter["field"]]
+        field_lookup = {}
+        for n in field_names:
+            field = self.design.get_field(n)
+            field_lookup[field.id()] = field
+
+        design = design_class(
+            no_group_by=False,
+            query_type=self.design.query_type,
+            field_lookup=field_lookup,
+            model=self.design.model,
+            project=self.design.project,
+        )
+
+        config = {
+            "metrics": [],
+            "dimensions": [self.group_by],
+            "having": [having_filter],
+            "return_pypika_query": True,
+        }
+        generator = query_class(config, design=design)
+        return generator.get_query()
