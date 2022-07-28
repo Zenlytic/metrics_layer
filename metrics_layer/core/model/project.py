@@ -34,6 +34,7 @@ class Project:
         self.manifest = manifest
         self.manifest_exists = manifest and manifest.exists()
         self._user = None
+        self._connection_schema = None
         self._timezone = None
         self._join_graph = None
 
@@ -53,6 +54,9 @@ class Project:
 
     def set_user(self, user: dict):
         self._user = user
+
+    def set_connection_schema(self, schema: str):
+        self._connection_schema = schema
 
     def set_timezone(self, timezone: str):
         self._timezone = timezone
@@ -341,11 +345,14 @@ class Project:
             raise AccessDeniedOrDoesNotExistException(err_msg, object_name=field_name, object_type="field")
 
     def resolve_dbt_ref(self, ref_name: str, view_name: str = None):
+        # This just returns the table name, assuming the schema will be set in the connection
         if not self.manifest_exists:
-            raise QueryError(
-                f"Could not find a dbt project co-located with this "
-                f"project to resolve the dbt ref('{ref_name}') in view {view_name}"
-            )
+            if not self._connection_schema:
+                raise QueryError(
+                    "You must specify a schema in the connection to "
+                    "use references without a dbt project manifest"
+                )
+            return f"{self._connection_schema}.{ref_name}"
         return self.manifest.resolve_name(ref_name)
 
     @staticmethod

@@ -229,7 +229,7 @@ def config(project):
             if name == "bq_creds":
                 return bq_mock
             else:
-                return sf_mock
+                return config_mock._connections[0]
 
         def connections():
             return config_mock._connections

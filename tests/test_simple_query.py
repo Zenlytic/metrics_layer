@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import datetime
 
 import pendulum
@@ -110,6 +111,41 @@ simple_view = {
         },
     ],
 }
+
+
+@pytest.mark.query
+def test_simple_query_dynamic_schema(config):
+    view = deepcopy(simple_view)
+    view["sql_table_name"] = "{{ref('orders')}}"
+
+    project = Project(models=[simple_model], views=[view])
+    config.project = project
+
+    correct = (
+        "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
+        "{} simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC;"
+    )
+
+    class sf_mock:
+        name = "testing_snowflake"
+        type = "SNOWFLAKE"
+        database = "analytics"
+        schema = "testing"
+
+    config._connections = [sf_mock]
+    conn = MetricsLayerConnection(config=config)
+    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"])
+
+    table_name = "testing.orders"
+    assert query == correct.format(table_name)
+
+    sf_mock.schema = "prod"
+    config._connections = [sf_mock]
+    conn = MetricsLayerConnection(config=config)
+    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"])
+
+    table_name = "prod.orders"
+    assert query == correct.format(table_name)
 
 
 @pytest.mark.query

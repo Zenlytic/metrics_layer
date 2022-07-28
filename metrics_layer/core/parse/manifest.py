@@ -19,5 +19,4 @@ class Manifest:
 
     def resolve_name(self, name: str):
         node = self._resolve_node(name)
-        # return f"{node['database']}.{node['schema']}.{node['alias']}"
         return f"{node['schema']}.{node['alias']}"

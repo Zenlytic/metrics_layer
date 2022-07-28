@@ -45,6 +45,13 @@ class SingleSQLQueryResolver:
         except ConfigError:
             self.connection = None
 
+        if self.connection is not None:
+            self.connection_schema = getattr(self.connection, "schema", None)
+        else:
+            self.connection_schema = None
+
+        self.project.set_connection_schema(self.connection_schema)
+
         if "query_type" in kwargs:
             self.query_type = kwargs["query_type"]
         elif self.connection:

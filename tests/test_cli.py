@@ -188,29 +188,6 @@ def test_cli_validate(config, connection, fresh_project, mocker):
 
 
 @pytest.mark.cli
-def test_cli_validate_dbt_refs(config, fresh_project, mocker, manifest):
-    # Break something so validation fails
-    project = fresh_project
-    project.manifest = {}
-    project.manifest_exists = False
-
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
-
-    runner = CliRunner()
-    result = runner.invoke(validate)
-
-    print(result)
-    assert result.exit_code == 0
-    assert result.output == (
-        "Found 1 error in the project:\n\n\nCould not find a dbt project co-located "
-        "with this project to resolve the dbt ref('customers') in view customers\n\n"
-    )
-
-
-@pytest.mark.cli
 def test_cli_validate_joins(config, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
