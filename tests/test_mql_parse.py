@@ -102,6 +102,26 @@ def test_query_multiple_join_all_mql(connection):
 
 
 @pytest.mark.query
+def test_query_mql_sequence(connection):
+    query = connection.get_sql_query(
+        sql="SELECT * FROM MQL(number_of_orders, total_item_revenue FOR events FUNNEL channel = 'Paid' THEN channel = 'Organic' THEN channel = 'Paid' or region = 'West' WITHIN 3 days WHERE region != 'West') as sequence_group",  # noqa
+    )
+
+    correct = (
+        "SELECT * FROM (SELECT customers.region as customers_region,"
+        "orders.new_vs_repeat as orders_new_vs_repeat,"
+        "SUM(order_lines.revenue) as order_lines_total_item_revenue "
+        "FROM analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
+        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        "WHERE customers.region != 'West' AND orders.new_vs_repeat <>"
+        " 'New' GROUP BY customers.region,orders.new_vs_repeat HAVING (SUM(order_lines.revenue)) > -12 AND "
+        "(SUM(order_lines.revenue)) < 122 ORDER BY total_item_revenue ASC,new_vs_repeat ASC) as rev_group;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_query_mql_as_subset(connection):
 
     mql = (
