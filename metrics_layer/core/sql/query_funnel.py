@@ -26,7 +26,6 @@ class FunnelQuery(MetricsLayerQueryBase):
         self.step_1_time = "step_1_time"
         self.result_cte_name = "result_cte"
         self.base_cte_name = design.base_cte_name
-
         super().__init__(definition)
 
     def get_query(self, semicolon: bool = True):
@@ -121,13 +120,25 @@ class FunnelQuery(MetricsLayerQueryBase):
         link_field = self.design.project.get_field_by_tag("customer")
         self.link_alias = link_field.alias(with_view=True)
 
-        event_condition_fields = list(set(f["field"] for step in self.funnel["steps"] for f in step))
-        having_metrics = list(set(f["field"] for f in self.having))
+        event_condition_fields = self._get_event_condition_fields()
+
+        having_metrics = list(set(f["field"] for f in self.having)) if self.having else []
 
         dimensions = self.dimensions + [event_date.id(), link_field.id()] + event_condition_fields
         self.metrics = self.metrics + having_metrics
         query = self._subquery(self.metrics, dimensions, self.where, no_group_by=True)
         return query
+
+    def _get_event_condition_fields(self):
+        fields = []
+        for step in self.funnel["steps"]:
+            if isinstance(step, list):
+                for f in step:
+                    fields.append(f["field"])
+            else:
+                fields.extend(self.parse_identifiers_from_clause(step))
+
+        return list(set(fields))
 
     def get_event_date(self):
         if "view_name" in self.funnel:
@@ -153,13 +164,21 @@ class FunnelQuery(MetricsLayerQueryBase):
 
     def where_for_event(self, step: list, step_number: int, event_date_alias: str):
         where = []
-        for condition in step:
-            where_field = self.design.get_field(condition["field"])
-            where_condition = deepcopy(condition)
-            where_condition["query_type"] = self.query_type
-            f = MetricsLayerFilter(definition=where_condition, design=None, filter_type="where")
-            where_field_sql = where_field.sql_query(query_type=self.query_type, alias_only=True)
-            where.append(f.criterion(f"{self.base_cte_name}.{where_field_sql}"))
+        if isinstance(step, list):
+            for condition in step:
+                where_field = self.design.get_field(condition["field"])
+                where_condition = deepcopy(condition)
+                where_condition["query_type"] = self.query_type
+                f = MetricsLayerFilter(definition=where_condition, design=None, filter_type="where")
+                where_field_sql = where_field.sql_query(query_type=self.query_type, alias_only=True)
+                where.append(f.criterion(f"{self.base_cte_name}.{where_field_sql}"))
+        else:
+            f = MetricsLayerFilter(
+                definition={"literal": step, "query_type": self.query_type},
+                design=self.design,
+                filter_type="where",
+            )
+            where.append(f.sql_query())
 
         if step_number > 1:
             where.append(self._within_where(event_date_alias, step_number))

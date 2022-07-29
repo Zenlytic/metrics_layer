@@ -104,19 +104,37 @@ def test_query_multiple_join_all_mql(connection):
 @pytest.mark.query
 def test_query_mql_sequence(connection):
     query = connection.get_sql_query(
-        sql="SELECT * FROM MQL(number_of_orders, total_item_revenue FOR events FUNNEL channel = 'Paid' THEN channel = 'Organic' THEN channel = 'Paid' or region = 'West' WITHIN 3 days WHERE region != 'West') as sequence_group",  # noqa
+        sql="SELECT * FROM MQL(number_of_orders, total_item_revenue FOR orders FUNNEL channel = 'Paid' THEN channel = 'Organic' THEN channel = 'Paid' or region = 'West' WITHIN 3 days WHERE region != 'West') as sequence_group",  # noqa
     )
 
     correct = (
-        "SELECT * FROM (SELECT customers.region as customers_region,"
-        "orders.new_vs_repeat as orders_new_vs_repeat,"
-        "SUM(order_lines.revenue) as order_lines_total_item_revenue "
-        "FROM analytics.order_line_items order_lines "
+        "SELECT * FROM (WITH base AS (SELECT order_lines.sales_channel as order_lines_channel,"
+        "customers.customer_id as customers_customer_id,order_lines.order_line_id as "
+        "order_lines_order_line_id,orders.id as orders_order_id,orders.order_date as orders_order_raw,"
+        "customers.region as customers_region,orders.id as orders_number_of_orders,order_lines.revenue "
+        "as order_lines_total_item_revenue FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
-        "WHERE customers.region != 'West' AND orders.new_vs_repeat <>"
-        " 'New' GROUP BY customers.region,orders.new_vs_repeat HAVING (SUM(order_lines.revenue)) > -12 AND "
-        "(SUM(order_lines.revenue)) < 122 ORDER BY total_item_revenue ASC,new_vs_repeat ASC) as rev_group;"
+        "WHERE customers.region != 'West') ,step_1 AS (SELECT *,orders_order_raw as step_1_time "
+        "FROM base WHERE order_lines.sales_channel = 'Paid') ,step_2 AS ("
+        "SELECT base.*,step_1.step_1_time as step_1_time FROM base JOIN step_1 "
+        "ON base.customers_customer_id=step_1.customers_customer_id and step_1.step_1_time"
+        "<=base.orders_order_raw WHERE order_lines.sales_channel = 'Organic' AND "
+        "DATEDIFF('DAY', step_1.step_1_time, base.orders_order_raw) <= 3) ,"
+        "step_3 AS (SELECT base.*,step_2.step_1_time as step_1_time FROM base "
+        "JOIN step_2 ON base.customers_customer_id=step_2.customers_customer_id and "
+        "step_2.step_1_time<=base.orders_order_raw WHERE order_lines.sales_channel = 'Paid' "
+        "or customers.region = 'West' AND DATEDIFF('DAY', step_2.step_1_time, base.orders_order_raw) <= 3) ,"
+        "result_cte AS ((SELECT 'Step 1' as step,1 as step_order,NULLIF(COUNT(DISTINCT CASE WHEN  "
+        "(orders_number_of_orders)  IS NOT NULL THEN  orders_order_id  ELSE NULL END), 0) as "
+        "orders_number_of_orders,SUM(order_lines_total_item_revenue) as order_lines_total_item_revenue "
+        "FROM step_1) UNION ALL (SELECT 'Step 2' as step,2 as step_order,NULLIF(COUNT(DISTINCT CASE WHEN  "
+        "(orders_number_of_orders)  IS NOT NULL THEN  orders_order_id  ELSE NULL END), 0) as "
+        "orders_number_of_orders,SUM(order_lines_total_item_revenue) as order_lines_total_item_revenue "
+        "FROM step_2) UNION ALL (SELECT 'Step 3' as step,3 as step_order,NULLIF(COUNT(DISTINCT CASE WHEN  "
+        "(orders_number_of_orders)  IS NOT NULL THEN  orders_order_id  ELSE NULL END), 0) as "
+        "orders_number_of_orders,SUM(order_lines_total_item_revenue) as order_lines_total_item_revenue "
+        "FROM step_3)) SELECT * FROM result_cte) as sequence_group;"
     )
     assert query == correct
 

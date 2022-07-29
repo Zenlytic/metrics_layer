@@ -7,7 +7,7 @@ from copy import deepcopy
 
 import sqlparse
 from sqlparse.sql import Function, Identifier, IdentifierList, Statement, Where
-from sqlparse.tokens import Keyword
+from sqlparse.tokens import Keyword, Whitespace
 
 from metrics_layer.core.parse.config import MetricsLayerConfiguration
 from metrics_layer.core.sql.query_errors import ParseError
@@ -54,13 +54,13 @@ class MQLConverter:
 
     The syntax can also be used for event / funnel queries, as follows:
 
-    TODO add a reference to the entity (event / order / etc)??
     SELECT
         *
     FROM MQL(
             total_revenue, number_of_users
-            WITH event_name = 'user_created'
-            FOLLOWED BY event_name = 'complete_onboarding' as onboarding,
+            FOR events
+            FUNNEL event_name = 'user_created'
+            THEN event_name = 'complete_onboarding' as onboarding,
                         event_name = 'purchase' as made_a_purchase
             WITHIN 3 days
             BY region, new_vs_repeat
@@ -125,11 +125,43 @@ class MQLConverter:
 
     def resolve_mql_statement(self, mql_statement):
         metrics, dimensions, where, having, order_by = [], [], [], [], []
+        funnel_steps, funnel_for, funnel_within = [], None, {}
         mode = "metrics"
         # We do this to trim off the starting and ending parenthesis
         for token in mql_statement[1:-1]:
-            if token.ttype == Keyword:
+            if mode == "for" and token.ttype != Whitespace:
+                funnel_for = str(token.value).split(" ")[0].lower().strip()
+                mode = "funnel"
+                funnel_step = []
+                continue
+
+            is_conjunction = str(token).strip().upper() in {"AND", "OR"}
+            if (token.ttype == Keyword or self._is_funnel(token)) and not is_conjunction:
                 mode = self._resolve_mode(token, mode)
+                if mode == "funnel" and str(token).upper() != "THEN":
+                    funnel_step = []
+                    continue
+
+            if mode == "funnel":
+                if str(token).upper() == "THEN":
+                    funnel_steps.append(deepcopy(funnel_step))
+                    funnel_step = []
+                    continue
+                elif "WITHIN" in str(token).upper():
+                    lowered = str(token).lower()
+                    funnel_step.append(str(token)[: lowered.index("within")].strip())
+                    funnel_steps.append(deepcopy(funnel_step))
+                    mode = "within"
+                    continue
+                else:
+                    funnel_step.append(str(token))
+                    continue
+
+            if mode == "within" and isinstance(token, Identifier):
+                n, unit = str(token).strip().split(" ")
+                funnel_within = {"value": int(n), "unit": unit.lower()}
+                mode = "metrics"
+                continue
 
             if mode == "having":
                 having.append(token)
@@ -139,7 +171,7 @@ class MQLConverter:
                 order_by.append(token)
                 continue
 
-            if isinstance(token, Identifier):
+            if isinstance(token, Identifier) and not self._is_funnel(token):
                 identifier = str(token)
                 self._add_by_mode(metrics, dimensions, mode, identifier)
 
@@ -151,6 +183,14 @@ class MQLConverter:
             if isinstance(token, Where):
                 where = token
 
+        if funnel_within != {} and len(funnel_steps) > 0:
+            steps = ["".join(s).strip() for s in funnel_steps]
+            funnel = {"steps": steps, "within": funnel_within}
+            if funnel_for:
+                funnel["view_name"] = funnel_for
+        else:
+            funnel = {}
+
         # For all of these we do [1:] to ignore the keyword at the beginning of the statement
         where_literal = self._tokens_to_sql(where[1:])
         having_literal = self._tokens_to_sql(having[1:])
@@ -159,6 +199,7 @@ class MQLConverter:
         resolver = SQLQueryResolver(
             metrics=metrics,
             dimensions=dimensions,
+            funnel=funnel,
             where=where_literal,
             having=having_literal,
             order_by=order_by_literal,
@@ -176,6 +217,12 @@ class MQLConverter:
             mode = "having"
         elif keyword == "ORDER BY":
             mode = "order_by"
+        elif keyword == "FOR":
+            mode = "for"
+        elif keyword in {"FUNNEL", "THEN"}:
+            mode = "funnel"
+        elif keyword == "WITHIN":
+            mode = "within"
         else:
             mode = mode
         return mode
@@ -193,3 +240,6 @@ class MQLConverter:
         if len(tokens) == 0:
             return
         return str(Statement(tokens)).strip()
+
+    def _is_funnel(self, token):
+        return str(token).upper().strip() == "FUNNEL"
