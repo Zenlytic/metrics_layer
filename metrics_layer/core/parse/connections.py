@@ -127,9 +127,12 @@ class RedshiftConnection(BaseConnection):
 
 
 class BigQueryConnection(BaseConnection):
-    def __init__(self, name: str, credentials: str = None, keyfile: str = None, **kwargs) -> None:
+    def __init__(
+        self, name: str, schema: str = None, credentials: str = None, keyfile: str = None, **kwargs
+    ) -> None:
         self.type = ConnectionType.bigquery
         self.name = name
+        self.schema = schema
         creds_to_use = credentials if credentials else keyfile
         self.credentials = self._convert_json_if_needed(creds_to_use, kwargs)
         self.project_id = self.credentials["project_id"]

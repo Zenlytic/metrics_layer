@@ -22,6 +22,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self,
         metrics: list,
         dimensions: list = [],
+        funnel: dict = {},  # A dict with steps (list) and within (string)
         where: str = None,  # Either a list of json or a string
         having: str = None,  # Either a list of json or a string
         order_by: str = None,  # Either a list of json or a string
@@ -40,6 +41,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self.project = self.config.project
         self.metrics = metrics
         self.dimensions = dimensions
+        self.funnel = funnel
         self.where = where
         self.having = having
         self.order_by = order_by
@@ -68,6 +70,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         resolver = SingleSQLQueryResolver(
             metrics=self.metrics,
             dimensions=self.dimensions,
+            funnel=self.funnel,
             where=self.where,
             having=self.having,
             order_by=self.order_by,

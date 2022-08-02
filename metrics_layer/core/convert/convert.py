@@ -51,6 +51,21 @@ class MQLConverter:
                 metric_name
             ) as metric_by_country
             ON metric_by_country.country=countries.country
+
+    The syntax can also be used for event / funnel queries, as follows:
+
+    TODO add a reference to the entity (event / order / etc)??
+    SELECT
+        *
+    FROM MQL(
+            total_revenue, number_of_users
+            WITH event_name = 'user_created'
+            FOLLOWED BY event_name = 'complete_onboarding' as onboarding,
+                        event_name = 'purchase' as made_a_purchase
+            WITHIN 3 days
+            BY region, new_vs_repeat
+            WHERE region != 'West' AND new_vs_repeat <> 'New'
+        ) as subquery
     """
 
     def __init__(self, sql: str, config: MetricsLayerConfiguration, **kwargs):

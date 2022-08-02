@@ -21,6 +21,7 @@ fields:
     hidden: yes
     sql: "${TABLE}.customer_id"
     group_label: "ID's"
+    tags: ['customer']
 
   - name: first_order
     field_type: "dimension_group"

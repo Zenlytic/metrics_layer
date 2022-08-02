@@ -50,7 +50,7 @@ def test_config_explicit_metrics_layer_single_with_connections():
             "role": "my_role",
             "warehouse": "compute_wh",
             "database": "company",
-            "schema": "analytics",
+            "schema": "testing",
         },
         {
             "type": "BIGQUERY",
@@ -81,7 +81,7 @@ def test_config_explicit_metrics_layer_single_with_connections():
         "role": "my_role",
         "warehouse": "compute_wh",
         "database": "company",
-        "schema": "analytics",
+        "schema": "testing",
         "type": "SNOWFLAKE",
         "name": "sf_name",
     }

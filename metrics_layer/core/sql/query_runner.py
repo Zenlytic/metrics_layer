@@ -129,9 +129,9 @@ class QueryRunner:
             )
         except (ModuleNotFoundError, NameError):
             raise ModuleNotFoundError(
-                "MetricsLayer could not find the Snowflake modules it needs to run the query. "
+                "MetricsLayer could not find the Redshift modules it needs to run the query. "
                 "Make sure that you have those modules installed or reinstall MetricsLayer with "
-                "the [snowflake] option e.g. pip install metrics-layer[snowflake]"
+                "the [redshift] option e.g. pip install metrics-layer[redshift]"
             )
 
     @staticmethod
