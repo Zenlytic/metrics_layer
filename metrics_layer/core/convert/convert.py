@@ -58,6 +58,7 @@ class MQLConverter:
         *
     FROM MQL(
             total_revenue, number_of_users
+
             FOR events
             FUNNEL event_name = 'user_created'
             THEN event_name = 'complete_onboarding' as onboarding,
