@@ -1,3 +1,4 @@
+import functools
 import hashlib
 import re
 from copy import deepcopy
@@ -739,6 +740,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         digit_first_char = name[0] in {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
         return name_is_keyword or digit_first_char
 
+    @functools.lru_cache(maxsize=None)
     def join_graphs(self):
         if self.is_merged_result:
             return [f"merged_result_{self.id()}"]

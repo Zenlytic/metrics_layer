@@ -1,6 +1,3 @@
-import sqlparse
-from sqlparse.tokens import Name, Punctuation
-
 from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.parse.config import ConfigError, MetricsLayerConfiguration
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
@@ -156,19 +153,19 @@ class SingleSQLQueryResolver:
     def parse_field_names(self, where, having, order_by):
         self.where = self._check_for_dict(where)
         if self._is_literal(self.where):
-            self._where_field_names = self.parse_identifiers_from_clause(self.where)
+            self._where_field_names = MetricsLayerQuery.parse_identifiers_from_clause(self.where)
         else:
             self._where_field_names = self.parse_identifiers_from_dicts(self.where)
 
         self.having = self._check_for_dict(having)
         if self._is_literal(self.having):
-            self._having_field_names = self.parse_identifiers_from_clause(self.having)
+            self._having_field_names = MetricsLayerQuery.parse_identifiers_from_clause(self.having)
         else:
             self._having_field_names = self.parse_identifiers_from_dicts(self.having)
 
         self.order_by = self._check_for_dict(order_by)
         if self._is_literal(self.order_by):
-            self._order_by_field_names = self.parse_identifiers_from_clause(self.order_by)
+            self._order_by_field_names = MetricsLayerQuery.parse_identifiers_from_clause(self.order_by)
         else:
             self._order_by_field_names = self.parse_identifiers_from_dicts(self.order_by)
 
@@ -185,23 +182,6 @@ class SingleSQLQueryResolver:
     @staticmethod
     def _is_literal(clause):
         return isinstance(clause, str) or clause is None
-
-    @staticmethod
-    def parse_identifiers_from_clause(clause: str):
-        if clause is None:
-            return []
-        generator = list(sqlparse.parse(clause)[0].flatten())
-
-        field_names = []
-        for i, token in enumerate(generator):
-            not_already_added = i == 0 or str(generator[i - 1]) != "."
-            if token.ttype == Name and not_already_added:
-                field_names.append(str(token))
-
-            if token.ttype == Punctuation and str(token) == ".":
-                if generator[i - 1].ttype == Name and generator[i + 1].ttype == Name:
-                    field_names[-1] += f".{str(generator[i+1])}"
-        return field_names
 
     @staticmethod
     def parse_identifiers_from_dicts(conditions: list):
