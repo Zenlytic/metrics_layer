@@ -133,6 +133,38 @@ def test_cumulative_query_metric_dimension_no_time(connection):
 
 
 @pytest.mark.query
+def test_cumulative_metric_and_non_cumulative(connection):
+    query = connection.get_sql_query(
+        metrics=["ltr"],
+        dimensions=["new_vs_repeat"],
+        where={"field": "region", "expression": "equal_to", "value": "West"},
+    )
+
+    correct = (
+        "WITH date_spine AS (select dateadd(day, seq4(), '2000-01-01') as date "
+        "from table(generator(rowcount => 365*40))) ,subquery_orders_total_lifetime_revenue "
+        "AS (SELECT orders.new_vs_repeat as orders_new_vs_repeat,"
+        "DATE_TRUNC('DAY', orders.order_date) as orders_order_date,orders.revenue as "
+        "orders_total_revenue FROM analytics.orders orders LEFT JOIN analytics.customers "
+        "customers ON orders.customer_id=customers.customer_id WHERE customers.region='West') ,"
+        "aggregated_orders_total_lifetime_revenue AS (SELECT SUM(orders_total_revenue) as "
+        "orders_total_revenue,orders_new_vs_repeat as orders_new_vs_repeat FROM date_spine "
+        "JOIN subquery_orders_total_lifetime_revenue ON subquery_orders_total_lifetime_revenue"
+        ".orders_order_date<=date_spine.date WHERE date_spine.date<=current_date() GROUP BY "
+        "orders_new_vs_repeat) ,base AS (SELECT orders.new_vs_repeat as orders_new_vs_repeat,"
+        "COUNT(DISTINCT(customers.customer_id)) as customers_number_of_customers FROM "
+        "analytics.orders orders LEFT JOIN analytics.customers customers ON orders.customer_id"
+        "=customers.customer_id WHERE customers.region='West' GROUP BY orders.new_vs_repeat "
+        "ORDER BY customers_number_of_customers DESC) SELECT base.orders_new_vs_repeat as "
+        "orders_new_vs_repeat,(aggregated_orders_total_lifetime_revenue.orders_total_revenue) "
+        "/ nullif((COUNT(customers_number_of_customers)), 0) as orders_ltr FROM base LEFT JOIN"
+        " aggregated_orders_total_lifetime_revenue ON base.orders_new_vs_repeat="
+        "aggregated_orders_total_lifetime_revenue.orders_new_vs_repeat;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_cumulative_query_metrics_month_time_frame(connection):
     query = connection.get_sql_query(
         metrics=["cumulative_customers"], dimensions=["customers.first_order_month"]

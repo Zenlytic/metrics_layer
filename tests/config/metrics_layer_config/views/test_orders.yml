@@ -143,6 +143,11 @@ fields:
     type: number
     sql: ${total_lifetime_revenue} / nullif(${cumulative_customers}, 0)
 
+  - name: ltr
+    field_type: measure
+    type: number
+    sql: ${total_lifetime_revenue} / nullif(${customers.number_of_customers}, 0)
+
   - name: total_modified_revenue
     field_type: "measure"
     type: sum

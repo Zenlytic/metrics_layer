@@ -161,14 +161,14 @@ def test_cli_validate(config, connection, fresh_project, mocker):
     result = runner.invoke(validate)
 
     print(result)
-    # assert result.exit_code == 0
-    # assert result.output == "Project passed (checked 1 model)!\n"
+    assert result.exit_code == 0
+    assert result.output == "Project passed (checked 1 model)!\n"
 
     # Break something so validation fails
     project = fresh_project
     project._views[1]["default_date"] = "sessions.session_date"
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
-    sorted_fields[15]["name"] = "rev_broken_dim"
+    sorted_fields[16]["name"] = "rev_broken_dim"
     project._views[1]["fields"] = sorted_fields
     config.project = project
     conn = MetricsLayerConnection(config=config)

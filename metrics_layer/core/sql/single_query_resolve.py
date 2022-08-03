@@ -118,7 +118,7 @@ class SingleSQLQueryResolver:
 
         for name in self.metrics:
             field = self.get_field_with_error_handling(name, "Metric")
-            if field.type == "cumulative":
+            if field.is_cumulative():
                 self.has_cumulative_metric = True
             self.field_lookup[name] = field
 
