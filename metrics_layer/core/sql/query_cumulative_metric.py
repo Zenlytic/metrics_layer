@@ -178,6 +178,8 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         self.design.no_group_by = no_group_by
         for metric in metrics:
             self.design.field_lookup[metric.id()] = metric
+        self.design.joins.cache_clear()
+        self.design.functional_pk.cache_clear()
 
         query_generator = MetricsLayerQuery(
             sub_definition, design=self.design, suppress_warnings=self.suppress_warnings
@@ -185,6 +187,8 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         query = query_generator.get_query(semicolon=False)
         self.design.no_group_by = False
         self.design.field_lookup = field_lookup
+        self.design.joins.cache_clear()
+        self.design.functional_pk.cache_clear()
 
         return query
 

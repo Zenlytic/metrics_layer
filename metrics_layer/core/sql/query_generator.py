@@ -114,7 +114,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         return len(self.design.joins()) > 0
 
     def get_query(self, semicolon: bool = True):
-        # Build the base_join table if of join is needed otherwise use a single table
+        # Build the base_join table if a join is needed otherwise use a single table
         if self.needs_join():
             base_query = self.get_join_query_from()
         else:

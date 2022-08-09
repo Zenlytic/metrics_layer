@@ -1,12 +1,12 @@
 from copy import deepcopy
 from typing import List
+import functools
 import itertools
 
 import networkx
 from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException
 from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.model.definitions import Definitions
-from metrics_layer.core.sql.query_errors import ParseError
 
 
 class MetricsLayerDesign:
@@ -26,6 +26,7 @@ class MetricsLayerDesign:
     def views(self) -> List[MetricsLayerBase]:
         return self.project.views(model=self.model)
 
+    @functools.lru_cache(maxsize=1)
     def joins(self) -> List[MetricsLayerBase]:
         required_views = self.required_views()
 
@@ -157,6 +158,7 @@ class MetricsLayerDesign:
     def deduplicate_fields(self, field_list: list):
         return self.project.deduplicate_fields(field_list)
 
+    @functools.lru_cache(maxsize=1)
     def functional_pk(self):
         sorted_joins = self.joins()
 
@@ -209,10 +211,7 @@ class MetricsLayerDesign:
         return primary_key
 
     def get_view(self, name: str) -> MetricsLayerBase:
-        try:
-            return next(t for t in self.views() if t.name == name)
-        except StopIteration:
-            raise ParseError(f"View {name} not found in explore {self.explore.name}")
+        return self.project.get_view(name, model=self.model)
 
     def get_join(self, name: str) -> MetricsLayerBase:
         return next((j for j in self.joins() if j.name == name), None)
