@@ -1,6 +1,6 @@
 import pytest
 
-from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException
+from metrics_layer.core.exceptions import QueryError
 
 
 @pytest.mark.query
@@ -169,7 +169,7 @@ def test_functional_pk_resolve_one_to_many(connection):
 
 @pytest.mark.query
 def test_ensure_join_fields_are_respected_two(connection):
-    with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
+    with pytest.raises(QueryError) as exc_info:
         connection.get_sql_query(
             metrics=["number_of_sessions"],
             dimensions=["total_item_revenue"],
@@ -180,7 +180,7 @@ def test_ensure_join_fields_are_respected_two(connection):
 
 @pytest.mark.query
 def test_ensure_join_fields_are_respected_three_or_more(connection):
-    with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
+    with pytest.raises(QueryError) as exc_info:
         connection.get_sql_query(
             metrics=["number_of_sessions"],
             dimensions=["total_item_revenue", "new_vs_repeat", "gender"],

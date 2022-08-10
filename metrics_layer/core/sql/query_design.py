@@ -4,7 +4,7 @@ import functools
 import itertools
 
 import networkx
-from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException
+from metrics_layer.core.exceptions import JoinError
 from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.model.definitions import Definitions
 
@@ -35,11 +35,9 @@ class MetricsLayerDesign:
         try:
             ordered_view_pairs = self.determine_join_order(required_views)
         except networkx.exception.NetworkXNoPath:
-            raise AccessDeniedOrDoesNotExistException(
+            raise JoinError(
                 f"There was no join path between the views: {required_views}. "
-                "Check the identifiers on your views and make sure they are joinable.",
-                object_name=None,
-                object_type="view",
+                "Check the identifiers on your views and make sure they are joinable."
             )
 
         return self.project.join_graph.ordered_joins(ordered_view_pairs)

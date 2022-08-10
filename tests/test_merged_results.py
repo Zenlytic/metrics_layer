@@ -360,3 +360,54 @@ def test_merged_result_query_with_extra_dim(connection):
         f"and {cte_1}.orders_sub_channel={cte_2}.sessions_utm_source;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_merged_query_implicit_with_subgraph(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders", "number_of_sessions"], dimensions=["orders.order_month"]
+    )
+
+    correct = (
+        "WITH orders_order__subquery_0 AS (SELECT DATE_TRUNC('MONTH', orders.order_date) "
+        "as orders_order_month,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders "
+        "orders GROUP BY DATE_TRUNC('MONTH', orders.order_date) ORDER BY orders_number_of_orders DESC) ,"
+        "sessions_session__subquery_2 AS (SELECT DATE_TRUNC('MONTH', sessions.session_date) as "
+        "sessions_session_month,COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions "
+        "sessions GROUP BY DATE_TRUNC('MONTH', sessions.session_date) ORDER BY "
+        "sessions_number_of_sessions DESC) SELECT orders_order__subquery_0.orders_number_of_orders as "
+        "orders_number_of_orders,sessions_session__subquery_2.sessions_number_of_sessions as "
+        "sessions_number_of_sessions,orders_order__subquery_0.orders_order_month as orders_order_month,"
+        "sessions_session__subquery_2.sessions_session_month as sessions_session_month FROM "
+        "orders_order__subquery_0 JOIN sessions_session__subquery_2 ON orders_order__subquery_0."
+        "orders_order_month=sessions_session__subquery_2.sessions_session_month;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_merged_query_implicit_with_subgraph_and_mapping(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders", "number_of_sessions"], dimensions=["orders.order_month", "sub_channel"]
+    )
+
+    correct = (
+        "WITH orders_order__subquery_0 AS (SELECT DATE_TRUNC('MONTH', orders.order_date) as "
+        "orders_order_month,orders.sub_channel as orders_sub_channel,COUNT(orders.id) as "
+        "orders_number_of_orders FROM analytics.orders orders GROUP BY DATE_TRUNC('MONTH', "
+        "orders.order_date),orders.sub_channel ORDER BY orders_number_of_orders DESC) ,"
+        "sessions_session__subquery_2 AS (SELECT DATE_TRUNC('MONTH', sessions.session_date) "
+        "as sessions_session_month,sessions.utm_source as sessions_utm_source,"
+        "COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions sessions GROUP BY "
+        "DATE_TRUNC('MONTH', sessions.session_date),sessions.utm_source ORDER BY sessions_number_of_sessions "
+        "DESC) SELECT orders_order__subquery_0.orders_number_of_orders as orders_number_of_orders,"
+        "sessions_session__subquery_2.sessions_number_of_sessions as sessions_number_of_sessions,"
+        "orders_order__subquery_0.orders_order_month as orders_order_month,orders_order__subquery_0."
+        "orders_sub_channel as orders_sub_channel,sessions_session__subquery_2.sessions_session_month as "
+        "sessions_session_month,sessions_session__subquery_2.sessions_utm_source as sessions_utm_source,"
+        "subquery_0.sessions_utm_source as sessions_utm_source FROM orders_order__subquery_0 JOIN "
+        "sessions_session__subquery_2 ON orders_order__subquery_0.orders_order_month="
+        "sessions_session__subquery_2.sessions_session_month and orders_order__subquery_0."
+        "orders_sub_channel=sessions_session__subquery_2.sessions_utm_source;"
+    )
+    assert query == correct
