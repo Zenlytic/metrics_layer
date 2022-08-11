@@ -94,31 +94,53 @@ def test_merged_result_query_only_metric(connection, dim):
     assert query == correct
 
 
+# @pytest.mark.skip()
 @pytest.mark.query
 def test_merged_result_join_graph(connection):
+    revenue_set = [
+        "merged_result_canon_date_core",
+        "merged_result_subquery_0_subquery_1",
+        "merged_result_subquery_0_subquery_2",
+    ]
     field = connection.get_field("revenue_per_session")
-    assert field.join_graphs() == ["merged_result_order_lines.revenue_per_session"]
+    assert field.join_graphs() == revenue_set
 
     field = connection.get_field("total_item_revenue")
-    assert field.join_graphs() == ["subquery_0", "merged_result_order_lines.revenue_per_session"]
+    assert field.join_graphs() == ["subquery_0", *revenue_set]
 
     field = connection.get_field("order_lines.order_date")
-    assert field.join_graphs() == ["subquery_0", "merged_result_order_lines.revenue_per_session"]
+    assert field.join_graphs() == ["subquery_0", *revenue_set]
 
     field = connection.get_field("orders.order_date")
-    assert field.join_graphs() == ["subquery_0", "merged_result_discounts.discount_per_order"]
+    assert field.join_graphs() == ["subquery_0", *revenue_set]
 
     field = connection.get_field("sub_channel")
-    assert field.join_graphs() == ["subquery_0", "merged_result_order_lines.revenue_per_session"]
+    assert field.join_graphs() == [
+        "subquery_0",
+        "merged_result_canon_date_core",
+        "merged_result_subquery_0_subquery_2",
+    ]
 
     field = connection.get_field("new_vs_repeat")
     assert field.join_graphs() == ["subquery_0"]
 
     field = connection.get_field("gender")
-    assert field.join_graphs() == ["subquery_0", "subquery_1", "subquery_2"]
+    assert field.join_graphs() == [
+        "subquery_0",
+        "subquery_1",
+        "subquery_2",
+        "merged_result_subquery_0_subquery_1",
+        "merged_result_subquery_0_subquery_2",
+        "merged_result_subquery_1_subquery_2",
+    ]
 
     field = connection.get_field("number_of_sessions")
-    assert field.join_graphs() == ["subquery_2", "merged_result_order_lines.revenue_per_session"]
+    assert field.join_graphs() == [
+        "subquery_2",
+        "merged_result_canon_date_core",
+        "merged_result_subquery_0_subquery_2",
+        "merged_result_subquery_1_subquery_2",
+    ]
 
     field = connection.get_field("session_id")
     assert field.join_graphs() == ["subquery_2"]
@@ -411,3 +433,30 @@ def test_merged_query_implicit_with_subgraph_and_mapping(connection):
         "orders_sub_channel=sessions_session__subquery_2.sessions_utm_source;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_implicit_merge_subgraph(connection):
+    order_field = connection.get_field("number_of_orders")
+    session_field = connection.get_field("number_of_sessions")
+
+    session_graphs = session_field.join_graphs()
+    assert any(j in session_graphs for j in order_field.join_graphs())
+
+    order_field = connection.get_field("number_of_orders")
+    session_field = connection.get_field("utm_source")
+
+    session_graphs = session_field.join_graphs()
+    assert any(j in session_graphs for j in order_field.join_graphs())
+
+    order_field = connection.get_field("number_of_orders")
+    session_field = connection.get_field("number_of_sessions")
+    gender_field = connection.get_field("gender")
+
+    session_graphs = session_field.join_graphs()
+    shared_with_orders = [j for j in order_field.join_graphs() if j in session_graphs]
+    assert any(j in shared_with_orders for j in gender_field.join_graphs())
+
+    traffic_field = connection.get_field("traffic_source")
+
+    assert not any(j in shared_with_orders for j in traffic_field.join_graphs())

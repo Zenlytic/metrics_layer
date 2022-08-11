@@ -22,8 +22,8 @@ explores:
     sql_table_name: "table_name ;;"
     description: "description string"
     label: "desired label name"
-    group_label: "label to use as a heading in the Explore menu"
-    view_label: "field picker heading to use for the Explore's fields"
+    group_label: "label to use as a heading in the menu"
+    view_label: "field picker heading to use for the fields"
     extends: [explore_name, explore_name]
     extension: required
     hidden: yes

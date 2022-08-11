@@ -119,7 +119,9 @@ class Field(MetricsLayerBase, SQLReplacement):
         if "canon_date" in self._definition:
             canon_date = self._definition["canon_date"]
             return self._add_view_name_if_needed(canon_date)
-        return self._add_view_name_if_needed(self.view.default_date)
+        if self.view.default_date:
+            return self._add_view_name_if_needed(self.view.default_date)
+        return None
 
     @property
     def drill_fields(self):
@@ -742,8 +744,8 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     @functools.lru_cache(maxsize=None)
     def join_graphs(self):
-        if self.is_merged_result:
-            return [f"merged_result_{self.id()}"]
+        # if self.is_merged_result:
+        #     return [f"merged_result_{self.id()}"]
 
         if self.view.model is None:
             raise QueryError(
@@ -754,4 +756,6 @@ class Field(MetricsLayerBase, SQLReplacement):
         base = self.view.project.join_graph.weak_join_graph_hashes(self.view.name)
         edges = self.view.project.join_graph.merged_results_graph(self.view.model).in_edges(self.id())
         extended = [f"merged_result_{mr}" for mr, _ in edges]
+        if self.is_merged_result:
+            return extended
         return base + extended

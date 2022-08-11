@@ -1,4 +1,5 @@
 import networkx
+from itertools import combinations
 
 from metrics_layer.core.exceptions import QueryError
 from collections import defaultdict
@@ -136,6 +137,73 @@ class JoinGraph(SQLReplacement):
         return graph
 
     def merged_results_graph(self, model):
+        if self._merged_result_graph is None:
+            with_dates = [
+                field
+                for field in self.project.fields(model=model)
+                if field.canon_date and field.field_type == "measure"
+            ]
+            mappings = model.get_mappings()
+
+            root_node_name = "canon_date_core"
+            graph = networkx.DiGraph()
+            graph.add_node(root_node_name)
+            # Merged result shared date and field mapping
+            join_group_hashes = set()
+
+            for measure in with_dates:
+                graph.add_edge(root_node_name, measure.id())
+                canon_date = self.project.get_field_by_name(measure.canon_date)
+                for timeframe in canon_date.timeframes:
+                    canon_date.dimension_group = timeframe
+                    graph.add_edge(root_node_name, canon_date.id())
+                join_group_hashes.add(self.project.join_graph.join_graph_hash(measure.view.name))
+
+            for from_field, mapping in mappings.items():
+                to_field = mapping["field"]
+                if (
+                    mapping["from_join_hash"] in join_group_hashes
+                    and mapping["to_join_hash"] in join_group_hashes
+                ):
+                    graph.add_edge(root_node_name, self.project.get_field(from_field).id())
+                    graph.add_edge(root_node_name, self.project.get_field(to_field).id())
+
+            ordered_hashes = sorted(list(join_group_hashes))
+            for join_group_hash_1, join_group_hash_2 in combinations(ordered_hashes, 2):
+                join_root = join_group_hash_1 + "_" + join_group_hash_2
+                graph.add_node(join_root)
+
+                pair = [join_group_hash_1, join_group_hash_2]
+                for measure in with_dates:
+                    # print(measure.id(), pair)
+                    join_hash = self.project.join_graph.join_graph_hash(measure.view.name)
+                    # print(join_hash)
+                    if join_hash in pair:
+                        graph.add_edge(join_root, measure.id())
+                        canon_date = self.project.get_field_by_name(measure.canon_date)
+                        for timeframe in canon_date.timeframes:
+                            canon_date.dimension_group = timeframe
+                            graph.add_edge(join_root, canon_date.id())
+
+                for view in self.project.views(model=model):
+                    join_hashes = self.project.join_graph.weak_join_graph_hashes(view.name)
+                    if all(join_hash in join_hashes for join_hash in pair):
+                        view_fields = self.project.fields(
+                            view_name=view.name, model=model, expand_dimension_groups=True
+                        )
+                        for field in view_fields:
+                            graph.add_edge(join_root, field.id())
+
+                for from_field, mapping in mappings.items():
+                    to_field = mapping["field"]
+                    if mapping["from_join_hash"] in pair and mapping["to_join_hash"] in pair:
+                        graph.add_edge(join_root, self.project.get_field(from_field).id())
+                        graph.add_edge(join_root, self.project.get_field(to_field).id())
+
+            self._merged_result_graph = graph
+        return self._merged_result_graph
+
+    def merged_results_graph_1(self, model):
         if self._merged_result_graph is None:
             merged_results = [field for field in self.project.fields() if field.is_merged_result]
             mappings = model.get_mappings()
