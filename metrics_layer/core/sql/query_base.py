@@ -70,3 +70,8 @@ class MetricsLayerQueryBase(MetricsLayerBase):
                 stripped_sql = stripped_sql.replace(match, alias)
             return alias.join(stripped_sql.split(alias)[:-1])
         return sql
+
+
+class QueryKindTypes:
+    merged = "MERGED"
+    single = "SINGLE"

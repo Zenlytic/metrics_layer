@@ -410,29 +410,63 @@ def test_merged_query_implicit_with_subgraph(connection):
 @pytest.mark.query
 def test_merged_query_implicit_with_subgraph_and_mapping(connection):
     query = connection.get_sql_query(
-        metrics=["number_of_orders", "number_of_sessions"], dimensions=["orders.order_month", "sub_channel"]
+        metrics=["number_of_orders", "number_of_sessions"],
+        dimensions=["orders.order_month", "sub_channel", "utm_campaign"],
+        where=[
+            {
+                "field": "sessions.session_raw",
+                "expression": "greater_or_equal_than",
+                "value": datetime.datetime(2022, 1, 5, 0, 0),
+            }
+        ],
     )
 
     correct = (
-        "WITH orders_order__subquery_0 AS (SELECT DATE_TRUNC('MONTH', orders.order_date) as "
-        "orders_order_month,orders.sub_channel as orders_sub_channel,COUNT(orders.id) as "
-        "orders_number_of_orders FROM analytics.orders orders GROUP BY DATE_TRUNC('MONTH', "
-        "orders.order_date),orders.sub_channel ORDER BY orders_number_of_orders DESC) ,"
-        "sessions_session__subquery_2 AS (SELECT DATE_TRUNC('MONTH', sessions.session_date) "
-        "as sessions_session_month,sessions.utm_source as sessions_utm_source,"
-        "COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions sessions GROUP BY "
-        "DATE_TRUNC('MONTH', sessions.session_date),sessions.utm_source ORDER BY sessions_number_of_sessions "
-        "DESC) SELECT orders_order__subquery_0.orders_number_of_orders as orders_number_of_orders,"
+        "WITH orders_order__subquery_0 AS ("
+        "SELECT DATE_TRUNC('MONTH', orders.order_date) as orders_order_month,"
+        "orders.sub_channel as orders_sub_channel,orders.campaign as orders_campaign,"
+        "COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders "
+        "WHERE orders.order_date>='2022-01-05T00:00:00' "
+        "GROUP BY DATE_TRUNC('MONTH', orders.order_date),orders.sub_channel,orders.campaign "
+        "ORDER BY orders_number_of_orders DESC) ,sessions_session__subquery_2 AS ("
+        "SELECT DATE_TRUNC('MONTH', sessions.session_date) as sessions_session_month,"
+        "sessions.utm_source as sessions_utm_source,sessions.utm_campaign as "
+        "sessions_utm_campaign,COUNT(sessions.id) as sessions_number_of_sessions "
+        "FROM analytics.sessions sessions WHERE sessions.session_date>='2022-01-05T00:00:00' "
+        "GROUP BY DATE_TRUNC('MONTH', sessions.session_date)"
+        ",sessions.utm_source,sessions.utm_campaign ORDER BY sessions_number_of_sessions DESC) "
+        "SELECT orders_order__subquery_0.orders_number_of_orders as orders_number_of_orders,"
         "sessions_session__subquery_2.sessions_number_of_sessions as sessions_number_of_sessions,"
-        "orders_order__subquery_0.orders_order_month as orders_order_month,orders_order__subquery_0."
-        "orders_sub_channel as orders_sub_channel,sessions_session__subquery_2.sessions_session_month as "
-        "sessions_session_month,sessions_session__subquery_2.sessions_utm_source as sessions_utm_source,"
-        "subquery_0.sessions_utm_source as sessions_utm_source FROM orders_order__subquery_0 JOIN "
-        "sessions_session__subquery_2 ON orders_order__subquery_0.orders_order_month="
-        "sessions_session__subquery_2.sessions_session_month and orders_order__subquery_0."
-        "orders_sub_channel=sessions_session__subquery_2.sessions_utm_source;"
+        "orders_order__subquery_0.orders_order_month as orders_order_month,"
+        "orders_order__subquery_0.orders_sub_channel as orders_sub_channel,"
+        "orders_order__subquery_0.orders_campaign as orders_campaign,"
+        "sessions_session__subquery_2.sessions_session_month as sessions_session_month,"
+        "sessions_session__subquery_2.sessions_utm_source as sessions_utm_source,"
+        "sessions_session__subquery_2.sessions_utm_campaign as sessions_utm_campaign "
+        "FROM orders_order__subquery_0 JOIN sessions_session__subquery_2 "
+        "ON orders_order__subquery_0.orders_order_month=sessions_session__subquery_2.sessions_session_month "
+        "and orders_order__subquery_0.orders_sub_channel=sessions_session__subquery_2.sessions_utm_source "
+        "and orders_order__subquery_0.orders_campaign=sessions_session__subquery_2.sessions_utm_campaign;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_merged_query_implicit_query_kind(connection):
+    _, query_kind_merged = connection.get_sql_query(
+        metrics=["number_of_orders", "number_of_sessions"],
+        dimensions=["orders.order_month", "sub_channel"],
+        return_query_kind=True,
+    )
+
+    assert query_kind_merged == "MERGED"
+
+    _, query_kind_normal = connection.get_sql_query(
+        metrics=["number_of_orders"],
+        dimensions=["orders.order_month"],
+        return_query_kind=True,
+    )
+    assert query_kind_normal == "SINGLE"
 
 
 @pytest.mark.query

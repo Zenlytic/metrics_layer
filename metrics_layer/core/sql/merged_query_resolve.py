@@ -129,7 +129,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                     other_canon_date = other_field_set[0].canon_date
                     canon_date_data = {"field": other_canon_date, "from_join_hash": other_explore_name}
                     dimension_mapping[canon_date].append(canon_date_data)
-        print(dimension_mapping)
+
         mappings = self.model.get_mappings()
         for key, map_to in mappings.items():
             for other_join_hash, other_field_set in self.query_metrics.items():
@@ -139,7 +139,6 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
 
         self.query_dimensions = defaultdict(list)
         for dimension in self.dimensions:
-            print(dimension)
             field = self.project.get_field(dimension)
             join_group_hash = self.project.join_graph.join_graph_hash(field.view.name)
             field_key = f"{field.view.name}.{field.name}"
@@ -149,24 +148,24 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
 
                 dimension_group = field.dimension_group
                 for mapping_info in dimension_mapping[field_key]:
-                    key = f"{mapping_info['field']}_{dimension_group}"
-                    ref_field = self.project.get_field(key)
-                    self.query_dimensions[mapping_info["from_join_hash"]].append(ref_field)
+                    if mapping_info["from_join_hash"] in self.query_metrics:
+                        key = f"{mapping_info['field']}_{dimension_group}"
+                        ref_field = self.project.get_field(key)
+                        self.query_dimensions[mapping_info["from_join_hash"]].append(ref_field)
             else:
                 for join_hash in self.query_metrics.keys():
                     if join_group_hash in join_hash:
                         self.query_dimensions[join_hash].append(field)
                     else:
                         if field_key not in dimension_mapping:
-                            print(dimension_mapping)
-                            print(field_key)
                             raise QueryError(
                                 f"Could not find mapping from field {field_key} to other views. "
                                 "Please add a mapping to your view definition to allow this."
                             )
                         for mapping_info in dimension_mapping[field_key]:
-                            ref_field = self.project.get_field(mapping_info["field"])
-                            self.query_dimensions[mapping_info["from_join_hash"]].append(ref_field)
+                            if mapping_info["from_join_hash"] in self.query_metrics:
+                                ref_field = self.project.get_field(mapping_info["field"])
+                                self.query_dimensions[mapping_info["from_join_hash"]].append(ref_field)
 
         # Get rid of duplicates while keeping order to make joining work properly
         self.query_dimensions = {
@@ -188,5 +187,4 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                         ref_field = self.project.get_field(key)
                         mapped_where = deepcopy(where)
                         mapped_where["field"] = ref_field.id()
-                        join_group_hash = self.project.join_graph.join_graph_hash(ref_field.view.name)
                         self.query_where[join_hash].append(mapped_where)

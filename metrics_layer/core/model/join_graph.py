@@ -175,9 +175,7 @@ class JoinGraph(SQLReplacement):
 
                 pair = [join_group_hash_1, join_group_hash_2]
                 for measure in with_dates:
-                    # print(measure.id(), pair)
                     join_hash = self.project.join_graph.join_graph_hash(measure.view.name)
-                    # print(join_hash)
                     if join_hash in pair:
                         graph.add_edge(join_root, measure.id())
                         canon_date = self.project.get_field_by_name(measure.canon_date)

@@ -99,6 +99,11 @@ fields:
     type: string
     sql: "${TABLE}.sub_channel"
 
+  - name: campaign
+    field_type: "dimension"
+    type: string
+    sql: "${TABLE}.campaign"
+
   - name: new_vs_repeat
     field_type: "dimension"
     type: string
