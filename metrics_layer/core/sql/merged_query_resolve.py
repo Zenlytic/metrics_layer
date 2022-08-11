@@ -153,9 +153,11 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                         ref_field = self.project.get_field(key)
                         self.query_dimensions[mapping_info["from_join_hash"]].append(ref_field)
             else:
+                not_in_metrics = True
                 for join_hash in self.query_metrics.keys():
                     if join_group_hash in join_hash:
                         self.query_dimensions[join_hash].append(field)
+                        not_in_metrics = False
                     else:
                         if field_key not in dimension_mapping:
                             raise QueryError(
@@ -164,8 +166,14 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                             )
                         for mapping_info in dimension_mapping[field_key]:
                             if mapping_info["from_join_hash"] in self.query_metrics:
+
                                 ref_field = self.project.get_field(mapping_info["field"])
                                 self.query_dimensions[mapping_info["from_join_hash"]].append(ref_field)
+                if not_in_metrics:
+                    canon_date = field.canon_date.replace(".", "_")
+                    key = f"{canon_date}__{join_group_hash}"
+                    self.query_metrics[key] = []
+                    self.query_dimensions[key].append(field)
 
         # Get rid of duplicates while keeping order to make joining work properly
         self.query_dimensions = {
@@ -183,7 +191,10 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                 else:
                     key = f"{field.view.name}.{field.name}"
                     for mapping_info in dimension_mapping[key]:
-                        key = f"{mapping_info['field']}_{dimension_group}"
+                        if dimension_group:
+                            key = f"{mapping_info['field']}_{dimension_group}"
+                        else:
+                            key = mapping_info["field"]
                         ref_field = self.project.get_field(key)
                         mapped_where = deepcopy(where)
                         mapped_where["field"] = ref_field.id()

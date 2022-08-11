@@ -30,7 +30,6 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self.field_lookup = {}
         self.no_group_by = False
         self.verbose = kwargs.get("verbose", False)
-        # self.merged_result = kwargs.get("merged_result", False)
         self.select_raw_sql = kwargs.get("select_raw_sql", [])
         self.explore_name = kwargs.get("explore_name")
         self.suppress_warnings = kwargs.get("suppress_warnings", False)

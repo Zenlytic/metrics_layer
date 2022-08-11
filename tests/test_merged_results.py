@@ -452,6 +452,32 @@ def test_merged_query_implicit_with_subgraph_and_mapping(connection):
 
 
 @pytest.mark.query
+def test_merged_query_implicit_no_time(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders"],
+        dimensions=["utm_campaign"],
+        where=[{"field": "sessions.utm_source", "expression": "equal_to", "value": "Iterable"}],
+    )
+
+    correct = (
+        "WITH orders_order__subquery_0 AS (SELECT orders.campaign as orders_campaign,"
+        "COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders "
+        "WHERE orders.sub_channel='Iterable' GROUP BY orders.campaign "
+        "ORDER BY orders_number_of_orders DESC) ,sessions_session__subquery_2 AS ("
+        "SELECT sessions.utm_campaign as sessions_utm_campaign "
+        "FROM analytics.sessions sessions WHERE sessions.utm_source='Iterable' "
+        "GROUP BY sessions.utm_campaign ORDER BY sessions_utm_campaign ASC) "
+        "SELECT orders_order__subquery_0.orders_number_of_orders as orders_number_of_orders,"
+        "orders_order__subquery_0.orders_campaign as orders_campaign,"
+        "sessions_session__subquery_2.sessions_utm_campaign as sessions_utm_campaign "
+        "FROM orders_order__subquery_0 JOIN sessions_session__subquery_2 "
+        "ON orders_order__subquery_0.orders_campaign"
+        "=sessions_session__subquery_2.sessions_utm_campaign;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_merged_query_implicit_query_kind(connection):
     _, query_kind_merged = connection.get_sql_query(
         metrics=["number_of_orders", "number_of_sessions"],
