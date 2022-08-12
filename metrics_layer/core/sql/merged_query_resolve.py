@@ -140,8 +140,8 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         self.query_dimensions = defaultdict(list)
         for dimension in self.dimensions:
             field = self.project.get_field(dimension)
-            join_group_hash = self.project.join_graph.join_graph_hash(field.view.name)
             field_key = f"{field.view.name}.{field.name}"
+            join_group_hash = self.project.join_graph.join_graph_hash(field.view.name)
             if field_key in canon_dates:
                 join_hash = f'{field_key.replace(".", "_")}__{join_group_hash}'
                 self.query_dimensions[join_hash].append(field)
@@ -155,14 +155,15 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             else:
                 not_in_metrics = True
                 for join_hash in self.query_metrics.keys():
-                    if join_group_hash in join_hash:
+                    # If the dimension is available in the join subgraph as the metric, attach it
+                    if any(jg in join_hash for jg in field.join_graphs()):
                         self.query_dimensions[join_hash].append(field)
                         not_in_metrics = False
                     else:
                         if field_key not in dimension_mapping:
                             raise QueryError(
                                 f"Could not find mapping from field {field_key} to other views. "
-                                "Please add a mapping to your view definition to allow this."
+                                "Please add a mapping to your model definition to allow this."
                             )
                         for mapping_info in dimension_mapping[field_key]:
                             if mapping_info["from_join_hash"] in self.query_metrics:
@@ -175,10 +176,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                     self.query_metrics[key] = []
                     self.query_dimensions[key].append(field)
 
-        # Get rid of duplicates while keeping order to make joining work properly
-        self.query_dimensions = {
-            k: sorted(list(set(v)), key=lambda x: v.index(x)) for k, v in self.query_dimensions.items()
-        }
+        self.query_dimensions = self.deduplicate_fields(self.query_dimensions)
 
         self.query_where = defaultdict(list)
         for where in self.where:
@@ -199,3 +197,8 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                         mapped_where = deepcopy(where)
                         mapped_where["field"] = ref_field.id()
                         self.query_where[join_hash].append(mapped_where)
+
+    @staticmethod
+    def deduplicate_fields(field_dict: dict):
+        # Get rid of duplicates while keeping order to make joining work properly
+        return {k: sorted(list(set(v)), key=lambda x: v.index(x)) for k, v in field_dict.items()}

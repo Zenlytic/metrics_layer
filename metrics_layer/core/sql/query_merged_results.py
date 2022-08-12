@@ -63,18 +63,25 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
     # Code to handle SELECT portion of query
     def get_select_columns(self):
         select = []
+        existing_aliases = []
         for join_hash, field_set in sorted(self.query_metrics.items()):
             for field in field_set:
                 alias = field.alias(with_view=True)
-                select.append(self.sql(f"{join_hash}.{alias}", alias=alias))
+                if alias not in existing_aliases:
+                    select.append(self.sql(f"{join_hash}.{alias}", alias=alias))
+                    existing_aliases.append(alias)
 
         for join_hash, field_set in sorted(self.query_dimensions.items()):
             for field in field_set:
                 alias = field.alias(with_view=True)
-                select.append(self.sql(f"{join_hash}.{alias}", alias=alias))
+                if alias not in existing_aliases:
+                    select.append(self.sql(f"{join_hash}.{alias}", alias=alias))
+                    existing_aliases.append(alias)
 
         for field in self.merged_metrics:
             alias = field.alias(with_view=True)
-            select.append(self.sql(field.strict_replaced_query(), alias=alias))
+            if alias not in existing_aliases:
+                select.append(self.sql(field.strict_replaced_query(), alias=alias))
+                existing_aliases.append(alias)
 
         return select

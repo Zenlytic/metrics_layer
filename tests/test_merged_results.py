@@ -371,7 +371,6 @@ def test_merged_result_query_with_extra_dim(connection):
         f"{cte_1}.order_lines_order_month as order_lines_order_month,"
         f"{cte_1}.orders_sub_channel as orders_sub_channel,"
         f"{cte_3}.orders_previous_order_month as orders_previous_order_month,"
-        f"{cte_3}.orders_sub_channel as orders_sub_channel,"
         f"{cte_2}.sessions_session_month as sessions_session_month,"
         f"{cte_2}.sessions_utm_source as sessions_utm_source,"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
@@ -478,6 +477,30 @@ def test_merged_query_implicit_no_time(connection):
 
 
 @pytest.mark.query
+def test_merged_query_implicit_with_join(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders", "number_of_sessions"], dimensions=["gender"]
+    )
+
+    correct = (
+        "WITH orders_order__subquery_0 AS (SELECT customers.gender as customers_gender,"
+        "COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders "
+        "LEFT JOIN analytics.customers customers ON orders.customer_id=customers.customer_id "
+        "GROUP BY customers.gender ORDER BY orders_number_of_orders DESC) ,"
+        "sessions_session__subquery_2 AS (SELECT customers.gender as customers_gender,"
+        "COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions sessions "
+        "LEFT JOIN analytics.customers customers ON sessions.customer_id=customers.customer_id "
+        "GROUP BY customers.gender ORDER BY sessions_number_of_sessions DESC) "
+        "SELECT orders_order__subquery_0.orders_number_of_orders as orders_number_of_orders,"
+        "sessions_session__subquery_2.sessions_number_of_sessions as sessions_number_of_sessions,"
+        "orders_order__subquery_0.customers_gender as customers_gender "
+        "FROM orders_order__subquery_0 JOIN sessions_session__subquery_2 "
+        "ON orders_order__subquery_0.customers_gender=sessions_session__subquery_2.customers_gender;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_merged_query_implicit_query_kind(connection):
     _, query_kind_merged = connection.get_sql_query(
         metrics=["number_of_orders", "number_of_sessions"],
@@ -520,3 +543,15 @@ def test_implicit_merge_subgraph(connection):
     traffic_field = connection.get_field("traffic_source")
 
     assert not any(j in shared_with_orders for j in traffic_field.join_graphs())
+
+
+# Breaking test for mismatched dimension group timeframe
+@pytest.mark.query
+def test_implicit_merge_subgraph_dimension_group_check(connection):
+    discount_field = connection.get_field("total_discount_amt")
+    session_field = connection.get_field("number_of_sessions")
+    session_time_field = connection.get_field("session_quarter")
+
+    session_graphs = session_field.join_graphs()
+    shared = [j for j in session_time_field.join_graphs() if j in session_graphs]
+    assert all(j not in shared for j in discount_field.join_graphs())
