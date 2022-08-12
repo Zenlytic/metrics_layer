@@ -419,7 +419,7 @@ def test_cli_show(connection, mocker, name, extra_args):
             "  name: order\n"
             "  field_type: dimension_group\n"
             "  type: time\n"
-            "  timeframes:\n    raw\n    time\n    date\n    week\n    month\n    quarter\n    year\n"
+            "  timeframes:\n    date\n    week\n    month\n    year\n"
             "  sql: ${TABLE}.order_date\n"
         ),
         "total_discount_amt": (

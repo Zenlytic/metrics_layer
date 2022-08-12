@@ -272,11 +272,6 @@ class Project:
         for field in field_list:
             join_graph_options.update(field.join_graphs())
 
-        # If we have an option for a non-merged result, we'll take that unless it's required by another field
-        # most_common = Counter(join_graph_options).most_common()
-        # most_common = [(j[0], j[-1] - 1 if "merged_result" in j[0] else j[-1]) for j in most_common]
-
-        # join_graph = sorted(most_common, key=lambda x: -1 * x[1])[0][0]
         all_fields = self.fields(expand_dimension_groups=expand_dimension_groups)
         field_options = [f for f in all_fields if any(j in join_graph_options for j in f.join_graphs())]
         return field_options
@@ -289,6 +284,7 @@ class Project:
         matching_fields = [f for f in fields if f.equal(field_name)]
         return self._matching_field_handler(matching_fields, field_name, view_name)
 
+    @functools.lru_cache(maxsize=None)
     def get_field_by_name(self, field_name: str, view_name: str = None, model: Model = None):
         field_name, view_name = self._parse_field_and_view_name(field_name, view_name)
         fields = self.fields(view_name=view_name, expand_dimension_groups=False, model=model)
