@@ -49,11 +49,8 @@ class MetricsLayerDesign:
         try:
             ordered_view_pairs = list(networkx.topological_sort(networkx.line_graph(self._join_subgraph)))
             ordered_view_pairs = self._clean_view_pairs(ordered_view_pairs)
-            unique_joined_views = [v for p in ordered_view_pairs for v in p]
-
-            if len(required_views) > 1 and any(v not in unique_joined_views for v in required_views):
+            if len(required_views) > 1 and self._validate_join_path(ordered_view_pairs, required_views):
                 raise networkx.exception.NetworkXNoPath
-
             return ordered_view_pairs
 
         except networkx.exception.NetworkXUnfeasible:
@@ -63,7 +60,6 @@ class MetricsLayerDesign:
                 return [(source, target) for source, target in zip(path, path[1:])]
 
             g = self.project.join_graph.graph
-            # print(networkx.to_dict_of_dicts(g))
             raw_edges = networkx.line_graph(g).nodes
             sub_line_graph_nodes = networkx.line_graph(self._join_subgraph).nodes
             edges = [e for e in raw_edges if e[0] in required_views or e[1] in required_views]
@@ -75,6 +71,19 @@ class MetricsLayerDesign:
                     pass
 
             raise networkx.exception.NetworkXNoPath
+
+    def _validate_join_path(self, pairs: list, required_views: list):
+        added_views = []
+        for i, (v1, v2) in enumerate(pairs):
+            if i == 0:
+                added_views.extend([v1, v2])
+            else:
+                if v1 in added_views:
+                    added_views.append(v2)
+                else:
+                    raise networkx.exception.NetworkXNoPath
+
+        return any(v not in added_views for v in required_views)
 
     def _greedy_build_join(self, graph, starting_pair: tuple, required_views: list):
         _, paths = networkx.single_source_dijkstra(networkx.line_graph(graph), source=starting_pair)

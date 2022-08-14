@@ -197,7 +197,7 @@ class JoinGraph(SQLReplacement):
         for measure in measures:
             join_hash = self.project.join_graph.join_graph_hash(measure.view.name)
             join_group_hashes.add(join_hash)
-            if use_condition and join_hash in must_be_in:
+            if not use_condition or (use_condition and join_hash in must_be_in):
                 measure_id = measure.id()
                 canon_date = self._get_field_with_memo(measure.canon_date, by_name=True)
 

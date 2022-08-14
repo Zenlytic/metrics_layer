@@ -100,9 +100,11 @@ def test_merged_result_join_graph(connection):
         return [f"{join_graph}_{tf}" for tf in tf]
 
     core_tf = ["raw", "time", "date", "week", "month", "quarter", "year"]
+    sub_q_cr = _blow_out_by_time_frame("merged_result_canon_date_core", core_tf)
     sub_q_0_1 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_1", core_tf)
     sub_q_0_2 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_2", core_tf)
-    revenue_set = [*sub_q_0_1, *sub_q_0_2]
+    sub_q_0_3 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_3", core_tf)
+    revenue_set = [*sub_q_cr, *sub_q_0_1, *sub_q_0_2, *sub_q_0_3]
     field = connection.get_field("revenue_per_session")
     assert field.join_graphs() == revenue_set
 
@@ -112,20 +114,25 @@ def test_merged_result_join_graph(connection):
     field = connection.get_field("order_lines.order_date")
     assert field.join_graphs() == [
         "subquery_0",
+        "merged_result_canon_date_core_date",
         "merged_result_subquery_0_subquery_1_date",
         "merged_result_subquery_0_subquery_2_date",
+        "merged_result_subquery_0_subquery_3_date",
     ]
 
     field = connection.get_field("orders.order_date")
     assert field.join_graphs() == [
         "subquery_0",
+        "merged_result_canon_date_core_date",
         "merged_result_subquery_0_subquery_1_date",
         "merged_result_subquery_0_subquery_2_date",
+        "merged_result_subquery_0_subquery_3_date",
     ]
     tf = ["date", "day_of_week", "hour_of_day", "month", "quarter", "raw", "time", "week", "year"]
     field = connection.get_field("sub_channel")
     assert field.join_graphs() == [
         "subquery_0",
+        *_blow_out_by_time_frame("merged_result_canon_date_core", tf),
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_2", tf),
     ]
 
@@ -146,15 +153,17 @@ def test_merged_result_join_graph(connection):
     field = connection.get_field("number_of_sessions")
     assert field.join_graphs() == [
         "subquery_2",
+        *_blow_out_by_time_frame("merged_result_canon_date_core", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_2", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_1_subquery_2", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_2_subquery_3", core_tf),
     ]
 
     field = connection.get_field("session_id")
     assert field.join_graphs() == ["subquery_2"]
 
     field = connection.get_field("traffic_id")
-    assert field.join_graphs() == ["subquery_3"]
+    assert field.join_graphs() == ["subquery_4"]
 
 
 @pytest.mark.query
@@ -506,6 +515,18 @@ def test_merged_query_implicit_with_join(connection):
         "ON orders_order__subquery_0.customers_gender=sessions_session__subquery_2.customers_gender;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_merged_query_three_field_link(connection):
+    order_field = connection.get_field("number_of_orders")
+    session_field = connection.get_field("number_of_sessions")
+    event_field = connection.get_field("number_of_events")
+
+    session_graphs = session_field.join_graphs()
+    shared_with_orders = [j for j in order_field.join_graphs() if j in session_graphs]
+
+    assert any(j in shared_with_orders for j in event_field.join_graphs())
 
 
 @pytest.mark.query

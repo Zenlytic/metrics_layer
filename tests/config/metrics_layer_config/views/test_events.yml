@@ -1,0 +1,36 @@
+version: 1
+type: view
+name: events
+
+sql_table_name: analytics.events
+model_name: test_model
+
+default_date: event
+row_label: Event
+
+fields:
+  - name: event_id
+    field_type: "dimension"
+    type: string
+    primary_key: yes
+    hidden: yes
+    sql: "${TABLE}.id"
+
+  - name: event
+    field_type: "dimension_group"
+    type: time
+    timeframes: [
+      raw,
+      time,
+      date,
+      week,
+      month,
+      quarter,
+      year
+    ]
+    sql: "${TABLE}.event_date"
+
+  - name: number_of_events
+    field_type: measure
+    type: count_distinct
+    sql: ${event_id}
