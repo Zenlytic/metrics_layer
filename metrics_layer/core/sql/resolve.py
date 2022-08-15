@@ -68,6 +68,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         return has_explicit_merge or has_specified_merge
 
     def get_query(self, semicolon: bool = True):
+        err_msg = ""
         is_explicit_merge = self.is_merged_result
         if not is_explicit_merge:
             try:

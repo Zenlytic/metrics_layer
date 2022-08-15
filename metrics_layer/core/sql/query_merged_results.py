@@ -35,7 +35,6 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
             base_cte_query = base_cte_query.with_(query, join_hash)
 
         for i, join_hash in enumerate(self.join_hashes):
-            print(join_hash)
             if i == 0:
                 base_cte_query = base_cte_query.from_(AliasedQuery(join_hash))
             else:

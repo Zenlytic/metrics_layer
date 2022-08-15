@@ -519,6 +519,71 @@ def test_merged_query_implicit_with_join(connection):
 
 
 @pytest.mark.query
+def test_merged_query_implicit_with_extra_dim_only(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders"], dimensions=["orders.order_date", "utm_source"]
+    )
+
+    correct = (
+        "WITH orders_order__subquery_0 AS (SELECT DATE_TRUNC('DAY', orders.order_date) as "
+        "orders_order_date,orders.sub_channel as orders_sub_channel,COUNT(orders.id) as "
+        "orders_number_of_orders FROM analytics.orders orders GROUP BY DATE_TRUNC('DAY', "
+        "orders.order_date),orders.sub_channel ORDER BY orders_number_of_orders DESC) ,"
+        "sessions_session__subquery_2 AS (SELECT DATE_TRUNC('DAY', sessions.session_date) as "
+        "sessions_session_date,sessions.utm_source as sessions_utm_source FROM analytics.sessions "
+        "sessions GROUP BY DATE_TRUNC('DAY', sessions.session_date),sessions.utm_source ORDER BY "
+        "sessions_session_date ASC) SELECT orders_order__subquery_0.orders_number_of_orders as "
+        "orders_number_of_orders,orders_order__subquery_0.orders_order_date as orders_order_date,"
+        "orders_order__subquery_0.orders_sub_channel as orders_sub_channel,"
+        "sessions_session__subquery_2.sessions_session_date as sessions_session_date,"
+        "sessions_session__subquery_2.sessions_utm_source as sessions_utm_source FROM "
+        "orders_order__subquery_0 JOIN sessions_session__subquery_2 ON orders_order__subquery_0"
+        ".orders_order_date=sessions_session__subquery_2.sessions_session_date "
+        "and orders_order__subquery_0.orders_sub_channel=sessions_session__subquery_2.sessions_utm_source;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_merged_query_implicit_3_way_merge(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders", "number_of_sessions", "number_of_events"],
+        dimensions=["orders.order_date"],
+        where=[
+            {
+                "field": "orders.order_raw",
+                "expression": "greater_or_equal_than",
+                "value": datetime.datetime(2022, 1, 5, 0, 0),
+            }
+        ],
+    )
+
+    correct = (
+        "WITH orders_order__subquery_0 AS (SELECT DATE_TRUNC('DAY', orders.order_date) as "
+        "orders_order_date,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders "
+        "WHERE orders.order_date>='2022-01-05T00:00:00' GROUP BY DATE_TRUNC('DAY', orders.order_date)"
+        " ORDER BY orders_number_of_orders DESC) ,sessions_session__subquery_2 AS (SELECT "
+        "DATE_TRUNC('DAY', sessions.session_date) as sessions_session_date,COUNT(sessions.id) as "
+        "sessions_number_of_sessions FROM analytics.sessions sessions WHERE sessions.session_date>="
+        "'2022-01-05T00:00:00' GROUP BY DATE_TRUNC('DAY', sessions.session_date) ORDER BY "
+        "sessions_number_of_sessions DESC) ,events_event__subquery_3 AS (SELECT DATE_TRUNC('DAY', "
+        "events.event_date) as events_event_date,COUNT(DISTINCT(events.id)) as events_number_of_events "
+        "FROM analytics.events events WHERE events.event_date>='2022-01-05T00:00:00' GROUP BY "
+        "DATE_TRUNC('DAY', events.event_date) ORDER BY events_number_of_events DESC) SELECT "
+        "events_event__subquery_3.events_number_of_events as events_number_of_events,"
+        "orders_order__subquery_0.orders_number_of_orders as orders_number_of_orders,"
+        "sessions_session__subquery_2.sessions_number_of_sessions as sessions_number_of_sessions,"
+        "events_event__subquery_3.events_event_date as events_event_date,orders_order__subquery_0."
+        "orders_order_date as orders_order_date,sessions_session__subquery_2.sessions_session_date "
+        "as sessions_session_date FROM events_event__subquery_3 JOIN orders_order__subquery_0 ON "
+        "events_event__subquery_3.events_event_date=orders_order__subquery_0.orders_order_date "
+        "JOIN sessions_session__subquery_2 ON events_event__subquery_3.events_event_date"
+        "=sessions_session__subquery_2.sessions_session_date;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_merged_query_three_field_link(connection):
     order_field = connection.get_field("number_of_orders")
     session_field = connection.get_field("number_of_sessions")

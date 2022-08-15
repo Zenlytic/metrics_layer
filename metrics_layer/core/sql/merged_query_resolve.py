@@ -85,6 +85,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         self.query_metrics = defaultdict(list)
         self.merged_metrics = []
         self.secondary_metrics = []
+        self.dimension_fields = []
 
         for metric in self.metrics:
             field = self.project.get_field(metric)
@@ -93,20 +94,21 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             else:
                 self.secondary_metrics.append(field)
 
+        for dimension in self.dimensions:
+            self.dimension_fields.append(self.project.get_field(dimension))
+
         for merged_metric in self.merged_metrics:
             for ref_field in merged_metric.referenced_fields(merged_metric.sql):
                 if isinstance(ref_field, str):
                     raise QueryError(f"Unable to find the field {ref_field} in the project")
 
                 join_group_hash = self.project.join_graph.join_graph_hash(ref_field.view.name)
-                canon_date = ref_field.canon_date.replace(".", "_")
-                key = f"{canon_date}__{join_group_hash}"
+                key = self._cte_name_from_parts(ref_field.canon_date, join_group_hash)
                 self.query_metrics[key].append(ref_field)
 
         for field in self.secondary_metrics:
             join_group_hash = self.project.join_graph.join_graph_hash(field.view.name)
-            canon_date = field.canon_date.replace(".", "_")
-            key = f"{canon_date}__{join_group_hash}"
+            key = self._cte_name_from_parts(field.canon_date, join_group_hash)
             if key in self.query_metrics:
                 already_in_query = any(field.id() in f.id() for f in self.query_metrics[key])
                 if not already_in_query:
@@ -114,25 +116,13 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             else:
                 self.query_metrics[key].append(field)
 
-        canon_dates = []
-        dimension_mapping = defaultdict(list)
-        for join_hash, field_set in self.query_metrics.items():
-            if len({f.canon_date for f in field_set}) > 1:
-                raise NotImplementedError(
-                    "Zenlytic does not currently support different canon_date "
-                    "values for metrics in the same subquery for a merged result"
-                )
-            canon_date = field_set[0].canon_date
-            canon_dates.append(canon_date)
-            for other_explore_name, other_field_set in self.query_metrics.items():
-                if other_explore_name != join_hash:
-                    other_canon_date = other_field_set[0].canon_date
-                    canon_date_data = {"field": other_canon_date, "from_join_hash": other_explore_name}
-                    dimension_mapping[canon_date].append(canon_date_data)
+        self.query_metrics = self.deduplicate_fields(self.query_metrics)
+
+        dimension_mapping, canon_dates = self._canon_date_mapping()
 
         mappings = self.model.get_mappings()
         for key, map_to in mappings.items():
-            for other_join_hash, other_field_set in self.query_metrics.items():
+            for other_join_hash, _ in self.query_metrics.items():
                 if map_to["to_join_hash"] in other_join_hash:
                     map_to["from_join_hash"] = other_join_hash
                 dimension_mapping[key].append(deepcopy(map_to))
@@ -148,10 +138,9 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
 
                 dimension_group = field.dimension_group
                 for mapping_info in dimension_mapping[field_key]:
-                    if mapping_info["from_join_hash"] in self.query_metrics:
-                        key = f"{mapping_info['field']}_{dimension_group}"
-                        ref_field = self.project.get_field(key)
-                        self.query_dimensions[mapping_info["from_join_hash"]].append(ref_field)
+                    key = f"{mapping_info['field']}_{dimension_group}"
+                    ref_field = self.project.get_field(key)
+                    self.query_dimensions[mapping_info["from_join_hash"]].append(ref_field)
             else:
                 not_in_metrics = True
                 for join_hash in self.query_metrics.keys():
@@ -168,9 +157,9 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                             )
                         for mapping_info in dimension_mapping[field_key]:
                             if mapping_info["from_join_hash"] in self.query_metrics:
-
                                 ref_field = self.project.get_field(mapping_info["field"])
                                 self.query_dimensions[mapping_info["from_join_hash"]].append(ref_field)
+
                 if not_in_metrics:
                     canon_date = field.canon_date.replace(".", "_")
                     key = f"{canon_date}__{join_group_hash}"
@@ -190,14 +179,43 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                 else:
                     key = f"{field.view.name}.{field.name}"
                     for mapping_info in dimension_mapping[key]:
-                        if dimension_group:
-                            key = f"{mapping_info['field']}_{dimension_group}"
-                        else:
-                            key = mapping_info["field"]
-                        ref_field = self.project.get_field(key)
-                        mapped_where = deepcopy(where)
-                        mapped_where["field"] = ref_field.id()
-                        self.query_where[join_hash].append(mapped_where)
+                        if mapping_info["from_join_hash"] == join_hash:
+                            if dimension_group:
+                                key = f"{mapping_info['field']}_{dimension_group}"
+                            else:
+                                key = mapping_info["field"]
+                            ref_field = self.project.get_field(key)
+                            mapped_where = deepcopy(where)
+                            mapped_where["field"] = ref_field.id()
+                            self.query_where[join_hash].append(mapped_where)
+
+    def _canon_date_mapping(self):
+        canon_dates = []
+        dimension_mapping = defaultdict(list)
+        for merged_metric in self.merged_metrics:
+            for ref_field in merged_metric.referenced_fields(merged_metric.sql):
+                canon_dates.append(ref_field.canon_date)
+
+        for field in self.secondary_metrics + self.dimension_fields:
+            if field.canon_date:
+                canon_dates.append(field.canon_date)
+
+        canon_dates = list(sorted(list(set(canon_dates))))
+        for to_canon_date_name in canon_dates:
+            for from_canon_date_name in canon_dates:
+                if to_canon_date_name != from_canon_date_name:
+                    from_canon_date = self.project.get_field_by_name(from_canon_date_name)
+                    join_group_hash = self.project.join_graph.join_graph_hash(from_canon_date.view.name)
+                    key = self._cte_name_from_parts(from_canon_date_name, join_group_hash)
+                    canon_date_data = {"field": from_canon_date_name, "from_join_hash": key}
+                    dimension_mapping[to_canon_date_name].append(canon_date_data)
+
+        return dimension_mapping, canon_dates
+
+    @staticmethod
+    def _cte_name_from_parts(field_id: str, join_group_hash: str):
+        canon_date = field_id.replace(".", "_")
+        return f"{canon_date}__{join_group_hash}"
 
     @staticmethod
     def deduplicate_fields(field_dict: dict):
