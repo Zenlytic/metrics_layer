@@ -49,6 +49,7 @@ def test_dashboard_to_dict(connection):
     assert first_element["slice_by"] == ["orders.new_vs_repeat", "order_lines.product_name"]
 
 
+@pytest.mark.query
 @pytest.mark.parametrize(
     "raw_filter_dict",
     [
@@ -91,6 +92,8 @@ def test_dashboard_to_dict(connection):
         {"field": "orders.order_year", "value": "1 year ago for 30 days"},
         {"field": "orders.order_year", "value": "2 years ago"},
         {"field": "orders.order_year", "value": "3 months"},
+        {"field": "orders.order_year", "value": "1 week"},
+        {"field": "orders.order_year", "value": "2 days"},
         {"field": "customers.gender", "value": "Male, Female"},
         {"field": "customers.gender", "value": "-Male, -Female"},
         {"field": "customers.gender", "value": "-NULL"},
@@ -152,6 +155,9 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         "1 year ago for 30 days": "greater_or_equal_than",
         "2 years ago": "greater_or_equal_than",
         "3 months": "greater_or_equal_than",
+        "1 week": "greater_or_equal_than",
+        "2 days": "greater_or_equal_than",
+        "1 quarter": "greater_or_equal_than",
     }
     date_format = "%Y-%m-%dT%H:%M:%S"
     value_lookup = {
@@ -210,10 +216,18 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         .strftime(date_format),
         "2 years ago": pendulum.now("UTC").subtract(years=2).start_of("year").strftime(date_format),
         "3 months": pendulum.now("UTC").subtract(months=2).start_of("month").strftime(date_format),
+        "1 week": pendulum.now("UTC").start_of("week").strftime(date_format),
+        "2 days": pendulum.now("UTC").subtract(days=1).start_of("day").strftime(date_format),
+        "1 quarter": pendulum.now("UTC").first_of("quarter").strftime(date_format),
     }
 
     second_value_lookup = {
+        "today": pendulum.now("UTC").end_of("day").strftime(date_format),
         "yesterday": pendulum.now("UTC").subtract(days=1).end_of("day").strftime(date_format),
+        "this week": pendulum.now("UTC").end_of("week").strftime(date_format),
+        "this month": pendulum.now("UTC").end_of("month").strftime(date_format),
+        "this quarter": pendulum.now("UTC").last_of("quarter").strftime(date_format),
+        "this year": pendulum.now("UTC").end_of("year").strftime(date_format),
         "last week": pendulum.now("UTC").subtract(weeks=1).end_of("week").strftime(date_format),
         "last month": pendulum.now("UTC").subtract(months=1).end_of("month").strftime(date_format),
         "last quarter": pendulum.now("UTC").subtract(months=3).last_of("quarter").strftime(date_format),
@@ -259,6 +273,10 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         .end_of("day")
         .strftime(date_format),
         "2 years ago": pendulum.now("UTC").subtract(years=2).end_of("year").strftime(date_format),
+        "3 months": pendulum.now("UTC").end_of("month").strftime(date_format),
+        "1 week": pendulum.now("UTC").end_of("week").strftime(date_format),
+        "2 days": pendulum.now("UTC").end_of("day").strftime(date_format),
+        "1 quarter": pendulum.now("UTC").last_of("quarter").strftime(date_format),
     }
     if raw_filter_dict["value"] == "-Male, Female":
         with pytest.raises(QueryError) as exc_info:

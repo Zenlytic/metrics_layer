@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from metrics_layer.core.exceptions import QueryError, JoinError
 from metrics_layer.core.parse.config import MetricsLayerConfiguration
 from metrics_layer.core.sql.single_query_resolve import SingleSQLQueryResolver
@@ -34,6 +36,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self.explore_name = kwargs.get("explore_name")
         self.suppress_warnings = kwargs.get("suppress_warnings", False)
         self.limit = kwargs.get("limit")
+        self.single_query = kwargs.get("single_query", False)
         self.config = config
         self.project = self.config.project
         self.metrics = metrics
@@ -70,11 +73,24 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             try:
                 self.query_kind = QueryKindTypes.single
                 return self._get_single_query(semicolon=semicolon)
-            except JoinError:
+            except JoinError as e:
+                err_msg = "Could not execute the query as a single query. Trying as a merged result query."
+                if self.single_query:
+                    raise e
                 if self.verbose:
-                    print("Could not execute the query as a single query. Trying as a merged result query.")
+                    print(err_msg)
         self.query_kind = QueryKindTypes.merged
-        return self._get_merged_result_query(semicolon=semicolon)
+        try:
+            return self._get_merged_result_query(semicolon=semicolon)
+        except QueryError as e:
+            appended = (
+                "Zenlytic tries to merge query results by default if there is no join path between "
+                "the views. If you'd like to disable this behavior pass single_query=True to the "
+                "function call.\n\nIf you're seeing this and you expected the views to join on a "
+                "primary or foreign key, make sure you have the right identifiers set on the views."
+            )
+            e.message = f"{err_msg}\n\n{appended} \n\n" + deepcopy(e.message)
+            raise e
 
     def _get_single_query(self, semicolon: bool):
         resolver = SingleSQLQueryResolver(

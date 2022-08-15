@@ -120,7 +120,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             if len({f.canon_date for f in field_set}) > 1:
                 raise NotImplementedError(
                     "Zenlytic does not currently support different canon_date "
-                    "values for metrics in the same subquery"
+                    "values for metrics in the same subquery for a merged result"
                 )
             canon_date = field_set[0].canon_date
             canon_dates.append(canon_date)
@@ -163,7 +163,8 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                         if field_key not in dimension_mapping:
                             raise QueryError(
                                 f"Could not find mapping from field {field_key} to other views. "
-                                "Please add a mapping to your model definition to allow this."
+                                "Please add a mapping to your model definition to allow the mapping "
+                                "if you'd like to use this field in a merged result query."
                             )
                         for mapping_info in dimension_mapping[field_key]:
                             if mapping_info["from_join_hash"] in self.query_metrics:

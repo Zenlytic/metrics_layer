@@ -1,6 +1,7 @@
 import datetime
 
 import pytest
+from metrics_layer.core.exceptions import QueryError, JoinError
 
 from metrics_layer.core.model.definitions import Definitions
 
@@ -583,3 +584,23 @@ def test_implicit_merge_subgraph_dimension_group_check(connection):
     session_graphs = session_field.join_graphs()
     shared = [j for j in session_time_field.join_graphs() if j in session_graphs]
     assert all(j not in shared for j in discount_field.join_graphs())
+
+
+@pytest.mark.query
+def test_implicit_raise_join_errors(connection):
+    with pytest.raises(JoinError) as exc_info:
+        connection.get_sql_query(
+            metrics=["number_of_orders", "number_of_sessions"],
+            dimensions=["orders.order_month"],
+            single_query=True,
+        )
+
+    assert exc_info.value
+
+    with pytest.raises(QueryError) as exc_info:
+        connection.get_sql_query(
+            metrics=["number_of_orders", "number_of_sessions"], dimensions=["traffic_source"]
+        )
+
+    assert exc_info.value
+    assert "Zenlytic tries to merge query results by default" in exc_info.value.message

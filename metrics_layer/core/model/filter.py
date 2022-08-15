@@ -99,6 +99,7 @@ class FilterInterval(str, Enum):
             return cls.unknown
 
 
+# TODO this does not account for a changed "week_start_date"
 class Filter(MetricsLayerBase):
     def __init__(self, definition: dict = {}) -> None:
         self.validate(definition)
@@ -164,7 +165,9 @@ class Filter(MetricsLayerBase):
         if date_condition == "today":
             expression = MetricsLayerFilterExpressionType.GreaterOrEqualThan
             cleaned_value = Filter._start_date(lag=0, date_part=FilterInterval.day)
-            return [(expression, cleaned_value)]
+            end_expression = MetricsLayerFilterExpressionType.LessOrEqualThan
+            end_value = Filter._end_date(lag=0, date_part=FilterInterval.day)
+            return [(expression, cleaned_value), (end_expression, end_value)]
 
         if date_condition == "yesterday":
             start_expression = MetricsLayerFilterExpressionType.GreaterOrEqualThan
@@ -210,10 +213,10 @@ class Filter(MetricsLayerBase):
         start_value = Filter._start_date(lag=lag, date_part=date_part)
         result = [(start_expression, start_value)]
 
-        if n == "last":
-            end_expression = MetricsLayerFilterExpressionType.LessOrEqualThan
-            end_value = Filter._end_date(lag=lag, date_part=date_part)
-            result.append((end_expression, end_value))
+        end_lag = lag if n == "last" else 0
+        end_expression = MetricsLayerFilterExpressionType.LessOrEqualThan
+        end_value = Filter._end_date(lag=end_lag, date_part=date_part)
+        result.append((end_expression, end_value))
 
         return result
 
