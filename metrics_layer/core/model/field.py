@@ -115,6 +115,12 @@ class Field(MetricsLayerBase, SQLReplacement):
         return
 
     @property
+    def is_merged_result(self):
+        if "is_merged_result" in self._definition:
+            return self._definition["is_merged_result"]
+        return False
+
+    @property
     def canon_date(self):
         if "canon_date" in self._definition:
             canon_date = self._definition["canon_date"]
@@ -188,7 +194,10 @@ class Field(MetricsLayerBase, SQLReplacement):
             else:
                 field = self.get_field_with_view_info(to_replace)
                 if field:
-                    sql_replace = field.alias(with_view=True)
+                    if field.is_merged_result or field.type == "number":
+                        sql_replace = "(" + field.strict_replaced_query() + ")"
+                    else:
+                        sql_replace = field.alias(with_view=True)
                 else:
                     sql_replace = to_replace
 
@@ -744,9 +753,6 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     @functools.lru_cache(maxsize=None)
     def join_graphs(self):
-        # if self.is_merged_result:
-        #     return [f"merged_result_{self.id()}"]
-
         if self.view.model is None:
             raise QueryError(
                 f"Could not find a model in view {self.view.name}, "

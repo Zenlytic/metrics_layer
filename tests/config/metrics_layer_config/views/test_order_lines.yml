@@ -149,11 +149,29 @@ fields:
       - field: orders.revenue_in_cents
         value: ">100"
 
+  - name: total_item_costs_pct
+    field_type: measure
+    type: number
+    sql: ${total_item_costs} * ${number_of_email_purchased_items}
 
   - name: line_item_aov
     field_type: "measure"
     type: number
     sql: "${total_item_revenue} / ${orders.number_of_orders}"
+
+  - name: costs_per_session
+    field_type: measure
+    type: number 
+    sql: ${total_item_costs_pct} / nullif(${sessions.number_of_sessions}, 0)
+    is_merged_result: yes
+    value_format_name: usd
+
+  - name: net_per_session
+    field_type: measure
+    type: number 
+    sql: ${revenue_per_session} - ${costs_per_session}
+    is_merged_result: yes
+    value_format_name: usd
 
   - name: revenue_per_session
     field_type: measure
@@ -164,11 +182,6 @@ fields:
     sql: ${total_item_revenue} / nullif(${sessions.number_of_sessions}, 0)
 
     is_merged_result: yes
-    # This should throw an error if there is no canon_date defined for both of them, and
-    # the only available dimensions to slice by are the ones contained in the mapping + the canonical date
-    mapping:
-      discounts_only:
-        order_lines.product_name: discounts.discount_promo_name
 
     value_format_name: usd
     extra:

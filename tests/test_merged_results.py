@@ -584,6 +584,47 @@ def test_merged_query_implicit_3_way_merge(connection):
 
 
 @pytest.mark.query
+def test_merged_query_merged_results_as_sub_reference(connection):
+    query = connection.get_sql_query(
+        metrics=["net_per_session", "costs_per_session", "total_item_revenue"],
+        dimensions=["order_lines.order_month"],
+    )
+
+    correct = (
+        "WITH order_lines_order__subquery_0 AS (SELECT DATE_TRUNC('MONTH', order_lines.order_date) as "
+        "order_lines_order_month,SUM(order_lines.revenue) as order_lines_total_item_revenue,"
+        "SUM(case when order_lines.product_name='Portable Charger' and order_lines.product_name "
+        "IN ('Portable Charger','Dual Charger') and orders.revenue * 100>100 then order_lines.item_costs "
+        "end) as order_lines_total_item_costs,COUNT(case when order_lines.sales_channel='Email' "
+        "then order_lines.order_id end) as order_lines_number_of_email_purchased_items "
+        "FROM analytics.order_line_items order_lines LEFT JOIN "
+        "analytics.orders orders ON order_lines.order_unique_id=orders.id GROUP BY "
+        "DATE_TRUNC('MONTH', order_lines.order_date) ORDER BY order_lines_total_item_revenue DESC) ,"
+        "sessions_session__subquery_2 AS (SELECT DATE_TRUNC('MONTH', sessions.session_date) as "
+        "sessions_session_month,COUNT(sessions.id) as sessions_number_of_sessions "
+        "FROM analytics.sessions sessions GROUP BY DATE_TRUNC('MONTH', sessions.session_date) "
+        "ORDER BY sessions_number_of_sessions DESC) "
+        "SELECT "
+        "order_lines_order__subquery_0.order_lines_total_item_revenue as order_lines_total_item_revenue,"
+        "order_lines_order__subquery_0.order_lines_total_item_costs as order_lines_total_item_costs,"
+        "order_lines_order__subquery_0.order_lines_number_of_email_purchased_items "
+        "as order_lines_number_of_email_purchased_items,"
+        "sessions_session__subquery_2.sessions_number_of_sessions as sessions_number_of_sessions,"
+        "order_lines_order__subquery_0.order_lines_order_month as order_lines_order_month,"
+        "sessions_session__subquery_2.sessions_session_month as sessions_session_month,"
+        "(order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0)) - "
+        "((order_lines_total_item_costs * order_lines_number_of_email_purchased_items) "
+        "/ nullif(sessions_number_of_sessions, 0)) as order_lines_net_per_session,"
+        "(order_lines_total_item_costs * order_lines_number_of_email_purchased_items) "
+        "/ nullif(sessions_number_of_sessions, 0) as order_lines_costs_per_session "
+        "FROM order_lines_order__subquery_0 JOIN sessions_session__subquery_2 "
+        "ON order_lines_order__subquery_0.order_lines_order_month"
+        "=sessions_session__subquery_2.sessions_session_month;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_merged_query_three_field_link(connection):
     order_field = connection.get_field("number_of_orders")
     session_field = connection.get_field("number_of_sessions")
