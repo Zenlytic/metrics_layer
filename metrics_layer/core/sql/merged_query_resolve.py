@@ -1,3 +1,5 @@
+import json
+import hashlib
 from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.parse.config import MetricsLayerConfiguration
 from collections import defaultdict
@@ -45,8 +47,12 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         self.derive_sub_queries()
 
         queries_to_join = {}
-        for join_hash in self.query_metrics.keys():
-            metrics = [f.id() for f in self.query_metrics[join_hash]]
+        join_hashes = list(self.query_metrics.keys())
+        for k in self.query_dimensions.keys():
+            if k not in join_hashes:
+                join_hashes.append(k)
+        for join_hash in join_hashes:
+            metrics = [f.id() for f in self.query_metrics.get(join_hash, [])]
             dimensions = [f.id() for f in self.query_dimensions.get(join_hash, [])]
 
             # Overwrite the limit arg because these are subqueries
@@ -70,7 +76,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             "query_dimensions": self.query_dimensions,
             "having": self.having,
             "queries_to_join": queries_to_join,
-            "join_hashes": list(sorted(self.query_metrics.keys())),
+            "join_hashes": list(sorted(join_hashes)),
             "query_type": resolver.query_type,
             "limit": self.limit,
             "project": self.project,
@@ -173,9 +179,11 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             field = self.project.get_field(where["field"])
             dimension_group = field.dimension_group
             join_group_hash = self.project.join_graph.join_graph_hash(field.view.name)
+            added_filter = False
             for join_hash in self.query_metrics.keys():
                 if join_group_hash in join_hash:
                     self.query_where[join_hash].append(where)
+                    added_filter = True
                 else:
                     key = f"{field.view.name}.{field.name}"
                     for mapping_info in dimension_mapping[key]:
@@ -188,6 +196,22 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                             mapped_where = deepcopy(where)
                             mapped_where["field"] = ref_field.id()
                             self.query_where[join_hash].append(mapped_where)
+            if not added_filter:
+                # This handles the case where the where field is joined in and not in a mapping
+                for join_hash in self.query_metrics.keys():
+                    self.query_where[join_hash].append(where)
+
+        clean_wheres = defaultdict(list)
+        for k, v in self.query_where.items():
+            hashes, lookup = [], {}
+            for item in v:
+                h = self.hash_dict(item)
+                lookup[h] = item
+                hashes.append(h)
+
+            sorted_hashes = sorted(list(set(hashes)), key=lambda x: hashes.index(x))
+            clean_wheres[k] = [lookup[h] for h in sorted_hashes]
+        self.query_where = clean_wheres
 
     def _canon_date_mapping(self):
         canon_dates = []
@@ -221,3 +245,8 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
     def deduplicate_fields(field_dict: dict):
         # Get rid of duplicates while keeping order to make joining work properly
         return {k: sorted(list(set(v)), key=lambda x: v.index(x)) for k, v in field_dict.items()}
+
+    @staticmethod
+    def hash_dict(input_dict: dict):
+        as_strings = {k: str(v) for k, v in input_dict.items()}
+        return hashlib.sha256(json.dumps(as_strings, sort_keys=True).encode("utf-8")).hexdigest()

@@ -625,6 +625,68 @@ def test_merged_query_merged_results_as_sub_reference(connection):
 
 
 @pytest.mark.query
+def test_merged_query_merged_results_joined_filter(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders", "number_of_sessions"],
+        dimensions=["orders.order_date"],
+        where=[
+            {"field": "customers.region", "expression": "isin", "value": ["West", "South"]},
+            {"field": "sessions.utm_source", "expression": "equal_to", "value": "google"},
+        ],
+    )
+
+    correct = (
+        "WITH orders_order__subquery_0 AS (SELECT DATE_TRUNC('DAY', orders.order_date) "
+        "as orders_order_date,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders "
+        "orders LEFT JOIN analytics.customers customers ON orders.customer_id=customers.customer_id "
+        "WHERE customers.region IN ('West','South') AND orders.sub_channel='google' "
+        "GROUP BY DATE_TRUNC('DAY', orders.order_date) ORDER BY orders_number_of_orders DESC) ,"
+        "sessions_session__subquery_2 AS (SELECT DATE_TRUNC('DAY', sessions.session_date) as "
+        "sessions_session_date,COUNT(sessions.id) as sessions_number_of_sessions "
+        "FROM analytics.sessions sessions LEFT JOIN analytics.customers customers ON "
+        "sessions.customer_id=customers.customer_id WHERE customers.region IN ('West','South') "
+        "AND sessions.utm_source='google' GROUP BY DATE_TRUNC('DAY', sessions.session_date) "
+        "ORDER BY sessions_number_of_sessions DESC) SELECT orders_order__subquery_0."
+        "orders_number_of_orders as orders_number_of_orders,sessions_session__subquery_2."
+        "sessions_number_of_sessions as sessions_number_of_sessions,orders_order__subquery_0."
+        "orders_order_date as orders_order_date,sessions_session__subquery_2.sessions_session_date "
+        "as sessions_session_date FROM orders_order__subquery_0 JOIN sessions_session__subquery_2 "
+        "ON orders_order__subquery_0.orders_order_date=sessions_session__subquery_2"
+        ".sessions_session_date;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_merged_query_merged_results_3_way_third_date_only(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders", "number_of_sessions"],
+        dimensions=["events.event_date"],
+    )
+
+    correct = (
+        "WITH orders_order__subquery_0 AS (SELECT DATE_TRUNC('DAY', orders.order_date) as "
+        "orders_order_date,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders "
+        "orders GROUP BY DATE_TRUNC('DAY', orders.order_date) ORDER BY orders_number_of_orders "
+        "DESC) ,sessions_session__subquery_2 AS (SELECT DATE_TRUNC('DAY', sessions.session_date) "
+        "as sessions_session_date,COUNT(sessions.id) as sessions_number_of_sessions "
+        "FROM analytics.sessions sessions GROUP BY DATE_TRUNC('DAY', sessions.session_date) "
+        "ORDER BY sessions_number_of_sessions DESC) ,events_event__subquery_3 AS ("
+        "SELECT DATE_TRUNC('DAY', events.event_date) as events_event_date FROM analytics.events "
+        "events GROUP BY DATE_TRUNC('DAY', events.event_date) ORDER BY events_event_date ASC) "
+        "SELECT orders_order__subquery_0.orders_number_of_orders as orders_number_of_orders,"
+        "sessions_session__subquery_2.sessions_number_of_sessions as sessions_number_of_sessions,"
+        "events_event__subquery_3.events_event_date as events_event_date,orders_order__subquery_0."
+        "orders_order_date as orders_order_date,sessions_session__subquery_2.sessions_session_date "
+        "as sessions_session_date FROM events_event__subquery_3 JOIN orders_order__subquery_0 "
+        "ON events_event__subquery_3.events_event_date=orders_order__subquery_0.orders_order_date "
+        "JOIN sessions_session__subquery_2 ON events_event__subquery_3.events_event_date"
+        "=sessions_session__subquery_2.sessions_session_date;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_merged_query_three_field_link(connection):
     order_field = connection.get_field("number_of_orders")
     session_field = connection.get_field("number_of_sessions")
