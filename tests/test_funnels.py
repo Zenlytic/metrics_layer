@@ -19,6 +19,17 @@ def test_orders_funnel_query_missing_arg(connection):
 
 
 @pytest.mark.query
+def test_orders_funnel_query_boolean_step(connection):
+    steps = [
+        [{"value": "true", "expression": "equal_to"}],
+        [{"field": "channel", "expression": "isin", "value": ["Organic"]}],
+    ]
+    funnel = {"steps": steps, "within": {"value": 3, "unit": "days"}}
+    query = connection.get_sql_query(metrics=["number_of_orders"], funnel=funnel)
+    assert "WHERE true=true" in query
+
+
+@pytest.mark.query
 @pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery, Definitions.redshift])
 def test_orders_funnel_query(connection, query_type):
     funnel = {

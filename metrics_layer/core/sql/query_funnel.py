@@ -134,7 +134,8 @@ class FunnelQuery(MetricsLayerQueryBase):
         for step in self.funnel["steps"]:
             if isinstance(step, list):
                 for f in step:
-                    fields.append(f["field"])
+                    if "field" in f:
+                        fields.append(f["field"])
             else:
                 fields.extend(self.parse_identifiers_from_clause(step))
 
@@ -166,12 +167,16 @@ class FunnelQuery(MetricsLayerQueryBase):
         where = []
         if isinstance(step, list):
             for condition in step:
-                where_field = self.design.get_field(condition["field"])
                 where_condition = deepcopy(condition)
                 where_condition["query_type"] = self.query_type
                 f = MetricsLayerFilter(definition=where_condition, design=None, filter_type="where")
-                where_field_sql = where_field.sql_query(query_type=self.query_type, alias_only=True)
-                where.append(f.criterion(f"{self.base_cte_name}.{where_field_sql}"))
+                if "field" in condition:
+                    where_field = self.design.get_field(condition["field"])
+                    where_field_sql = where_field.sql_query(query_type=self.query_type, alias_only=True)
+                    reference_value = f"{self.base_cte_name}.{where_field_sql}"
+                else:
+                    reference_value = f"true"
+                where.append(f.criterion(reference_value))
         else:
             f = MetricsLayerFilter(
                 definition={"literal": step, "query_type": self.query_type},

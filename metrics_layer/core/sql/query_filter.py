@@ -63,7 +63,10 @@ class MetricsLayerFilter(MetricsLayerBase):
         key = definition.get("field", None)
         filter_literal = definition.get("literal", None)
 
-        if key is None and filter_literal is None:
+        is_boolean_value = str(definition.get("value")).lower() == "true" and key is None
+        if is_boolean_value:
+            definition["value"] = True
+        if key is None and filter_literal is None and not is_boolean_value:
             raise ParseError(f"An attribute key or literal was not provided for filter '{definition}'.")
 
         if key is None and filter_literal:
@@ -76,7 +79,7 @@ class MetricsLayerFilter(MetricsLayerBase):
         if definition.get("value", None) is None and definition["expression"] not in no_expr:
             raise ParseError(f"Filter expression: {definition['expression']} needs a non-empty value.")
 
-        if self.design:
+        if self.design and not is_boolean_value:
             # Will raise ParseError if not found
             try:
                 self.field = self.design.get_field(key)
