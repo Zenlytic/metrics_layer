@@ -124,11 +124,11 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
 
         self.query_metrics = self.deduplicate_fields(self.query_metrics)
 
-        dimension_mapping, canon_dates = self._canon_date_mapping()
+        dimension_mapping, canon_dates, used_join_hashes = self._canon_date_mapping()
 
         mappings = self.model.get_mappings()
         for key, map_to in mappings.items():
-            for other_join_hash, _ in self.query_metrics.items():
+            for other_join_hash in used_join_hashes:
                 if map_to["to_join_hash"] in other_join_hash:
                     map_to["from_join_hash"] = other_join_hash
                 dimension_mapping[key].append(deepcopy(map_to))
@@ -162,15 +162,26 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                                 "if you'd like to use this field in a merged result query."
                             )
                         for mapping_info in dimension_mapping[field_key]:
+                            ref_field = self.project.get_field(mapping_info["field"])
                             if mapping_info["from_join_hash"] in self.query_metrics:
-                                ref_field = self.project.get_field(mapping_info["field"])
                                 self.query_dimensions[mapping_info["from_join_hash"]].append(ref_field)
+                            else:
+                                canon_date = ref_field.canon_date.replace(".", "_")
+                                key = f"{canon_date}__{mapping_info['to_join_hash']}"
+                                self.query_dimensions[key].append(ref_field)
 
                 if not_in_metrics:
+                    field_key = f"{field.view.name}.{field.name}"
                     canon_date = field.canon_date.replace(".", "_")
                     key = f"{canon_date}__{join_group_hash}"
                     self.query_metrics[key] = []
                     self.query_dimensions[key].append(field)
+                    if field_key in dimension_mapping:
+                        for mapping_info in dimension_mapping[field_key]:
+                            ref_field = self.project.get_field(mapping_info["field"])
+                            canon_date = ref_field.canon_date.replace(".", "_")
+                            mapped_key = f"{canon_date}__{mapping_info['to_join_hash']}"
+                            self.query_dimensions[mapped_key].append(ref_field)
 
         self.query_dimensions = self.deduplicate_fields(self.query_dimensions)
 
@@ -180,7 +191,9 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             dimension_group = field.dimension_group
             join_group_hash = self.project.join_graph.join_graph_hash(field.view.name)
             added_filter = False
-            for join_hash in self.query_metrics.keys():
+            keys = list(self.query_metrics.keys()) + list(self.query_dimensions.keys())
+            unique_keys = sorted(list(set(keys)), key=lambda x: keys.index(x))
+            for join_hash in unique_keys:
                 if join_group_hash in join_hash:
                     self.query_where[join_hash].append(where)
                     added_filter = True
@@ -214,7 +227,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         self.query_where = clean_wheres
 
     def _canon_date_mapping(self):
-        canon_dates = []
+        canon_dates, join_hashes = [], []
         dimension_mapping = defaultdict(list)
         for merged_metric in self.merged_metrics:
             for ref_field in merged_metric.referenced_fields(merged_metric.sql):
@@ -233,8 +246,9 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                     key = self._cte_name_from_parts(from_canon_date_name, join_group_hash)
                     canon_date_data = {"field": from_canon_date_name, "from_join_hash": key}
                     dimension_mapping[to_canon_date_name].append(canon_date_data)
+                    join_hashes.append(key)
 
-        return dimension_mapping, canon_dates
+        return dimension_mapping, canon_dates, list(set(join_hashes))
 
     @staticmethod
     def _cte_name_from_parts(field_id: str, join_group_hash: str):
