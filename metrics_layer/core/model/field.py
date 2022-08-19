@@ -760,6 +760,10 @@ class Field(MetricsLayerBase, SQLReplacement):
             )
 
         base = self.view.project.join_graph.weak_join_graph_hashes(self.view.name)
+
+        if self.is_cumulative():
+            return base
+
         edges = self.view.project.join_graph.merged_results_graph(self.view.model).in_edges(self.id())
         extended = [f"merged_result_{mr}" for mr, _ in edges]
         if self.is_merged_result:

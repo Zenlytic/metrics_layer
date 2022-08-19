@@ -71,9 +71,12 @@ class JoinGraph(SQLReplacement):
 
     def ordered_joins(self, view_pairs: list):
         joins = []
+        joined_views = []
         for base_view, join_view in view_pairs:
             join = self.get_join(base_view, join_view)
-            joins.append(join)
+            if join_view not in joined_views:
+                joins.append(join)
+            joined_views.append(join_view)
         return joins
 
     def collect_errors(self):

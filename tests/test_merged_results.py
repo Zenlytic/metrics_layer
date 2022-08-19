@@ -742,6 +742,10 @@ def test_implicit_merge_subgraph(connection):
 
     assert not any(j in shared_with_orders for j in traffic_field.join_graphs())
 
+    cumulative_field = connection.get_field("cumulative_customers")
+    print(cumulative_field.join_graphs())
+    assert not any(j in shared_with_orders for j in cumulative_field.join_graphs())
+
 
 @pytest.mark.query
 def test_implicit_merge_subgraph_dimension_group_check(connection):
