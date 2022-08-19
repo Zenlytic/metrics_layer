@@ -472,28 +472,28 @@ def test_merged_query_implicit_with_subgraph_and_mapping(connection):
 def test_merged_query_dimension_mapping_single_metric(connection):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
-        dimensions=["utm_campaign", "sub_channel", "orders.order_date", "sessions.session_date"],
+        dimensions=["sub_channel", "orders.order_date", "sessions.utm_campaign", "sessions.session_date"],
     )
 
     correct = (
-        "WITH orders_order__subquery_0 AS (SELECT orders.campaign as orders_campaign,orders.sub_channel "
-        "as orders_sub_channel,DATE_TRUNC('DAY', orders.order_date) as orders_order_date,COUNT(orders.id) "
-        "as orders_number_of_orders FROM analytics.orders orders GROUP BY orders.campaign,orders."
-        "sub_channel,DATE_TRUNC('DAY', orders.order_date) ORDER BY orders_number_of_orders DESC) ,"
-        "sessions_session__subquery_2 AS (SELECT sessions.utm_campaign as sessions_utm_campaign,"
-        "sessions.utm_source as sessions_utm_source,DATE_TRUNC('DAY', sessions.session_date) as "
-        "sessions_session_date FROM analytics.sessions sessions GROUP BY sessions.utm_campaign,"
-        "sessions.utm_source,DATE_TRUNC('DAY', sessions.session_date) ORDER BY sessions_utm_campaign ASC) "
-        "SELECT orders_order__subquery_0.orders_number_of_orders as orders_number_of_orders,"
-        "orders_order__subquery_0.orders_campaign as orders_campaign,orders_order__subquery_0."
-        "orders_sub_channel as orders_sub_channel,orders_order__subquery_0.orders_order_date as "
-        "orders_order_date,sessions_session__subquery_2.sessions_utm_campaign as sessions_utm_campaign,"
-        "sessions_session__subquery_2.sessions_utm_source as sessions_utm_source,sessions_session__subquery_2"
-        ".sessions_session_date as sessions_session_date FROM orders_order__subquery_0 "
-        "JOIN sessions_session__subquery_2 ON orders_order__subquery_0.orders_campaign"
-        "=sessions_session__subquery_2.sessions_utm_campaign and orders_order__subquery_0."
+        "WITH orders_order__subquery_0 AS (SELECT orders.sub_channel as orders_sub_channel,"
+        "DATE_TRUNC('DAY', orders.order_date) as orders_order_date,orders.campaign as orders_campaign,"
+        "COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders GROUP BY "
+        "orders.sub_channel,DATE_TRUNC('DAY', orders.order_date),orders.campaign ORDER BY "
+        "orders_number_of_orders DESC) ,sessions_session__subquery_2 AS (SELECT sessions.utm_source "
+        "as sessions_utm_source,DATE_TRUNC('DAY', sessions.session_date) as sessions_session_date,"
+        "sessions.utm_campaign as sessions_utm_campaign FROM analytics.sessions sessions GROUP BY "
+        "sessions.utm_source,DATE_TRUNC('DAY', sessions.session_date),sessions.utm_campaign ORDER BY "
+        "sessions_utm_source ASC) SELECT orders_order__subquery_0.orders_number_of_orders as "
+        "orders_number_of_orders,orders_order__subquery_0.orders_sub_channel as orders_sub_channel,"
+        "orders_order__subquery_0.orders_order_date as orders_order_date,orders_order__subquery_0."
+        "orders_campaign as orders_campaign,sessions_session__subquery_2.sessions_utm_source as "
+        "sessions_utm_source,sessions_session__subquery_2.sessions_session_date as sessions_session_date,"
+        "sessions_session__subquery_2.sessions_utm_campaign as sessions_utm_campaign "
+        "FROM orders_order__subquery_0 JOIN sessions_session__subquery_2 ON orders_order__subquery_0."
         "orders_sub_channel=sessions_session__subquery_2.sessions_utm_source and orders_order__subquery_0."
-        "orders_order_date=sessions_session__subquery_2.sessions_session_date;"
+        "orders_order_date=sessions_session__subquery_2.sessions_session_date and orders_order__subquery_0."
+        "orders_campaign=sessions_session__subquery_2.sessions_utm_campaign;"
     )
     assert query == correct
 
@@ -513,15 +513,15 @@ def test_merged_query_dimension_mapping_no_metric(connection):
     )
 
     correct = (
-        "WITH sessions_session__subquery_2 AS (SELECT sessions.utm_campaign as sessions_utm_campaign,"
-        "DATE_TRUNC('DAY', sessions.session_date) as sessions_session_date FROM analytics.sessions "
-        "sessions WHERE sessions.session_date>='2022-01-05T00:00:00' GROUP BY sessions.utm_campaign,"
-        "DATE_TRUNC('DAY', sessions.session_date) ORDER BY sessions_utm_campaign ASC) ,"
-        "orders_order__subquery_0 AS (SELECT orders.campaign as orders_campaign,"
-        "DATE_TRUNC('DAY', orders.order_date) as orders_order_date FROM analytics.orders orders "
-        "WHERE orders.order_date>='2022-01-05T00:00:00' GROUP BY orders.campaign,"
-        "DATE_TRUNC('DAY', orders.order_date) ORDER BY orders_campaign ASC) SELECT "
-        "orders_order__subquery_0.orders_campaign as orders_campaign,orders_order__subquery_0."
+        "WITH orders_order__subquery_0 AS (SELECT orders.campaign as orders_campaign,"
+        "DATE_TRUNC('DAY', orders.order_date) as orders_order_date FROM analytics.orders "
+        "orders WHERE orders.order_date>='2022-01-05T00:00:00' GROUP BY orders.campaign,"
+        "DATE_TRUNC('DAY', orders.order_date) ORDER BY orders_campaign ASC) ,sessions_session__subquery_2 "
+        "AS (SELECT sessions.utm_campaign as sessions_utm_campaign,DATE_TRUNC('DAY', "
+        "sessions.session_date) as sessions_session_date FROM analytics.sessions sessions "
+        "WHERE sessions.session_date>='2022-01-05T00:00:00' GROUP BY sessions.utm_campaign,"
+        "DATE_TRUNC('DAY', sessions.session_date) ORDER BY sessions_utm_campaign ASC) "
+        "SELECT orders_order__subquery_0.orders_campaign as orders_campaign,orders_order__subquery_0."
         "orders_order_date as orders_order_date,sessions_session__subquery_2.sessions_utm_campaign "
         "as sessions_utm_campaign,sessions_session__subquery_2.sessions_session_date as "
         "sessions_session_date FROM orders_order__subquery_0 JOIN sessions_session__subquery_2 "

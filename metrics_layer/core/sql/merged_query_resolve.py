@@ -149,7 +149,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                     self.query_dimensions[mapping_info["from_join_hash"]].append(ref_field)
             else:
                 not_in_metrics = True
-                for join_hash in self.query_metrics.keys():
+                for join_hash in used_join_hashes:
                     # If the dimension is available in the join subgraph as the metric, attach it
                     if any(jg in join_hash for jg in field.join_graphs()):
                         self.query_dimensions[join_hash].append(field)
@@ -185,14 +185,14 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
 
         self.query_dimensions = self.deduplicate_fields(self.query_dimensions)
 
+        keys = list(self.query_metrics.keys()) + list(self.query_dimensions.keys())
+        unique_keys = sorted(list(set(keys)), key=lambda x: keys.index(x))
         self.query_where = defaultdict(list)
         for where in self.where:
             field = self.project.get_field(where["field"])
             dimension_group = field.dimension_group
             join_group_hash = self.project.join_graph.join_graph_hash(field.view.name)
             added_filter = False
-            keys = list(self.query_metrics.keys()) + list(self.query_dimensions.keys())
-            unique_keys = sorted(list(set(keys)), key=lambda x: keys.index(x))
             for join_hash in unique_keys:
                 if join_group_hash in join_hash:
                     self.query_where[join_hash].append(where)
@@ -233,9 +233,13 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             for ref_field in merged_metric.referenced_fields(merged_metric.sql):
                 canon_dates.append(ref_field.canon_date)
 
+        joinable_sets = []
         for field in self.secondary_metrics + self.dimension_fields:
-            if field.canon_date:
+            joinable_graphs = [j for j in field.join_graphs() if "merged_result" not in j]
+            joinable = all(any(j in join_set for j in joinable_graphs) for join_set in joinable_sets)
+            if field.canon_date and (not joinable or len(joinable_sets) == 0):
                 canon_dates.append(field.canon_date)
+                joinable_sets.append(joinable_graphs)
 
         canon_dates = list(sorted(list(set(canon_dates))))
         for to_canon_date_name in canon_dates:
@@ -248,7 +252,11 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                     dimension_mapping[to_canon_date_name].append(canon_date_data)
                     join_hashes.append(key)
 
-        return dimension_mapping, canon_dates, list(set(join_hashes))
+        sorted_joins = sorted(
+            list(set(join_hashes)),
+            key=lambda x: str(list(self.query_metrics.keys()).index(x)) if x in self.query_metrics else x,
+        )
+        return dimension_mapping, canon_dates, sorted_joins
 
     @staticmethod
     def _cte_name_from_parts(field_id: str, join_group_hash: str):
