@@ -101,6 +101,17 @@ class FilterInterval(str, Enum):
 
 # TODO this does not account for a changed "week_start_date"
 class Filter(MetricsLayerBase):
+    week_start_day_default = pendulum.MONDAY
+    week_start_day_lookup = {
+        "monday": pendulum.MONDAY,
+        "tuesday": pendulum.TUESDAY,
+        "wednesday": pendulum.WEDNESDAY,
+        "thursday": pendulum.THURSDAY,
+        "friday": pendulum.FRIDAY,
+        "saturday": pendulum.SATURDAY,
+        "sunday": pendulum.SUNDAY,
+    }
+
     def __init__(self, definition: dict = {}) -> None:
         self.validate(definition)
         super().__init__(definition)
@@ -112,7 +123,7 @@ class Filter(MetricsLayerBase):
                 raise QueryError(f"Filter missing required key '{k}' The filter passed was {definition}")
 
     def filter_dict(self, json_safe: bool = False) -> list:
-        filter_dict = self._filter_dict(self.field, self.value)
+        filter_dict = self._filter_dict(self.field, self.value, self.week_start_day)
         if isinstance(filter_dict, dict):
             filter_list = [filter_dict]
         else:
@@ -124,6 +135,17 @@ class Filter(MetricsLayerBase):
         if json_safe:
             filter_dict["expression"] = filter_dict["expression"].value
         return filter_dict
+
+    @staticmethod
+    def _set_week_start_day(week_start_day: str):
+        week_start_day = Filter.week_start_day_lookup.get(week_start_day, Filter.week_start_day_default)
+        pendulum.week_starts_at(week_start_day)
+        week_end_day = week_start_day - 1 if week_start_day != 0 else 6
+        pendulum.week_ends_at(week_end_day)
+
+    @staticmethod
+    def _reset_week_start_day():
+        pendulum.week_starts_at(Filter.week_start_day_default)
 
     @staticmethod
     def _end_date(lag: int, date_part: str):
@@ -283,7 +305,7 @@ class Filter(MetricsLayerBase):
         return result
 
     @staticmethod
-    def _filter_dict(field: str, value: str):
+    def _filter_dict(field: str, value: str, week_start_day: str = None):
         # TODO more advanced parsing similar to
         # ref: https://docs.looker.com/reference/field-params/filters
 
@@ -297,7 +319,9 @@ class Filter(MetricsLayerBase):
             ">": MetricsLayerFilterExpressionType.GreaterThan,
             "<": MetricsLayerFilterExpressionType.LessThan,
         }
+        Filter._set_week_start_day(week_start_day)
         date_condition = Filter.parse_date_condition(value)
+        Filter._reset_week_start_day()
 
         # Handle null conditional
         if value == "NULL":
@@ -406,7 +430,7 @@ class Filter(MetricsLayerBase):
         case_sql = "case when "
         conditions = []
         for f in filters:
-            filter_dict = Filter._filter_dict(f["field"], f["value"])
+            filter_dict = Filter._filter_dict(f["field"], f["value"], f.get("week_start_day"))
             if isinstance(filter_dict, dict):
                 filter_list = [filter_dict]
             else:

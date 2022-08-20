@@ -240,6 +240,28 @@ def config(project):
     return config_mock
 
 
+@pytest.fixture(scope="function")
+def fresh_config(fresh_project):
+    class sf_mock:
+        name = "testing_snowflake"
+        type = "SNOWFLAKE"
+
+    class config_mock:
+        _connections = [sf_mock]
+
+        def set_user(user: dict):
+            pass
+
+        def get_connection(name: str):
+            return config_mock._connections[0]
+
+        def connections():
+            return config_mock._connections
+
+    config_mock.project = fresh_project
+    return config_mock
+
+
 @pytest.fixture(scope="module")
 def connection(config):
     return MetricsLayerConnection(config=config)

@@ -510,6 +510,7 @@ def test_simple_query_custom_metric(config):
         ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.snowflake),
         ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.redshift),
         ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.bigquery),
+        ("order_date", "matches", "last week", Definitions.snowflake),
         ("order_date", "matches", "last year", Definitions.snowflake),
         ("order_date", "matches", "last year", Definitions.redshift),
         ("order_date", "matches", "last year", Definitions.bigquery),
@@ -552,10 +553,20 @@ def test_simple_query_with_where_dim_group(config, field, expression, value, que
         condition = "CAST(DATE_TRUNC(CAST(simple.previous_order_date AS DATE), DAY) AS DATETIME)>DATETIME('2021-08-04 00:00:00')"  # noqa
     elif query_type == Definitions.bigquery and isinstance(value, datetime) and field == "first_order_date":
         condition = "CAST(DATE_TRUNC(CAST(simple.first_order_date AS DATE), DAY) AS DATE)>DATE('2021-08-04 00:00:00')"  # noqa
-    elif sf_or_rs and expression == "matches":
+    elif sf_or_rs and expression == "matches" and value == "last year":
         last_year = pendulum.now("UTC").year - 1
         condition = f"DATE_TRUNC('DAY', simple.{field})>='{last_year}-01-01T00:00:00' AND "
         condition += f"DATE_TRUNC('DAY', simple.{field})<='{last_year}-12-31T23:59:59'"
+    elif sf_or_rs and expression == "matches" and value == "last week":
+        date_format = "%Y-%m-%dT%H:%M:%S"
+        pendulum.week_starts_at(pendulum.SUNDAY)
+        pendulum.week_ends_at(pendulum.SATURDAY)
+        start_of = pendulum.now("UTC").subtract(days=7).start_of("week").strftime(date_format)
+        end_of = pendulum.now("UTC").subtract(days=7).end_of("week").strftime(date_format)
+        condition = f"DATE_TRUNC('DAY', simple.{field})>='{start_of}' AND "
+        condition += f"DATE_TRUNC('DAY', simple.{field})<='{end_of}'"
+        pendulum.week_starts_at(pendulum.MONDAY)
+        pendulum.week_ends_at(pendulum.SUNDAY)
     elif query_type == Definitions.bigquery and expression == "matches":
         last_year = pendulum.now("UTC").year - 1
         condition = f"CAST(DATE_TRUNC(CAST(simple.{field} AS DATE), DAY) AS TIMESTAMP)>=TIMESTAMP('{last_year}-01-01T00:00:00') AND "  # noqa

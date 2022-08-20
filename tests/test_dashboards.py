@@ -2,6 +2,7 @@ import pendulum
 import pytest
 
 from metrics_layer.core.exceptions import QueryError
+from metrics_layer.core import MetricsLayerConnection
 
 
 def test_dashboard_located(connection):
@@ -30,6 +31,7 @@ def test_dashboard_to_dict(connection):
         "expression": "equal_to",
         "field": "orders.new_vs_repeat",
         "value": "New",
+        "week_start_day": None,
     }
     assert len(dash_dict["filters"]) == 1
     assert dash_dict["filters"][0] == correct
@@ -37,7 +39,12 @@ def test_dashboard_to_dict(connection):
 
     assert dash_dict["elements"][0]["filters"] == []
 
-    correct = {"expression": "not_equal_to", "field": "order_lines.product_name", "value": "Handbag"}
+    correct = {
+        "expression": "not_equal_to",
+        "field": "order_lines.product_name",
+        "value": "Handbag",
+        "week_start_day": None,
+    }
     assert len(dash_dict["elements"][-1]["filters"]) == 1
     assert dash_dict["elements"][-1]["filters"][0] == correct
 
@@ -47,6 +54,34 @@ def test_dashboard_to_dict(connection):
     assert first_element["model"] == "test_model"
     assert first_element["metric"] == "orders.total_revenue"
     assert first_element["slice_by"] == ["orders.new_vs_repeat", "order_lines.product_name"]
+
+
+@pytest.mark.query
+def test_dashboard_filter_week_start(fresh_config, fresh_project):
+    fresh_project._models[0]["week_start_day"] = "sunday"
+    fresh_config.project = fresh_project
+    connection = MetricsLayerConnection(config=fresh_config)
+    dash = connection.get_dashboard("sales_dashboard")
+
+    raw_filter_dict = {"field": "orders.order_year", "value": "1 week"}
+    dash.filters = [raw_filter_dict]
+    dashboard_parsed_filters = dash.parsed_filters()
+
+    last_element = dash.elements()[-1]
+    last_element.filters = [raw_filter_dict]
+    element_parsed_filters = last_element.parsed_filters()
+
+    correct = [
+        {"field": "orders.order_year", "value": "2022-08-14T00:00:00", "expression": "greater_or_equal_than"},
+        {"field": "orders.order_year", "value": "2022-08-20T23:59:59", "expression": "less_or_equal_than"},
+    ]
+    for parsed_filters in [dashboard_parsed_filters, element_parsed_filters]:
+        assert parsed_filters[0]["field"] == correct[0]["field"]
+        assert parsed_filters[0]["expression"].value == correct[0]["expression"]
+        assert parsed_filters[0]["value"] == correct[0]["value"]
+        assert parsed_filters[1]["field"] == correct[1]["field"]
+        assert parsed_filters[1]["expression"].value == correct[1]["expression"]
+        assert parsed_filters[1]["value"] == correct[1]["value"]
 
 
 @pytest.mark.query
