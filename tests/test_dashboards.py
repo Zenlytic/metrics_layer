@@ -58,6 +58,7 @@ def test_dashboard_to_dict(connection):
 
 @pytest.mark.query
 def test_dashboard_filter_week_start(fresh_config, fresh_project):
+    date_format = "%Y-%m-%dT%H:%M:%S"
     fresh_project._models[0]["week_start_day"] = "sunday"
     fresh_config.project = fresh_project
     connection = MetricsLayerConnection(config=fresh_config)
@@ -71,9 +72,11 @@ def test_dashboard_filter_week_start(fresh_config, fresh_project):
     last_element.filters = [raw_filter_dict]
     element_parsed_filters = last_element.parsed_filters()
 
+    start = pendulum.now().start_of("week").subtract(days=1).strftime(date_format)
+    end = pendulum.now().end_of("week").subtract(days=1).strftime(date_format)
     correct = [
-        {"field": "orders.order_year", "value": "2022-08-14T00:00:00", "expression": "greater_or_equal_than"},
-        {"field": "orders.order_year", "value": "2022-08-20T23:59:59", "expression": "less_or_equal_than"},
+        {"field": "orders.order_year", "value": start, "expression": "greater_or_equal_than"},
+        {"field": "orders.order_year", "value": end, "expression": "less_or_equal_than"},
     ]
     for parsed_filters in [dashboard_parsed_filters, element_parsed_filters]:
         assert parsed_filters[0]["field"] == correct[0]["field"]

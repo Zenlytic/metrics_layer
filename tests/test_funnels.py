@@ -61,7 +61,7 @@ def test_orders_funnel_query(connection, query_type):
         "SELECT *,orders_order_raw as step_1_time FROM base WHERE base.order_lines_channel='Paid') ,"
         "step_2 AS (SELECT base.*,step_1.step_1_time as step_1_time FROM base "
         "JOIN step_1 ON base.customers_customer_id=step_1.customers_customer_id "
-        "and step_1.step_1_time<=base.orders_order_raw "
+        "and step_1.step_1_time<base.orders_order_raw "
         f"WHERE base.order_lines_channel IN ('Organic','Email') AND {date_diff} <= 3) ,result_cte AS ("
         "(SELECT 'Step 1' as step,1 as step_order,NULLIF(COUNT(DISTINCT CASE WHEN  "
         "(orders_number_of_orders)  IS NOT NULL THEN  orders_order_id  ELSE NULL END), "
@@ -89,6 +89,14 @@ def test_orders_funnel_query_metrics(connection):
     }
     query = connection.get_sql_query(metrics=["number_of_orders", "total_item_revenue"], funnel=funnel)
 
+    revenue_calc = (
+        "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(order_lines_total_item_revenue, 0) * "
+        "(1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(order_lines_order_line_id), "
+        "'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) - SUM(DISTINCT "
+        "(TO_NUMBER(MD5(order_lines_order_line_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "
+        "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) / CAST((1000000*1.0) AS "
+        "DOUBLE PRECISION), 0)"
+    )
     correct = (
         "WITH base AS (SELECT order_lines.sales_channel as order_lines_channel,customers.customer_id "
         "as customers_customer_id,order_lines.order_line_id as order_lines_order_line_id,orders.id as "
@@ -99,21 +107,21 @@ def test_orders_funnel_query_metrics(connection):
         "step_1 AS (SELECT *,orders_order_raw as step_1_time FROM base WHERE base.order_lines_channel='Paid')"
         " ,step_2 AS ("
         "SELECT base.*,step_1.step_1_time as step_1_time FROM base JOIN step_1 ON base.customers_customer_id"
-        "=step_1.customers_customer_id and step_1.step_1_time<=base.orders_order_raw "
+        "=step_1.customers_customer_id and step_1.step_1_time<base.orders_order_raw "
         "WHERE base.order_lines_channel='Organic' AND DATEDIFF('HOUR', step_1.step_1_time, "
         "base.orders_order_raw) <= 20) ,step_3 AS (SELECT base.*,step_2.step_1_time as step_1_time "
         "FROM base JOIN step_2 ON base.customers_customer_id=step_2.customers_customer_id and "
-        "step_2.step_1_time<=base.orders_order_raw WHERE base.order_lines_channel IN ('Organic','Email') "
+        "step_2.step_1_time<base.orders_order_raw WHERE base.order_lines_channel IN ('Organic','Email') "
         "AND DATEDIFF('HOUR', step_2.step_1_time, base.orders_order_raw) <= 20) ,result_cte AS ((SELECT "
         "'Step 1' as step,1 as step_order,NULLIF(COUNT(DISTINCT CASE WHEN  (orders_number_of_orders)  "
         "IS NOT NULL THEN  orders_order_id  ELSE NULL END), 0) as orders_number_of_orders,"
-        "SUM(order_lines_total_item_revenue) as order_lines_total_item_revenue FROM step_1) UNION ALL "
+        f"{revenue_calc} as order_lines_total_item_revenue FROM step_1) UNION ALL "
         "(SELECT 'Step 2' as step,2 as step_order,NULLIF(COUNT(DISTINCT CASE WHEN  (orders_number_of_orders)"
         "  IS NOT NULL THEN  orders_order_id  ELSE NULL END), 0) as orders_number_of_orders,"
-        "SUM(order_lines_total_item_revenue) as order_lines_total_item_revenue FROM step_2) UNION ALL (SELECT"
+        f"{revenue_calc} as order_lines_total_item_revenue FROM step_2) UNION ALL (SELECT"
         " 'Step 3' as step,3 as step_order,NULLIF(COUNT(DISTINCT CASE WHEN  (orders_number_of_orders)  IS NOT"
         " NULL THEN  orders_order_id  ELSE NULL END), 0) as orders_number_of_orders,"
-        "SUM(order_lines_total_item_revenue) as order_lines_total_item_revenue FROM step_3)) "
+        f"{revenue_calc} as order_lines_total_item_revenue FROM step_3)) "
         "SELECT * FROM result_cte;"
     )
     assert query == correct
@@ -145,10 +153,10 @@ def test_orders_funnel_query_dimensions(connection):
         ",step_1 AS (SELECT *,orders_order_raw as step_1_time FROM base WHERE base.order_lines_channel='Paid'"
         ") ,step_2 AS (SELECT base.*,step_1.step_1_time as step_1_time FROM base JOIN step_1 "
         "ON base.customers_customer_id=step_1.customers_customer_id and step_1.step_1_time"
-        "<=base.orders_order_raw WHERE base.customers_region<>'West' AND DATEDIFF('WEEK', "
+        "<base.orders_order_raw WHERE base.customers_region<>'West' AND DATEDIFF('WEEK', "
         "step_1.step_1_time, base.orders_order_raw) <= 2) ,step_3 AS (SELECT base.*,step_2.step_1_time "
         "as step_1_time FROM base JOIN step_2 ON base.customers_customer_id=step_2.customers_customer_id "
-        "and step_2.step_1_time<=base.orders_order_raw WHERE base.order_lines_channel='Organic' AND "
+        "and step_2.step_1_time<base.orders_order_raw WHERE base.order_lines_channel='Organic' AND "
         "DATEDIFF('WEEK', step_2.step_1_time, base.orders_order_raw) <= 2) ,result_cte AS ((SELECT "
         "'Step 1' as step,1 as step_order,NULLIF(COUNT(DISTINCT CASE WHEN  (orders_number_of_orders)  "
         "IS NOT NULL THEN  orders_order_id  ELSE NULL END), 0) as orders_number_of_orders,orders_order_month "
@@ -187,6 +195,14 @@ def test_orders_funnel_query_complex_conditions(connection):
         having=[{"field": "total_item_revenue", "expression": "greater_than", "value": 320}],
     )
 
+    revenue_calc = (
+        "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(order_lines_total_item_revenue, 0) * "
+        "(1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(order_lines_order_line_id), "
+        "'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) - SUM(DISTINCT "
+        "(TO_NUMBER(MD5(order_lines_order_line_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "
+        "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) / CAST((1000000*1.0) AS "
+        "DOUBLE PRECISION), 0)"
+    )
     correct = (
         "WITH base AS (SELECT order_lines.sales_channel as order_lines_channel,customers.customer_id "
         "as customers_customer_id,orders.new_vs_repeat as orders_new_vs_repeat,order_lines.order_line_id "
@@ -198,13 +214,13 @@ def test_orders_funnel_query_complex_conditions(connection):
         "as step_1_time FROM base WHERE base.order_lines_channel='Paid' AND base.customers_region<>'West')"
         " ,step_2 AS (SELECT base.*,step_1.step_1_time as step_1_time FROM base JOIN step_1 ON "
         "base.customers_customer_id=step_1.customers_customer_id and step_1.step_1_time"
-        "<=base.orders_order_raw WHERE base.order_lines_channel='Organic' AND base.orders_new_vs_repeat"
+        "<base.orders_order_raw WHERE base.order_lines_channel='Organic' AND base.orders_new_vs_repeat"
         "='Repeat' AND DATEDIFF('WEEK', step_1.step_1_time, base.orders_order_raw) <= 2) ,"
         "result_cte AS ((SELECT 'Step 1' as step,1 as step_order,"
         "COUNT(DISTINCT(customers_number_of_customers)) as customers_number_of_customers,"
-        "SUM(order_lines_total_item_revenue) as order_lines_total_item_revenue FROM step_1) "
+        f"{revenue_calc} as order_lines_total_item_revenue FROM step_1) "
         "UNION ALL (SELECT 'Step 2' as step,2 as step_order,COUNT(DISTINCT(customers_number_of_customers))"
-        " as customers_number_of_customers,SUM(order_lines_total_item_revenue) as "
+        f" as customers_number_of_customers,{revenue_calc} as "
         "order_lines_total_item_revenue FROM step_2)) "
         "SELECT * FROM result_cte WHERE order_lines_total_item_revenue>320;"
     )

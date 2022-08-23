@@ -7,6 +7,7 @@ from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
 from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.model.filter import LiteralValueCriterion, FilterInterval
 from metrics_layer.core.model.field import Field
+from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_dialect import query_lookup
 from metrics_layer.core.sql.query_generator import MetricsLayerQuery
@@ -85,7 +86,8 @@ class FunnelQuery(MetricsLayerQueryBase):
     def _get_base_select(self):
         select = []
         group_by = []
-        pk = self.design.functional_pk()
+        # pk = self.design.functional_pk()
+        pk = Definitions.does_not_exist
         for field_name in self.metrics + self.dimensions:
             field = self.design.get_field(field_name)
             field_sql = field.sql_query(query_type=self.query_type, functional_pk=pk, alias_only=True)
@@ -106,7 +108,7 @@ class FunnelQuery(MetricsLayerQueryBase):
     def get_step_n_cte(self, from_query, base_table, previous_step_number: int):
         prev_cte = self._cte(previous_step_number)
         match_person = f"{self.base_cte_name}.{self.link_alias}={prev_cte}.{self.link_alias}"
-        valid_sequence = f"{prev_cte}.{self.step_1_time}<={self.base_cte_name}.{self.event_date_alias}"
+        valid_sequence = f"{prev_cte}.{self.step_1_time}<{self.base_cte_name}.{self.event_date_alias}"
         criteria = LiteralValueCriterion(f"{match_person} and {valid_sequence}")
 
         from_query = from_query.join(Table(prev_cte), JoinType.inner).on(criteria)
