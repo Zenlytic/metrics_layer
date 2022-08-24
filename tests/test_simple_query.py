@@ -307,7 +307,7 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
             "month": "DATE_TRUNC('MONTH', simple.order_date)",
             "quarter": "DATE_TRUNC('QUARTER', simple.order_date)",
             "year": "DATE_TRUNC('YEAR', simple.order_date)",
-            "hour_of_day": "HOUR(simple.order_date)",
+            "hour_of_day": "HOUR(CAST(simple.order_date AS TIMESTAMP))",
             "day_of_week": "DAYOFWEEK(simple.order_date)",
             "day_of_month": "DAYOFMONTH(simple.order_date)",
         }

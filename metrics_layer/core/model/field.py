@@ -505,7 +505,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "month": lambda s, qt: f"DATE_TRUNC('MONTH', {s})",
                 "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', {s})",
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', {s})",
-                "hour_of_day": lambda s, qt: f"HOUR({s})",
+                "hour_of_day": lambda s, qt: f"HOUR(CAST({s} AS TIMESTAMP))",
                 "day_of_week": lambda s, qt: f"DAYOFWEEK({s})",
                 "day_of_month": lambda s, qt: f"DAYOFMONTH({s})",
             },

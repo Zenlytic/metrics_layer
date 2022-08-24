@@ -17,7 +17,12 @@ class DashboardElement(MetricsLayerBase):
         super().__init__(definition)
 
     def get_model(self):
-        return self.project.get_model(self.model)
+        model = self.project.get_model(self.model)
+        if model is None:
+            raise QueryError(
+                f"Could not find model {self.model} referenced in dashboard {self.dashboard.name}"
+            )
+        return model
 
     def validate(self, definition: dict):
         required_keys = ["model"]
