@@ -5,8 +5,15 @@ label: "Test commerce data"
 connection: "connection_name"
 
 mappings: 
-  source: [sessions.utm_source, orders.sub_channel]
-  campaign: [sessions.utm_campaign, orders.campaign]
+  source: 
+    fields: [sessions.utm_source, orders.sub_channel]
+    group_label: "Marketing"
+    description: "The source the customer came to our site from"
+  campaign: 
+    fields: [sessions.utm_campaign, orders.campaign]
+  gross_revenue: 
+    fields: [order_lines.total_item_revenue, orders.total_revenue]
+    description: "Gross revenue (product revenue + shipping - taxes)"
 
 access_grants:
   - name: test_access_grant_department_view
