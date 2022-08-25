@@ -108,7 +108,7 @@ class FunnelQuery(MetricsLayerQueryBase):
     def get_step_n_cte(self, from_query, base_table, previous_step_number: int):
         prev_cte = self._cte(previous_step_number)
         match_person = f"{self.base_cte_name}.{self.link_alias}={prev_cte}.{self.link_alias}"
-        valid_sequence = f"{prev_cte}.{self.step_1_time}<{self.base_cte_name}.{self.event_date_alias}"
+        valid_sequence = f"{prev_cte}.{self.event_date_alias}<{self.base_cte_name}.{self.event_date_alias}"
         criteria = LiteralValueCriterion(f"{match_person} and {valid_sequence}")
 
         from_query = from_query.join(Table(prev_cte), JoinType.inner).on(criteria)
