@@ -125,10 +125,10 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self._where_fields, self._having_fields, self._order_fields = self.parse_field_names(
             self.where, self.having, self.order_by
         )
-        fields = (
+        self._all_fields = (
             self.metrics + self.dimensions + self._where_fields + self._having_fields + self._order_fields
         )
-        for field_name in fields:
+        for field_name in self._all_fields:
             mapped_field = self.project.get_mapped_field(field_name, model=self.model)
             if mapped_field:
                 self.mapping_lookup[field_name] = mapped_field
@@ -136,7 +136,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                 self.field_lookup[field_name] = self.project.get_field(
                     field_name, model=self.model
                 ).join_graphs()
-        print(self.mapping_lookup)
+
         if not self.mapping_lookup:
             return
 
@@ -184,16 +184,17 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         if to_replace in self.metrics:
             idx = self.metrics.index(to_replace)
             self.metrics[idx] = field.id()
-        elif to_replace in self.dimensions:
+        if to_replace in self.dimensions:
             idx = self.dimensions.index(to_replace)
             self.dimensions[idx] = field.id()
-        elif to_replace in self._where_fields:
-            self._replace_dict_or_literal(self.where, to_replace, field)
-        elif to_replace in self._having_fields:
-            self._replace_dict_or_literal(self.having, to_replace, field)
-        elif to_replace in self._order_fields:
-            self._replace_dict_or_literal(self.order_by, to_replace, field)
-        else:
+        if to_replace in self._where_fields:
+            self.where = self._replace_dict_or_literal(self.where, to_replace, field)
+        if to_replace in self._having_fields:
+            self.having = self._replace_dict_or_literal(self.having, to_replace, field)
+        if to_replace in self._order_fields:
+            self.order_by = self._replace_dict_or_literal(self.order_by, to_replace, field)
+
+        if to_replace not in self._all_fields:
             raise QueryError(f"Could not find mapped field {to_replace} in query")
 
     def _replace_dict_or_literal(self, where, to_replace, field):

@@ -52,7 +52,8 @@ def test_mapped_metric_mapped_dim(connection):
         "SELECT orders.sub_channel as orders_sub_channel,SUM(order_lines.revenue) as "
         "order_lines_total_item_revenue FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        "GROUP BY orders.sub_channel ORDER BY order_lines_total_item_revenue DESC;"
+        "WHERE orders.sub_channel='google' GROUP BY orders.sub_channel "
+        "ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
 
@@ -75,14 +76,16 @@ def test_mapped_metric_mapped_dim_having(connection):
         metrics=["number_of_orders"],
         dimensions=["source"],
         having=[{"field": "gross_revenue", "expression": "greater_than", "value": 200}],
-        order_by=[{"field": "gross_revenue", "sort": "desc"}],
+        order_by=[{"field": "gross_revenue", "sort": "asc"}, {"field": "source", "sort": "desc"}],
     )
 
     correct = (
-        "SELECT orders.sub_channel as orders_sub_channel,SUM(order_lines.revenue) as "
-        "order_lines_total_item_revenue FROM analytics.order_line_items order_lines "
+        "SELECT orders.sub_channel as orders_sub_channel,NULLIF(COUNT(DISTINCT CASE WHEN  "
+        "(orders.id)  IS NOT NULL THEN  orders.id  ELSE NULL END), 0) "
+        "as orders_number_of_orders FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        "GROUP BY orders.sub_channel ORDER BY order_lines_total_item_revenue DESC;"
+        "GROUP BY orders.sub_channel HAVING SUM(order_lines.revenue)>200 "
+        "ORDER BY order_lines.total_item_revenue ASC,orders.sub_channel DESC;"
     )
     assert query == correct
 
@@ -92,9 +95,19 @@ def test_mapped_metric_mapped_merged_results(connection):
     query = connection.get_sql_query(metrics=["gross_revenue", "number_of_sessions"], dimensions=["source"])
 
     correct = (
-        "SELECT orders.sub_channel as orders_sub_channel,SUM(order_lines.revenue) as "
-        "order_lines_total_item_revenue FROM analytics.order_line_items order_lines "
-        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        "GROUP BY orders.sub_channel ORDER BY order_lines_total_item_revenue DESC;"
+        "WITH order_lines_order__subquery_0 AS (SELECT orders.sub_channel as orders_sub_channel,"
+        "SUM(order_lines.revenue) as order_lines_total_item_revenue FROM analytics.order_line_items "
+        "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
+        "GROUP BY orders.sub_channel ORDER BY order_lines_total_item_revenue DESC) ,"
+        "sessions_session__subquery_2 AS (SELECT sessions.utm_source as sessions_utm_source,"
+        "COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions sessions "
+        "GROUP BY sessions.utm_source ORDER BY sessions_number_of_sessions DESC) "
+        "SELECT order_lines_order__subquery_0.order_lines_total_item_revenue as "
+        "order_lines_total_item_revenue,sessions_session__subquery_2.sessions_number_of_sessions "
+        "as sessions_number_of_sessions,order_lines_order__subquery_0.orders_sub_channel as "
+        "orders_sub_channel,sessions_session__subquery_2.sessions_utm_source as "
+        "sessions_utm_source FROM order_lines_order__subquery_0 JOIN sessions_session__subquery_2 "
+        "ON order_lines_order__subquery_0.orders_sub_channel"
+        "=sessions_session__subquery_2.sessions_utm_source;"
     )
     assert query == correct
