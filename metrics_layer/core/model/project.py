@@ -293,7 +293,7 @@ class Project:
 
     @functools.lru_cache(maxsize=None)
     def get_field_by_tag(
-        self, tag_name: str, view_name: str = None, join_graphs: list = None, model: Model = None
+        self, tag_name: str, view_name: str = None, join_graphs: tuple = None, model: Model = None
     ):
         tag_options = {tag_name, f"{tag_name}s"} if tag_name[-1] != "s" else {tag_name, tag_name[:-1]}
         fields = self.fields(view_name=view_name, expand_dimension_groups=True, model=model)

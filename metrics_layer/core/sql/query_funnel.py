@@ -4,7 +4,7 @@ from copy import deepcopy
 from pypika import JoinType, Criterion, Table
 
 from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
-from metrics_layer.core.exceptions import QueryError
+from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
 from metrics_layer.core.model.filter import LiteralValueCriterion, FilterInterval
 from metrics_layer.core.model.field import Field
 from metrics_layer.core.model.definitions import Definitions
@@ -119,29 +119,39 @@ class FunnelQuery(MetricsLayerQueryBase):
         event_date = self.get_event_date()
         self.event_date_alias = event_date.alias(with_view=True)
 
-        link_field = self.design.project.get_field_by_tag("customer")
-        self.link_alias = link_field.alias(with_view=True)
-
         event_condition_fields = self._get_event_condition_fields()
 
         having_metrics = list(set(f["field"] for f in self.having)) if self.having else []
+        self.metrics = self.metrics + having_metrics
+
+        base_dimensions = self.dimensions + [event_date.id()] + event_condition_fields
+        join_graphs = self.join_graphs_for_query(self.metrics, base_dimensions, self.where)
+
+        try:
+            link_field = self.design.project.get_field_by_tag("customer", join_graphs=join_graphs)
+            self.link_alias = link_field.alias(with_view=True)
+        except AccessDeniedOrDoesNotExistException:
+            raise QueryError(
+                f"No link (customer) field found for query with metrics: {self.metrics}. "
+                "Make sure you have added a customer tag to the view or a view that can be joined in."
+            )
 
         dimensions = self.dimensions + [event_date.id(), link_field.id()] + event_condition_fields
-        self.metrics = self.metrics + having_metrics
         query = self._subquery(self.metrics, dimensions, self.where, no_group_by=True)
         return query
 
     def _get_event_condition_fields(self):
         fields = []
         for step in self.funnel["steps"]:
-            if isinstance(step, list):
-                for f in step:
-                    if "field" in f:
-                        fields.append(f["field"])
-            else:
-                fields.extend(self.parse_identifiers_from_clause(step))
-
+            fields.extend(self._get_fields_from_condition(step))
         return list(set(fields))
+
+    def _get_fields_from_condition(self, condition):
+        if isinstance(condition, list):
+            fields = [f["field"] for f in condition if "field" in f]
+        else:
+            fields = self.parse_identifiers_from_clause(condition)
+        return fields
 
     def get_event_date(self):
         if "view_name" in self.funnel:
@@ -237,3 +247,15 @@ class FunnelQuery(MetricsLayerQueryBase):
                 self.design.field_lookup[metric.id()] = metric
 
         return dimensions_to_add
+
+    def join_graphs_for_query(self, metrics, dimensions, where):
+        where_fields = self._get_fields_from_condition(where)
+        fields = metrics + dimensions + where_fields
+
+        all_graphs = []
+        for f in fields:
+            field = self.design.project.get_field(f)
+            all_graphs.append(set(jg for jg in field.join_graphs() if "merged_result" not in jg))
+
+        remaining_join_graphs = set.intersection(*all_graphs)
+        return tuple(remaining_join_graphs)
