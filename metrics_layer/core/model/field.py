@@ -115,11 +115,19 @@ class Field(MetricsLayerBase, SQLReplacement):
         return
 
     @property
+    def is_merged_result(self):
+        if "is_merged_result" in self._definition:
+            return self._definition["is_merged_result"]
+        return False
+
+    @property
     def canon_date(self):
         if "canon_date" in self._definition:
             canon_date = self._definition["canon_date"]
             return self._add_view_name_if_needed(canon_date)
-        return self._add_view_name_if_needed(self.view.default_date)
+        if self.view.default_date:
+            return self._add_view_name_if_needed(self.view.default_date)
+        return None
 
     @property
     def drill_fields(self):
@@ -186,7 +194,10 @@ class Field(MetricsLayerBase, SQLReplacement):
             else:
                 field = self.get_field_with_view_info(to_replace)
                 if field:
-                    sql_replace = field.alias(with_view=True)
+                    if field.is_merged_result or field.type == "number":
+                        sql_replace = "(" + field.strict_replaced_query() + ")"
+                    else:
+                        sql_replace = field.alias(with_view=True)
                 else:
                     sql_replace = to_replace
 
@@ -494,7 +505,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "month": lambda s, qt: f"DATE_TRUNC('MONTH', {s})",
                 "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', {s})",
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', {s})",
-                "hour_of_day": lambda s, qt: f"HOUR({s})",
+                "hour_of_day": lambda s, qt: f"HOUR(CAST({s} AS TIMESTAMP))",
                 "day_of_week": lambda s, qt: f"DAYOFWEEK({s})",
                 "day_of_month": lambda s, qt: f"DAYOFMONTH({s})",
             },
@@ -742,9 +753,6 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     @functools.lru_cache(maxsize=None)
     def join_graphs(self):
-        if self.is_merged_result:
-            return [f"merged_result_{self.id()}"]
-
         if self.view.model is None:
             raise QueryError(
                 f"Could not find a model in view {self.view.name}, "
@@ -752,6 +760,12 @@ class Field(MetricsLayerBase, SQLReplacement):
             )
 
         base = self.view.project.join_graph.weak_join_graph_hashes(self.view.name)
+
+        if self.is_cumulative():
+            return base
+
         edges = self.view.project.join_graph.merged_results_graph(self.view.model).in_edges(self.id())
         extended = [f"merged_result_{mr}" for mr, _ in edges]
+        if self.is_merged_result:
+            return extended
         return base + extended

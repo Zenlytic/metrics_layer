@@ -59,6 +59,7 @@ def test_sets(connection):
         "orders.quarters_between_orders",
         "orders.years_between_orders",
         "orders.revenue_in_cents",
+        "orders.campaign",
         "orders.number_of_orders",
         "orders.average_days_between_orders",
         "orders.total_revenue",
@@ -97,7 +98,8 @@ def test_joinable_fields_join(connection):
 
     joinable_fields = connection.config.project.joinable_fields([field], expand_dimension_groups=True)
     names = [f.id() for f in joinable_fields]
-    must_exclude = ["order_lines.revenue_per_session", "sessions.number_of_sessions"]
+    print(names)
+    must_exclude = ["traffic.traffic_source"]
     must_include = [
         "orders.order_date",
         "order_lines.order_id",
@@ -105,6 +107,8 @@ def test_joinable_fields_join(connection):
         "country_detail.rainfall",
         "discount_detail.discount_usd",
         "discounts.discount_code",
+        "order_lines.revenue_per_session",
+        "sessions.number_of_sessions",
     ]
     assert all(name in names for name in must_include)
     assert all(name not in names for name in must_exclude)
@@ -131,9 +135,11 @@ def test_joinable_fields_merged(connection):
     # Add tests for exclusions here
     joinable_fields = connection.config.project.joinable_fields([field], expand_dimension_groups=True)
     names = [f.id() for f in joinable_fields]
-    must_exclude = ["customers.gender", "orders.order_date"]
+    print(names)
+    must_exclude = ["traffic.traffic_source", "discounts.discount_code"]
     must_include = [
         "order_lines.order_date",
+        "customers.gender",
         "order_lines.total_item_revenue",
         "order_lines.revenue_per_session",
         "orders.sub_channel",

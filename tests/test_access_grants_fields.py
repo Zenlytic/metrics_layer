@@ -17,11 +17,9 @@ def test_access_grants_view_visible(connection):
     connection.config.project.set_user(None)
     connection.get_view("orders")
 
-    # The permission limitation on the Explore doesn't effect the view
     connection.config.project.set_user({"department": "sales"})
     connection.get_view("orders")
 
-    # Just because the user has access to the explore doesn't mean they have access to all views
     connection.config.project.set_user({"department": "marketing"})
 
     with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
@@ -40,7 +38,6 @@ def test_access_grants_field_visible(connection):
     connection.config.project.set_user({"department": "executive"})
     connection.get_field("orders.total_revenue")
 
-    # The permission limitation on the Explore doesn't effect the view containing this field or the field
     connection.config.project.set_user({"department": "sales"})
     connection.get_field("orders.total_revenue")
 

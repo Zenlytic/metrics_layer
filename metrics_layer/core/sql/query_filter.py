@@ -63,7 +63,10 @@ class MetricsLayerFilter(MetricsLayerBase):
         key = definition.get("field", None)
         filter_literal = definition.get("literal", None)
 
-        if key is None and filter_literal is None:
+        is_boolean_value = str(definition.get("value")).lower() == "true" and key is None
+        if is_boolean_value:
+            definition["value"] = True
+        if key is None and filter_literal is None and not is_boolean_value:
             raise ParseError(f"An attribute key or literal was not provided for filter '{definition}'.")
 
         if key is None and filter_literal:
@@ -77,13 +80,16 @@ class MetricsLayerFilter(MetricsLayerBase):
             raise ParseError(f"Filter expression: {definition['expression']} needs a non-empty value.")
 
         if self.design:
+            self.week_start_day = self.design.week_start_day
+        else:
+            self.week_start_day = None
+
+        if self.design and not is_boolean_value:
             # Will raise ParseError if not found
             try:
                 self.field = self.design.get_field(key)
             except ParseError:
-                raise ParseError(
-                    f"We could not find field {self.field_name} in explore {self.design.explore.name}"
-                )
+                raise ParseError(f"We could not find field {self.field_name}")
 
             if self.design.query_type == "BIGQUERY" and isinstance(definition["value"], datetime.datetime):
                 definition["value"] = bigquery_cast(self.field, definition["value"])
@@ -158,7 +164,12 @@ class MetricsLayerFilter(MetricsLayerBase):
         """
         if self.expression_type == MetricsLayerFilterExpressionType.Matches:
             criteria = []
-            for f in Filter({"field": self.field.alias(), "value": self.value}).filter_dict():
+            filter_dict = {
+                "field": self.field.alias(),
+                "value": self.value,
+                "week_start_day": self.week_start_day,
+            }
+            for f in Filter(filter_dict).filter_dict():
                 if self.query_type == Definitions.bigquery:
                     value = bigquery_cast(self.field, f["value"])
                 else:

@@ -26,6 +26,11 @@ fields:
     type: string
     sql: "${TABLE}.utm_source"
 
+  - name: utm_campaign
+    field_type: "dimension"
+    type: string
+    sql: "${TABLE}.utm_campaign"
+
   - name: customer_id
     field_type: dimension
     type: string

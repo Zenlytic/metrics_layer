@@ -43,12 +43,9 @@ fields:
     field_type: "dimension_group"
     type: time
     timeframes: [
-      raw,
-      time,
       date,
       week,
       month,
-      quarter,
       year
     ]
     sql: "${TABLE}.order_date"

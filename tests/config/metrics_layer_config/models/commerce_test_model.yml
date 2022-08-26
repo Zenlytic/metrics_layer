@@ -5,7 +5,8 @@ label: "Test commerce data"
 connection: "connection_name"
 
 mappings: 
-  utm_source: [sessions.utm_source, orders.sub_channel]
+  source: [sessions.utm_source, orders.sub_channel]
+  campaign: [sessions.utm_campaign, orders.campaign]
 
 access_grants:
   - name: test_access_grant_department_view

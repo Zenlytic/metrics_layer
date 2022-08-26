@@ -89,6 +89,9 @@ class MetricsLayerConnection:
 
         if kwargs.get("return_connection", False):
             return query, connection
+
+        if kwargs.get("return_query_kind", False):
+            return query, resolver.query_kind
         return query
 
     def run_query(self, query: str, connection: BaseConnection, **kwargs):

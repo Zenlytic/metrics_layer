@@ -107,6 +107,15 @@ def test_query_mql_sequence(connection):
         sql="SELECT * FROM MQL(number_of_orders, total_item_revenue FOR orders FUNNEL channel = 'Paid' THEN channel = 'Organic' THEN channel = 'Paid' or region = 'West' WITHIN 3 days WHERE region != 'West') as sequence_group",  # noqa
     )
 
+    revenue_calc = (
+        "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(order_lines_total_item_revenue, 0) * "
+        "(1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(order_lines_order_line_id), "
+        "'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) - SUM(DISTINCT "
+        "(TO_NUMBER(MD5(order_lines_order_line_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "
+        "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) / CAST((1000000*1.0) AS "
+        "DOUBLE PRECISION), 0)"
+    )
+
     correct = (
         "SELECT * FROM (WITH base AS (SELECT order_lines.sales_channel as order_lines_channel,"
         "customers.customer_id as customers_customer_id,order_lines.order_line_id as "
@@ -119,21 +128,21 @@ def test_query_mql_sequence(connection):
         "FROM base WHERE order_lines.sales_channel = 'Paid') ,step_2 AS ("
         "SELECT base.*,step_1.step_1_time as step_1_time FROM base JOIN step_1 "
         "ON base.customers_customer_id=step_1.customers_customer_id and step_1.step_1_time"
-        "<=base.orders_order_raw WHERE order_lines.sales_channel = 'Organic' AND "
+        "<base.orders_order_raw WHERE order_lines.sales_channel = 'Organic' AND "
         "DATEDIFF('DAY', step_1.step_1_time, base.orders_order_raw) <= 3) ,"
         "step_3 AS (SELECT base.*,step_2.step_1_time as step_1_time FROM base "
         "JOIN step_2 ON base.customers_customer_id=step_2.customers_customer_id and "
-        "step_2.step_1_time<=base.orders_order_raw WHERE order_lines.sales_channel = 'Paid' "
+        "step_2.step_1_time<base.orders_order_raw WHERE order_lines.sales_channel = 'Paid' "
         "or customers.region = 'West' AND DATEDIFF('DAY', step_2.step_1_time, base.orders_order_raw) <= 3) ,"
         "result_cte AS ((SELECT 'Step 1' as step,1 as step_order,NULLIF(COUNT(DISTINCT CASE WHEN  "
         "(orders_number_of_orders)  IS NOT NULL THEN  orders_order_id  ELSE NULL END), 0) as "
-        "orders_number_of_orders,SUM(order_lines_total_item_revenue) as order_lines_total_item_revenue "
+        f"orders_number_of_orders,{revenue_calc} as order_lines_total_item_revenue "
         "FROM step_1) UNION ALL (SELECT 'Step 2' as step,2 as step_order,NULLIF(COUNT(DISTINCT CASE WHEN  "
         "(orders_number_of_orders)  IS NOT NULL THEN  orders_order_id  ELSE NULL END), 0) as "
-        "orders_number_of_orders,SUM(order_lines_total_item_revenue) as order_lines_total_item_revenue "
+        f"orders_number_of_orders,{revenue_calc} as order_lines_total_item_revenue "
         "FROM step_2) UNION ALL (SELECT 'Step 3' as step,3 as step_order,NULLIF(COUNT(DISTINCT CASE WHEN  "
         "(orders_number_of_orders)  IS NOT NULL THEN  orders_order_id  ELSE NULL END), 0) as "
-        "orders_number_of_orders,SUM(order_lines_total_item_revenue) as order_lines_total_item_revenue "
+        f"orders_number_of_orders,{revenue_calc} as order_lines_total_item_revenue "
         "FROM step_3)) SELECT * FROM result_cte) as sequence_group;"
     )
     assert query == correct

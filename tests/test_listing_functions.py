@@ -7,18 +7,21 @@ from metrics_layer.core import MetricsLayerConnection
 def test_list_metrics(config):
     conn = MetricsLayerConnection(config=config)
     metrics = conn.list_metrics()
-    assert len(metrics) == 29
+    assert len(metrics) == 33
 
     metrics = conn.list_metrics(view_name="order_lines", names_only=True)
-    assert len(metrics) == 7
+    assert len(metrics) == 10
     assert set(metrics) == {
-        "number_of_email_purchased_items",
         "average_order_revenue",
-        "total_item_revenue",
-        "total_item_costs",
-        "line_item_aov",
+        "costs_per_session",
         "ending_on_hand_qty",
+        "line_item_aov",
+        "net_per_session",
+        "number_of_email_purchased_items",
         "revenue_per_session",
+        "total_item_costs",
+        "total_item_costs_pct",
+        "total_item_revenue",
     }
 
 
@@ -26,10 +29,10 @@ def test_list_metrics(config):
 def test_list_dimensions(config):
     conn = MetricsLayerConnection(config=config)
     dimensions = conn.list_dimensions(show_hidden=True)
-    assert len(dimensions) == 45
+    assert len(dimensions) == 49
 
     dimensions = conn.list_dimensions()
-    assert len(dimensions) == 32
+    assert len(dimensions) == 35
 
     dimensions = conn.list_dimensions(view_name="order_lines", names_only=True, show_hidden=True)
     dimensions_present = {

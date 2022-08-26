@@ -14,3 +14,7 @@ class QueryError(Exception):
 
     def __str__(self):
         return self.message
+
+
+class JoinError(QueryError):
+    pass

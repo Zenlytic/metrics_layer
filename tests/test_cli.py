@@ -168,7 +168,7 @@ def test_cli_validate(config, connection, fresh_project, mocker):
     project = fresh_project
     project._views[1]["default_date"] = "sessions.session_date"
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
-    sorted_fields[16]["name"] = "rev_broken_dim"
+    sorted_fields[17]["name"] = "rev_broken_dim"
     project._views[1]["fields"] = sorted_fields
     config.project = project
     conn = MetricsLayerConnection(config=config)
@@ -345,7 +345,7 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
     result_lookup = {
         "models": "Found 1 model:\n\ntest_model\n",
         "connections": "Found 1 connection:\n\ntesting_snowflake\n",
-        "views": "Found 8 views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\ntraffic\n",  # noqa
+        "views": "Found 9 views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\ntraffic\n",  # noqa
         "fields": "Found 2 fields:\n\ndiscount_promo_name\ndiscount_usd\n",
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
         "metrics": "Found 2 metrics:\n\ntotal_discount_amt\ndiscount_per_order\n",  # noqa
@@ -419,7 +419,7 @@ def test_cli_show(connection, mocker, name, extra_args):
             "  name: order\n"
             "  field_type: dimension_group\n"
             "  type: time\n"
-            "  timeframes:\n    raw\n    time\n    date\n    week\n    month\n    quarter\n    year\n"
+            "  timeframes:\n    date\n    week\n    month\n    year\n"
             "  sql: ${TABLE}.order_date\n"
         ),
         "total_discount_amt": (

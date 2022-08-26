@@ -11,11 +11,18 @@ class DashboardLayouts:
 
 class DashboardElement(MetricsLayerBase):
     def __init__(self, definition: dict = {}, dashboard=None, project=None) -> None:
-
         self.project = project
         self.dashboard = dashboard
         self.validate(definition)
         super().__init__(definition)
+
+    def get_model(self):
+        model = self.project.get_model(self.model)
+        if model is None:
+            raise QueryError(
+                f"Could not find model {self.model} referenced in dashboard {self.dashboard.name}"
+            )
+        return model
 
     def validate(self, definition: dict):
         required_keys = ["model"]
@@ -45,7 +52,8 @@ class DashboardElement(MetricsLayerBase):
         return self.filters
 
     def parsed_filters(self, json_safe=False):
-        return [f for raw in self._raw_filters() for f in Filter(raw).filter_dict(json_safe)]
+        to_add = {"week_start_day": self.get_model().week_start_day}
+        return [f for raw in self._raw_filters() for f in Filter({**raw, **to_add}).filter_dict(json_safe)]
 
     def collect_errors(self):
         errors = []
@@ -133,8 +141,13 @@ class Dashboard(MetricsLayerBase):
 
     def parsed_filters(self, json_safe=False):
         all_filters = []
+        week_start_days = set(m.week_start_day for m in self.project.models())
+        if len(week_start_days) == 1:
+            week_start_day = {"week_start_day": week_start_days.pop()}
+        else:
+            week_start_day = {"week_start_day": None}
         for f in self._raw_filters():
-            clean_filters = Filter(f).filter_dict(json_safe)
+            clean_filters = Filter({**f, **week_start_day}).filter_dict(json_safe)
             for clean_filter in clean_filters:
                 all_filters.append(clean_filter)
         return all_filters
