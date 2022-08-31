@@ -23,6 +23,9 @@ class JoinGraph(SQLReplacement):
         self._graph = None
         self._field_memo = {}
 
+    def __hash__(self):
+        return hash(self.project)
+
     def subgraph(self, view_names: list):
         return self.graph.subgraph(view_names)
 
