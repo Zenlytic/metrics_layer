@@ -236,12 +236,14 @@ class ProjectReader:
 
     def _load_dbt(self, repo: BaseRepo):
         self.project_name = self._get_dbt_project_file(repo.folder)["name"]
+
         self._dump_profiles_file(repo.folder, self.project_name)
         self._generate_manifest_json(repo.folder, self.profiles_dir)
 
         self.manifest = self._load_manifest_json(repo)
         models, views = self._parse_dbt_manifest(self.manifest)
 
+        raise
         # Empty list is for currently unsupported dashboards when using the dbt mode
         return models, views, []
 
@@ -265,6 +267,10 @@ class ProjectReader:
         models = self._make_dbt_models([v["name"] for v in views])
         return models, views
 
+    def _make_dbt_models(self):
+        model = {"version": 1, "type": "model", "name": self.project_name, "connection": self.project_name}
+        return [model]
+
     def _make_dbt_views(self, manifest: dict):
         metrics = [self._make_dbt_metric(m) for m in manifest["metrics"].values()]
         view_keys = [k for k in manifest["nodes"].keys() if "model." in k]
@@ -272,11 +278,13 @@ class ProjectReader:
         views = []
         for view_key in view_keys:
             view_raw = manifest["nodes"][view_key]
+            print(view_raw)
             view_metrics = [m for m in metrics if view_raw["name"] == m.get("model")]
+            print(metrics)
             if len(view_metrics) > 0:
                 view = self._make_dbt_view(view_raw, view_metrics)
                 views.append(view)
-
+        raise
         return views
 
     def _make_dbt_view(self, view: dict, view_metrics: list):
@@ -362,11 +370,6 @@ class ProjectReader:
         }
         return metric_dict
 
-    def _make_dbt_models(self, view_names: list):
-        model = {"version": 1, "type": "model", "name": self.project_name, "connection": self.project_name}
-        model["explores"] = [{"name": view_name} for view_name in view_names]
-        return [model]
-
     def _get_dbt_project_file(self, project_dir: str):
         dbt_project = self.read_yaml_file(os.path.join(project_dir, "dbt_project.yml"))
         return dbt_project
@@ -396,8 +399,9 @@ class ProjectReader:
             if not os.path.exists(os.path.join(profiles_dir, "profiles.yml")):
                 project = self._get_dbt_project_file(project_dir)
                 self._dump_profiles_file(profiles_dir, project["profile"])
-
+        print(f"about to run in {project_dir}")
         self._run_dbt("ls", project_dir=project_dir, profiles_dir=profiles_dir)
+        print("ran")
 
     @staticmethod
     def _run_dbt(cmd: str, project_dir: str, profiles_dir: str):

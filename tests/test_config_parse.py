@@ -240,9 +240,12 @@ def test_config_load_multiple():
     assert query == correct
 
 
-@pytest.mark.skip("slow")
+@pytest.mark.dbt
+# @pytest.mark.skip("slow")
 def test_config_load_dbt():
-    reader = ProjectReader(repo=repo_mock(repo_type="dbt"))
+    mock = repo_mock(repo_type="dbt")
+    mock.dbt_path = os.path.join(BASE_PATH, "config/dbt/")
+    reader = ProjectReader(repo=mock)
     reader.load()
 
     model = reader.models[0]
