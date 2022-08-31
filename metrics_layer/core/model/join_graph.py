@@ -203,9 +203,6 @@ class JoinGraph(SQLReplacement):
             if not use_condition or (use_condition and join_hash in must_be_in):
                 measure_id = measure.id()
                 canon_date = self._get_field_with_memo(measure.canon_date, by_name=True)
-                print(measure)
-                print(canon_date)
-                print(canon_date.timeframes)
                 for timeframe in canon_date.timeframes:
                     canon_date.dimension_group = timeframe
                     root_node_name = join_root + "_" + timeframe

@@ -142,6 +142,8 @@ class MQLConverter:
                 if mode == "funnel" and str(token).upper() != "THEN":
                     funnel_step = []
                     continue
+                elif mode == "dimensions" and str(token).upper() in {"SOURCE"}:
+                    self._add_by_mode(metrics, dimensions, mode, str(token))
 
             if mode == "funnel":
                 if str(token).upper() == "THEN":

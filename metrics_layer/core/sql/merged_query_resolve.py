@@ -54,7 +54,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         for join_hash in join_hashes:
             metrics = [f.id() for f in self.query_metrics.get(join_hash, [])]
             dimensions = [f.id() for f in self.query_dimensions.get(join_hash, [])]
-            print(metrics, dimensions)
+
             # Overwrite the limit arg because these are subqueries
             kws = {**self.kwargs, "limit": None, "return_pypika_query": True}
             resolver = SingleSQLQueryResolver(

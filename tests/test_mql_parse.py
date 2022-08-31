@@ -33,7 +33,6 @@ def test_query_no_join_mql(connection):
 
 @pytest.mark.query
 def test_query_no_join_mql_syntax_error(connection):
-
     with pytest.raises(ParseError) as exc_info:
         connection.get_sql_query(
             sql="SELECT * FROM MQL(total_item_revenue by channel",
@@ -177,4 +176,16 @@ def test_query_mql_as_subset(connection):
 def test_query_mql_pass_through_query(connection):
     correct = "SELECT channelinfo.channel, channelinfo.channel_owner FROM analytics.channeldata channelinfo;"
     query = connection.get_sql_query(sql=correct, connection_name="connection_name")
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_mql_mapping_query(connection):
+    correct = (
+        "SELECT * FROM (SELECT orders.sub_channel as orders_sub_channel,SUM(order_lines.revenue) "
+        "as order_lines_total_item_revenue FROM analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
+        "GROUP BY orders.sub_channel ORDER BY order_lines_total_item_revenue DESC);"
+    )
+    query = connection.get_sql_query(sql="SELECT * FROM MQL(total_item_revenue by source)")
     assert query == correct
