@@ -307,7 +307,10 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         "last quarter": pendulum.now("UTC").subtract(months=3).last_of("quarter").strftime(date_format),
         "last year": pendulum.now("UTC").subtract(years=1).end_of("year").strftime(date_format),
         "week to date": pendulum.now("UTC").subtract(days=1).end_of("day").strftime(date_format),
-        "month to date": pendulum.now("UTC").subtract(days=1).end_of("day").strftime(date_format),
+        "month to date": pendulum.now("UTC")
+        .subtract(days=1 if pendulum.now("UTC").day != 1 else 0)
+        .end_of("day")
+        .strftime(date_format),
         "quarter to date": pendulum.now("UTC").subtract(days=1).end_of("day").strftime(date_format),
         "year to date": pendulum.now("UTC").subtract(days=1).end_of("day").strftime(date_format),
         "last week to date": pendulum.now("UTC")
@@ -325,7 +328,11 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         "12 months ago to date": pendulum.now("UTC")
         .subtract(months=12)
         .start_of("month")
-        .add(days=(pendulum.now("UTC") - pendulum.now("UTC").start_of("month")).days - 1)
+        .add(
+            days=(pendulum.now("UTC") - pendulum.now("UTC").start_of("month")).days - 1
+            if pendulum.now("UTC").day != 1
+            else 0
+        )
         .end_of("day")
         .strftime(date_format),
         "1 year ago to date": pendulum.now("UTC")

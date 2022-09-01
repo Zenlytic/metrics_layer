@@ -234,14 +234,14 @@ def test_simple_query_dimension_group_timezone(config, group: str, query_type: s
     query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=[f"order_{group}"],
-        where=[{"field": "order_date", "expression": "matches", "value": "week to date"}],
+        where=[{"field": "order_date", "expression": "matches", "value": "month to date"}],
         query_type=query_type,
     )
 
     date_format = "%Y-%m-%dT%H:%M:%S"
-    start = pendulum.now("America/New_York").start_of("week").subtract(days=1).strftime(date_format)
-    end = pendulum.now("America/New_York").subtract(days=1).end_of("day").strftime(date_format)
-    print(end)
+    start = pendulum.now("America/New_York").start_of("month").strftime(date_format)
+    end = pendulum.now("America/New_York").end_of("day").strftime(date_format)
+
     if query_type in {Definitions.snowflake, Definitions.redshift}:
         result_lookup = {
             "date": "DATE_TRUNC('DAY', CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ))",  # noqa
