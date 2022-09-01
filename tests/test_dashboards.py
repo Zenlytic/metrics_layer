@@ -30,6 +30,7 @@ def test_dashboard_to_dict(connection):
     correct = {
         "expression": "equal_to",
         "field": "orders.new_vs_repeat",
+        "timezone": None,
         "value": "New",
         "week_start_day": None,
     }
@@ -42,6 +43,7 @@ def test_dashboard_to_dict(connection):
     correct = {
         "expression": "not_equal_to",
         "field": "order_lines.product_name",
+        "timezone": None,
         "value": "Handbag",
         "week_start_day": None,
     }
@@ -72,8 +74,8 @@ def test_dashboard_filter_week_start(fresh_config, fresh_project):
     last_element.filters = [raw_filter_dict]
     element_parsed_filters = last_element.parsed_filters()
 
-    start = pendulum.now().start_of("week").subtract(days=1).strftime(date_format)
-    end = pendulum.now().end_of("week").subtract(days=1).strftime(date_format)
+    start = pendulum.now("UTC").start_of("week").subtract(days=1).strftime(date_format)
+    end = pendulum.now("UTC").end_of("week").subtract(days=1).strftime(date_format)
     correct = [
         {"field": "orders.order_year", "value": start, "expression": "greater_or_equal_than"},
         {"field": "orders.order_year", "value": end, "expression": "less_or_equal_than"},
@@ -85,6 +87,40 @@ def test_dashboard_filter_week_start(fresh_config, fresh_project):
         assert parsed_filters[1]["field"] == correct[1]["field"]
         assert parsed_filters[1]["expression"].value == correct[1]["expression"]
         assert parsed_filters[1]["value"] == correct[1]["value"]
+
+
+@pytest.mark.query
+def test_dashboard_filter_timezone(fresh_config, fresh_project):
+    date_format = "%Y-%m-%dT%H:%M:%S"
+    fresh_project.set_timezone("Pacific/Apia")
+    fresh_config.project = fresh_project
+    connection = MetricsLayerConnection(config=fresh_config)
+    dash = connection.get_dashboard("sales_dashboard")
+
+    raw_filter_dict = {"field": "orders.order_date", "value": "week to date"}
+    dash.filters = [raw_filter_dict]
+    dashboard_parsed_filters = dash.parsed_filters()
+
+    last_element = dash.elements()[-1]
+    last_element.filters = [raw_filter_dict]
+    element_parsed_filters = last_element.parsed_filters()
+
+    # These are 24 hours apart so this test should always fail if we get the wrong timezone
+    start = pendulum.now("Pacific/Apia").start_of("week").strftime(date_format)
+    end = pendulum.now("Pacific/Apia").subtract(days=1).end_of("day").strftime(date_format)
+    wrong_end = pendulum.now("Pacific/Niue").subtract(days=1).end_of("day").strftime(date_format)
+    correct = [
+        {"field": "orders.order_date", "value": start, "expression": "greater_or_equal_than"},
+        {"field": "orders.order_date", "value": end, "expression": "less_or_equal_than"},
+    ]
+    for parsed_filters in [dashboard_parsed_filters, element_parsed_filters]:
+        assert parsed_filters[0]["field"] == correct[0]["field"]
+        assert parsed_filters[0]["expression"].value == correct[0]["expression"]
+        assert parsed_filters[0]["value"] == correct[0]["value"]
+        assert parsed_filters[1]["field"] == correct[1]["field"]
+        assert parsed_filters[1]["expression"].value == correct[1]["expression"]
+        assert parsed_filters[1]["value"] == correct[1]["value"]
+        assert parsed_filters[1]["value"] != wrong_end
 
 
 @pytest.mark.query
