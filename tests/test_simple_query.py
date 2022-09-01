@@ -232,27 +232,45 @@ def test_simple_query_dimension_group_timezone(config, group: str, query_type: s
     config.project = project
     conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(
-        metrics=["total_revenue"], dimensions=[f"order_{group}"], query_type=query_type
+        metrics=["total_revenue"],
+        dimensions=[f"order_{group}"],
+        where=[{"field": "order_date", "expression": "matches", "value": "month to date"}],
+        query_type=query_type,
     )
+
+    date_format = "%Y-%m-%dT%H:%M:%S"
+    start = pendulum.now("America/New_York").start_of("month").strftime(date_format)
+    end = pendulum.now("America/New_York").end_of("day").strftime(date_format)
 
     if query_type in {Definitions.snowflake, Definitions.redshift}:
         result_lookup = {
             "date": "DATE_TRUNC('DAY', CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ))",  # noqa
             "week": "DATE_TRUNC('WEEK', CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS DATE) + 1) - 1",  # noqa
         }
+        where = (
+            "WHERE DATE_TRUNC('DAY', CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) "
+            f"AS TIMESTAMP_NTZ))>='{start}' AND DATE_TRUNC('DAY', "
+            f"CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ))<='{end}'"
+        )
         order_by = " ORDER BY simple_total_revenue DESC"
     else:
         result_lookup = {
             "date": "CAST(DATE_TRUNC(CAST(DATETIME(CAST(simple.order_date AS DATETIME), 'America/New_York') AS DATE), DAY) AS TIMESTAMP)",  # noqa
             "week": "CAST(DATE_TRUNC(CAST(DATETIME(CAST(simple.order_date AS DATETIME), 'America/New_York') AS DATE) + 1, WEEK) - 1 AS TIMESTAMP)",  # noqa
         }
+        where = (
+            "WHERE CAST(DATE_TRUNC(CAST(DATETIME(CAST(simple.order_date AS DATETIME), "
+            f"'America/New_York') AS DATE), DAY) AS TIMESTAMP)>=TIMESTAMP('{start}') AND "
+            "CAST(DATE_TRUNC(CAST(DATETIME(CAST(simple.order_date AS DATETIME), "
+            f"'America/New_York') AS DATE), DAY) AS TIMESTAMP)<=TIMESTAMP('{end}')"
+        )
         order_by = ""
 
     date_result = result_lookup[group]
 
     correct = (
         f"SELECT {date_result} as simple_order_{group},SUM(simple.revenue) as "
-        f"simple_total_revenue FROM analytics.orders simple GROUP BY {date_result}"
+        f"simple_total_revenue FROM analytics.orders simple {where} GROUP BY {date_result}"
         f"{order_by};"
     )
     assert query == correct

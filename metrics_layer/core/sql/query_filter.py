@@ -81,8 +81,10 @@ class MetricsLayerFilter(MetricsLayerBase):
 
         if self.design:
             self.week_start_day = self.design.week_start_day
+            self.timezone = self.design.project.timezone
         else:
             self.week_start_day = None
+            self.timezone = None
 
         if self.design and not is_boolean_value:
             # Will raise ParseError if not found
@@ -168,6 +170,7 @@ class MetricsLayerFilter(MetricsLayerBase):
                 "field": self.field.alias(),
                 "value": self.value,
                 "week_start_day": self.week_start_day,
+                "timezone": self.timezone,
             }
             for f in Filter(filter_dict).filter_dict():
                 if self.query_type == Definitions.bigquery:
