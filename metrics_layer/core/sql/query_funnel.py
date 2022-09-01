@@ -29,6 +29,9 @@ class FunnelQuery(MetricsLayerQueryBase):
         self.base_cte_name = design.base_cte_name
         super().__init__(definition)
 
+    def __hash__(self):
+        return hash(self.design.project)
+
     def get_query(self, semicolon: bool = True):
         base_cte_query = self._base_query()
 

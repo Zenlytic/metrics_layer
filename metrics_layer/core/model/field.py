@@ -41,7 +41,8 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def __hash__(self) -> int:
         result = hashlib.md5(self.id().encode("utf-8"))
-        return int(result.hexdigest(), base=16)
+        id_int = int(result.hexdigest(), base=16)
+        return hash(self.view.project) + id_int
 
     def __eq__(self, other):
         if isinstance(other, str):

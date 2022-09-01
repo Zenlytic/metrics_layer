@@ -23,6 +23,9 @@ class MetricsLayerDesign:
         self._joins = None
         self._required_views = None
 
+    def __hash__(self):
+        return hash(self.project)
+
     @property
     def week_start_day(self):
         return self.model.week_start_day

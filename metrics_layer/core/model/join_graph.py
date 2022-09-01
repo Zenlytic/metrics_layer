@@ -1,5 +1,4 @@
 import networkx
-import functools
 from itertools import combinations
 
 from metrics_layer.core.exceptions import QueryError
@@ -22,6 +21,8 @@ class JoinGraph(SQLReplacement):
         self._merged_result_graph = None
         self._graph = None
         self._field_memo = {}
+        self._weak_graph_memo = {}
+        self._strong_graph_memo = {}
 
     def subgraph(self, view_names: list):
         return self.graph.subgraph(view_names)
@@ -32,31 +33,35 @@ class JoinGraph(SQLReplacement):
             self._graph = self.build()
         return self._graph
 
-    @functools.lru_cache(maxsize=30)
     def join_graph_hash(self, view_name: str) -> str:
-        graph = self.project.join_graph.graph
-        sorted_components = self._strongly_connected_components(graph)
+        if view_name not in self._strong_graph_memo:
+            graph = self.project.join_graph.graph
+            sorted_components = self._strongly_connected_components(graph)
 
-        for i, components in enumerate(sorted_components):
-            if view_name in components:
-                return f"subquery_{i}"
-        raise QueryError(
-            f"View name {view_name} not found in any joinable part of your data model. "
-            "Please make sure this is the right name for the view."
-        )
+            sorted_comps = enumerate(sorted_components)
+            graph_hash = next((f"subquery_{i}" for i, comps in sorted_comps if view_name in comps), None)
+            if graph_hash is None:
+                raise QueryError(
+                    f"View name {view_name} not found in any joinable part of your data model. "
+                    "Please make sure this is the right name for the view."
+                )
 
-    @functools.lru_cache(maxsize=30)
+            self._strong_graph_memo[view_name] = graph_hash
+        return self._strong_graph_memo[view_name]
+
     def weak_join_graph_hashes(self, view_name: str) -> list:
-        graph = self.project.join_graph.graph
-        sorted_components = self._strongly_connected_components(graph)
+        if view_name not in self._weak_graph_memo:
+            graph = self.project.join_graph.graph
+            sorted_components = self._strongly_connected_components(graph)
 
-        join_graph_hashes = []
-        for i, components in enumerate(sorted_components):
-            subgraph_nodes = self._subgraph_nodes_from_components(graph, components)
-            if view_name in subgraph_nodes:
-                join_graph_hashes.append(f"subquery_{i}")
+            join_graph_hashes = []
+            for i, components in enumerate(sorted_components):
+                subgraph_nodes = self._subgraph_nodes_from_components(graph, components)
+                if view_name in subgraph_nodes:
+                    join_graph_hashes.append(f"subquery_{i}")
 
-        return join_graph_hashes
+            self._weak_graph_memo[view_name] = join_graph_hashes
+        return self._weak_graph_memo[view_name]
 
     def _strongly_connected_components(self, graph):
         components = networkx.strongly_connected_components(graph)
