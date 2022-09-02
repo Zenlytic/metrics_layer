@@ -253,18 +253,13 @@ def test_config_load_dbt():
     assert model["type"] == "model"
     assert isinstance(model["name"], str)
     assert isinstance(model["connection"], str)
-    assert isinstance(model["explores"], list)
 
-    explore = model["explores"][0]
-
-    assert isinstance(explore["name"], str)
-
-    view = reader.views[0]
+    view = next(v for v in reader.views if v["name"] == "order_lines")
 
     assert view["type"] == "view"
     assert isinstance(view["name"], str)
-    assert view["sql_table_name"] == "fake.order_lines"
-    assert isinstance(view["default_date"], str)
+    assert view["sql_table_name"] == "ref('order_lines')"
+    assert view["default_date"] == "order_date"
     assert view["row_label"] == "Order line"
     assert isinstance(view["fields"], list)
 
@@ -275,8 +270,12 @@ def test_config_load_dbt():
     assert total_revenue_measure["type"] == "sum"
     assert total_revenue_measure["label"] == "New customer revenue"
     assert total_revenue_measure["description"] == "Total revenue from new customers"
-    assert total_revenue_measure["sql"] == "${TABLE}.product_revenue"
-    assert total_revenue_measure["extra"] == {"team": "Finance"}
-    assert total_revenue_measure["filters"] == [{"field": "new_vs_repeat", "value": "New"}]
+    correct_sql = "case when ${new_vs_repeat} = 'New' then ${TABLE}.product_revenue else null end"
+    assert total_revenue_measure["sql"] == correct_sql
+    assert total_revenue_measure["team"] == "Finance"
 
-    os.chdir("../../..")
+    dash = reader.dashboards[0]
+
+    assert dash["type"] == "dashboard"
+    assert dash["name"] == "sales_dashboard"
+    assert dash["elements"][0]["title"] == "First element"

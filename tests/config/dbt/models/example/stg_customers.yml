@@ -3,10 +3,23 @@ version: 2
 
 models:
   - name: stg_customers
+    label: Customers
     description: "Shopify customers"
+    meta:
+      identifiers:
+        - name: order_id
+          type: primary
+          sql: ${order_id}
+        - name: customer_id
+          type: foreign
+          sql: ${customer_id}
     columns:
       - name: customer_id
         description: "The primary key for this table"
         tests:
           - unique
           - not_null
+
+      - name: customer_email
+        description: "The customer's email address"
+        is_dimension: true

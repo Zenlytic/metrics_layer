@@ -240,7 +240,10 @@ def test_simple_query_dimension_group_timezone(config, group: str, query_type: s
 
     date_format = "%Y-%m-%dT%H:%M:%S"
     start = pendulum.now("America/New_York").start_of("month").strftime(date_format)
-    end = pendulum.now("America/New_York").end_of("day").strftime(date_format)
+    if pendulum.now("America/New_York").day == 1:
+        end = pendulum.now("America/New_York").end_of("day").strftime(date_format)
+    else:
+        end = pendulum.now("America/New_York").end_of("day").subtract(days=1).strftime(date_format)
 
     if query_type in {Definitions.snowflake, Definitions.redshift}:
         result_lookup = {

@@ -204,7 +204,8 @@ def test_config_explicit_env_config(monkeypatch):
 
 def test_config_file_metrics_layer(monkeypatch):
     test_repo_path = os.path.abspath("./tests/config/metrics_layer_config")
-
+    print(os.getcwd())
+    print(test_repo_path)
     monkeypatch.setenv("METRICS_LAYER_PROFILES_DIR", "./profiles")
     monkeypatch.setattr(os, "getcwd", lambda *args: test_repo_path)
     config = MetricsLayerConfiguration("sf_creds")

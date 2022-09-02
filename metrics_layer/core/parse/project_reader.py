@@ -1,6 +1,6 @@
 import json
 import os
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict, Counter
 from copy import deepcopy
 
 import lkml
@@ -138,50 +138,13 @@ class ProjectReader:
             "fiscal_month_offset",
             "week_start_day",
             "access_grants",
-            "explores",
         ]
         extra_keys = [k for k in model.keys() if k not in model_key_order]
         new_model = OrderedDict()
         for k in model_key_order + extra_keys:
             if k in model:
-                if k == "explores":
-                    new_model[k] = self._sort_explores(model[k])
-                else:
-                    new_model[k] = model[k]
+                new_model[k] = model[k]
         return new_model
-
-    def _sort_explores(self, explores: list):
-        return [self._sort_explore(e) for e in sorted(explores, key=lambda x: x["name"])]
-
-    def _sort_explore(self, explore: dict):
-        explore_key_order = [
-            "name",
-            "from",
-            "view_name",
-            "description",
-            "label",
-            "group_label",
-            "view_label",
-            "extends",
-            "extension",
-            "hidden",
-            "fields",
-            "join_for_analysis",
-            "sql_always_where",
-            "required_access_grants",
-            "always_filter",
-            "conditionally_filter",
-            "access_filter",
-            "always_join",
-            "extra",
-            "joins",
-        ]
-        extra_keys = [k for k in explore.keys() if k not in explore_key_order]
-        new_explore = OrderedDict()
-        for k in explore_key_order + extra_keys:
-            if k in explore:
-                new_explore[k] = explore[k]
-        return new_explore
 
     @staticmethod
     def _dump_yaml_file(data: dict, path: str):
@@ -243,9 +206,28 @@ class ProjectReader:
         self.manifest = self._load_manifest_json(repo)
         models, views = self._parse_dbt_manifest(self.manifest)
 
-        raise
-        # Empty list is for currently unsupported dashboards when using the dbt mode
-        return models, views, []
+        proj = self._read_yaml_if_exists(os.path.join(repo.folder, "zenlytic_project.yml"))
+        dashboard_path = os.path.join(repo.folder, proj["folder"]) if proj else []
+        return models, views, self._load_dbt_dashboards(dashboard_path)
+
+    def _load_dbt_dashboards(self, dashboard_folder: str):
+        if not dashboard_folder:
+            return []
+
+        file_names = BaseRepo.glob_search(dashboard_folder, "*.yml")
+        file_names += BaseRepo.glob_search(dashboard_folder, "*.yaml")
+
+        dashboards = []
+        for fn in file_names:
+            yaml_dict = self.read_yaml_file(fn)
+
+            # Handle keyerror
+            if "type" not in yaml_dict:
+                print(f"WARNING: file {fn} is missing a type")
+
+            if yaml_dict.get("type") == "dashboard":
+                dashboards.append(yaml_dict)
+        return dashboards
 
     def _load_manifest_json(self, repo):
         manifest_files = self.search_dbt_project(repo, pattern="manifest.json")
@@ -264,7 +246,7 @@ class ProjectReader:
 
     def _parse_dbt_manifest(self, manifest: dict):
         views = self._make_dbt_views(manifest)
-        models = self._make_dbt_models([v["name"] for v in views])
+        models = self._make_dbt_models()
         return models, views
 
     def _make_dbt_models(self):
@@ -278,25 +260,23 @@ class ProjectReader:
         views = []
         for view_key in view_keys:
             view_raw = manifest["nodes"][view_key]
-            print(view_raw)
             view_metrics = [m for m in metrics if view_raw["name"] == m.get("model")]
-            print(metrics)
-            if len(view_metrics) > 0:
-                view = self._make_dbt_view(view_raw, view_metrics)
-                views.append(view)
-        raise
+            view = self._make_dbt_view(view_raw, view_metrics)
+            views.append(view)
+
         return views
 
     def _make_dbt_view(self, view: dict, view_metrics: list):
-        unique_timestamps = list({m["timestamp"] for m in view_metrics})
-        # Pick the longest time grain
-        time_grains = list(sorted(view_metrics, key=lambda x: len(x["time_grains"])))[-1]
+        dimension_group_dict, metric_timestamps = defaultdict(set), []
+        for m in view_metrics:
+            dimension_group_dict[m["timestamp"]] |= set(m["time_grains"])
+            metric_timestamps.append(m["timestamp"])
 
-        if len(unique_timestamps) > 1:
-            raise QueryError(
-                "cannot handle dbt metrics with different primary timestamps in a view / dbt model"
-            )
-        dimension_group = self._make_dbt_dimension_group(unique_timestamps[0], time_grains)
+        dimension_groups = []
+        for timestamp, time_grains in dimension_group_dict.items():
+            matching_column = view.get("columns", {}).get(timestamp, {})
+            dimension_groups.append(self._make_dbt_dimension_group(timestamp, time_grains, matching_column))
+
         metrics = []
         for m in view_metrics:
             m.pop("model", None)
@@ -304,34 +284,39 @@ class ProjectReader:
             m.pop("time_grains", None)
             metrics.append(m)
 
-        extra = view["meta"] if view["meta"] != {} else view.get("config", {}).get("meta", {})
+        meta = view["meta"] if view["meta"] != {} else view.get("config", {}).get("meta", {})
         dimensions = [
             self._make_dbt_dimension(d) for d in view.get("columns").values() if d.get("is_dimension")
         ]
-        default_date = unique_timestamps[0]
-        fields = dimensions + [dimension_group] + metrics
+        default_date = self._dbt_default_date(metric_timestamps)
         view_dict = {
             "version": 1,
             "type": "view",
             "name": view["name"],
             "description": view.get("description"),
-            "row_label": extra.get("row_label"),
-            "sql_table_name": f"{view['schema']}.{view['name']}",
+            "row_label": meta.get("row_label"),
+            "sql_table_name": f"ref('{view['name']}')",
             "default_date": default_date,
-            "extra": extra,
-            "fields": fields,
+            "fields": dimensions + dimension_groups + metrics,
+            **meta,
         }
         return view_dict
 
     @staticmethod
-    def _make_dbt_dimension_group(name: str, time_grains: list):
+    def _dbt_default_date(metric_timestamps: list):
+        if len(metric_timestamps) > 0:
+            return Counter(metric_timestamps).most_common()[0][0]
+        return
+
+    @staticmethod
+    def _make_dbt_dimension_group(name: str, time_grains: list, matching_column: dict):
         return {
             "field_type": "dimension_group",
             "name": name,
             "type": "time",
-            "datatype": "date",
-            "timeframes": [t if t != "day" else "date" for t in time_grains],
+            "timeframes": [ProjectReader._convert_in_lookup(t, {"day": "date"}) for t in time_grains],
             "sql": "${TABLE}." + name,
+            **matching_column.get("meta", {}),
         }
 
     @staticmethod
@@ -343,36 +328,67 @@ class ProjectReader:
             "label": dimension.get("label"),
             "sql": "${TABLE}." + dimension["name"],
             "description": dimension.get("description"),
-            "extra": dimension.get("meta", {}),
-            "value_format_name": dimension.get("meta", {}).get("value_format_name"),
+            **dimension.get("meta", {}),
         }
 
     @staticmethod
     def _make_dbt_metric(metric: dict):
-        if len(metric["sql"].split(" ")) > 1:
-            raise QueryError(
-                "We do not currently support dbt sql statements that are more than an identifier"
-            )
-        if any(f["operator"] != "equal_to" for f in metric.get("filters", [])):
-            raise QueryError("We do not currently support dbt filter statements that are not equal_to")
         metric_dict = {
             "name": metric["name"],
-            "model": metric["model"].replace("ref('", "").replace("')", ""),
+            "model": ProjectReader._clean_model(metric.get("model")),
             "timestamp": metric["timestamp"],
             "time_grains": metric["time_grains"],
             "field_type": "measure",
-            "type": metric["type"],
+            "type": ProjectReader._convert_in_lookup(metric["type"], {"expression": "number"}),
             "label": metric.get("label"),
             "description": metric.get("description"),
-            "sql": "${TABLE}." + metric["sql"],
-            "extra": metric.get("meta", {}),
-            "filters": [{"field": f["field"], "value": f["value"]} for f in metric.get("filters", [])],
+            "sql": ProjectReader._convert_dbt_sql(metric),
+            **metric.get("meta", {}),
         }
         return metric_dict
+
+    @staticmethod
+    def _clean_model(dbt_model_name: str):
+        if dbt_model_name:
+            return dbt_model_name.replace("ref('", "").replace("')", "")
+        return None
+
+    @staticmethod
+    def _convert_in_lookup(value: str, lookup: dict):
+        if value in lookup:
+            return lookup[value]
+        return value
+
+    def _convert_dbt_sql(metric: dict):
+        if metric["type"] == "expression":
+            base_metric_sql = metric["sql"]
+            for metric_group in metric["metrics"]:
+                for metric in metric_group:
+                    base_metric_sql = base_metric_sql.replace(metric, "${" + metric + "}")
+            return base_metric_sql
+        else:
+            metric_sql = "${TABLE}." + metric["sql"]
+            return ProjectReader._apply_dbt_filters(metric_sql, metric.get("filters", []))
+
+    def _apply_dbt_filters(metric_sql: str, filters: list):
+        if len(filters) == 0:
+            return metric_sql
+        core_filter = " and ".join([ProjectReader._dbt_filter_to_sql(f) for f in filters])
+        return f"case when {core_filter} then {metric_sql} else null end"
+
+    @staticmethod
+    def _dbt_filter_to_sql(dbt_filter: dict):
+        sql = " ".join(["${" + dbt_filter["field"] + "}", dbt_filter["operator"], dbt_filter["value"]])
+        return sql
 
     def _get_dbt_project_file(self, project_dir: str):
         dbt_project = self.read_yaml_file(os.path.join(project_dir, "dbt_project.yml"))
         return dbt_project
+
+    def _read_yaml_if_exists(self, file_path: str):
+        if os.path.exists(file_path):
+            return self.read_yaml_file(file_path)
+        return None
 
     def _dump_profiles_file(self, project_dir: str, project_name: str):
         # It doesn't matter the warehouse type here because we're just compiling the models
@@ -399,9 +415,8 @@ class ProjectReader:
             if not os.path.exists(os.path.join(profiles_dir, "profiles.yml")):
                 project = self._get_dbt_project_file(project_dir)
                 self._dump_profiles_file(profiles_dir, project["profile"])
-        print(f"about to run in {project_dir}")
+
         self._run_dbt("ls", project_dir=project_dir, profiles_dir=profiles_dir)
-        print("ran")
 
     @staticmethod
     def _run_dbt(cmd: str, project_dir: str, profiles_dir: str):

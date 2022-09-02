@@ -1,0 +1,8 @@
+
+
+# Project name
+name: metrics_project
+
+profile: test_dbt_project
+
+folder: ./dashboards
