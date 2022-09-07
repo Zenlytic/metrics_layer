@@ -57,14 +57,17 @@ class MetricsLayerDesign:
             ordered_view_pairs = list(networkx.topological_sort(networkx.line_graph(self._join_subgraph)))
             ordered_view_pairs = self._clean_view_pairs(ordered_view_pairs)
             if len(required_views) > 1 and self._validate_join_path(ordered_view_pairs, required_views):
-                raise networkx.exception.NetworkXNoPath
+                raise networkx.exception.NetworkXUnfeasible
             return ordered_view_pairs
 
         except networkx.exception.NetworkXUnfeasible:
 
             if len(required_views) == 2:
-                path = self._shortest_path_between_two(required_views)
-                return [(source, target) for source, target in zip(path, path[1:])]
+                try:
+                    path = self._shortest_path_between_two(required_views)
+                    return [(source, target) for source, target in zip(path, path[1:])]
+                except networkx.exception.NetworkXNoPath:
+                    pass
 
             g = self.project.join_graph.graph
             raw_edges = networkx.line_graph(g).nodes

@@ -77,6 +77,7 @@ simple_view = {
                 "year",
             ],
             "name": "previous_order",
+            "convert_timezone": False,
         },
         {
             "field_type": "dimension_group",
@@ -215,25 +216,26 @@ def test_simple_query_alias_keyword(config):
 
 
 @pytest.mark.parametrize(
-    "group,query_type",
+    "field,group,query_type",
     [
-        ("date", Definitions.snowflake),
-        ("week", Definitions.snowflake),
-        ("date", Definitions.redshift),
-        ("week", Definitions.redshift),
-        ("date", Definitions.bigquery),
-        ("week", Definitions.bigquery),
+        ("order", "date", Definitions.snowflake),
+        ("order", "week", Definitions.snowflake),
+        ("previous_order", "date", Definitions.snowflake),
+        ("order", "date", Definitions.redshift),
+        ("order", "week", Definitions.redshift),
+        ("order", "date", Definitions.bigquery),
+        ("order", "week", Definitions.bigquery),
     ],
 )
 @pytest.mark.query
-def test_simple_query_dimension_group_timezone(config, group: str, query_type: str):
+def test_simple_query_dimension_group_timezone(config, field: str, group: str, query_type: str):
     project = Project(models=[simple_model], views=[simple_view])
     project.set_timezone("America/New_York")
     config.project = project
     conn = MetricsLayerConnection(config=config)
     query = conn.get_sql_query(
         metrics=["total_revenue"],
-        dimensions=[f"order_{group}"],
+        dimensions=[f"{field}_{group}"],
         where=[{"field": "order_date", "expression": "matches", "value": "month to date"}],
         query_type=query_type,
     )
@@ -246,10 +248,13 @@ def test_simple_query_dimension_group_timezone(config, group: str, query_type: s
         end = pendulum.now("America/New_York").end_of("day").subtract(days=1).strftime(date_format)
 
     if query_type in {Definitions.snowflake, Definitions.redshift}:
-        result_lookup = {
-            "date": "DATE_TRUNC('DAY', CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ))",  # noqa
-            "week": "DATE_TRUNC('WEEK', CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS DATE) + 1) - 1",  # noqa
-        }
+        if field == "previous_order":
+            result_lookup = {"date": "DATE_TRUNC('DAY', simple.previous_order_date)"}
+        else:
+            result_lookup = {
+                "date": "DATE_TRUNC('DAY', CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ))",  # noqa
+                "week": "DATE_TRUNC('WEEK', CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS DATE) + 1) - 1",  # noqa
+            }
         where = (
             "WHERE DATE_TRUNC('DAY', CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) "
             f"AS TIMESTAMP_NTZ))>='{start}' AND DATE_TRUNC('DAY', "
@@ -272,7 +277,7 @@ def test_simple_query_dimension_group_timezone(config, group: str, query_type: s
     date_result = result_lookup[group]
 
     correct = (
-        f"SELECT {date_result} as simple_order_{group},SUM(simple.revenue) as "
+        f"SELECT {date_result} as simple_{field}_{group},SUM(simple.revenue) as "
         f"simple_total_revenue FROM analytics.orders simple {where} GROUP BY {date_result}"
         f"{order_by};"
     )
