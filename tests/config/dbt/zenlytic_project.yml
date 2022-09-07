@@ -5,4 +5,7 @@ name: metrics_project
 
 profile: test_dbt_project
 
-folder: ./dashboards
+dashboard-paths: ['dashboards']
+view-paths: ['models']
+# If you don't specify model-paths, the metrics layer will use the profile as the connection_name for the model
+# model-paths: ['']
