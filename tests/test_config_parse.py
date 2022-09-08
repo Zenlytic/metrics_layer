@@ -18,7 +18,7 @@ class repo_mock(BaseRepo):
     def folder(self):
         if self.repo_type == "dbt":
             return os.path.join(BASE_PATH, "config/dbt/")
-        raise NotImplementedError()
+        return os.path.join(BASE_PATH, "config/metrics_layer/")
 
     @property
     def warehouse_type(self):
@@ -241,7 +241,6 @@ def test_config_load_multiple():
 
 
 @pytest.mark.dbt
-# @pytest.mark.skip("slow")
 def test_config_load_dbt():
     mock = repo_mock(repo_type="dbt")
     mock.dbt_path = os.path.join(BASE_PATH, "config/dbt/")
@@ -252,7 +251,7 @@ def test_config_load_dbt():
 
     assert model["type"] == "model"
     assert isinstance(model["name"], str)
-    assert isinstance(model["connection"], str)
+    assert model["connection"] == "test_dbt_project"
 
     view = next(v for v in reader.views if v["name"] == "order_lines")
 

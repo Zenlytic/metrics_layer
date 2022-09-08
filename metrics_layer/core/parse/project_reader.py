@@ -198,22 +198,36 @@ class ProjectReader:
         return models, views, []
 
     def _load_dbt(self, repo: BaseRepo):
-        self.project_name = self._get_dbt_project_file(repo.folder)["name"]
+        dbt_proj = self._get_dbt_project_file(repo.folder)
+        self.project_name = dbt_proj["name"]
 
         self._dump_profiles_file(repo.folder, self.project_name)
         self._generate_manifest_json(repo.folder, self.profiles_dir)
 
         self.manifest = self._load_manifest_json(repo)
-        models, views = self._parse_dbt_manifest(self.manifest)
-
         proj = self._read_yaml_if_exists(os.path.join(repo.folder, "zenlytic_project.yml"))
-        dashboard_path = os.path.join(repo.folder, proj["folder"]) if proj else []
-        return models, views, self._load_dbt_dashboards(dashboard_path)
+        if proj:
+            self.profile_name = proj.get("profile", dbt_proj.get("profile", self.project_name))
+        else:
+            self.profile_name = dbt_proj.get("profile", self.project_name)
 
-    def _load_dbt_dashboards(self, dashboard_folder: str):
-        if not dashboard_folder:
+        models, views = self._parse_dbt_manifest(self.manifest)
+        dashboard_paths = (
+            [os.path.join(repo.folder, dp) for dp in proj.get("dashboard-paths", [])] if proj else []
+        )
+        return models, views, self._load_dbt_dashboards(dashboard_paths)
+
+    def _load_dbt_dashboards(self, dashboard_folders: list):
+        if not dashboard_folders:
             return []
 
+        dashboards = []
+        for folder in dashboard_folders:
+            dashboards.extend(self._gather_dashboards(folder))
+
+        return dashboards
+
+    def _gather_dashboards(self, dashboard_folder: str):
         file_names = BaseRepo.glob_search(dashboard_folder, "*.yml")
         file_names += BaseRepo.glob_search(dashboard_folder, "*.yaml")
 
@@ -232,7 +246,7 @@ class ProjectReader:
     def _load_manifest_json(self, repo):
         manifest_files = self.search_dbt_project(repo, pattern="manifest.json")
         if len(manifest_files) > 1:
-            raise QueryError("found multiple manifest.json files for your dbt project")
+            raise QueryError(f"found multiple manifest.json files for your dbt project: {manifest_files}")
         if len(manifest_files) == 0:
             raise QueryError("could not find a manifest.json file for your dbt project")
 
@@ -242,7 +256,8 @@ class ProjectReader:
 
     @staticmethod
     def search_dbt_project(repo, pattern: str):
-        return BaseRepo.glob_search(repo.dbt_path, pattern)
+        folder = repo.dbt_path if repo.dbt_path else repo.folder
+        return BaseRepo.glob_search(folder, pattern)
 
     def _parse_dbt_manifest(self, manifest: dict):
         views = self._make_dbt_views(manifest)
@@ -250,7 +265,7 @@ class ProjectReader:
         return models, views
 
     def _make_dbt_models(self):
-        model = {"version": 1, "type": "model", "name": self.project_name, "connection": self.project_name}
+        model = {"version": 1, "type": "model", "name": self.project_name, "connection": self.profile_name}
         return [model]
 
     def _make_dbt_views(self, manifest: dict):
@@ -285,14 +300,18 @@ class ProjectReader:
             metrics.append(m)
 
         meta = view["meta"] if view["meta"] != {} else view.get("config", {}).get("meta", {})
+        dimension_group_names = [d["name"] for d in dimension_groups]
         dimensions = [
-            self._make_dbt_dimension(d) for d in view.get("columns").values() if d.get("is_dimension")
+            self._make_dbt_dimension(d)
+            for d in view.get("columns", {}).values()
+            if d["name"] not in dimension_group_names
         ]
         default_date = self._dbt_default_date(metric_timestamps)
         view_dict = {
             "version": 1,
             "type": "view",
             "name": view["name"],
+            "model_name": self.profile_name,
             "description": view.get("description"),
             "row_label": meta.get("row_label"),
             "sql_table_name": f"ref('{view['name']}')",
@@ -328,6 +347,7 @@ class ProjectReader:
             "label": dimension.get("label"),
             "sql": "${TABLE}." + dimension["name"],
             "description": dimension.get("description"),
+            "hidden": not dimension.get("is_dimension"),
             **dimension.get("meta", {}),
         }
 

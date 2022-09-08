@@ -1,6 +1,7 @@
 import os
 import shutil
 from glob import glob
+import yaml
 
 import git
 import requests
@@ -24,13 +25,11 @@ class BaseRepo:
         yaml_files += list(self.search(pattern="*.yaml"))
         n_yaml_files = len(yaml_files)
 
-        # TODO Need to decide if we will support this
-        # dbt_files = list(self.search(pattern="dbt_project.yml"))
-        # dbt_files += list(self.search(pattern="dbt_project.yml"))
-        # n_dbt_files = len(dbt_files)
+        project_files = list(self.search(pattern="zenlytic_project.yaml"))
+        project_files += list(self.search(pattern="zenlytic_project.yml"))
+        if len(project_files) == 1:
+            return self.read_yaml_file(project_files[0]).get("mode", "metrics_layer")
 
-        # if n_dbt_files > 0:
-        #     return "dbt"
         if n_looker_files > n_yaml_files:
             return "lookml"
         return "metrics_layer"
@@ -44,6 +43,12 @@ class BaseRepo:
 
     def fetch(self):
         raise NotImplementedError()
+
+    @staticmethod
+    def read_yaml_file(path: str):
+        with open(path, "r") as f:
+            yaml_dict = yaml.safe_load(f)
+        return yaml_dict
 
     @staticmethod
     def glob_search(folder: str, pattern: str):
