@@ -59,11 +59,10 @@ def test_dashboard_to_dict(connection):
 
 
 @pytest.mark.query
-def test_dashboard_filter_week_start(fresh_config, fresh_project):
+def test_dashboard_filter_week_start(fresh_project):
     date_format = "%Y-%m-%dT%H:%M:%S"
     fresh_project._models[0]["week_start_day"] = "sunday"
-    fresh_config.project = fresh_project
-    connection = MetricsLayerConnection(config=fresh_config)
+    connection = MetricsLayerConnection(project=fresh_project, connections=[])
     dash = connection.get_dashboard("sales_dashboard")
 
     raw_filter_dict = {"field": "orders.order_year", "value": "1 week"}
@@ -90,11 +89,10 @@ def test_dashboard_filter_week_start(fresh_config, fresh_project):
 
 
 @pytest.mark.query
-def test_dashboard_filter_timezone(fresh_config, fresh_project):
+def test_dashboard_filter_timezone(fresh_project):
     date_format = "%Y-%m-%dT%H:%M:%S"
     fresh_project.set_timezone("Pacific/Apia")
-    fresh_config.project = fresh_project
-    connection = MetricsLayerConnection(config=fresh_config)
+    connection = MetricsLayerConnection(project=fresh_project, connections=[])
     dash = connection.get_dashboard("sales_dashboard")
 
     raw_filter_dict = {"field": "orders.order_date", "value": "week to date"}

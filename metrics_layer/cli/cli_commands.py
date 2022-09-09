@@ -45,10 +45,10 @@ def validate():
     """Validate a metrics layer project, internally, without hitting the database"""
     profile = SeedMetricsLayer.get_profile()
     metrics_layer = SeedMetricsLayer._init_profile(profile)
-    errors = metrics_layer.config.project.validate()
+    errors = metrics_layer.project.validate()
 
     if len(errors) == 0:
-        n_models = len(metrics_layer.config.project.models())
+        n_models = len(metrics_layer.project.models())
         echo(f"Project passed (checked {n_models} model{'s' if n_models > 1 else ''})!")
     else:
         echo(f"Found {len(errors)} error{'s' if len(errors)> 1 else ''} in the project:\n")
@@ -77,7 +77,7 @@ def debug():
     python_path = sys.executable
     echo(f"python path: {python_path}")
 
-    profiles_path = metrics_layer.config.profiles_path
+    profiles_path = metrics_layer.profiles_path
     if profiles_path:
         echo(f"Using profiles.yml file at {profiles_path}")
     else:
@@ -85,7 +85,7 @@ def debug():
 
     # Configuration:
     echo(f"\nConfiguration:")
-    if metrics_layer.config.profiles_path:
+    if metrics_layer.profiles_path:
         echo(f"  profiles.yml file OK found and valid", color="green")
     else:
         echo(f"  profiles.yml file Not found", color="red")
@@ -96,7 +96,7 @@ def debug():
     echo(f"  git [{git_status}]", color="green" if "OK" in git_status else "red")
 
     # Connection:
-    connections = metrics_layer.config.connections()
+    connections = metrics_layer.list_connections()
     echo(f"\nConnection{'s' if len(connections) > 1 else ''}:")
     for connection in connections:
         for key, value in connection.printable_attributes().items():
@@ -141,13 +141,13 @@ def list_(type, view, show_hidden):
     elif type == "metrics":
         items = metrics_layer.list_metrics(names_only=True, view_name=view, show_hidden=show_hidden)
     elif type == "profiles":
-        if profile:
-            items = metrics_layer.config.get_all_profiles(names_only=True)
-        else:
-            from metrics_layer.core.parse import MetricsLayerConfiguration
+        # if profile:
+        items = metrics_layer.get_all_profiles(names_only=True)
+        # else:
+        #     from metrics_layer.core.parse import MetricsLayerConfiguration
 
-            default_directory = MetricsLayerConfiguration.get_metrics_layer_directory() + "profiles.yml"
-            items = MetricsLayerConfiguration.get_all_profiles(default_directory, names_only=True)
+        #     default_directory = MetricsLayerConfiguration.get_metrics_layer_directory() + "profiles.yml"
+        #     items = MetricsLayerConfiguration.get_all_profiles(default_directory, names_only=True)
     else:
         click.echo(
             f"Could not find the type {type}, please use one of the options: "

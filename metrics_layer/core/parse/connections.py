@@ -14,6 +14,7 @@ class ConnectionType:
     snowflake = Definitions.snowflake
     bigquery = Definitions.bigquery
     redshift = Definitions.redshift
+    postgres = Definitions.postgres
 
 
 class BaseConnection:

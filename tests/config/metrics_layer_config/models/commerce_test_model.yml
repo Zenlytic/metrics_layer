@@ -2,7 +2,7 @@ version: 1
 type: model
 name: test_model
 label: "Test commerce data"
-connection: "connection_name"
+connection: testing_snowflake
 
 mappings: 
   source: [sessions.utm_source, orders.sub_channel]
@@ -21,75 +21,3 @@ access_grants:
   - name: test_access_grant_department_dashboard
     user_attribute: department
     allowed_values: ["executive", 'sales']
-
-explores:
-  - name: order_lines_all
-    from: order_lines
-    description: "Description for order lines"
-    label: "Description for order lines"
-    group_label: "Purchases"
-    fields: [ALL_FIELDS*, all_orders*, -orders.test_removal*, -discounts.country]
-    join_for_analysis: [all_orders, customers]
-
-    access_filters:
-      - field: customers.region
-        user_attribute: owned_region
-
-    joins:
-      - name: country_detail
-        type: left_outer
-        relationship: many_to_one
-        sql_on: "${discounts.country}=${country_detail.country_id} and ${order_lines_all.order_date} is not null"
-
-      - name: all_orders
-        from: orders
-        type: left_outer
-        relationship: many_to_one
-        sql_on: "${order_lines_all.order_id}=${all_orders.order_id}"
-
-      - name: customers
-        required_access_grants: [test_access_grant_department_join]
-        from: customers
-        foreign_key: customer_id
-
-      - name: discounts
-        type: left_outer
-        relationship: one_to_many
-        sql_on: "${all_orders.order_id}=${discounts.order_id}"
-
-      - name: discount_detail
-        type: left_outer
-        relationship: one_to_one
-        sql_on: "${discounts.discount_id}=${discount_detail.discount_id} AND ${discounts.order_week} is not null"
-
-    # metrics:
-      # - name: discounts_per_order
-      #   # For foreign explores you need to specify the explore, view and measure
-      #   # The the one this is defined in, you only need to specify the view and measure (but you can specify both)
-      #   sql: ${discounts_only.discounts.total_discount_amt} / nullif(${total_item_revenue}, 0)
-
-      #   # This should throw an error if there is no canon_date defined for both of them, and
-      #   # the only available dimensions to slice by are the ones contained in the mapping + the canonical date
-      #   mapping:
-      #     discounts_only:
-      #       order_lines.product_name: discounts.discount_promo_name
-
-      #   value_format_name: usd
-      #   extra:
-      #     zenlytic.show: yes
-
-  - name: discounts_only
-    view_name: discounts
-
-    joins:
-      - name: discount_detail
-        fields: [discount_usd]
-        type: left_outer
-        relationship: one_to_many
-        sql_on: "${discounts_only.discount_id}=${discount_detail.discount_id}"
-
-      - name: sessions
-        type: cross
-        relationship: many_to_one
-
-  - name: sessions

@@ -1,15 +1,12 @@
 import pytest
 
-from metrics_layer.core import MetricsLayerConnection
-
 
 @pytest.mark.project
-def test_list_metrics(config):
-    conn = MetricsLayerConnection(config=config)
-    metrics = conn.list_metrics()
+def test_list_metrics(connection):
+    metrics = connection.list_metrics()
     assert len(metrics) == 33
 
-    metrics = conn.list_metrics(view_name="order_lines", names_only=True)
+    metrics = connection.list_metrics(view_name="order_lines", names_only=True)
     assert len(metrics) == 10
     assert set(metrics) == {
         "average_order_revenue",
@@ -26,15 +23,14 @@ def test_list_metrics(config):
 
 
 @pytest.mark.project
-def test_list_dimensions(config):
-    conn = MetricsLayerConnection(config=config)
-    dimensions = conn.list_dimensions(show_hidden=True)
+def test_list_dimensions(connection):
+    dimensions = connection.list_dimensions(show_hidden=True)
     assert len(dimensions) == 49
 
-    dimensions = conn.list_dimensions()
+    dimensions = connection.list_dimensions()
     assert len(dimensions) == 35
 
-    dimensions = conn.list_dimensions(view_name="order_lines", names_only=True, show_hidden=True)
+    dimensions = connection.list_dimensions(view_name="order_lines", names_only=True, show_hidden=True)
     dimensions_present = {
         "order_line_id",
         "order_id",
@@ -54,8 +50,8 @@ def test_list_dimensions(config):
 
 
 @pytest.mark.project
-def test_project_expand_fields(config):
-    fields = config.project.fields(show_hidden=False, expand_dimension_groups=True)
+def test_project_expand_fields(connection):
+    fields = connection.project.fields(show_hidden=False, expand_dimension_groups=True)
 
     dim_groups_alias = [f.alias() for f in fields if f.view.name == "orders" and f.name == "order"]
 

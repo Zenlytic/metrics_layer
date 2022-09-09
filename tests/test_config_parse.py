@@ -2,9 +2,8 @@ import os
 
 import pytest
 
-from metrics_layer.core.model.project import Project
 from metrics_layer.core.parse.github_repo import BaseRepo
-from metrics_layer.core.parse.project_reader import ProjectReader
+from metrics_layer.core.parse import dbtProjectReader, MetricsLayerProjectReader, ProjectLoader
 
 BASE_PATH = os.path.dirname(__file__)
 
@@ -29,12 +28,8 @@ class repo_mock(BaseRepo):
     def fetch(self):
         return
 
-    def search(self, pattern):
-        if pattern == "*.model.*":
-            return [os.path.join(BASE_PATH, "config/lookml/models/model_with_all_fields.model.lkml")]
-        elif pattern == "*.view.*":
-            return [os.path.join(BASE_PATH, "config/lookml/views/view_with_all_fields.view.lkml")]
-        elif pattern == "*.yml":
+    def search(self, pattern, folders):
+        if pattern == "*.yml":
             view = os.path.join(BASE_PATH, "config/metrics_layer_config/data_model/view_with_all_fields.yml")
             model = os.path.join(
                 BASE_PATH, "config/metrics_layer_config/data_model/model_with_all_fields.yml"
@@ -48,43 +43,23 @@ class repo_mock(BaseRepo):
         return
 
 
-def mock_dbt_search(repo, pattern):
+def mock_dbt_search(pattern):
     if pattern == "manifest.json":
         return [os.path.join(BASE_PATH, "config/dbt/target/manifest.json")]
     return []
 
 
 def test_config_load_yaml():
-    reader = ProjectReader(repo=repo_mock(repo_type="metrics_layer"))
-    reader.search_dbt_project = mock_dbt_search
-    reader.load()
+    reader = MetricsLayerProjectReader(repo=repo_mock(repo_type="metrics_layer"))
+    models, views, dashboards = reader.load()
 
-    model = reader.models[0]
+    model = models[0]
 
     assert model["type"] == "model"
     assert isinstance(model["name"], str)
     assert isinstance(model["connection"], str)
-    assert isinstance(model["explores"], list)
 
-    explore = model["explores"][0]
-
-    assert isinstance(explore["name"], str)
-    assert isinstance(explore["from"], str)
-    assert isinstance(explore["joins"], list)
-    assert isinstance(explore["always_filter"], dict)
-    assert isinstance(explore["always_filter"]["filters"], list)
-    assert isinstance(explore["always_filter"]["filters"][0], dict)
-    assert "field" in explore["always_filter"]["filters"][0]
-    assert "value" in explore["always_filter"]["filters"][0]
-
-    join = explore["joins"][0]
-
-    assert isinstance(join["name"], str)
-    assert isinstance(join["sql_on"], str)
-    assert isinstance(join["type"], str)
-    assert isinstance(join["relationship"], str)
-
-    view = reader.views[0]
+    view = views[0]
 
     assert view["type"] == "view"
     assert isinstance(view["name"], str)
@@ -101,162 +76,41 @@ def test_config_load_yaml():
     assert isinstance(field["type"], str)
     assert isinstance(field["sql"], str)
 
-
-def test_config_load_lkml():
-    reader = ProjectReader(repo=repo_mock(repo_type="lookml"))
-    reader.load()
-
-    model = reader.models[0]
-
-    assert model["type"] == "model"
-    assert isinstance(model["name"], str)
-    assert isinstance(model["connection"], str)
-    assert isinstance(model["explores"], list)
-
-    explore = model["explores"][0]
-
-    assert isinstance(explore["name"], str)
-    assert isinstance(explore["from"], str)
-    assert isinstance(explore["joins"], list)
-    assert isinstance(explore["always_filter"], dict)
-    assert isinstance(explore["always_filter"]["filters"], list)
-    assert isinstance(explore["always_filter"]["filters"][0], dict)
-    assert "field" in explore["always_filter"]["filters"][0]
-    assert "value" in explore["always_filter"]["filters"][0]
-
-    join = explore["joins"][0]
-
-    assert isinstance(join["name"], str)
-    assert isinstance(join["sql_on"], str)
-    assert isinstance(join["type"], str)
-    assert isinstance(join["relationship"], str)
-
-    view = reader.views[0]
-
-    assert view["type"] == "view"
-    assert isinstance(view["name"], str)
-    assert isinstance(view["sets"], list)
-    assert isinstance(view["sets"][0], dict)
-    assert view["sets"][0]["name"] == "set_name"
-    assert isinstance(view["sql_table_name"], str)
-    assert isinstance(view["fields"], list)
-
-    field = view["fields"][0]
-
-    assert isinstance(field["name"], str)
-    assert isinstance(field["field_type"], str)
-    assert isinstance(field["type"], str)
-    assert isinstance(field["sql"], str)
+    assert len(dashboards) == 0
 
 
 def test_automatic_choosing():
-    reader = ProjectReader(repo=repo_mock())
-    reader.load()
-    assert reader.base_repo.get_repo_type() == "metrics_layer"
+    assert repo_mock().get_repo_type() == "metrics_layer"
 
 
-def test_bad_repo_type():
-    reader = ProjectReader(repo=repo_mock(repo_type="dne"))
+def test_bad_repo_type(monkeypatch):
+    monkeypatch.setattr(ProjectLoader, "_get_repo", lambda *args: repo_mock(repo_type="dne"))
+
+    reader = ProjectLoader(location=None)
     with pytest.raises(TypeError) as exc_info:
         reader.load()
 
     assert exc_info.value
 
 
-def test_config_load_multiple():
-
-    base_mock = repo_mock(repo_type="lookml")
-    additional_mock = repo_mock(repo_type="metrics_layer")
-    reader = ProjectReader(repo=base_mock, additional_repo=additional_mock)
-
-    model = reader.models[0]
-
-    assert model["type"] == "model"
-    assert isinstance(model["name"], str)
-    assert isinstance(model["connection"], str)
-    assert isinstance(model["explores"], list)
-
-    explore = model["explores"][0]
-
-    assert isinstance(explore["name"], str)
-    assert isinstance(explore["from"], str)
-    assert isinstance(explore["joins"], list)
-
-    join = explore["joins"][0]
-
-    assert isinstance(join["name"], str)
-    assert isinstance(join["sql_on"], str)
-    assert isinstance(join["type"], str)
-    assert isinstance(join["relationship"], str)
-
-    view = reader.views[0]
-
-    assert view["type"] == "view"
-    assert isinstance(view["sets"], list)
-    assert isinstance(view["sets"][0], dict)
-    assert view["sets"][0]["name"] == "set_name"
-    assert isinstance(view["name"], str)
-    assert isinstance(view["sql_table_name"], str)
-    assert isinstance(view["fields"], list)
-
-    field_with_all = next((f for f in view["fields"] if f["name"] == "field_name"))
-    field_with_newline = next((f for f in view["fields"] if f["name"] == "parent_channel"))
-    field_with_filter = next((f for f in view["fields"] if f["name"] == "filter_testing"))
-    field_with_new_filter = next((f for f in view["fields"] if f["name"] == "filter_testing_new"))
-
-    assert isinstance(field_with_all["name"], str)
-    assert isinstance(field_with_all["field_type"], str)
-    assert isinstance(field_with_all["type"], str)
-    assert isinstance(field_with_all["sql"], str)
-    assert field_with_all["view_label"] == "desired looker label name"
-    assert field_with_all["parent"] == "parent_field"
-    assert field_with_all["extra"]["zenlytic.exclude"] == ["field_name"]
-
-    # This is in here to make sure we recognize the newlines so the comment is properly ignored
-    correct_sql = (
-        "CASE\n        --- parent channel\n        WHEN channel ilike "
-        "'%social%' then 'Social'\n        ELSE 'Not Social'\n        END"
-    )
-    assert field_with_newline["sql"] == correct_sql
-
-    # This is in here to make sure we recognize and adjust the default lkml filter dict label
-    assert field_with_filter["filters"][0] == {"field": "new_vs_repeat", "value": "Repeat"}
-
-    assert field_with_new_filter["filters"][0] == {"field": "new_vs_repeat", "value": "Repeat"}
-    assert field_with_new_filter["filters"][-1] == {"field": "is_churned", "value": "TRUE"}
-
-    project = Project(
-        models=reader.models,
-        views=reader.views,
-        dashboards=[],
-        connection_lookup={"connection_name": "SNOWFLAKE"},
-    )
-    field = project.get_field("filter_testing_new")
-    query = field.sql_query(query_type="SNOWFLAKE")
-    correct = (
-        "SUM(case when view_name.new_vs_repeat='Repeat' and "
-        "view_name.is_churned=true then view_name.revenue end)"
-    )
-    assert query == correct
-
-
 @pytest.mark.dbt
 def test_config_load_dbt():
     mock = repo_mock(repo_type="dbt")
     mock.dbt_path = os.path.join(BASE_PATH, "config/dbt/")
-    reader = ProjectReader(repo=mock)
-    reader.load()
+    reader = dbtProjectReader(repo=mock)
+    models, views, dashboards = reader.load()
 
-    model = reader.models[0]
+    model = models[0]
 
     assert model["type"] == "model"
     assert isinstance(model["name"], str)
     assert model["connection"] == "test_dbt_project"
 
-    view = next(v for v in reader.views if v["name"] == "order_lines")
+    view = next(v for v in views if v["name"] == "order_lines")
 
     assert view["type"] == "view"
     assert isinstance(view["name"], str)
+    assert isinstance(view["identifiers"], list)
     assert view["sql_table_name"] == "ref('order_lines')"
     assert view["default_date"] == "order_date"
     assert view["row_label"] == "Order line"
@@ -273,7 +127,7 @@ def test_config_load_dbt():
     assert total_revenue_measure["sql"] == correct_sql
     assert total_revenue_measure["team"] == "Finance"
 
-    dash = reader.dashboards[0]
+    dash = dashboards[0]
 
     assert dash["type"] == "dashboard"
     assert dash["name"] == "sales_dashboard"

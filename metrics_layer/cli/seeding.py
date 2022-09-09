@@ -4,6 +4,10 @@ from metrics_layer.core.model.definitions import Definitions
 
 
 class SeedMetricsLayer:
+    default_views_path = "views"
+    default_models_path = "models"
+    default_dashboards_path = "dashboards"
+
     def __init__(self, profile, connection=None, database=None, schema=None, table=None):
         self.default_model_name = "base_model"
         self.profile_name = profile
@@ -68,8 +72,7 @@ class SeedMetricsLayer:
         }
 
     def seed(self):
-        from metrics_layer.core.parse.github_repo import LocalRepo
-        from metrics_layer.core.parse.project_reader import ProjectReader
+        from metrics_layer.core.parse import ProjectDumper, ProjectLoader
 
         if self.connection.type not in {Definitions.snowflake, Definitions.bigquery, Definitions.redshift}:
             raise NotImplementedError(
@@ -87,18 +90,16 @@ class SeedMetricsLayer:
         if self.table:
             data = data[data["TABLE_NAME"].str.lower() == self.table.lower()].copy()
 
-        if getattr(self.metrics_layer.config.repo, "repo_path", None):
-            folder = self.metrics_layer.config.repo.repo_path
-        else:
-            folder = os.getcwd()
+        folder = self._location()
+        loader = ProjectLoader(folder)
+        project = loader.load()
 
-        reader = ProjectReader(LocalRepo(folder))
-        reader.load()
+        current_models = project.models()
 
-        model_name = self.get_model_name(reader)
+        model_name = self.get_model_name(current_models)
         # Each iteration represents either a single table or a single view
-        views = []
-        for i, table_name in enumerate(data["TABLE_NAME"].unique()):
+        views, tables = [], data["TABLE_NAME"].unique()
+        for i, table_name in enumerate(tables):
             column_df = data[data["TABLE_NAME"].str.lower() == table_name.lower()].copy()
             schema_name = column_df["TABLE_SCHEMA"].values[0]
             view = self.make_view(column_df, model_name, table_name, schema_name)
@@ -106,25 +107,23 @@ class SeedMetricsLayer:
             if self.table:
                 progress = ""
             else:
-                progress = f"({i + 1} / {len(data)})"
+                progress = f"({i + 1} / {len(tables)})"
             print(f"Got information on {table_name} {progress}")
             views.append(view)
 
-        models = self.make_models()
-
-        views_only = False
-        if len(reader._models) > 0:
-            views_only = True
+        if len(current_models) > 0:
+            models = []
         else:
-            reader._models = models
-        reader._views = views
+            models = self.make_models()
 
+        model_folder = loader.zenlytic_project.get("model-paths", [self.default_models_path])[0]
+        view_folder = loader.zenlytic_project.get("view-paths", [self.default_views_path])[0]
         # Dump the models to yaml files
-        reader.dump(folder, views_only=views_only)
+        ProjectDumper(models, model_folder, views, view_folder).dump(folder)
 
-    def get_model_name(self, reader):
-        if len(reader._models) > 0:
-            return reader._models[0]["name"]
+    def get_model_name(self, current_models: list):
+        if len(current_models) > 0:
+            return current_models[0]["name"]
         return self.default_model_name
 
     def make_models(self):
@@ -205,9 +204,9 @@ class SeedMetricsLayer:
         metrics_layer = SeedMetricsLayer._init_profile(profile_name)
 
         if connection_name:
-            connection = metrics_layer.config.get_connection(connection_name)
+            connection = metrics_layer.get_connection(connection_name)
         else:
-            connections = metrics_layer.config.connections()
+            connections = metrics_layer.list_connections()
             if len(connections) == 1:
                 connection = connections[0]
             else:
@@ -221,21 +220,22 @@ class SeedMetricsLayer:
     def _init_profile(profile_name: str):
         from metrics_layer.core import MetricsLayerConnection
 
-        metrics_layer = MetricsLayerConnection(profile_name)
+        connections = MetricsLayerConnection.get_connections_from_profile(profile_name)
+        metrics_layer = MetricsLayerConnection(location=SeedMetricsLayer._location(), connections=connections)
         return metrics_layer
 
     @staticmethod
     def get_profile():
-        from metrics_layer.core.parse.project_reader import ProjectReader
+        from core.parse.project_reader_base import ProjectReaderBase
 
-        zenlytic_project_path = os.path.join(os.getcwd(), "zenlytic_project.yml")
-        dbt_project_path = os.path.join(os.getcwd(), "dbt_project.yml")
+        zenlytic_project_path = os.path.join(SeedMetricsLayer._location(), "zenlytic_project.yml")
+        dbt_project_path = os.path.join(SeedMetricsLayer._location(), "dbt_project.yml")
 
         if os.path.exists(zenlytic_project_path):
-            zenlytic_project = ProjectReader.read_yaml_file(zenlytic_project_path)
+            zenlytic_project = ProjectReaderBase.read_yaml_file(zenlytic_project_path)
             return zenlytic_project["profile"]
         elif os.path.exists(dbt_project_path):
-            dbt_project = ProjectReader.read_yaml_file(dbt_project_path)
+            dbt_project = ProjectReaderBase.read_yaml_file(dbt_project_path)
             return dbt_project["profile"]
         raise ValueError(
             """Could not find a profile for the metrics layer in either the zenlytic_project.yml file or in
@@ -244,31 +244,35 @@ class SeedMetricsLayer:
 
     @staticmethod
     def _init_directories():
-        models_dir = "models/"
-        views_dir = "views/"
-        project_dir = "data_model/"
-
-        # Create project directory
-        fully_qualified_project_path = os.path.join(os.getcwd(), project_dir)
-        if not os.path.exists(fully_qualified_project_path):
-            os.mkdir(fully_qualified_project_path)
+        models_dir = SeedMetricsLayer.default_models_path
+        views_dir = SeedMetricsLayer.default_views_path
+        dashboards_dir = SeedMetricsLayer.default_dashboards_path
 
         # Create models and views directory inside of project dir
-        for directory in [models_dir, views_dir]:
-            fully_qualified_path = os.path.join(fully_qualified_project_path, directory)
+        for directory in [models_dir, views_dir, dashboards_dir]:
+            fully_qualified_path = os.path.join(SeedMetricsLayer._location(), directory)
             if not os.path.exists(fully_qualified_path):
                 os.mkdir(fully_qualified_path)
 
     @staticmethod
     def _init_project_file():
-        from metrics_layer.core.parse.project_reader import ProjectReader
+        from metrics_layer.core.parse import ProjectDumper
 
+        models_dir = SeedMetricsLayer.default_models_path
+        views_dir = SeedMetricsLayer.default_views_path
+        dashboards_dir = SeedMetricsLayer.default_dashboards_path
         default_profile = {
             "name": "zenlytic_project_name",
             "profile": "my_dbt_profile",
-            "folder": "data_model/",
+            "model-paths": [models_dir],
+            "view-paths": [views_dir],
+            "dashboard-paths": [dashboards_dir],
         }
-        ProjectReader._dump_yaml_file(default_profile, "zenlytic_project.yml")
+        ProjectDumper.dump_yaml_file(default_profile, "zenlytic_project.yml")
+
+    @staticmethod
+    def _location():
+        return os.getcwd()
 
     @staticmethod
     def _test_git():
