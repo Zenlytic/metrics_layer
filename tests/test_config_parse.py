@@ -49,6 +49,11 @@ def mock_dbt_search(pattern):
     return []
 
 
+def test_get_branch_options():
+    loader = ProjectLoader(location=os.path.join(BASE_PATH, "config/metrics_layer/"))
+    assert loader.get_branch_options() == []
+
+
 def test_config_load_yaml():
     reader = MetricsLayerProjectReader(repo=repo_mock(repo_type="metrics_layer"))
     models, views, dashboards = reader.load()

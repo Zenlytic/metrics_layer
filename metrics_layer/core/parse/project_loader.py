@@ -44,6 +44,9 @@ class ProjectLoader:
         profiles_path = os.path.join(home_dir, ".dbt", "profiles.yml")
         return profiles_path
 
+    def get_branch_options(self):
+        return self.repo.branch_options
+
     def _load_project(self):
         self.repo.fetch()
         repo_type = self.repo.get_repo_type()
