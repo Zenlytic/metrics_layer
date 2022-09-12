@@ -3,6 +3,7 @@ import os
 import pytest
 
 from metrics_layer.core.parse.github_repo import BaseRepo
+from metrics_layer.core.query.query import MetricsLayerConnection
 from metrics_layer.core.parse import dbtProjectReader, MetricsLayerProjectReader, ProjectLoader
 
 BASE_PATH = os.path.dirname(__file__)
@@ -50,7 +51,7 @@ def mock_dbt_search(pattern):
 
 
 def test_get_branch_options():
-    loader = ProjectLoader(location=os.path.join(BASE_PATH, "config/metrics_layer/"))
+    loader = MetricsLayerConnection(location=os.path.join(BASE_PATH, "config/metrics_layer/"))
     assert loader.get_branch_options() == []
 
 

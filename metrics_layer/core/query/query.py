@@ -27,6 +27,7 @@ class MetricsLayerConnection:
         self._raw_project = project
         self.kwargs = kwargs
         self._user = user
+        self.branch_options = None
 
     def set_user(self, user: dict):
         self._user = user
@@ -34,10 +35,10 @@ class MetricsLayerConnection:
 
     def load(self):
         if self.location is not None:
-            loader = ProjectLoader(self.location, self.branch, self._raw_connections)
-            self._project = loader.load()
+            self._loader = ProjectLoader(self.location, self.branch, self._raw_connections)
+            self._project = self._loader.load()
             self._project.set_user(self._user)
-            self.branch_options = loader.get_branch_options()
+            self.branch_options = self._loader.get_branch_options()
         elif self._raw_project is not None:
             self._project = self._raw_project
             self._project.set_user(self._user)
@@ -58,7 +59,10 @@ class MetricsLayerConnection:
         return self._project
 
     def get_branch_options(self):
-        return self.repo.branch_options
+        if self.branch_options is not None:
+            return self.branch_options
+        self.load()
+        return self.branch_options
 
     @cached_property
     def connections(self):
