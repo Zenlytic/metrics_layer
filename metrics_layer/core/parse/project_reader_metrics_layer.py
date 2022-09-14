@@ -1,3 +1,5 @@
+import os
+
 from .project_reader_base import ProjectReaderBase
 
 
@@ -38,7 +40,8 @@ class MetricsLayerProjectReader(ProjectReaderBase):
         return models, views, dashboards
 
     def search_for_yaml_files(self, folders: list):
-        return self.repo.search("*.yml", folders) + self.repo.search("*.yaml", folders)
+        file_names = self.repo.search("*.yml", folders) + self.repo.search("*.yaml", folders)
+        return list(set(file_names))
 
     def get_folders(self, key: str, raise_errors: bool = True):
         if not self.zenlytic_project:
@@ -52,3 +55,8 @@ class MetricsLayerProjectReader(ProjectReaderBase):
                 "Learn more about setting these keys here: https://docs.zenlytic.com"
             )
         return []
+
+    def _abs_path(self, path: str):
+        if not os.path.isabs(path):
+            path = os.path.join(self.repo.folder, path)
+        return path

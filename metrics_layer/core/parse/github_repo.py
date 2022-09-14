@@ -26,7 +26,7 @@ class BaseRepo:
 
     def search(self, pattern: str, folders: list = []):
         """Example arg: pattern='*.yml'"""
-        return [fn for f in folders for fn in self.glob_search(f, pattern)]
+        return [fn for f in folders for fn in self.glob_search(f, pattern) if "venv" not in fn]
 
     def fetch(self):
         raise NotImplementedError()
