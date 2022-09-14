@@ -1,5 +1,4 @@
 import functools
-import hashlib
 import json
 from collections import Counter
 
@@ -43,14 +42,17 @@ class Project:
         return f"<Project {len(self._models)} {text} user={self._user}>"
 
     def __hash__(self):
+        user_str = "" if not self._user else json.dumps(self._user, sort_keys=True)
+        return self._content_hash + hash(user_str)
+
+    @functools.cached_property
+    def _content_hash(self):
         model_str = json.dumps(self._models, sort_keys=True)
         view_str = json.dumps(self._views, sort_keys=True)
         dash_str = json.dumps(self._dashboards, sort_keys=True)
         conn_str = json.dumps(self.connection_lookup, sort_keys=True)
-        user_str = "" if not self._user else json.dumps(self._user, sort_keys=True)
-        string_to_hash = model_str + view_str + dash_str + conn_str + user_str + str(self.looker_env)
-        result = hashlib.md5(string_to_hash.encode("utf-8"))
-        return int(result.hexdigest(), base=16)
+        string_to_hash = model_str + view_str + dash_str + conn_str + str(self.looker_env)
+        return hash(string_to_hash)
 
     def set_user(self, user: dict):
         self._user = user
@@ -300,7 +302,7 @@ class Project:
 
     @functools.lru_cache(maxsize=None)
     def get_field_by_tag(
-        self, tag_name: str, view_name: str = None, join_graphs: list = None, model: Model = None
+        self, tag_name: str, view_name: str = None, join_graphs: tuple = None, model: Model = None
     ):
         tag_options = {tag_name, f"{tag_name}s"} if tag_name[-1] != "s" else {tag_name, tag_name[:-1]}
         fields = self.fields(view_name=view_name, expand_dimension_groups=True, model=model)

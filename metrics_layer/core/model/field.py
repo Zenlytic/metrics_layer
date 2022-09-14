@@ -41,7 +41,8 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def __hash__(self) -> int:
         result = hashlib.md5(self.id().encode("utf-8"))
-        return int(result.hexdigest(), base=16)
+        id_int = int(result.hexdigest(), base=16)
+        return hash(self.view.project) + id_int
 
     def __eq__(self, other):
         if isinstance(other, str):
@@ -105,6 +106,10 @@ class Field(MetricsLayerBase, SQLReplacement):
         if measure:
             return self.get_field_with_view_info(measure)
         return
+
+    @property
+    def convert_timezone(self):
+        return self._definition.get("convert_timezone", True)
 
     @property
     def datatype(self):
@@ -525,7 +530,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         # Snowflake and redshift have identical syntax in this case
         meta_lookup[Definitions.redshift] = meta_lookup[Definitions.snowflake]
 
-        if self.view.project.timezone:
+        if self.view.project.timezone and self.convert_timezone:
             sql = self._apply_timezone_to_sql(sql, self.view.project.timezone, query_type)
         return meta_lookup[query_type][self.dimension_group](sql, query_type)
 

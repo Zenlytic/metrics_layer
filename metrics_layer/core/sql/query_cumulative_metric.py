@@ -34,6 +34,9 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         self._default_date_memo = {}
         super().__init__(definition)
 
+    def __hash__(self):
+        return hash(self.design.project)
+
     def get_query(self, semicolon: bool = True):
         self.cumulative_metrics, self.non_cumulative_metrics = self.separate_metrics()
         has_non_cumulative_metrics = len(self.non_cumulative_metrics) > 0

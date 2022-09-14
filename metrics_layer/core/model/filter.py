@@ -124,7 +124,7 @@ class Filter(MetricsLayerBase):
                 raise QueryError(f"Filter missing required key '{k}' The filter passed was {definition}")
 
     def filter_dict(self, json_safe: bool = False) -> list:
-        filter_dict = self._filter_dict(self.field, self.value, self.week_start_day)
+        filter_dict = self._filter_dict(self.field, self.value, self.week_start_day, self.timezone)
         if isinstance(filter_dict, dict):
             filter_list = [filter_dict]
         else:
@@ -150,10 +150,10 @@ class Filter(MetricsLayerBase):
         pendulum.week_ends_at(Filter.week_end_day_default)
 
     @staticmethod
-    def _end_date(lag: int, date_part: str):
+    def _end_date(lag: int, date_part: str, tz: str):
         plural_date_part = FilterInterval.plural(date_part)
         singular_date_part = FilterInterval.singular(date_part)
-        now = Filter._utc_today()
+        now = Filter._today(tz=tz)
 
         if singular_date_part == "quarter":
             date = now.subtract(months=3 * lag).last_of("quarter")
@@ -162,10 +162,10 @@ class Filter(MetricsLayerBase):
         return Filter._date_to_string(date)
 
     @staticmethod
-    def _start_date(lag: int, date_part: str, return_date=False):
+    def _start_date(lag: int, date_part: str, tz: str, return_date=False):
         plural_date_part = FilterInterval.plural(date_part)
         singular_date_part = FilterInterval.singular(date_part)
-        now = Filter._utc_today()
+        now = Filter._today(tz=tz)
 
         if singular_date_part == "quarter":
             date = now.subtract(months=3 * lag).first_of("quarter")
@@ -185,39 +185,44 @@ class Filter(MetricsLayerBase):
         return date
 
     @staticmethod
-    def parse_date_condition(date_condition: str):
+    def parse_date_condition(date_condition: str, tz: str) -> list:
+        if tz is None:
+            tz = "UTC"
+
         if date_condition == "today":
             expression = MetricsLayerFilterExpressionType.GreaterOrEqualThan
-            cleaned_value = Filter._start_date(lag=0, date_part=FilterInterval.day)
+            cleaned_value = Filter._start_date(lag=0, date_part=FilterInterval.day, tz=tz)
             end_expression = MetricsLayerFilterExpressionType.LessOrEqualThan
-            end_value = Filter._end_date(lag=0, date_part=FilterInterval.day)
+            end_value = Filter._end_date(lag=0, date_part=FilterInterval.day, tz=tz)
             return [(expression, cleaned_value), (end_expression, end_value)]
 
         if date_condition == "yesterday":
             start_expression = MetricsLayerFilterExpressionType.GreaterOrEqualThan
-            start_value = Filter._start_date(lag=1, date_part=FilterInterval.day)
+            start_value = Filter._start_date(lag=1, date_part=FilterInterval.day, tz=tz)
 
             end_expression = MetricsLayerFilterExpressionType.LessOrEqualThan
-            end_value = Filter._end_date(lag=1, date_part=FilterInterval.day)
+            end_value = Filter._end_date(lag=1, date_part=FilterInterval.day, tz=tz)
             return [(start_expression, start_value), (end_expression, end_value)]
 
         # Match regex patterns to the various date filters and when patterns
         # match assume it's a date not a string comparison
         interval_condition = "|".join(FilterInterval.all())
-        interval_ago_for_result = Filter._parse_n_interval_ago_for(date_condition, interval_condition)
+        interval_ago_for_result = Filter._parse_n_interval_ago_for(date_condition, interval_condition, tz=tz)
         if interval_ago_for_result:
             return interval_ago_for_result
 
-        interval_modifier_result = Filter._parse_n_interval_modifier(date_condition, interval_condition)
+        interval_modifier_result = Filter._parse_n_interval_modifier(
+            date_condition, interval_condition, tz=tz
+        )
         if interval_modifier_result:
             return interval_modifier_result
 
-        n_interval_result = Filter._parse_n_interval(date_condition, interval_condition)
+        n_interval_result = Filter._parse_n_interval(date_condition, interval_condition, tz=tz)
         if n_interval_result:
             return n_interval_result
 
     @staticmethod
-    def _parse_n_interval(date_condition: str, interval_condition: str):
+    def _parse_n_interval(date_condition: str, interval_condition: str, tz: str):
         regex = rf"(\d+|this|last)\s+({interval_condition})"  # noqa
         result = re.search(regex, str(date_condition))
         if not result:
@@ -234,18 +239,18 @@ class Filter(MetricsLayerBase):
             lag = int(n) - 1
 
         start_expression = MetricsLayerFilterExpressionType.GreaterOrEqualThan
-        start_value = Filter._start_date(lag=lag, date_part=date_part)
+        start_value = Filter._start_date(lag=lag, date_part=date_part, tz=tz)
         result = [(start_expression, start_value)]
 
         end_lag = lag if n == "last" else 0
         end_expression = MetricsLayerFilterExpressionType.LessOrEqualThan
-        end_value = Filter._end_date(lag=end_lag, date_part=date_part)
+        end_value = Filter._end_date(lag=end_lag, date_part=date_part, tz=tz)
         result.append((end_expression, end_value))
 
         return result
 
     @staticmethod
-    def _parse_n_interval_modifier(date_condition: str, interval_condition: str):
+    def _parse_n_interval_modifier(date_condition: str, interval_condition: str, tz: str):
         regex = rf"(\d+\s+|this\s+|last\s+|)({interval_condition})\s+(ago\s+to\s+date|ago|to\s+date)"  # noqa
         result = re.search(regex, str(date_condition))
         if not result:
@@ -265,27 +270,28 @@ class Filter(MetricsLayerBase):
             lag = int(n)
 
         start_expression = MetricsLayerFilterExpressionType.GreaterOrEqualThan
-        start_date = Filter._start_date(lag=lag, date_part=date_part, return_date=True)
+        start_date = Filter._start_date(lag=lag, date_part=date_part, tz=tz, return_date=True)
         result = [(start_expression, Filter._date_to_string(start_date))]
 
         if modifier == "ago to date" or modifier == "to date":
             end_expression = MetricsLayerFilterExpressionType.LessOrEqualThan
 
             # We need to figure out how many days are between now and the start of the period
-            start_of_period = Filter._start_date(lag=0, date_part=date_part, return_date=True)
-            time_change = Filter._utc_today() - start_of_period
-            end_date = Filter._add_to_end_date(start_date, lag=time_change.days - 1, date_part="day")
+            start_of_period = Filter._start_date(lag=0, date_part=date_part, tz=tz, return_date=True)
+            time_change = Filter._today(tz=tz) - start_of_period
+            lag = time_change.days - 1 if time_change.days > 0 else 0
+            end_date = Filter._add_to_end_date(start_date, lag=lag, date_part="day")
             result.append((end_expression, Filter._date_to_string(end_date)))
 
         elif modifier == "ago":
             end_expression = MetricsLayerFilterExpressionType.LessOrEqualThan
-            end_value = Filter._end_date(lag=lag, date_part=date_part)
+            end_value = Filter._end_date(lag=lag, date_part=date_part, tz=tz)
             result.append((end_expression, end_value))
 
         return result
 
     @staticmethod
-    def _parse_n_interval_ago_for(date_condition: str, interval_condition: str):
+    def _parse_n_interval_ago_for(date_condition: str, interval_condition: str, tz: str):
         regex = rf"(\d+)\s+({interval_condition})\s+ago\s+for\s+(\d+)\s+({interval_condition})"  # noqa
         result = re.search(regex, str(date_condition))
         if not result:
@@ -297,7 +303,7 @@ class Filter(MetricsLayerBase):
         second_date_part = result.group(4)
 
         start_expression = MetricsLayerFilterExpressionType.GreaterOrEqualThan
-        start_date = Filter._start_date(lag=first_n, date_part=first_date_part, return_date=True)
+        start_date = Filter._start_date(lag=first_n, date_part=first_date_part, tz=tz, return_date=True)
         result = [(start_expression, Filter._date_to_string(start_date))]
 
         end_expression = MetricsLayerFilterExpressionType.LessOrEqualThan
@@ -307,7 +313,7 @@ class Filter(MetricsLayerBase):
         return result
 
     @staticmethod
-    def _filter_dict(field: str, value: str, week_start_day: str = None):
+    def _filter_dict(field: str, value: str, week_start_day: str = None, tz: str = None):
         # TODO more advanced parsing similar to
         # ref: https://docs.looker.com/reference/field-params/filters
 
@@ -322,7 +328,7 @@ class Filter(MetricsLayerBase):
             "<": MetricsLayerFilterExpressionType.LessThan,
         }
         Filter._set_week_start_day(week_start_day)
-        date_condition = Filter.parse_date_condition(value)
+        date_condition = Filter.parse_date_condition(value, tz=tz)
         Filter._reset_week_start_day()
 
         # Handle null conditional
@@ -420,8 +426,9 @@ class Filter(MetricsLayerBase):
         return Filter._date_to_string(parsed_date)
 
     @staticmethod
-    def _utc_today():
-        return pendulum.now("UTC")
+    def _today(tz):
+        timezone = pendulum.timezone(tz)
+        return pendulum.now(timezone)
 
     @staticmethod
     def _date_to_string(date_obj):
@@ -432,7 +439,9 @@ class Filter(MetricsLayerBase):
         case_sql = "case when "
         conditions = []
         for f in filters:
-            filter_dict = Filter._filter_dict(f["field"], f["value"], f.get("week_start_day"))
+            filter_dict = Filter._filter_dict(
+                f["field"], f["value"], f.get("week_start_day"), f.get("timezone")
+            )
             if isinstance(filter_dict, dict):
                 filter_list = [filter_dict]
             else:
