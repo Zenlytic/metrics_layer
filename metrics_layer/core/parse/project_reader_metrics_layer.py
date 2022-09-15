@@ -23,7 +23,7 @@ class MetricsLayerProjectReader(ProjectReaderBase):
             yaml_dict = self.read_yaml_file(fn)
 
             # Handle keyerror
-            if "type" not in yaml_dict:
+            if "type" not in yaml_dict and "zenlytic_project" not in fn:
                 print(f"WARNING: file {fn} is missing a type")
 
             yaml_type = yaml_dict.get("type")
@@ -43,12 +43,12 @@ class MetricsLayerProjectReader(ProjectReaderBase):
         file_names = self.repo.search("*.yml", folders) + self.repo.search("*.yaml", folders)
         return list(set(file_names))
 
-    def get_folders(self, key: str, raise_errors: bool = True):
+    def get_folders(self, key: str, default: str = None, raise_errors: bool = True):
         if not self.zenlytic_project:
             return []
 
         if key in self.zenlytic_project:
-            return self.zenlytic_project[key]
+            return [self._abs_path(p) for p in self.zenlytic_project[key]]
         elif raise_errors:
             raise KeyError(
                 f"Missing required key '{key}' in zenlytic_project.yml \n"

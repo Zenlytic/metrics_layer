@@ -56,9 +56,11 @@ class ProjectLoader:
             reader = MetricsLayerProjectReader(self.repo)
         else:
             raise TypeError(f"Unknown repo type: {repo_type}, valid values are 'metrics_layer', 'dbt'")
-        self.repo.delete()
 
         models, views, dashboards = reader.load()
+
+        self.repo.delete()
+
         project = Project(
             models=models,
             views=views,
