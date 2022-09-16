@@ -1,4 +1,3 @@
-from functools import cached_property
 import sqlparse
 
 from metrics_layer.core.convert import MQLConverter
@@ -28,6 +27,7 @@ class MetricsLayerConnection:
         self.kwargs = kwargs
         self._user = user
         self.branch_options = None
+        self._project = None
 
     def set_user(self, user: dict):
         self._user = user
@@ -53,9 +53,10 @@ class MetricsLayerConnection:
     def profiles_path(self):
         return ProjectLoader.profiles_path()
 
-    @cached_property
+    @property
     def project(self):
-        self.load()
+        if self._project is None:
+            self.load()
         return self._project
 
     def get_branch_options(self):
@@ -64,7 +65,7 @@ class MetricsLayerConnection:
         self.load()
         return self.branch_options
 
-    @cached_property
+    @property
     def connections(self):
         self._connections = ProjectLoader.load_connections(self._raw_connections)
         return self._connections
