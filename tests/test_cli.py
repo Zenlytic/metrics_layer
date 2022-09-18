@@ -8,7 +8,7 @@ from metrics_layer.cli import debug, init, list_, seed, show, validate
 from metrics_layer.cli.seeding import SeedMetricsLayer
 from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.model.definitions import Definitions
-from metrics_layer.core.parse.project_reader import ProjectReader
+from metrics_layer.core.parse.project_reader_base import ProjectReaderBase
 
 
 @pytest.mark.cli
@@ -19,15 +19,17 @@ def test_cli_init(mocker, monkeypatch):
         nonlocal yaml_dump_called
         yaml_dump_called = True
         assert isinstance(data, dict)
-        assert data["folder"] == "data_model/"
+        assert data["view-paths"] == ["views"]
+        assert data["model-paths"] == ["models"]
+        assert data["dashboard-paths"] == ["dashboards"]
 
     mocker.patch("os.mkdir")
-    monkeypatch.setattr(ProjectReader, "_dump_yaml_file", assert_called)
+    monkeypatch.setattr(ProjectReaderBase, "dump_yaml_file", assert_called)
     runner = CliRunner()
     result = runner.invoke(init)
 
     assert result.exit_code == 0
-    dirs = ["data_model/", "data_model/views/", "data_model/models/"]
+    dirs = ["views", "dashboards", "models"]
     for dir_path in dirs:
         call = os.path.join(os.getcwd(), dir_path)
         os.mkdir.assert_any_call(call)
@@ -37,7 +39,7 @@ def test_cli_init(mocker, monkeypatch):
 @pytest.mark.cli
 # TODO add redshift test
 @pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery])
-def test_cli_seed(
+def test_cli_seed_metrics_layer(
     mocker, monkeypatch, connection, query_type, seed_snowflake_tables_data, seed_bigquery_tables_data
 ):
     mocker.patch("os.mkdir")
@@ -45,7 +47,7 @@ def test_cli_seed(
 
     def query_runner_mock(slf, query):
         print(query)
-        if query_type in {Definitions.snowflake, Definitions.redshift}:
+        if query_type == Definitions.snowflake:
             return seed_snowflake_tables_data
         elif query_type == Definitions.bigquery:
             return seed_bigquery_tables_data
@@ -121,24 +123,22 @@ def test_cli_seed(
         else:
             raise AssertionError("undefined model type for seeding")
 
-    old_type = copy(connection.config._connections[0].type)
-    connection.config._connections[0].type = query_type
+    old_type = copy(connection._raw_connections[0].type)
+    connection._raw_connections[0].type = query_type
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
     monkeypatch.setattr(SeedMetricsLayer, "run_query", query_runner_mock)
-    monkeypatch.setattr(ProjectReader, "_dump_yaml_file", yaml_dump_assert)
-
-    class repo_mock:
-        repo_path = os.path.join(os.getcwd(), "data_model/")
-
-    # Set repo path to ref local repo
-    connection.config.repo = repo_mock
+    monkeypatch.setattr(ProjectReaderBase, "dbt_project", None)
+    monkeypatch.setattr(ProjectReaderBase, "dump_yaml_file", yaml_dump_assert)
 
     runner = CliRunner()
-    result = runner.invoke(seed, ["--database", "demo", "--schema", "analytics"])
+    result = runner.invoke(
+        seed, ["--database", "demo", "--schema", "analytics", "--connection", "testing_snowflake"]
+    )
 
+    print(result.output)
     assert result.exit_code == 0
-    dirs = ["data_model/", "data_model/views/", "data_model/models/"]
+    dirs = ["dashboards", "views", "models"]
     calls = [os.path.join(os.getcwd(), dir_path) for dir_path in dirs]
     for call in calls:
         os.mkdir.assert_any_call(call)
@@ -146,21 +146,32 @@ def test_cli_seed(
     assert yaml_dump_called == 3
 
     runner = CliRunner()
-    result = runner.invoke(seed, ["--database", "demo", "--schema", "analytics", "--table", "orders"])
+    result = runner.invoke(
+        seed,
+        [
+            "--database",
+            "demo",
+            "--schema",
+            "analytics",
+            "--table",
+            "orders",
+            "--connection",
+            "testing_snowflake",
+        ],
+    )
 
-    connection.config._connections[0].type = old_type
+    connection._raw_connections[0].type = old_type
     assert result.exit_code == 0
     assert yaml_dump_called == 5
 
 
 @pytest.mark.cli
-def test_cli_validate(config, connection, fresh_project, mocker):
+def test_cli_validate(connection, fresh_project, mocker):
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
     runner = CliRunner()
     result = runner.invoke(validate)
 
-    print(result)
     assert result.exit_code == 0
     assert result.output == "Project passed (checked 1 model)!\n"
 
@@ -170,8 +181,7 @@ def test_cli_validate(config, connection, fresh_project, mocker):
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
     sorted_fields[17]["name"] = "rev_broken_dim"
     project._views[1]["fields"] = sorted_fields
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
@@ -188,15 +198,14 @@ def test_cli_validate(config, connection, fresh_project, mocker):
 
 
 @pytest.mark.cli
-def test_cli_validate_joins(config, fresh_project, mocker):
+def test_cli_validate_joins(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
     identifiers = project._views[1]["identifiers"]
     identifiers[1]["sql_on"] = "${discounts.order_id}=${orders.wrong_name_order_id}"
     project._views[1]["identifiers"] = identifiers
 
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
@@ -212,7 +221,7 @@ def test_cli_validate_joins(config, fresh_project, mocker):
 
 
 @pytest.mark.cli
-def test_cli_validate_dashboards(config, fresh_project, mocker):
+def test_cli_validate_dashboards(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
     dashboards = sorted(project._dashboards, key=lambda x: x["name"])
@@ -220,8 +229,7 @@ def test_cli_validate_dashboards(config, fresh_project, mocker):
     dashboards[0]["elements"][0]["slice_by"][0] = "missing_campaign"
     dashboards[0]["elements"][1]["metrics"][0] = "missing_revenue"
     project._dashboards = dashboards
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
@@ -241,7 +249,7 @@ def test_cli_validate_dashboards(config, fresh_project, mocker):
 
 
 @pytest.mark.cli
-def test_cli_validate_names(config, fresh_project, mocker):
+def test_cli_validate_names(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
@@ -249,8 +257,7 @@ def test_cli_validate_names(config, fresh_project, mocker):
     sorted_fields[0]["name"] = "an invalid @name"
     sorted_fields[3]["timeframes"] = ["date", "month", "year"]
     project._views[1]["fields"] = sorted_fields
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
@@ -267,12 +274,11 @@ def test_cli_validate_names(config, fresh_project, mocker):
 
 
 @pytest.mark.cli
-def test_cli_validate_model_name_in_view(config, fresh_project, mocker):
+def test_cli_validate_model_name_in_view(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
     project._views[1].pop("model_name")
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
@@ -290,7 +296,7 @@ def test_cli_validate_model_name_in_view(config, fresh_project, mocker):
 def test_cli_debug(connection, mocker):
     def query_runner_mock(query, connection, run_pre_queries=True):
         assert query == "select 1 as id;"
-        assert connection.name == "testing_snowflake"
+        assert connection.name in {"testing_snowflake", "testing_bigquery"}
         assert not run_pre_queries
         return True
 
@@ -301,21 +307,27 @@ def test_cli_debug(connection, mocker):
     runner = CliRunner()
     result = runner.invoke(debug)
 
+    profiles_dir = os.path.join(os.path.expanduser("~"), ".dbt", "profiles.yml")
+    print(result.output)
     assert result.exit_code == 0
     non_workstation_dependent_correct = (
-        "Using profiles.yml file at test_profiles_file.yml\n\n"
+        f"Using profiles.yml file at {profiles_dir}\n\n"
         "Configuration:\n"
         "  profiles.yml file OK found and valid\n"
         "\nRequired dependencies:\n"
         "  git [OK found]\n"
-        "\nConnection:\n"
+        "\nConnections:\n"
         "  name: testing_snowflake\n"
         "  account: blahblah.us-east-1\n"
         "  user: paul\n"
         "  database: analytics\n"
         "  warehouse: compute_wh\n"
         "  role: reporting\n"
+        "  name: testing_bigquery\n"
+        "  type: BIGQUERY\n"
+        "  project_id: fake-proj-id\n"
         "\nConnection testing_snowflake test: OK connection ok\n"
+        "\nConnection testing_bigquery test: OK connection ok\n"
     )
 
     non_workstation_dependent_output = "\n".join(result.output.split("\n")[3:])
@@ -344,7 +356,7 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
 
     result_lookup = {
         "models": "Found 1 model:\n\ntest_model\n",
-        "connections": "Found 1 connection:\n\ntesting_snowflake\n",
+        "connections": "Found 2 connections:\n\ntesting_snowflake\ntesting_bigquery\n",
         "views": "Found 9 views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\ntraffic\n",  # noqa
         "fields": "Found 2 fields:\n\ndiscount_promo_name\ndiscount_usd\n",
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
@@ -387,7 +399,7 @@ def test_cli_show(connection, mocker, name, extra_args):
             "  name: test_model\n"
             "  type: model\n"
             "  label: Test commerce data\n"
-            "  connection: connection_name\n"
+            "  connection: testing_snowflake\n"
         ),
         "testing_snowflake": (
             "Attributes in connection testing_snowflake:\n\n"

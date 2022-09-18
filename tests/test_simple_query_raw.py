@@ -7,7 +7,7 @@ from metrics_layer.core.sql.query_errors import ArgumentError
 simple_model = {
     "type": "model",
     "name": "core",
-    "connection": "fake",
+    "connection": "testing_snowflake",
     "week_start_day": "sunday",
     "explores": [{"name": "simple_explore", "from": "simple"}],
 }
@@ -70,10 +70,9 @@ simple_view = {
 
 
 @pytest.mark.query
-def test_simple_query(config):
+def test_simple_query(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["order_id", "channel"])
 
     correct = (
@@ -84,10 +83,9 @@ def test_simple_query(config):
 
 
 @pytest.mark.query
-def test_query_complex_metric(config):
+def test_query_complex_metric(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(metrics=["revenue_per_aov"], dimensions=["order_id", "channel"])
 
     correct = (
@@ -100,10 +98,9 @@ def test_query_complex_metric(config):
 
 
 @pytest.mark.query
-def test_query_complex_metric_having_error(config):
+def test_query_complex_metric_having_error(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     with pytest.raises(ArgumentError) as exc_info:
         conn.get_sql_query(
             metrics=["revenue_per_aov"],
@@ -115,10 +112,9 @@ def test_query_complex_metric_having_error(config):
 
 
 @pytest.mark.query
-def test_query_complex_metric_order_by_error(config):
+def test_query_complex_metric_order_by_error(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     with pytest.raises(ArgumentError) as exc_info:
         conn.get_sql_query(
             metrics=["revenue_per_aov"],
@@ -130,10 +126,9 @@ def test_query_complex_metric_order_by_error(config):
 
 
 @pytest.mark.query
-def test_query_complex_metric_all(config):
+def test_query_complex_metric_all(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(
         metrics=["revenue_per_aov"],
         dimensions=["order_id", "channel"],

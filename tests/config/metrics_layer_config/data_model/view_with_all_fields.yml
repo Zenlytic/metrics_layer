@@ -22,11 +22,7 @@ fields:
     group_label: "label used to group dimensions in the field picker"
     group_item_label: "label to use for the field under its group label in the field picker"
     description: "description string"
-    related_metrics:
-      - field: related_metric_name
-        relationship: positive
-      - field: related_metric_name
-        relationship: negative
+
     # This is like dbt meta tag, put whatever you want in here
     extra:
       zenlytic.exclude:

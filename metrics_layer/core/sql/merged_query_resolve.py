@@ -1,7 +1,6 @@
 import json
 import hashlib
 from metrics_layer.core.exceptions import QueryError
-from metrics_layer.core.parse.config import MetricsLayerConfiguration
 from collections import defaultdict
 from copy import deepcopy
 
@@ -19,7 +18,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         having: str = None,  # Either a list of json or a string
         order_by: str = None,  # Either a list of json or a string
         model=None,
-        config: MetricsLayerConfiguration = None,
+        project=None,
         **kwargs,
     ):
         if funnel != {}:
@@ -35,8 +34,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         self.return_pypika_query = kwargs.get("return_pypika_query")
         self.force_group_by = kwargs.get("force_group_by", False)
         self.kwargs = kwargs
-        self.config = config
-        self.project = self.config.project
+        self.project = project
         self.metrics = metrics
         self.dimensions = dimensions
         self.parse_field_names(where, having, order_by)
@@ -64,7 +62,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                 having=[],
                 order_by=[],
                 model=self.model,
-                config=self.config,
+                project=self.project,
                 **kws,
             )
             query = resolver.get_query(semicolon=False)
@@ -84,7 +82,6 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         merged_result_query = MetricsLayerMergedResultsQuery(query_config)
         query = merged_result_query.get_query(semicolon=semicolon)
 
-        self.connection = resolver.connection
         return query
 
     def derive_sub_queries(self):

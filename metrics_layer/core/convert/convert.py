@@ -9,7 +9,6 @@ import sqlparse
 from sqlparse.sql import Function, Identifier, IdentifierList, Statement, Where
 from sqlparse.tokens import Keyword, Whitespace
 
-from metrics_layer.core.parse.config import MetricsLayerConfiguration
 from metrics_layer.core.sql.query_errors import ParseError
 from metrics_layer.core.sql.resolve import SQLQueryResolver
 
@@ -69,17 +68,10 @@ class MQLConverter:
         ) as subquery
     """
 
-    def __init__(self, sql: str, config: MetricsLayerConfiguration, **kwargs):
+    def __init__(self, sql: str, project, **kwargs):
         self._function_name = "MQL"
         self.sql = sql
-        self.config = config
-        self.project = self.config.project
-        self._connection_name = None
-        if kwargs.get("connection_name"):
-            self._connection_name = kwargs.get("connection_name")
-
-        if self._connection_name:
-            self.connection = self.config.get_connection(self._connection_name)
+        self.project = project
         self.kwargs = kwargs
 
     def get_query(self):
@@ -204,10 +196,9 @@ class MQLConverter:
             where=where_literal,
             having=having_literal,
             order_by=order_by_literal,
-            config=self.config,
+            project=self.project,
             **self.kwargs,
         )
-        self.connection = resolver.connection
         return resolver.get_query(semicolon=False)
 
     def _resolve_mode(self, token, mode):

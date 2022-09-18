@@ -5,7 +5,7 @@ from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException
 
 def test_access_grants_exist(connection):
     model = connection.get_model("test_model")
-    connection.config.project.set_user({"email": "user@example.com"})
+    connection.project.set_user({"email": "user@example.com"})
 
     assert isinstance(model.access_grants, list)
     assert model.access_grants[0]["name"] == "test_access_grant_department_view"
@@ -14,13 +14,13 @@ def test_access_grants_exist(connection):
 
 
 def test_access_grants_view_visible(connection):
-    connection.config.project.set_user(None)
+    connection.project.set_user(None)
     connection.get_view("orders")
 
-    connection.config.project.set_user({"department": "sales"})
+    connection.project.set_user({"department": "sales"})
     connection.get_view("orders")
 
-    connection.config.project.set_user({"department": "marketing"})
+    connection.project.set_user({"department": "marketing"})
 
     with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
         connection.get_view("orders")
@@ -32,17 +32,17 @@ def test_access_grants_view_visible(connection):
 
 def test_access_grants_field_visible(connection):
     # None always allows access
-    connection.config.project.set_user({"department": None})
+    connection.project.set_user({"department": None})
     connection.get_field("orders.total_revenue")
 
-    connection.config.project.set_user({"department": "executive"})
+    connection.project.set_user({"department": "executive"})
     connection.get_field("orders.total_revenue")
 
-    connection.config.project.set_user({"department": "sales"})
+    connection.project.set_user({"department": "sales"})
     connection.get_field("orders.total_revenue")
 
     # Having permissions on the field isn't enough, you must also have permissions on the view to see field
-    connection.config.project.set_user({"department": "engineering"})
+    connection.project.set_user({"department": "engineering"})
 
     with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
         connection.get_field("orders.total_revenue")
@@ -51,7 +51,7 @@ def test_access_grants_field_visible(connection):
     assert exc_info.value.object_name == "orders"
     assert exc_info.value.object_type == "view"
 
-    connection.config.project.set_user({"department": "operations"})
+    connection.project.set_user({"department": "operations"})
 
     with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
         connection.get_field("orders.total_revenue")
@@ -60,7 +60,7 @@ def test_access_grants_field_visible(connection):
     assert exc_info.value.object_name == "orders"
     assert exc_info.value.object_type == "view"
 
-    connection.config.project.set_user({"department": "finance"})
+    connection.project.set_user({"department": "finance"})
 
     with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
         connection.get_field("orders.total_revenue")
@@ -72,13 +72,13 @@ def test_access_grants_field_visible(connection):
 
 def test_access_grants_dashboard_visible(connection):
     # None always allows access
-    connection.config.project.set_user({"department": None})
+    connection.project.set_user({"department": None})
     connection.get_dashboard("sales_dashboard_v2")
 
-    connection.config.project.set_user({"department": "sales"})
+    connection.project.set_user({"department": "sales"})
     connection.get_dashboard("sales_dashboard_v2")
 
-    connection.config.project.set_user({"department": "operations"})
+    connection.project.set_user({"department": "operations"})
     with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
         connection.get_dashboard("sales_dashboard_v2")
 

@@ -1,5 +1,4 @@
 from metrics_layer.core.exceptions import QueryError
-from metrics_layer.core.parse.config import ConfigError, MetricsLayerConfiguration
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_generator import MetricsLayerQuery
 from metrics_layer.core.sql.query_funnel import FunnelQuery
@@ -16,7 +15,7 @@ class SingleSQLQueryResolver:
         having: str = None,  # Either a list of json or a string
         order_by: str = None,  # Either a list of json or a string
         model=None,
-        config: MetricsLayerConfiguration = None,
+        project=None,
         **kwargs,
     ):
         self.field_lookup = {}
@@ -29,32 +28,15 @@ class SingleSQLQueryResolver:
         self.limit = kwargs.get("limit")
         self.return_pypika_query = kwargs.get("return_pypika_query")
         self.force_group_by = kwargs.get("force_group_by", False)
-        self.config = config
-        self.project = self.config.project
+        self.project = project
         self.metrics = metrics
         self.dimensions = dimensions
         self.funnel, self.is_funnel_query = self.parse_funnel(funnel)
         self.parse_field_names(where, having, order_by)
         self.model = model
-
-        try:
-            self.connection = self.config.get_connection(model.connection)
-        except ConfigError:
-            self.connection = None
-
-        if self.connection is not None:
-            self.connection_schema = getattr(self.connection, "schema", None)
-        else:
-            self.connection_schema = None
-
-        self.project.set_connection_schema(self.connection_schema)
-
-        if "query_type" in kwargs:
-            self.query_type = kwargs["query_type"]
-        elif self.connection:
-            self.query_type = self.connection.type
-        else:
-            raise ConfigError(
+        self.query_type = kwargs.get("query_type")
+        if self.query_type is None:
+            raise QueryError(
                 "Could not determine query_type. Please have connection information for "
                 "your warehouse in the configuration or explicitly pass the "
                 "'query_type' argument to this function"
