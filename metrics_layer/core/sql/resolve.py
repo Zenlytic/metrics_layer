@@ -1,7 +1,6 @@
 from copy import deepcopy
 
 from metrics_layer.core.exceptions import QueryError, JoinError
-from metrics_layer.core.parse.config import MetricsLayerConfiguration
 from metrics_layer.core.sql.single_query_resolve import SingleSQLQueryResolver
 from metrics_layer.core.sql.merged_query_resolve import MergedSQLQueryResolver
 from metrics_layer.core.sql.query_base import QueryKindTypes
@@ -16,7 +15,8 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         where: str = None,  # Either a list of json or a string
         having: str = None,  # Either a list of json or a string
         order_by: str = None,  # Either a list of json or a string
-        config: MetricsLayerConfiguration = None,
+        project=None,
+        model=None,
         **kwargs,
     ):
         self.field_lookup = {}
@@ -27,8 +27,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self.suppress_warnings = kwargs.get("suppress_warnings", False)
         self.limit = kwargs.get("limit")
         self.single_query = kwargs.get("single_query", False)
-        self.config = config
-        self.project = self.config.project
+        self.project = project
         self.metrics = metrics
         self.dimensions = dimensions
         self.funnel = funnel
@@ -36,24 +35,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self.having = having
         self.order_by = order_by
         self.kwargs = kwargs
-        self.connection = None
-
-        model_name = self.kwargs.get("model_name")
-        models = self.project.models()
-
-        # If you specify the model that's top priority
-        if model_name:
-            self.model = self.project.get_model(model_name)
-        # Otherwise, if there's only one option, we use that
-        elif len(models) == 1:
-            self.model = models[0]
-        # Finally, check views for models
-        else:
-            raise QueryError(
-                "Could not find the model for this query. Please specify a model "
-                "to use by either passing the name of the model using 'model_name' parameter "
-                "or by setting the `model_name` property on the view."
-            )
+        self.model = model
         self._resolve_mapped_fields()
 
     @property
@@ -97,11 +79,10 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             having=self.having,
             order_by=self.order_by,
             model=self.model,
-            config=self.config,
+            project=self.project,
             **self.kwargs,
         )
         query = resolver.get_query(semicolon)
-        self.connection = resolver.connection
         return query
 
     def _get_merged_result_query(self, semicolon: bool):
@@ -113,11 +94,10 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             having=self.having,
             order_by=self.order_by,
             model=self.model,
-            config=self.config,
+            project=self.project,
             **self.kwargs,
         )
         query = resolver.get_query(semicolon)
-        self.connection = resolver.connection
         return query
 
     def _resolve_mapped_fields(self):

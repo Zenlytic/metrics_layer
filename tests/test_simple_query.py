@@ -3,6 +3,7 @@ from datetime import datetime
 
 import pendulum
 import pytest
+from metrics_layer.core.parse.connections import BaseConnection
 
 from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException
 from metrics_layer.core import MetricsLayerConnection
@@ -11,7 +12,7 @@ from metrics_layer.core.model import Definitions, Project
 simple_model = {
     "type": "model",
     "name": "core",
-    "connection": "fake",
+    "connection": "testing_snowflake",
     "week_start_day": "sunday",
     "explores": [{"name": "simple_explore", "from": "simple"}],
 }
@@ -115,45 +116,46 @@ simple_view = {
 
 
 @pytest.mark.query
-def test_simple_query_dynamic_schema(config):
+def test_simple_query_dynamic_schema():
     view = deepcopy(simple_view)
     view["sql_table_name"] = "{{ref('orders')}}"
 
+    simple_model["connection"] = "testing_simple_snowflake"
     project = Project(models=[simple_model], views=[view])
-    config.project = project
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
         "{} simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC;"
     )
 
-    class sf_mock:
-        name = "testing_snowflake"
+    class sf_mock(BaseConnection):
+        name = "testing_simple_snowflake"
         type = "SNOWFLAKE"
         database = "analytics"
         schema = "testing"
 
-    config._connections = [sf_mock]
-    conn = MetricsLayerConnection(config=config)
+    sf = sf_mock()
+
+    conn = MetricsLayerConnection(project=project, connections=[sf])
     query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"])
 
     table_name = "testing.orders"
     assert query == correct.format(table_name)
 
-    sf_mock.schema = "prod"
-    config._connections = [sf_mock]
-    conn = MetricsLayerConnection(config=config)
+    sf.schema = "prod"
+    conn = MetricsLayerConnection(project=project, connections=[sf])
     query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"])
 
     table_name = "prod.orders"
     assert query == correct.format(table_name)
 
+    simple_model["connection"] = "testing_snowflake"
+
 
 @pytest.mark.query
-def test_simple_query(config):
+def test_simple_query(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"])
 
     correct = (
@@ -164,10 +166,9 @@ def test_simple_query(config):
 
 
 @pytest.mark.query
-def test_simple_query_single_metric(config):
+def test_simple_query_single_metric(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(metrics=["total_revenue"])
 
     correct = (
@@ -178,10 +179,9 @@ def test_simple_query_single_metric(config):
 
 
 @pytest.mark.query
-def test_simple_query_single_dimension(config):
+def test_simple_query_single_dimension(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(dimensions=["channel"])
 
     correct = (
@@ -192,10 +192,9 @@ def test_simple_query_single_dimension(config):
 
 
 @pytest.mark.query
-def test_simple_query_count(config):
+def test_simple_query_count(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(metrics=["count"], dimensions=["channel"])
 
     correct = "SELECT simple.sales_channel as simple_channel,COUNT(*) as simple_count FROM "
@@ -204,10 +203,9 @@ def test_simple_query_count(config):
 
 
 @pytest.mark.query
-def test_simple_query_alias_keyword(config):
+def test_simple_query_alias_keyword(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(metrics=["count"], dimensions=["group"])
 
     correct = "SELECT simple.group_name as simple_group,COUNT(*) as simple_count FROM "
@@ -228,11 +226,10 @@ def test_simple_query_alias_keyword(config):
     ],
 )
 @pytest.mark.query
-def test_simple_query_dimension_group_timezone(config, field: str, group: str, query_type: str):
+def test_simple_query_dimension_group_timezone(connections, field: str, group: str, query_type: str):
     project = Project(models=[simple_model], views=[simple_view])
     project.set_timezone("America/New_York")
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=[f"{field}_{group}"],
@@ -316,10 +313,9 @@ def test_simple_query_dimension_group_timezone(config, field: str, group: str, q
     ],
 )
 @pytest.mark.query
-def test_simple_query_dimension_group(config, group: str, query_type: str):
+def test_simple_query_dimension_group(connections, group: str, query_type: str):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(
         metrics=["total_revenue"], dimensions=[f"order_{group}"], query_type=query_type
     )
@@ -396,10 +392,9 @@ def test_simple_query_dimension_group(config, group: str, query_type: str):
     ],
 )
 @pytest.mark.query
-def test_simple_query_dimension_group_interval(config, interval: str, query_type: str):
+def test_simple_query_dimension_group_interval(connections, interval: str, query_type: str):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     raises_error = interval == "millisecond" and query_type == Definitions.bigquery
     if raises_error:
         with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
@@ -457,10 +452,9 @@ def test_simple_query_dimension_group_interval(config, interval: str, query_type
 
 
 @pytest.mark.query
-def test_simple_query_two_group_by(config):
+def test_simple_query_two_group_by(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel", "new_vs_repeat"])
 
     correct = (
@@ -472,10 +466,9 @@ def test_simple_query_two_group_by(config):
 
 
 @pytest.mark.query
-def test_simple_query_two_metric(config):
+def test_simple_query_two_metric(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(
         metrics=["total_revenue", "average_order_value"],
         dimensions=["channel", "new_vs_repeat"],
@@ -491,10 +484,9 @@ def test_simple_query_two_metric(config):
 
 
 @pytest.mark.query
-def test_simple_query_custom_dimension(config):
+def test_simple_query_custom_dimension(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["is_valid_order"])
 
     correct = (
@@ -507,10 +499,9 @@ def test_simple_query_custom_dimension(config):
 
 
 @pytest.mark.query
-def test_simple_query_custom_metric(config):
+def test_simple_query_custom_metric(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(metrics=["revenue_per_aov"], dimensions=["channel"])
 
     correct = (
@@ -543,10 +534,9 @@ def test_simple_query_custom_metric(config):
     ],
 )
 @pytest.mark.query
-def test_simple_query_with_where_dim_group(config, field, expression, value, query_type):
+def test_simple_query_with_where_dim_group(connections, field, expression, value, query_type):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=["channel"],
@@ -629,10 +619,10 @@ def test_simple_query_with_where_dim_group(config, field, expression, value, que
     ],
 )
 @pytest.mark.query
-def test_simple_query_with_where_dict(config, field_name, filter_type, value):
+def test_simple_query_with_where_dict(connections, field_name, filter_type, value):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
+
     query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=[f"simple.channel"],
@@ -679,10 +669,9 @@ def test_simple_query_with_where_dict(config, field_name, filter_type, value):
 
 
 @pytest.mark.query
-def test_simple_query_with_where_literal(config):
+def test_simple_query_with_where_literal(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(
         metrics=["total_revenue"], dimensions=["simple.channel"], where="simple.channel != 'Email'"
     )
@@ -709,10 +698,9 @@ def test_simple_query_with_where_literal(config):
     ],
 )
 @pytest.mark.query
-def test_simple_query_with_having_dict(config, filter_type):
+def test_simple_query_with_having_dict(connections, filter_type):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=["channel"],
@@ -742,10 +730,9 @@ def test_simple_query_with_having_dict(config, filter_type):
 
 
 @pytest.mark.query
-def test_simple_query_with_having_literal(config):
+def test_simple_query_with_having_literal(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"], having="total_revenue > 12")
 
     correct = (
@@ -757,10 +744,9 @@ def test_simple_query_with_having_literal(config):
 
 
 @pytest.mark.query
-def test_simple_query_with_order_by_dict(config):
+def test_simple_query_with_order_by_dict(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(
         metrics=["total_revenue", "average_order_value"],
         dimensions=["channel"],
@@ -776,10 +762,9 @@ def test_simple_query_with_order_by_dict(config):
 
 
 @pytest.mark.query
-def test_simple_query_with_order_by_literal(config):
+def test_simple_query_with_order_by_literal(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(
         metrics=["total_revenue"], dimensions=["channel"], order_by="total_revenue asc"
     )
@@ -792,10 +777,9 @@ def test_simple_query_with_order_by_literal(config):
 
 
 @pytest.mark.query
-def test_simple_query_with_all(config):
+def test_simple_query_with_all(connections):
     project = Project(models=[simple_model], views=[simple_view])
-    config.project = project
-    conn = MetricsLayerConnection(config=config)
+    conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=["channel"],

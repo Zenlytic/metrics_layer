@@ -6,6 +6,17 @@ models:
     description: "Shopify Order Lines with order and customer information"
     meta:
       row_label: "Order line"
+      default_date: order_date
+      identifiers:
+        - name: order_line_id
+          type: primary
+          sql: ${order_line_id}
+        - name: order_id
+          type: foreign
+          sql: ${order_id}
+        - name: customer_id
+          type: foreign
+          sql: ${customer_id}
     columns:
       - name: order_line_id
         description: "The primary key for this table"
@@ -39,7 +50,7 @@ models:
       - name: customer_id
         description: "The customer_id for this table"
         is_dimension: true
-        meta: {zenlytic.group: customers}
+        meta: {tags: [customers]}
 
       - name: days_between_orders
         description: "The days_between_orders for this table"
@@ -80,6 +91,16 @@ models:
         description: "The total_sessions for this table"
 
 metrics:
+  - name: arpu
+    label: Avg revenue per customer
+    description: "The avg revenue per customer"
+
+    type: expression
+    sql: "{{metric('total_revenue')}} / {{metric('number_of_customers')}}"
+
+    timestamp: order_date
+    time_grains: [day, week, month, quarter, year]
+
   - name: total_revenue
     label: Total Revenue
     model: ref('order_lines')
@@ -119,7 +140,7 @@ metrics:
 
     filters:
       - field: new_vs_repeat
-        operator: equal_to
-        value: New
+        operator: "="
+        value: "'New'"
 
     meta: {team: Finance}

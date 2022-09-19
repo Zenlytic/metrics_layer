@@ -4,6 +4,15 @@ version: 2
 models:
   - name: stg_orders
     description: "Shopify orders"
+    meta:
+      # default_date: order_date
+      identifiers:
+        - name: order_id
+          type: primary
+          sql: ${order_id}
+        - name: customer_id
+          type: foreign
+          sql: ${customer_id}
     columns:
       - name: order_id
         description: "The primary key for this table"

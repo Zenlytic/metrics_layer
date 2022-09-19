@@ -6,7 +6,8 @@ import pytest
 from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.model.project import Project
 from metrics_layer.core.parse.manifest import Manifest
-from metrics_layer.core.parse.project_reader import ProjectReader
+from metrics_layer.core.parse.project_reader_base import ProjectReaderBase
+from metrics_layer.core.parse.connections import BaseConnection
 
 BASE_PATH = os.path.dirname(__file__)
 
@@ -126,37 +127,37 @@ def seed_bigquery_tables_data():
 
 @pytest.fixture(scope="function")
 def fresh_models():
-    models = [ProjectReader.read_yaml_file(model_path)]
+    models = [ProjectReaderBase.read_yaml_file(model_path)]
     return models
 
 
 @pytest.fixture(scope="function")
 def fresh_views():
-    views = [ProjectReader.read_yaml_file(path) for path in view_paths]
+    views = [ProjectReaderBase.read_yaml_file(path) for path in view_paths]
     return views
 
 
 @pytest.fixture(scope="function")
 def fresh_dashboards():
-    dashboards = [ProjectReader.read_yaml_file(path) for path in dashboard_paths]
+    dashboards = [ProjectReaderBase.read_yaml_file(path) for path in dashboard_paths]
     return dashboards
 
 
 @pytest.fixture(scope="module")
 def models():
-    models = [ProjectReader.read_yaml_file(model_path)]
+    models = [ProjectReaderBase.read_yaml_file(model_path)]
     return models
 
 
 @pytest.fixture(scope="module")
 def views():
-    views = [ProjectReader.read_yaml_file(path) for path in view_paths]
+    views = [ProjectReaderBase.read_yaml_file(path) for path in view_paths]
     return views
 
 
 @pytest.fixture(scope="module")
 def dashboards():
-    dashboards = [ProjectReader.read_yaml_file(path) for path in dashboard_paths]
+    dashboards = [ProjectReaderBase.read_yaml_file(path) for path in dashboard_paths]
     return dashboards
 
 
@@ -198,6 +199,34 @@ def project(models, views, dashboards, manifest):
         manifest=manifest,
     )
     return project
+
+
+@pytest.fixture(scope="module")
+def connections():
+    class bq_mock(BaseConnection):
+        name = "testing_bigquery"
+        type = "BIGQUERY"
+
+        def printable_attributes(self):
+            return {"name": self.name, "type": self.type, "project_id": "fake-proj-id"}
+
+    class sf_mock(BaseConnection):
+        name = "testing_snowflake"
+        type = "SNOWFLAKE"
+
+        def printable_attributes(self):
+            return {
+                "name": "testing_snowflake",
+                "account": "blahblah.us-east-1",
+                "user": "paul",
+                "database": "analytics",
+                "warehouse": "compute_wh",
+                "role": "reporting",
+            }
+
+    sf = sf_mock()
+    bq = bq_mock()
+    return [sf, bq]
 
 
 @pytest.fixture(scope="module")
@@ -263,5 +292,5 @@ def fresh_config(fresh_project):
 
 
 @pytest.fixture(scope="module")
-def connection(config):
-    return MetricsLayerConnection(config=config)
+def connection(project, connections):
+    return MetricsLayerConnection(project=project, connections=connections)

@@ -4,7 +4,6 @@ name: model_name
 label: "desired label name"
 connection: "connection_name"
 
-fiscal_month_offset: N
 week_start_day: monday
 
 access_grants:
@@ -14,67 +13,3 @@ access_grants:
   - name: access_grant_name
     user_attribute: user_attribute_name
     allowed_values: ["value_1", "value_2"]
-
-explores:
-  - name: explore_name_or_view_name
-    from: view_name
-    view_name: view_name
-    sql_table_name: "table_name ;;"
-    description: "description string"
-    label: "desired label name"
-    group_label: "label to use as a heading in the menu"
-    view_label: "field picker heading to use for the fields"
-    extends: [explore_name, explore_name]
-    extension: required
-    hidden: yes
-    fields: [field_or_set, field_or_set]
-    join_for_analysis: [join_name, join_name]
-    sql_always_where: "SQL WHERE condition ;;"
-    required_access_grants:
-      - access_grant_name
-      - access_grant_name
-
-    always_filter:
-      filters:
-        - field: field_name
-          value:  "value"
-
-    conditionally_filter:
-      filters:
-        - field: field_name
-          value: "expression"
-      unless: [field_or_set, field_or_set]
-
-    access_filter:
-      field: fully_scoped_field
-      user_attribute: user_attribute_name
-
-    always_join: [view_name, view_name]
-
-    # This is like dbt meta tag, put whatever you want in here
-    extra:
-      zenlytic.joins:
-        - view_name
-    joins:
-      - name: view_name
-        type: left_outer
-        relationship: one_to_one
-        from: view_name
-        sql_table_name: "table_name ;;"
-        view_label: "desired label name"
-        fields: [field_or_set, field_or_set]
-        required_joins: [view_name, view_name]
-        foreign_key: dimension_name
-        sql_on: "SQL ON clause ;;"
-        required_access_grants: [access_grant_name, access_grant_name]
-      - name: view_name
-        type: left_outer
-        relationship: one_to_one
-        from: view_name
-        sql_table_name: "table_name ;;"
-        view_label: "desired label name"
-        fields: [field_or_set, field_or_set]
-        required_joins: [view_name, view_name]
-        foreign_key: dimension_name
-        sql_on: "SQL ON clause ;;"
-        required_access_grants: [access_grant_name, access_grant_name]

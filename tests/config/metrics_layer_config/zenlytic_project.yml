@@ -5,5 +5,6 @@ name: metrics_project
 
 profile: test_profile
 
-
-folder: ./data_model
+dashboard-paths: ['data_model/dashboards']
+view-paths: ['data_model/views']
+model-paths: ['data_model/models']

@@ -3,19 +3,19 @@ import pytest
 
 @pytest.mark.project
 def test_sets(connection):
-    sets = connection.config.project.sets()
+    sets = connection.project.sets()
     assert len(sets) == 5
 
-    sets = connection.config.project.sets(view_name="orders")
+    sets = connection.project.sets(view_name="orders")
     assert len(sets) == 5
 
-    sets = connection.config.project.sets(view_name="order_lines")
+    sets = connection.project.sets(view_name="order_lines")
     assert len(sets) == 0
 
-    _set = connection.config.project.get_set(set_name="test_set")
+    _set = connection.project.get_set(set_name="test_set")
     assert _set.field_names() == ["orders.order_id", "orders.customer_id", "orders.total_revenue"]
 
-    _set = connection.config.project.get_set(set_name="test_set2")
+    _set = connection.project.get_set(set_name="test_set2")
     assert _set.field_names() == [
         "orders.order_id",
         "orders.new_vs_repeat",
@@ -24,7 +24,7 @@ def test_sets(connection):
         "orders.order_time",
     ]
 
-    _set = connection.config.project.get_set(set_name="test_set_composed")
+    _set = connection.project.get_set(set_name="test_set_composed")
     assert _set.field_names() == [
         "orders.order_id",
         "orders.customer_id",
@@ -33,7 +33,7 @@ def test_sets(connection):
         "orders.order_time",
     ]
 
-    _set = connection.config.project.get_set(set_name="test_set_all_fields")
+    _set = connection.project.get_set(set_name="test_set_all_fields")
     assert _set.field_names() == [
         "orders.customer_id",
         "orders.do_not_use",
@@ -76,7 +76,7 @@ def test_sets(connection):
 
 @pytest.mark.project
 def test_drill_fields(connection):
-    field = connection.config.project.get_field("orders.number_of_orders")
+    field = connection.project.get_field("orders.number_of_orders")
 
     drill_field_names = field.drill_fields
     assert field.id() == "orders.number_of_orders"
@@ -87,18 +87,17 @@ def test_drill_fields(connection):
         "orders.new_vs_repeat",
     ]
 
-    field = connection.config.project.get_field("orders.total_revenue")
+    field = connection.project.get_field("orders.total_revenue")
     assert field.drill_fields is None
     assert field.id() == "orders.total_revenue"
 
 
 @pytest.mark.project
 def test_joinable_fields_join(connection):
-    field = connection.config.project.get_field("orders.number_of_orders")
+    field = connection.project.get_field("orders.number_of_orders")
 
-    joinable_fields = connection.config.project.joinable_fields([field], expand_dimension_groups=True)
+    joinable_fields = connection.project.joinable_fields([field], expand_dimension_groups=True)
     names = [f.id() for f in joinable_fields]
-    print(names)
     must_exclude = ["traffic.traffic_source"]
     must_include = [
         "orders.order_date",
@@ -121,21 +120,20 @@ def test_joinable_fields_join(connection):
         "order_lines.ending_on_hand_qty",
     ]
     for field_name in add_fields:
-        test_fields.append(connection.config.project.get_field(field_name))
+        test_fields.append(connection.project.get_field(field_name))
 
-    joinable_fields = connection.config.project.joinable_fields(test_fields, expand_dimension_groups=True)
+    joinable_fields = connection.project.joinable_fields(test_fields, expand_dimension_groups=True)
     names = [f.id() for f in joinable_fields]
     assert all(name in names for name in must_include)
 
 
 @pytest.mark.project
 def test_joinable_fields_merged(connection):
-    field = connection.config.project.get_field("order_lines.revenue_per_session")
+    field = connection.project.get_field("order_lines.revenue_per_session")
 
     # Add tests for exclusions here
-    joinable_fields = connection.config.project.joinable_fields([field], expand_dimension_groups=True)
+    joinable_fields = connection.project.joinable_fields([field], expand_dimension_groups=True)
     names = [f.id() for f in joinable_fields]
-    print(names)
     must_exclude = ["traffic.traffic_source", "discounts.discount_code"]
     must_include = [
         "order_lines.order_date",
