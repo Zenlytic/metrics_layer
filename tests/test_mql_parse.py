@@ -96,7 +96,8 @@ def test_query_multiple_join_all_mql(connection):
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
         "WHERE customers.region != 'West' AND orders.new_vs_repeat <>"
         " 'New' GROUP BY customers.region,orders.new_vs_repeat HAVING (SUM(order_lines.revenue)) > -12 AND "
-        "(SUM(order_lines.revenue)) < 122 ORDER BY total_item_revenue ASC,new_vs_repeat ASC) as rev_group;"
+        "(SUM(order_lines.revenue)) < 122 ORDER BY order_lines_total_item_revenue ASC,orders_new_vs_repeat"
+        " ASC) as rev_group;"
     )
     assert query == correct
 
