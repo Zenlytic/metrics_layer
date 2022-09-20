@@ -756,7 +756,7 @@ def test_simple_query_with_order_by_dict(connections):
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue,"
         "AVG(simple.revenue) as simple_average_order_value FROM analytics.orders simple "
-        "GROUP BY simple.sales_channel ORDER BY total_revenue ASC,average_order_value ASC;"
+        "GROUP BY simple.sales_channel ORDER BY simple_total_revenue ASC,simple_average_order_value ASC;"
     )
     assert query == correct
 
@@ -771,7 +771,7 @@ def test_simple_query_with_order_by_literal(connections):
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-        "analytics.orders simple GROUP BY simple.sales_channel ORDER BY total_revenue ASC;"
+        "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue ASC;"
     )
     assert query == correct
 
@@ -791,6 +791,6 @@ def test_simple_query_with_all(connections):
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
         "analytics.orders simple WHERE simple.sales_channel<>'Email' "
-        "GROUP BY simple.sales_channel HAVING SUM(simple.revenue)>12 ORDER BY total_revenue ASC;"
+        "GROUP BY simple.sales_channel HAVING SUM(simple.revenue)>12 ORDER BY simple_total_revenue ASC;"
     )
     assert query == correct
