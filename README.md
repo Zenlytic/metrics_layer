@@ -10,13 +10,13 @@ Metrics Layer is an open source project with the goal of making access to metric
 
 ## How does it work?
 
-Right now, there are two supported BI tools, [Zenlytic ](https://zenlytic.com) and [Looker](https://looker.com). The Metrics Layer will read your data model and give you the ability to access those metrics and dimensions in a python client library, or through SQL with a special `MQL` tag.
+Right now, [Zenlytic ](https://zenlytic.com) is the only supported BI tool. The Metrics Layer will read your data model and give you the ability to access those metrics and dimensions in a python client library, or through SQL with a special `MQL` tag.
 
 Sound interesting? Here's how to set Metrics Layer up with your data model and start querying your metrics in **in under 2 minutes**.
 
 ## Installation
 
-Make sure that your data warehouse is one of the supported types. Metrics Layer currently supports Snowflake, BigQuery and Redshift, and only works with `python >= 3.7`.
+Make sure that your data warehouse is one of the supported types. Metrics Layer currently supports Snowflake, BigQuery and Redshift, and only works with `python >= 3.8`.
 
 Install Metrics Layer with the appropriate extra for your warehouse
 
@@ -33,7 +33,7 @@ There are several ways to set up a profile, we're going to look at the fastest o
 
 The fastest way to get connected is to pass the necessary information directly into Metrics Layer. Once you've installed the library with the warehouse you need, you should be able to run the code snippet below and start querying.
 
-You'll pull the repo from Github for this example.
+You'll pull the repo from Github for this example. For more detail on getting set up, check out the [documentation](https://docs.zenlytic.com)!
 
 
 ```
@@ -41,7 +41,7 @@ from metrics_layer import MetricsLayerConnection
 
 # Give metrics_layer the info to connect to your data model and warehouse
 config = {
-  "repo_url": "https://myusername:myaccesstoken@github.com/myorg/myrepo.git",
+  "location": "https://myusername:myaccesstoken@github.com/myorg/myrepo.git",
   "branch": "develop",
   "connections": [
     {
@@ -55,7 +55,7 @@ config = {
     }
   ],
 }
-conn = MetricsLayerConnection(config)
+conn = MetricsLayerConnection(**config)
 
 # You're off to the races. Query away!
 df = conn.query(metrics=["total_revenue"], dimensions=["channel", "region"])
