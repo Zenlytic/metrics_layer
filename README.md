@@ -10,7 +10,7 @@ Metrics Layer is an open source project with the goal of making access to metric
 
 ## How does it work?
 
-Right now, [Zenlytic ](https://zenlytic.com) is the only supported BI tool. The Metrics Layer will read your data model and give you the ability to access those metrics and dimensions in a python client library, or through SQL with a special `MQL` tag.
+Right now, [Zenlytic](https://zenlytic.com) is the only supported BI tool. The Metrics Layer will read your data model and give you the ability to access those metrics and dimensions in a python client library, or through SQL with a special `MQL` tag.
 
 Sound interesting? Here's how to set Metrics Layer up with your data model and start querying your metrics in **in under 2 minutes**.
 
