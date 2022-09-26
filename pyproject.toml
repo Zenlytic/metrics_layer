@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "metrics_layer"
-version = "0"
+version = "0.9.1"
 description = "The open source metrics layer."
 authors = ["Paul Blankley <paul@zenlytic.com>"]
 keywords = ["Metrics Layer", "Looker", "Analytics"]
@@ -47,9 +47,6 @@ bigquery = ["google-cloud-bigquery", "pyarrow", "dbt-bigquery"]
 redshift = ["redshift-connector", "dbt-redshift"]
 dbt = ["dbt-core", "dbt-extractor"]
 all = ["snowflake-connector-python", "google-cloud-bigquery", "pyarrow", "dbt-core", "dbt-extractor", "dbt-snowflake", "dbt-bigquery", "dbt-redshift", "redshift-connector"]
-
-[tool.poetry-version-plugin]
-source = "init"
 
 [tool.black]
 line-length = 110
