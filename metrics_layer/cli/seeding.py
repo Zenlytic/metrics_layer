@@ -226,7 +226,7 @@ class SeedMetricsLayer:
 
     @staticmethod
     def get_profile():
-        from core.parse.project_reader_base import ProjectReaderBase
+        from metrics_layer.core.parse.project_reader_base import ProjectReaderBase
 
         zenlytic_project_path = os.path.join(SeedMetricsLayer._location(), "zenlytic_project.yml")
         dbt_project_path = os.path.join(SeedMetricsLayer._location(), "dbt_project.yml")
