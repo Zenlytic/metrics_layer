@@ -45,18 +45,14 @@ class ProjectReaderBase:
 
     @property
     def dbt_project(self):
-        dbt_project_fn = self.search_dbt_project("dbt_project.yml")
-        if len(dbt_project_fn) > 1:
-            raise QueryError(f"found multiple dbt_project.yml files for your dbt project: {dbt_project_fn}")
-        elif len(dbt_project_fn) == 0 and self.repo.get_repo_type() == "dbt":
-            raise QueryError("no dbt_project.yml file found in your dbt project")
-        elif len(dbt_project_fn) == 1:
-            return self.read_yaml_if_exists(dbt_project_fn[0])
-        return None
+        return self.read_yaml_if_exists(os.path.join(self.dbt_folder, "dbt_project.yml"))
+
+    @property
+    def dbt_folder(self):
+        return self.repo.dbt_path if self.repo.dbt_path else self.repo.folder
 
     def search_dbt_project(self, pattern: str):
-        folder = self.repo.dbt_path if self.repo.dbt_path else self.repo.folder
-        return BaseRepo.glob_search(folder, pattern)
+        return BaseRepo.glob_search(self.dbt_folder, pattern)
 
     def generate_manifest_json(self, project_dir: str, profiles_dir: str):
         if profiles_dir is None:
@@ -99,9 +95,10 @@ class ProjectReaderBase:
     def _run_dbt(cmd: str, project_dir: str, profiles_dir: str):
         os.system(f"dbt {cmd} --project-dir {project_dir} --profiles-dir {profiles_dir}")
 
-    def read_yaml_if_exists(self, file_path: str):
+    @staticmethod
+    def read_yaml_if_exists(file_path: str):
         if os.path.exists(file_path):
-            return self.read_yaml_file(file_path)
+            return ProjectReaderBase.read_yaml_file(file_path)
         return None
 
     @staticmethod

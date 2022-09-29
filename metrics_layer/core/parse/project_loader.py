@@ -127,8 +127,8 @@ class ProjectLoader:
             results.append(connection_class)
         return results
 
-    def get_connections_from_profile(self, profile_name: str, target: str = None):
-        profile_path = self.profiles_path
+    def get_connections_from_profile(profile_name: str, target: str = None):
+        profile_path = ProjectLoader.profiles_path()
         profiles_dict = dbtProjectReader.read_yaml_if_exists(profile_path)
         if profiles_dict is None:
             raise ConfigError(f"Could not find dbt profiles.yml at {profile_path}")
@@ -148,4 +148,4 @@ class ProjectLoader:
                 f"Could not find target {target} in profile {profile_name} in profiles.yml at {profile_path}"
             )
 
-        return [target_dict]
+        return [{**target_dict, "name": profile_name}]

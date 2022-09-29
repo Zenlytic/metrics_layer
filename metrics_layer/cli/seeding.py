@@ -118,12 +118,13 @@ class SeedMetricsLayer:
 
         model_folder = loader.zenlytic_project.get("model-paths", [self.default_models_path])[0]
         view_folder = loader.zenlytic_project.get("view-paths", [self.default_views_path])[0]
+
         # Dump the models to yaml files
         ProjectDumper(models, model_folder, views, view_folder).dump(folder)
 
     def get_model_name(self, current_models: list):
         if len(current_models) > 0:
-            return current_models[0]["name"]
+            return current_models[0].name
         return self.default_model_name
 
     def make_models(self):
@@ -153,6 +154,8 @@ class SeedMetricsLayer:
             "row_label": "TODO - Label row",
             "fields": fields,
         }
+        if view["default_date"] is None:
+            view.pop("default_date")
         return view
 
     def make_fields(self, column_data: str):
