@@ -535,12 +535,14 @@ class Field(MetricsLayerBase, SQLReplacement):
         return meta_lookup[query_type][self.dimension_group](sql, query_type)
 
     def _apply_timezone_to_sql(self, sql: str, timezone: str, query_type: str):
+        # We need the second cast here in the case you apply the timezone with
+        # the dimension group 'raw' to ensure they're the same initial type post-timezone transformation
         if query_type == Definitions.snowflake:
-            return f"CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP_NTZ)"
+            return f"CAST(CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP_NTZ) AS {self.datatype.upper()})"  # noqa
         elif query_type == Definitions.bigquery:
-            return f"DATETIME(CAST({sql} AS DATETIME), '{timezone}')"
+            return f"CAST(DATETIME(CAST({sql} AS TIMESTAMP), '{timezone}') AS {self.datatype.upper()})"
         elif query_type == Definitions.redshift:
-            return f"CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP_NTZ)"
+            return f"CAST(CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP_NTZ) AS {self.datatype.upper()})"  # noqa
         else:
             raise QueryError(f"Unable to apply timezone to sql for query type {query_type}")
 

@@ -230,10 +230,14 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
     project = Project(models=[simple_model], views=[simple_view])
     project.set_timezone("America/New_York")
     conn = MetricsLayerConnection(project=project, connections=connections)
+    if query_type == Definitions.bigquery:
+        where_field = "order_raw"
+    else:
+        where_field = "order_date"
     query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=[f"{field}_{group}"],
-        where=[{"field": "order_date", "expression": "matches", "value": "month to date"}],
+        where=[{"field": where_field, "expression": "matches", "value": "month to date"}],
         query_type=query_type,
     )
 
@@ -249,25 +253,24 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
             result_lookup = {"date": "DATE_TRUNC('DAY', simple.previous_order_date)"}
         else:
             result_lookup = {
-                "date": "DATE_TRUNC('DAY', CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ))",  # noqa
-                "week": "DATE_TRUNC('WEEK', CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS DATE) + 1) - 1",  # noqa
+                "date": "DATE_TRUNC('DAY', CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS TIMESTAMP))",  # noqa
+                "week": "DATE_TRUNC('WEEK', CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS TIMESTAMP) AS DATE) + 1) - 1",  # noqa
             }
         where = (
-            "WHERE DATE_TRUNC('DAY', CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) "
-            f"AS TIMESTAMP_NTZ))>='{start}' AND DATE_TRUNC('DAY', "
-            f"CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ))<='{end}'"
+            "WHERE DATE_TRUNC('DAY', CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) "
+            f"AS TIMESTAMP_NTZ) AS TIMESTAMP))>='{start}' AND DATE_TRUNC('DAY', "
+            f"CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS TIMESTAMP))<='{end}'"  # noqa
         )
         order_by = " ORDER BY simple_total_revenue DESC"
     else:
         result_lookup = {
-            "date": "CAST(DATE_TRUNC(CAST(DATETIME(CAST(simple.order_date AS DATETIME), 'America/New_York') AS DATE), DAY) AS TIMESTAMP)",  # noqa
-            "week": "CAST(DATE_TRUNC(CAST(DATETIME(CAST(simple.order_date AS DATETIME), 'America/New_York') AS DATE) + 1, WEEK) - 1 AS TIMESTAMP)",  # noqa
+            "date": "CAST(DATE_TRUNC(CAST(CAST(DATETIME(CAST(simple.order_date AS TIMESTAMP), 'America/New_York') AS TIMESTAMP) AS DATE), DAY) AS TIMESTAMP)",  # noqa
+            "week": "CAST(DATE_TRUNC(CAST(CAST(DATETIME(CAST(simple.order_date AS TIMESTAMP), 'America/New_York') AS TIMESTAMP) AS DATE) + 1, WEEK) - 1 AS TIMESTAMP)",  # noqa
         }
         where = (
-            "WHERE CAST(DATE_TRUNC(CAST(DATETIME(CAST(simple.order_date AS DATETIME), "
-            f"'America/New_York') AS DATE), DAY) AS TIMESTAMP)>=TIMESTAMP('{start}') AND "
-            "CAST(DATE_TRUNC(CAST(DATETIME(CAST(simple.order_date AS DATETIME), "
-            f"'America/New_York') AS DATE), DAY) AS TIMESTAMP)<=TIMESTAMP('{end}')"
+            "WHERE CAST(DATETIME(CAST(simple.order_date AS TIMESTAMP), 'America/New_York')"
+            f" AS TIMESTAMP)>=TIMESTAMP('{start}') AND CAST(DATETIME(CAST(simple.order_date "
+            f"AS TIMESTAMP), 'America/New_York') AS TIMESTAMP)<=TIMESTAMP('{end}')"
         )
         order_by = ""
 
