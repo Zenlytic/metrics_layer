@@ -285,7 +285,7 @@ class SeedMetricsLayer:
         common = {"dashboard-paths": [SeedMetricsLayer.default_dashboards_path]}
         if SeedMetricsLayer._in_dbt_project():
             dbt_project = SeedMetricsLayer._dbt_project_file()
-            default_profile = {"name": dbt_project["name"], "profile": dbt_project["profile"]}
+            default_profile = {"name": dbt_project["name"], "profile": dbt_project["profile"], "mode": "dbt"}
         else:
             default_profile = {
                 "name": "zenlytic_project_name",
