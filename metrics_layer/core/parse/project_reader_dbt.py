@@ -9,7 +9,7 @@ class dbtProjectReader(ProjectReaderBase):
     def load(self) -> None:
         self.project_name = self.dbt_project["name"]
 
-        self.generate_manifest_json(self.repo.folder, self.profiles_dir)
+        self.generate_manifest_json(self.dbt_folder, self.profiles_dir)
         self.manifest = self.load_manifest_json()
 
         dbt_profile_name = self.dbt_project.get("profile", self.project_name)

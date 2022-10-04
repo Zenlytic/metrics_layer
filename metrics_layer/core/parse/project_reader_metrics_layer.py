@@ -8,8 +8,7 @@ class MetricsLayerProjectReader(ProjectReaderBase):
         models, views, dashboards = [], [], []
         self.has_dbt_project = self.dbt_project is not None
         if self.has_dbt_project:
-            dbt_path = self.repo.dbt_path if self.repo.dbt_path else self.repo.folder
-            self.generate_manifest_json(dbt_path, self.profiles_dir)
+            self.generate_manifest_json(self.dbt_folder, self.profiles_dir)
             self.manifest = self.load_manifest_json()
 
         model_folders = self.get_folders("model-paths")
