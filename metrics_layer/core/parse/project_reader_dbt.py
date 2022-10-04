@@ -105,7 +105,7 @@ class dbtProjectReader(ProjectReaderBase):
             "version": 1,
             "type": "view",
             "name": view["name"],
-            "model_name": self.profile_name,
+            "model_name": self.project_name,
             "description": view.get("description"),
             "row_label": meta.get("row_label"),
             "sql_table_name": f"ref('{view['name']}')",
