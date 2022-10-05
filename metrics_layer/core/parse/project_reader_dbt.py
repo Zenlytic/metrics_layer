@@ -64,7 +64,7 @@ class dbtProjectReader(ProjectReaderBase):
         return [model]
 
     def _load_dbt_views(self, manifest: dict):
-        metrics = [self._make_dbt_metric(m) for m in manifest["metrics"].values()]
+        metrics = [self._make_dbt_metric(m, manifest) for m in manifest["metrics"].values()]
         view_keys = [k for k in manifest["nodes"].keys() if "model." in k]
 
         views = []
@@ -149,10 +149,10 @@ class dbtProjectReader(ProjectReaderBase):
             core["primary_key"] = dimension.get("primary_key")
         return core
 
-    def _make_dbt_metric(self, metric: dict):
+    def _make_dbt_metric(self, metric: dict, manifest: dict):
         metric_dict = {
             "name": metric["name"],
-            "model": self._clean_model(metric.get("model")),
+            "model": self._get_dbt_metric_model(metric, manifest),
             "timestamp": metric["timestamp"],
             "time_grains": metric["time_grains"],
             "field_type": "measure",
@@ -163,6 +163,17 @@ class dbtProjectReader(ProjectReaderBase):
             **metric.get("meta", {}),
         }
         return metric_dict
+
+    def _get_dbt_metric_model(self, metric: dict, manifest: dict):
+        if metric["type"] == "expression":
+            models = set()
+            for metric_key in metric["depends_on"]["nodes"]:
+                if "metric." in metric_key:
+                    models.add(self._get_dbt_metric_model(manifest["metrics"][metric_key], manifest))
+            if len(models) == 1:
+                return list(models)[0]
+            raise ValueError(f"Expression {metric['name']} has metrics from multiple models: {models}")
+        return self._clean_model(metric.get("model"))
 
     @staticmethod
     def _clean_model(dbt_model_name: str):
