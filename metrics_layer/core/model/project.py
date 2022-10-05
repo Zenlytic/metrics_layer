@@ -342,7 +342,7 @@ class Project:
             err_msg += " specify 'order_raw' or 'order_date' or 'order_month'"
             raise AccessDeniedOrDoesNotExistException(err_msg, object_name=field_name, object_type="field")
 
-    def resolve_dbt_ref(self, ref_name: str, view_name: str = None):
+    def resolve_dbt_ref(self, ref_name: str):
         # This just returns the table name, assuming the schema will be set in the connection
         if not self.manifest_exists:
             if not self._connection_schema:
@@ -351,7 +351,7 @@ class Project:
                     "use references without a dbt project manifest"
                 )
             return f"{self._connection_schema}.{ref_name}"
-        return self.manifest.resolve_name(ref_name)
+        return self.manifest.resolve_name(ref_name, schema_override=self._connection_schema)
 
     @staticmethod
     def deduplicate_fields(field_list: list):

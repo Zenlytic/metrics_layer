@@ -65,6 +65,9 @@ class MetricsLayerConnection:
         self.load()
         return self.branch_options
 
+    def add_connections(self, additional_raw_connections: list):
+        self._raw_connections = self._raw_connections + additional_raw_connections
+
     @property
     def connections(self):
         self._connections = ProjectLoader.load_connections(self._raw_connections)

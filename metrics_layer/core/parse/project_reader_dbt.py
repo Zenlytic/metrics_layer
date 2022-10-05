@@ -21,7 +21,9 @@ class dbtProjectReader(ProjectReaderBase):
         models, views = self.parse_dbt_manifest(self.manifest)
         if self.zenlytic_project:
             paths = self.zenlytic_project.get("dashboard-paths", [])
-            dashboards = self._load_dbt_dashboards([os.path.join(self.repo.folder, dp) for dp in paths])
+            dashboards = self._load_dbt_dashboards(
+                [os.path.join(os.path.dirname(self.zenlytic_project_path), dp) for dp in paths]
+            )
         else:
             dashboards = []
 
@@ -45,7 +47,6 @@ class dbtProjectReader(ProjectReaderBase):
     def _load_dashboards_from_folder(self, dashboard_folder: str):
         file_names = BaseRepo.glob_search(dashboard_folder, "*.yml")
         file_names += BaseRepo.glob_search(dashboard_folder, "*.yaml")
-
         dashboards = []
         for fn in file_names:
             yaml_dict = self.read_yaml_file(fn)
@@ -133,16 +134,20 @@ class dbtProjectReader(ProjectReaderBase):
 
     @staticmethod
     def _make_dbt_dimension(dimension: dict):
-        return {
+        core = {
             "field_type": "dimension",
             "name": dimension["name"],
             "type": "string",
-            "label": dimension.get("label"),
             "sql": "${TABLE}." + dimension["name"],
             "description": dimension.get("description"),
             "hidden": not dimension.get("is_dimension"),
             **dimension.get("meta", {}),
         }
+        if dimension.get("label"):
+            core["label"] = dimension.get("label")
+        if dimension.get("primary_key"):
+            core["primary_key"] = dimension.get("primary_key")
+        return core
 
     def _make_dbt_metric(self, metric: dict):
         metric_dict = {

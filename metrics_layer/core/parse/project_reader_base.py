@@ -41,10 +41,14 @@ class ProjectReaderBase:
 
     @property
     def zenlytic_project(self):
+        return self.read_yaml_if_exists(self.zenlytic_project_path)
+
+    @property
+    def zenlytic_project_path(self):
         zenlytic_project = self.read_yaml_if_exists(os.path.join(self.repo.folder, "zenlytic_project.yml"))
         if zenlytic_project:
-            return zenlytic_project
-        return self.read_yaml_if_exists(os.path.join(self.dbt_folder, "zenlytic_project.yml"))
+            return os.path.join(self.repo.folder, "zenlytic_project.yml")
+        return os.path.join(self.dbt_folder, "zenlytic_project.yml")
 
     @property
     def dbt_project(self):
