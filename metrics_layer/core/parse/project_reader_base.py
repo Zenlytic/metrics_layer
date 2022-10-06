@@ -67,6 +67,7 @@ class ProjectReaderBase:
             if not os.path.exists(os.path.join(profiles_dir, "profiles.yml")):
                 self._dump_profiles_file(profiles_dir, self.dbt_project["profile"])
 
+        self._run_dbt("deps", project_dir=project_dir, profiles_dir=profiles_dir)
         self._run_dbt("ls", project_dir=project_dir, profiles_dir=profiles_dir)
 
     def load_manifest_json(self):
