@@ -32,7 +32,7 @@ class FunnelQuery(MetricsLayerQueryBase):
     def __hash__(self):
         return hash(self.design.project)
 
-    def get_query(self, semicolon: bool = True):
+    def get_query(self, semicolon: bool = True, cte_only: bool = False):
         base_cte_query = self._base_query()
 
         query = self.get_funnel_base()
@@ -67,6 +67,9 @@ class FunnelQuery(MetricsLayerQueryBase):
 
         base_cte_query = base_cte_query.with_(Table(union_cte), self.result_cte_name)
 
+        if cte_only:
+            return base_cte_query
+
         result_table = Table(self.result_cte_name)
         base_cte_query = base_cte_query.from_(result_table).select(result_table.star)
 
@@ -89,7 +92,6 @@ class FunnelQuery(MetricsLayerQueryBase):
     def _get_base_select(self):
         select = []
         group_by = []
-        # pk = self.design.functional_pk()
         pk = Definitions.does_not_exist
         for field_name in self.metrics + self.dimensions:
             field = self.design.get_field(field_name)
@@ -131,15 +133,15 @@ class FunnelQuery(MetricsLayerQueryBase):
         join_graphs = self.join_graphs_for_query(self.metrics, base_dimensions, self.where)
 
         try:
-            link_field = self.design.project.get_field_by_tag("customer", join_graphs=join_graphs)
-            self.link_alias = link_field.alias(with_view=True)
+            self.link_field = self.design.project.get_field_by_tag("customer", join_graphs=join_graphs)
+            self.link_alias = self.link_field.alias(with_view=True)
         except AccessDeniedOrDoesNotExistException:
             raise QueryError(
                 f"No link (customer) field found for query with metrics: {self.metrics}. "
                 "Make sure you have added a customer tag to the view or a view that can be joined in."
             )
 
-        dimensions = self.dimensions + [event_date.id(), link_field.id()] + event_condition_fields
+        dimensions = self.dimensions + [event_date.id(), self.link_field.id()] + event_condition_fields
         query = self._subquery(self.metrics, dimensions, self.where, no_group_by=True)
         return query
 

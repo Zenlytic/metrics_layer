@@ -1,9 +1,8 @@
 import datetime
-from copy import deepcopy
 from typing import Dict
 
 import sqlparse
-from pypika import Criterion, Table
+from pypika import Criterion, Table, Field
 from pypika.terms import LiteralValue
 from sqlparse.tokens import Error, Name, Punctuation
 from metrics_layer.core.exceptions import QueryError
@@ -21,6 +20,11 @@ def bigquery_cast(field, value):
     return LiteralValue(f"{cast_func}('{value}')")
 
 
+class FunnelFilterTypes:
+    converted = "converted"
+    dropped_off = "dropped_off"
+
+
 class MetricsLayerFilter(MetricsLayerBase):
     """
     An internal representation of a Filter (WHERE or HAVING clause)
@@ -32,8 +36,6 @@ class MetricsLayerFilter(MetricsLayerBase):
     def __init__(
         self, definition: Dict = {}, design: MetricsLayerDesign = None, filter_type: str = None
     ) -> None:
-        definition = deepcopy(definition)
-
         # The design is used for filters in queries against specific designs
         #  to validate that all the tables and attributes (columns/aggregates)
         #  are properly defined in the design
@@ -56,6 +58,10 @@ class MetricsLayerFilter(MetricsLayerBase):
     def is_group_by(self):
         return self.group_by is not None
 
+    @property
+    def is_funnel(self):
+        return self.expression in {FunnelFilterTypes.converted, FunnelFilterTypes.dropped_off}
+
     def validate(self, definition: Dict) -> None:
         """
         Validate the Filter definition
@@ -75,7 +81,7 @@ class MetricsLayerFilter(MetricsLayerBase):
         if definition["expression"] == "UNKNOWN":
             raise NotImplementedError(f"Unknown filter expression: {definition['expression']}.")
 
-        no_expr = {"is_null", "is_not_null", "boolean_true", "boolean_false"}
+        no_expr = {"is_null", "is_not_null", "boolean_true", "boolean_false", "converted", "dropped_off"}
         if definition.get("value", None) is None and definition["expression"] not in no_expr:
             raise ParseError(f"Filter expression: {definition['expression']} needs a non-empty value.")
 
@@ -108,13 +114,13 @@ class MetricsLayerFilter(MetricsLayerBase):
         functional_pk = self.design.functional_pk()
         return self.criterion(self.field.sql_query(self.query_type, functional_pk))
 
-    def group_by_sql_query(self, cte_alias, query_generator):
-        group_by_field = self.design.get_field(self.group_by)
+    def isin_sql_query(self, cte_alias, field_name, query_generator):
+        group_by_field = self.design.get_field(field_name)
         base = query_generator._base_query()
         subquery = base.from_(Table(cte_alias)).select(group_by_field.alias(with_view=True)).distinct()
         definition = {
             "query_type": self.query_type,
-            "field": self.group_by,
+            "field": field_name,
             "expression": MetricsLayerFilterExpressionType.IsIn.value,
             "value": subquery,
         }
@@ -208,3 +214,29 @@ class MetricsLayerFilter(MetricsLayerBase):
         }
         generator = query_class(config, design=design)
         return generator.get_query()
+
+    def funnel_cte(self):
+        if not self.is_funnel:
+            raise QueryError("A funnel CTE is invalid for a filter with no funnel property")
+
+        _from, _to = self._definition["from"], self._definition["to"]
+        from_cte, to_cte = self.query_class._cte(_from), self.query_class._cte(_to)
+
+        base_query = self.query_class._base_query()
+        base_table = Table(self.query_class.base_cte_name)
+        base_query = base_query.from_(base_table).select(self.query_class.link_alias)
+
+        from_cond = self.__funnel_in_step(from_cte, isin=True)
+        converted = self.expression == FunnelFilterTypes.converted
+        to_cond = self.__funnel_in_step(to_cte, isin=converted)
+
+        base_query = base_query.where(Criterion.all([from_cond, to_cond])).distinct()
+        return base_query
+
+    def __funnel_in_step(self, step_cte: str, isin: bool):
+        base_query = self.query_class._base_query()
+        field = Field(self.query_class.link_alias)
+        subquery = base_query.from_(Table(step_cte)).select(self.query_class.link_alias).distinct()
+        if isin:
+            return field.isin(subquery)
+        return field.isin(subquery).negate()
