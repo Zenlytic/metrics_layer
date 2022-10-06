@@ -73,8 +73,13 @@ def test_dashboard_filter_week_start(fresh_project):
     last_element.filters = [raw_filter_dict]
     element_parsed_filters = last_element.parsed_filters()
 
-    start = pendulum.now("UTC").start_of("week").subtract(days=1).strftime(date_format)
-    end = pendulum.now("UTC").end_of("week").subtract(days=1).strftime(date_format)
+    pendulum.week_starts_at(pendulum.SUNDAY)
+    pendulum.week_ends_at(pendulum.SATURDAY)
+    start = pendulum.now("UTC").start_of("week").subtract(days=0).strftime(date_format)
+    end = pendulum.now("UTC").end_of("week").subtract(days=0).strftime(date_format)
+    pendulum.week_starts_at(pendulum.MONDAY)
+    pendulum.week_ends_at(pendulum.SUNDAY)
+
     correct = [
         {"field": "orders.order_year", "value": start, "expression": "greater_or_equal_than"},
         {"field": "orders.order_year", "value": end, "expression": "less_or_equal_than"},
@@ -104,9 +109,10 @@ def test_dashboard_filter_timezone(fresh_project):
     element_parsed_filters = last_element.parsed_filters()
 
     # These are 24 hours apart so this test should always fail if we get the wrong timezone
+    to_sub = 1 if pendulum.now("Pacific/Apia").day_of_week != 1 else 0
     start = pendulum.now("Pacific/Apia").start_of("week").strftime(date_format)
-    end = pendulum.now("Pacific/Apia").subtract(days=1).end_of("day").strftime(date_format)
-    wrong_end = pendulum.now("Pacific/Niue").subtract(days=1).end_of("day").strftime(date_format)
+    end = pendulum.now("Pacific/Apia").subtract(days=to_sub).end_of("day").strftime(date_format)
+    wrong_end = pendulum.now("Pacific/Niue").subtract(days=to_sub).end_of("day").strftime(date_format)
     correct = [
         {"field": "orders.order_date", "value": start, "expression": "greater_or_equal_than"},
         {"field": "orders.order_date", "value": end, "expression": "less_or_equal_than"},

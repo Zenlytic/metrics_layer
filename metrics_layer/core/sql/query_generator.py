@@ -160,7 +160,6 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                 else:
                     field = self.design.get_field(arg["field"])
                     arg["field"] = field.alias(with_view=True)
-                print(arg)
                 order = Order.desc if arg["sort"] == "desc" else Order.asc
                 base_query = base_query.orderby(LiteralValue(arg["field"]), order=order)
 

@@ -2,7 +2,7 @@ import sys
 
 import click
 
-from .seeding import SeedMetricsLayer
+from .seeding import SeedMetricsLayer, dbtSeed
 
 
 def echo(text: str, color: str = None, bold: bool = True):
@@ -36,7 +36,10 @@ def seed(connection, database, schema, table):
     """Seed a metrics layer project by referencing the existing database"""
     SeedMetricsLayer._init_directories()
     profile = SeedMetricsLayer.get_profile()
-    seeder = SeedMetricsLayer(profile, connection, database, schema, table)
+    if SeedMetricsLayer._in_dbt_project():
+        seeder = dbtSeed(profile, connection, database, schema, table)
+    else:
+        seeder = SeedMetricsLayer(profile, connection, database, schema, table)
     seeder.seed()
 
 
@@ -141,13 +144,7 @@ def list_(type, view, show_hidden):
     elif type == "metrics":
         items = metrics_layer.list_metrics(names_only=True, view_name=view, show_hidden=show_hidden)
     elif type == "profiles":
-        # if profile:
         items = metrics_layer.get_all_profiles(names_only=True)
-        # else:
-        #     from metrics_layer.core.parse import MetricsLayerConfiguration
-
-        #     default_directory = MetricsLayerConfiguration.get_metrics_layer_directory() + "profiles.yml"
-        #     items = MetricsLayerConfiguration.get_all_profiles(default_directory, names_only=True)
     else:
         click.echo(
             f"Could not find the type {type}, please use one of the options: "

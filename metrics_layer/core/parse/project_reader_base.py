@@ -41,7 +41,14 @@ class ProjectReaderBase:
 
     @property
     def zenlytic_project(self):
-        return self.read_yaml_if_exists(os.path.join(self.repo.folder, "zenlytic_project.yml"))
+        return self.read_yaml_if_exists(self.zenlytic_project_path)
+
+    @property
+    def zenlytic_project_path(self):
+        zenlytic_project = self.read_yaml_if_exists(os.path.join(self.repo.folder, "zenlytic_project.yml"))
+        if zenlytic_project:
+            return os.path.join(self.repo.folder, "zenlytic_project.yml")
+        return os.path.join(self.dbt_folder, "zenlytic_project.yml")
 
     @property
     def dbt_project(self):
@@ -60,6 +67,7 @@ class ProjectReaderBase:
             if not os.path.exists(os.path.join(profiles_dir, "profiles.yml")):
                 self._dump_profiles_file(profiles_dir, self.dbt_project["profile"])
 
+        self._run_dbt("deps", project_dir=project_dir, profiles_dir=profiles_dir)
         self._run_dbt("ls", project_dir=project_dir, profiles_dir=profiles_dir)
 
     def load_manifest_json(self):
