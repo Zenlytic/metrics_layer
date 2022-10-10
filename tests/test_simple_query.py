@@ -270,13 +270,13 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
             result_lookup = {"date": "DATE_TRUNC('DAY', simple.previous_order_date)"}
         else:
             result_lookup = {
-                "date": "DATE_TRUNC('DAY', CAST(CAST(simple.order_date at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP))",  # noqa
-                "week": "DATE_TRUNC('WEEK', CAST(CAST(simple.order_date at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP) + INTERVAL '1' DAY) - INTERVAL '1' DAY",  # noqa
+                "date": "DATE_TRUNC('DAY', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP))",  # noqa
+                "week": "DATE_TRUNC('WEEK', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP) + INTERVAL '1' DAY) - INTERVAL '1' DAY",  # noqa
             }
         where = (
-            "WHERE DATE_TRUNC('DAY', CAST(CAST(simple.order_date at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) "  # noqa
+            "WHERE DATE_TRUNC('DAY', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) "  # noqa
             f"AS TIMESTAMP))>='{start}' AND DATE_TRUNC('DAY', "
-            f"CAST(CAST(simple.order_date at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP))<='{end}'"  # noqa
+            f"CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP))<='{end}'"  # noqa
         )
         order_by = ""
     else:

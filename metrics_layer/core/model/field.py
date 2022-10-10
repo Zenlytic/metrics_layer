@@ -566,7 +566,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         elif query_type == Definitions.redshift:
             return f"CAST(CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP) AS {self.datatype.upper()})"  # noqa
         elif query_type == Definitions.postgres:
-            return f"CAST({sql} at time zone 'utc' at time zone '{timezone}' AS {self.datatype.upper()})"
+            return f"CAST(CAST({sql} AS TIMESTAMP) at time zone 'utc' at time zone '{timezone}' AS {self.datatype.upper()})"  # noqa
         else:
             raise QueryError(f"Unable to apply timezone to sql for query type {query_type}")
 
