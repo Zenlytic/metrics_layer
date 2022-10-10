@@ -6,6 +6,7 @@ from metrics_layer.core.parse.connections import (
     BaseConnection,
     BigQueryConnection,
     RedshiftConnection,
+    PostgresConnection,
     SnowflakeConnection,
 )
 
@@ -116,6 +117,7 @@ class ProjectLoader:
             ConnectionType.snowflake: SnowflakeConnection,
             ConnectionType.bigquery: BigQueryConnection,
             ConnectionType.redshift: RedshiftConnection,
+            ConnectionType.postgres: PostgresConnection,
         }
         results = []
         for connection in connections:
