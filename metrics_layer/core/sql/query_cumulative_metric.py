@@ -16,6 +16,9 @@ SNOWFLAKE_DATE_SPINE = (
     "select dateadd(day, seq4(), '2000-01-01') as date from table(generator(rowcount => 365*40))"
 )
 BIGQUERY_DATE_SPINE = "select date from unnest(generate_date_array('2000-01-01', '2040-01-01')) as date"
+POSTGRES_DATE_SPINE = (
+    "select date from generate_series('2000-01-01'::date, '2040-01-01'::date, '1 day') as date"
+)
 
 
 class CumulativeMetricsQuery(MetricsLayerQueryBase):
@@ -113,6 +116,8 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
             return SNOWFLAKE_DATE_SPINE
         elif query_type == Definitions.bigquery:
             return BIGQUERY_DATE_SPINE
+        elif query_type == Definitions.postgres:
+            return POSTGRES_DATE_SPINE
         raise NotImplementedError(f"Database {query_type} not implemented yet")
 
     def date_spine_by_time_frame(self):
@@ -383,5 +388,7 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
             return "current_date()"
         elif self.query_type == Definitions.bigquery:
             return "current_date()"
+        elif self.query_type == Definitions.postgres:
+            return "current_date"
         else:
             raise NotImplementedError(f"Query type {self.query_type} not supported")

@@ -127,6 +127,28 @@ class RedshiftConnection(BaseConnection):
         return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
 
 
+class PostgresConnection(RedshiftConnection):
+    def __init__(
+        self,
+        name: str,
+        host: str,
+        username: str,
+        password: str,
+        port: int = 5439,
+        database: str = None,
+        schema: str = None,
+        **kwargs,
+    ) -> None:
+        self.type = ConnectionType.postgres
+        self.name = name
+        self.host = host
+        self.port = port
+        self.username = username
+        self.password = password
+        self.database = database
+        self.schema = schema
+
+
 class BigQueryConnection(BaseConnection):
     def __init__(
         self, name: str, schema: str = None, credentials: str = None, keyfile: str = None, **kwargs
