@@ -478,14 +478,14 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "years": lambda start, end: f"DATEDIFF('YEAR', {start}, {end})",
             },
             Definitions.postgres: {
-                "seconds": lambda start, end: f"{meta_lookup[Definitions.postgres]['minutes'](start, end)} * 60 + DATE_PART('SECOND', {end} - {start})",  # noqa
-                "minutes": lambda start, end: f"{meta_lookup[Definitions.postgres]['hours'](start, end)} * 60 + DATE_PART('MINUTE', {end} - {start})",  # noqa
-                "hours": lambda start, end: f"{meta_lookup[Definitions.postgres]['days'](start, end)} * 24 + DATE_PART('HOUR', {end} - {start})",  # noqa
-                "days": lambda start, end: f"DATE_PART('DAY', {end} - {start})",
-                "weeks": lambda start, end: f"TRUNC(DATE_PART('DAY', {end} - {start})/7)",
-                "months": lambda start, end: f"{meta_lookup[Definitions.postgres]['years'](start, end)} * 12 + (DATE_PART('month', {end} - {start}))",  # noqa
-                "quarters": lambda start, end: f"{meta_lookup[Definitions.postgres]['years'](start, end)} * 4 + TRUNC(DATE_PART('month', {end} - {start})/3)",  # noqa
-                "years": lambda start, end: f"DATE_PART('YEAR', {end} - {start})",
+                "seconds": lambda start, end: f"{meta_lookup[Definitions.postgres]['minutes'](start, end)} * 60 + DATE_PART('SECOND', AGE({end}, {start}))",  # noqa
+                "minutes": lambda start, end: f"{meta_lookup[Definitions.postgres]['hours'](start, end)} * 60 + DATE_PART('MINUTE', AGE({end}, {start}))",  # noqa
+                "hours": lambda start, end: f"{meta_lookup[Definitions.postgres]['days'](start, end)} * 24 + DATE_PART('HOUR', AGE({end}, {start}))",  # noqa
+                "days": lambda start, end: f"DATE_PART('DAY', AGE({end}, {start}))",
+                "weeks": lambda start, end: f"TRUNC(DATE_PART('DAY', AGE({end}, {start}))/7)",
+                "months": lambda start, end: f"{meta_lookup[Definitions.postgres]['years'](start, end)} * 12 + (DATE_PART('month', AGE({end}, {start})))",  # noqa
+                "quarters": lambda start, end: f"{meta_lookup[Definitions.postgres]['years'](start, end)} * 4 + TRUNC(DATE_PART('month', AGE({end}, {start}))/3)",  # noqa
+                "years": lambda start, end: f"DATE_PART('YEAR', AGE({end}, {start}))",
             },
             Definitions.bigquery: {
                 "seconds": lambda start, end: f"TIMESTAMP_DIFF(CAST({end} as TIMESTAMP), CAST({start} as TIMESTAMP), SECOND)",  # noqa

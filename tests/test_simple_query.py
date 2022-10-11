@@ -474,14 +474,14 @@ def test_simple_query_dimension_group_interval(connections, interval: str, query
         order_by = " ORDER BY simple_total_revenue DESC"
     elif query_type == Definitions.postgres:
         result_lookup = {
-            "second": "DATE_PART('DAY', simple.order_date - simple.view_date) * 24 + DATE_PART('HOUR', simple.order_date - simple.view_date) * 60 + DATE_PART('MINUTE', simple.order_date - simple.view_date) * 60 + DATE_PART('SECOND', simple.order_date - simple.view_date)",  # noqa
-            "minute": "DATE_PART('DAY', simple.order_date - simple.view_date) * 24 + DATE_PART('HOUR', simple.order_date - simple.view_date) * 60 + DATE_PART('MINUTE', simple.order_date - simple.view_date)",  # noqa
-            "hour": "DATE_PART('DAY', simple.order_date - simple.view_date) * 24 + DATE_PART('HOUR', simple.order_date - simple.view_date)",  # noqa
-            "day": "DATE_PART('DAY', simple.order_date - simple.view_date)",
-            "week": "TRUNC(DATE_PART('DAY', simple.order_date - simple.view_date)/7)",
-            "month": "DATE_PART('YEAR', simple.order_date - simple.view_date) * 12 + (DATE_PART('month', simple.order_date - simple.view_date))",  # noqa
-            "quarter": "DATE_PART('YEAR', simple.order_date - simple.view_date) * 4 + TRUNC(DATE_PART('month', simple.order_date - simple.view_date)/3)",  # noqa
-            "year": "DATE_PART('YEAR', simple.order_date - simple.view_date)",
+            "second": "DATE_PART('DAY', AGE(simple.order_date, simple.view_date)) * 24 + DATE_PART('HOUR', AGE(simple.order_date, simple.view_date)) * 60 + DATE_PART('MINUTE', AGE(simple.order_date, simple.view_date)) * 60 + DATE_PART('SECOND', AGE(simple.order_date, simple.view_date))",  # noqa
+            "minute": "DATE_PART('DAY', AGE(simple.order_date, simple.view_date)) * 24 + DATE_PART('HOUR', AGE(simple.order_date, simple.view_date)) * 60 + DATE_PART('MINUTE', AGE(simple.order_date, simple.view_date))",  # noqa
+            "hour": "DATE_PART('DAY', AGE(simple.order_date, simple.view_date)) * 24 + DATE_PART('HOUR', AGE(simple.order_date, simple.view_date))",  # noqa
+            "day": "DATE_PART('DAY', AGE(simple.order_date, simple.view_date))",
+            "week": "TRUNC(DATE_PART('DAY', AGE(simple.order_date, simple.view_date))/7)",
+            "month": "DATE_PART('YEAR', AGE(simple.order_date, simple.view_date)) * 12 + (DATE_PART('month', AGE(simple.order_date, simple.view_date)))",  # noqa
+            "quarter": "DATE_PART('YEAR', AGE(simple.order_date, simple.view_date)) * 4 + TRUNC(DATE_PART('month', AGE(simple.order_date, simple.view_date))/3)",  # noqa
+            "year": "DATE_PART('YEAR', AGE(simple.order_date, simple.view_date))",
         }
         order_by = ""
     else:

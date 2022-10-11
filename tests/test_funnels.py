@@ -53,7 +53,7 @@ def test_orders_funnel_query(connection, query_type):
     elif query_type in [Definitions.snowflake, Definitions.redshift]:
         date_diff = "DATEDIFF('DAY', step_1.step_1_time, base.orders_order_raw)"
     elif query_type == Definitions.postgres:
-        date_diff = "DATE_PART('DAY', base.orders_order_raw - step_1.step_1_time)"
+        date_diff = "DATE_PART('DAY', AGE(base.orders_order_raw, step_1.step_1_time))"
 
     correct = (
         "WITH base AS (SELECT order_lines.sales_channel as order_lines_channel,customers.customer_id "
