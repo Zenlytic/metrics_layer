@@ -293,6 +293,47 @@ def test_cli_validate_model_name_in_view(connection, fresh_project, mocker):
 
 
 @pytest.mark.cli
+def test_cli_validate_two_customer_tags(connection, fresh_project, mocker):
+    # Break something so validation fails
+    sorted_fields = sorted(fresh_project._views[1]["fields"], key=lambda x: x["name"])
+    sorted_fields[5]["tags"] = ["customer"]
+    conn = MetricsLayerConnection(project=fresh_project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nMultiple fields found for the tag customer - those fields were ['orders.cumulative_aov',"
+        " 'customers.customer_id']. Only one field can have the tag \"customer\" per joinable graph.\n\n"
+    )
+
+
+@pytest.mark.cli
+def test_cli_dashboard_model_does_not_exist(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    dashboards = sorted(project._dashboards, key=lambda x: x["name"])
+
+    dashboards[0]["elements"][0]["model"] = "missing_model"
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nCould not find model missing_model referenced in dashboard sales_dashboard.\n\n"
+    )
+
+
+@pytest.mark.cli
 def test_cli_debug(connection, mocker):
     def query_runner_mock(query, connection, run_pre_queries=True):
         assert query == "select 1 as id;"

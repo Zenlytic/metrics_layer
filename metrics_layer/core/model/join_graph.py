@@ -33,6 +33,11 @@ class JoinGraph(SQLReplacement):
             self._graph = self.build()
         return self._graph
 
+    def list_join_graphs(self):
+        graph = self.project.join_graph.graph
+        sorted_components = self._strongly_connected_components(graph)
+        return [f"subquery_{i}" for i, _ in enumerate(sorted_components)]
+
     def join_graph_hash(self, view_name: str) -> str:
         if view_name not in self._strong_graph_memo:
             graph = self.project.join_graph.graph
