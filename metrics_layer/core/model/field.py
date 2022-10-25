@@ -477,6 +477,16 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "quarters": lambda start, end: f"DATEDIFF('QUARTER', {start}, {end})",
                 "years": lambda start, end: f"DATEDIFF('YEAR', {start}, {end})",
             },
+            Definitions.postgres: {
+                "seconds": lambda start, end: f"{meta_lookup[Definitions.postgres]['minutes'](start, end)} * 60 + DATE_PART('SECOND', AGE({end}, {start}))",  # noqa
+                "minutes": lambda start, end: f"{meta_lookup[Definitions.postgres]['hours'](start, end)} * 60 + DATE_PART('MINUTE', AGE({end}, {start}))",  # noqa
+                "hours": lambda start, end: f"{meta_lookup[Definitions.postgres]['days'](start, end)} * 24 + DATE_PART('HOUR', AGE({end}, {start}))",  # noqa
+                "days": lambda start, end: f"DATE_PART('DAY', AGE({end}, {start}))",
+                "weeks": lambda start, end: f"TRUNC(DATE_PART('DAY', AGE({end}, {start}))/7)",
+                "months": lambda start, end: f"{meta_lookup[Definitions.postgres]['years'](start, end)} * 12 + (DATE_PART('month', AGE({end}, {start})))",  # noqa
+                "quarters": lambda start, end: f"{meta_lookup[Definitions.postgres]['years'](start, end)} * 4 + TRUNC(DATE_PART('month', AGE({end}, {start}))/3)",  # noqa
+                "years": lambda start, end: f"DATE_PART('YEAR', AGE({end}, {start}))",
+            },
             Definitions.bigquery: {
                 "seconds": lambda start, end: f"TIMESTAMP_DIFF(CAST({end} as TIMESTAMP), CAST({start} as TIMESTAMP), SECOND)",  # noqa
                 "minutes": lambda start, end: f"TIMESTAMP_DIFF(CAST({end} as TIMESTAMP), CAST({start} as TIMESTAMP), MINUTE)",  # noqa
@@ -514,6 +524,18 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "day_of_week": lambda s, qt: f"DAYOFWEEK({s})",
                 "day_of_month": lambda s, qt: f"DAYOFMONTH({s})",
             },
+            Definitions.postgres: {
+                "raw": lambda s, qt: s,
+                "time": lambda s, qt: f"CAST({s} AS TIMESTAMP)",
+                "date": lambda s, qt: f"DATE_TRUNC('DAY', CAST({s} AS TIMESTAMP))",
+                "week": self._week_dimension_group_time_sql,
+                "month": lambda s, qt: f"DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))",
+                "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', CAST({s} AS TIMESTAMP))",
+                "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
+                "hour_of_day": lambda s, qt: f"EXTRACT('HOUR' FROM CAST({s} AS TIMESTAMP))",
+                "day_of_week": lambda s, qt: f"EXTRACT('DOW' FROM CAST({s} AS TIMESTAMP))",
+                "day_of_month": lambda s, qt: f"EXTRACT('DAY' FROM CAST({s} AS TIMESTAMP))",
+            },
             Definitions.bigquery: {
                 "raw": lambda s, qt: s,
                 "time": lambda s, qt: f"CAST({s} AS TIMESTAMP)",
@@ -535,12 +557,16 @@ class Field(MetricsLayerBase, SQLReplacement):
         return meta_lookup[query_type][self.dimension_group](sql, query_type)
 
     def _apply_timezone_to_sql(self, sql: str, timezone: str, query_type: str):
+        # We need the second cast here in the case you apply the timezone with
+        # the dimension group 'raw' to ensure they're the same initial type post-timezone transformation
         if query_type == Definitions.snowflake:
-            return f"CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP_NTZ)"
+            return f"CAST(CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP_NTZ) AS {self.datatype.upper()})"  # noqa
         elif query_type == Definitions.bigquery:
-            return f"DATETIME(CAST({sql} AS DATETIME), '{timezone}')"
+            return f"CAST(DATETIME(CAST({sql} AS TIMESTAMP), '{timezone}') AS {self.datatype.upper()})"
         elif query_type == Definitions.redshift:
-            return f"CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP_NTZ)"
+            return f"CAST(CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP) AS {self.datatype.upper()})"  # noqa
+        elif query_type == Definitions.postgres:
+            return f"CAST(CAST({sql} AS TIMESTAMP) at time zone 'utc' at time zone '{timezone}' AS {self.datatype.upper()})"  # noqa
         else:
             raise QueryError(f"Unable to apply timezone to sql for query type {query_type}")
 
@@ -558,7 +584,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             "tuesday": 6,
         }
         offset = offset_lookup[week_start_day]
-        positioned_sql = f"{self._week_sql_date_trunc(sql, offset, query_type)} - {offset}"
+        positioned_sql = self._week_sql_date_trunc(sql, offset, query_type)
         if query_type == Definitions.bigquery:
             positioned_sql = f"CAST({positioned_sql} AS {self.datatype.upper()})"
         return positioned_sql
@@ -569,11 +595,15 @@ class Field(MetricsLayerBase, SQLReplacement):
         if query_type in {Definitions.snowflake, Definitions.redshift}:
             if offset is None:
                 return f"DATE_TRUNC('WEEK', {casted})"
-            return f"DATE_TRUNC('WEEK', {casted} + {offset})"
+            return f"DATE_TRUNC('WEEK', {casted} + {offset}) - {offset}"
+        elif query_type == Definitions.postgres:
+            if offset is None:
+                return f"DATE_TRUNC('WEEK', CAST({sql} AS TIMESTAMP))"
+            return f"DATE_TRUNC('WEEK', CAST({sql} AS TIMESTAMP) + INTERVAL '{offset}' DAY) - INTERVAL '{offset}' DAY"  # noqa
         elif Definitions.bigquery == query_type:
             if offset is None:
                 return f"DATE_TRUNC({casted}, WEEK)"
-            return f"DATE_TRUNC({casted} + {offset}, WEEK)"
+            return f"DATE_TRUNC({casted} + {offset}, WEEK) - {offset}"
 
     def collect_errors(self):
         errors = []

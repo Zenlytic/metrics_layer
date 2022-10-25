@@ -56,7 +56,7 @@ class SingleSQLQueryResolver:
             "metrics": self.metrics,
             "dimensions": self.dimensions,
             "funnel": self.funnel,
-            "where": self.where,
+            "where": self.parse_where(self.where),
             "having": self.having,
             "order_by": self.order_by,
             "select_raw_sql": self.select_raw_sql,
@@ -88,6 +88,26 @@ class SingleSQLQueryResolver:
     def get_used_views(self):
         unique_view_names = {f.view.name for f in self.field_lookup.values()}
         return [self.project.get_view(name) for name in unique_view_names]
+
+    def parse_where(self, where: list):
+        if where is None or where == [] or self._is_literal(where):
+            return where
+        where_with_query = []
+        for w in where:
+            if "funnel" in w:
+                non_funnel_where = [f for f in where if "funnel" not in f and "group_by" not in f]
+                funnel_query = {
+                    "metrics": self.metrics,
+                    "dimensions": [],
+                    "funnel": w["funnel"],
+                    "where": non_funnel_where,
+                    "having": self.having,
+                }
+                w["query_class"] = FunnelQuery(
+                    funnel_query, design=self.design, suppress_warnings=self.suppress_warnings
+                )
+            where_with_query.append(w)
+        return where_with_query
 
     def parse_input(self):
         # if self.explore.symmetric_aggregates == "no":

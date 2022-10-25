@@ -3,6 +3,7 @@ from typing import Dict, List
 from pypika import Criterion, Order, Table
 from pypika.terms import LiteralValue
 
+from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.field import Field
@@ -29,6 +30,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         self.where_filters = []
         self.having_filters = []
         self.having_group_by_filters = []
+        self.funnel_filters = []
         self.order_by_args = []
 
         self.parse_definition(definition)
@@ -44,7 +46,10 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         access_filter_literal, _ = self.design.get_access_filter()
         if where or access_filter_literal:
             wheres = self._parse_filter_object(where, "where", access_filter=access_filter_literal)
-            self.where_filters.extend([f for f in wheres if not f.is_group_by])
+            self.where_filters.extend([f for f in wheres if not f.is_group_by and not f.is_funnel])
+            self.funnel_filters.extend([f for f in wheres if f.is_funnel])
+            if len(self.funnel_filters) > 1:
+                raise QueryError("Only one funnel filter is allowed per query")
             self.having_group_by_filters.extend([f for f in wheres if f.is_group_by])
 
         if having and self.no_group_by:
@@ -114,11 +119,17 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         return len(self.design.joins()) > 0
 
     def get_query(self, semicolon: bool = True):
+        if self.funnel_filters:
+            funnel_filter = self.funnel_filters[0]
+            base_query = funnel_filter.query_class.get_query(cte_only=True)
+        else:
+            base_query = self._base_query()
+
         # Build the base_join table if a join is needed otherwise use a single table
         if self.needs_join():
-            base_query = self.get_join_query_from()
+            base_query = self.get_join_query_from(base_query)
         else:
-            base_query = self.get_single_table_query_from()
+            base_query = self.get_single_table_query_from(base_query)
 
         # Add all columns in the SELECT clause
         select = self.get_select_columns()
@@ -145,8 +156,21 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                 cte_alias = f"filter_subquery_{i}"
                 cte_query = f.cte(query_class=MetricsLayerQuery, design_class=MetricsLayerDesign)
                 base_query = base_query.with_(Table(cte_query), cte_alias)
-                group_by_where.append(f.group_by_sql_query(cte_alias=cte_alias, query_generator=self))
+                group_by_where.append(
+                    f.isin_sql_query(cte_alias=cte_alias, field_name=f.group_by, query_generator=self)
+                )
             base_query = base_query.where(Criterion.all(group_by_where))
+
+        if self.funnel_filters:
+            cte_alias = "link_filter_subquery"
+            funnel_filter = self.funnel_filters[0]
+            cte_query = funnel_filter.funnel_cte()
+            base_query = base_query.with_(Table(cte_query), cte_alias)
+            link_field = funnel_filter.query_class.link_field.id()
+            where_sql = funnel_filter.isin_sql_query(
+                cte_alias=cte_alias, field_name=link_field, query_generator=self
+            )
+            base_query = base_query.where(where_sql)
 
         # Handle order by
         if self.order_by_args and not self.no_group_by:
@@ -157,6 +181,9 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                     first_field = self.design.get_field(all_fields[0])
                     arg["sort"] = "desc" if first_field.field_type == "measure" else "asc"
                     arg["field"] = first_field.alias(with_view=True)
+                else:
+                    field = self.design.get_field(arg["field"])
+                    arg["field"] = field.alias(with_view=True)
                 order = Order.desc if arg["sort"] == "desc" else Order.asc
                 base_query = base_query.orderby(LiteralValue(arg["field"]), order=order)
 
@@ -224,10 +251,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         return select
 
     # Code to handle the FROM portion of the query
-    def get_join_query_from(self):
-        # Build the base_join table
-        base_join_query = self._base_query()
-
+    def get_join_query_from(self, base_join_query):
         # Base table from statement
         table = self.design.get_view(self.design.base_view_name)
 
@@ -250,9 +274,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
 
         return base_join_query
 
-    def get_single_table_query_from(self):
-        base_query = self._base_query()
-
+    def get_single_table_query_from(self, base_query):
         table = self.design.get_view(self.design.base_view_name)
         base_query = base_query.from_(self._table_expression(table))
 

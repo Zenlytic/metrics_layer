@@ -221,6 +221,8 @@ def test_simple_query_alias_keyword(connections):
         ("previous_order", "date", Definitions.snowflake),
         ("order", "date", Definitions.redshift),
         ("order", "week", Definitions.redshift),
+        ("order", "date", Definitions.postgres),
+        ("order", "week", Definitions.postgres),
         ("order", "date", Definitions.bigquery),
         ("order", "week", Definitions.bigquery),
     ],
@@ -230,10 +232,14 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
     project = Project(models=[simple_model], views=[simple_view])
     project.set_timezone("America/New_York")
     conn = MetricsLayerConnection(project=project, connections=connections)
+    if query_type == Definitions.bigquery:
+        where_field = "order_raw"
+    else:
+        where_field = "order_date"
     query = conn.get_sql_query(
         metrics=["total_revenue"],
         dimensions=[f"{field}_{group}"],
-        where=[{"field": "order_date", "expression": "matches", "value": "month to date"}],
+        where=[{"field": where_field, "expression": "matches", "value": "month to date"}],
         query_type=query_type,
     )
 
@@ -245,29 +251,43 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         end = pendulum.now("America/New_York").end_of("day").subtract(days=1).strftime(date_format)
 
     if query_type in {Definitions.snowflake, Definitions.redshift}:
+        ttype = "TIMESTAMP" if query_type == Definitions.redshift else "TIMESTAMP_NTZ"
         if field == "previous_order":
             result_lookup = {"date": "DATE_TRUNC('DAY', simple.previous_order_date)"}
         else:
             result_lookup = {
-                "date": "DATE_TRUNC('DAY', CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ))",  # noqa
-                "week": "DATE_TRUNC('WEEK', CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS DATE) + 1) - 1",  # noqa
+                "date": f"DATE_TRUNC('DAY', CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS {ttype}) AS TIMESTAMP))",  # noqa
+                "week": f"DATE_TRUNC('WEEK', CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS {ttype}) AS TIMESTAMP) AS DATE) + 1) - 1",  # noqa
             }
         where = (
-            "WHERE DATE_TRUNC('DAY', CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) "
-            f"AS TIMESTAMP_NTZ))>='{start}' AND DATE_TRUNC('DAY', "
-            f"CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ))<='{end}'"
+            "WHERE DATE_TRUNC('DAY', CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) "
+            f"AS {ttype}) AS TIMESTAMP))>='{start}' AND DATE_TRUNC('DAY', "
+            f"CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS {ttype}) AS TIMESTAMP))<='{end}'"  # noqa
         )
         order_by = " ORDER BY simple_total_revenue DESC"
+    elif query_type == Definitions.postgres:
+        if field == "previous_order":
+            result_lookup = {"date": "DATE_TRUNC('DAY', simple.previous_order_date)"}
+        else:
+            result_lookup = {
+                "date": "DATE_TRUNC('DAY', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP))",  # noqa
+                "week": "DATE_TRUNC('WEEK', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP) + INTERVAL '1' DAY) - INTERVAL '1' DAY",  # noqa
+            }
+        where = (
+            "WHERE DATE_TRUNC('DAY', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) "  # noqa
+            f"AS TIMESTAMP))>='{start}' AND DATE_TRUNC('DAY', "
+            f"CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP))<='{end}'"  # noqa
+        )
+        order_by = ""
     else:
         result_lookup = {
-            "date": "CAST(DATE_TRUNC(CAST(DATETIME(CAST(simple.order_date AS DATETIME), 'America/New_York') AS DATE), DAY) AS TIMESTAMP)",  # noqa
-            "week": "CAST(DATE_TRUNC(CAST(DATETIME(CAST(simple.order_date AS DATETIME), 'America/New_York') AS DATE) + 1, WEEK) - 1 AS TIMESTAMP)",  # noqa
+            "date": "CAST(DATE_TRUNC(CAST(CAST(DATETIME(CAST(simple.order_date AS TIMESTAMP), 'America/New_York') AS TIMESTAMP) AS DATE), DAY) AS TIMESTAMP)",  # noqa
+            "week": "CAST(DATE_TRUNC(CAST(CAST(DATETIME(CAST(simple.order_date AS TIMESTAMP), 'America/New_York') AS TIMESTAMP) AS DATE) + 1, WEEK) - 1 AS TIMESTAMP)",  # noqa
         }
         where = (
-            "WHERE CAST(DATE_TRUNC(CAST(DATETIME(CAST(simple.order_date AS DATETIME), "
-            f"'America/New_York') AS DATE), DAY) AS TIMESTAMP)>=TIMESTAMP('{start}') AND "
-            "CAST(DATE_TRUNC(CAST(DATETIME(CAST(simple.order_date AS DATETIME), "
-            f"'America/New_York') AS DATE), DAY) AS TIMESTAMP)<=TIMESTAMP('{end}')"
+            "WHERE CAST(DATETIME(CAST(simple.order_date AS TIMESTAMP), 'America/New_York')"
+            f" AS TIMESTAMP)>=TIMESTAMP('{start}') AND CAST(DATETIME(CAST(simple.order_date "
+            f"AS TIMESTAMP), 'America/New_York') AS TIMESTAMP)<=TIMESTAMP('{end}')"
         )
         order_by = ""
 
@@ -301,6 +321,14 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("year", Definitions.redshift),
         ("hour_of_day", Definitions.redshift),
         ("day_of_week", Definitions.redshift),
+        ("time", Definitions.postgres),
+        ("date", Definitions.postgres),
+        ("week", Definitions.postgres),
+        ("month", Definitions.postgres),
+        ("quarter", Definitions.postgres),
+        ("year", Definitions.postgres),
+        ("hour_of_day", Definitions.postgres),
+        ("day_of_week", Definitions.postgres),
         ("time", Definitions.bigquery),
         ("date", Definitions.bigquery),
         ("week", Definitions.bigquery),
@@ -334,6 +362,19 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "day_of_month": "DAYOFMONTH(simple.order_date)",
         }
         order_by = " ORDER BY simple_total_revenue DESC"
+    elif query_type == Definitions.postgres:
+        result_lookup = {
+            "time": "CAST(simple.order_date AS TIMESTAMP)",
+            "date": "DATE_TRUNC('DAY', CAST(simple.order_date AS TIMESTAMP))",
+            "week": "DATE_TRUNC('WEEK', CAST(simple.order_date AS TIMESTAMP) + INTERVAL '1' DAY) - INTERVAL '1' DAY",  # noqa
+            "month": "DATE_TRUNC('MONTH', CAST(simple.order_date AS TIMESTAMP))",
+            "quarter": "DATE_TRUNC('QUARTER', CAST(simple.order_date AS TIMESTAMP))",
+            "year": "DATE_TRUNC('YEAR', CAST(simple.order_date AS TIMESTAMP))",
+            "hour_of_day": "EXTRACT('HOUR' FROM CAST(simple.order_date AS TIMESTAMP))",
+            "day_of_week": "EXTRACT('DOW' FROM CAST(simple.order_date AS TIMESTAMP))",
+            "day_of_month": "EXTRACT('DAY' FROM CAST(simple.order_date AS TIMESTAMP))",
+        }
+        order_by = ""
     else:
         result_lookup = {
             "time": "CAST(simple.order_date AS TIMESTAMP)",
@@ -380,6 +421,14 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         ("month", Definitions.redshift),
         ("quarter", Definitions.redshift),
         ("year", Definitions.redshift),
+        ("second", Definitions.postgres),
+        ("minute", Definitions.postgres),
+        ("hour", Definitions.postgres),
+        ("day", Definitions.postgres),
+        ("week", Definitions.postgres),
+        ("month", Definitions.postgres),
+        ("quarter", Definitions.postgres),
+        ("year", Definitions.postgres),
         ("day", Definitions.bigquery),
         ("week", Definitions.bigquery),
         ("month", Definitions.bigquery),
@@ -423,6 +472,18 @@ def test_simple_query_dimension_group_interval(connections, interval: str, query
             "year": "DATEDIFF('YEAR', simple.view_date, simple.order_date)",
         }
         order_by = " ORDER BY simple_total_revenue DESC"
+    elif query_type == Definitions.postgres:
+        result_lookup = {
+            "second": "DATE_PART('DAY', AGE(simple.order_date, simple.view_date)) * 24 + DATE_PART('HOUR', AGE(simple.order_date, simple.view_date)) * 60 + DATE_PART('MINUTE', AGE(simple.order_date, simple.view_date)) * 60 + DATE_PART('SECOND', AGE(simple.order_date, simple.view_date))",  # noqa
+            "minute": "DATE_PART('DAY', AGE(simple.order_date, simple.view_date)) * 24 + DATE_PART('HOUR', AGE(simple.order_date, simple.view_date)) * 60 + DATE_PART('MINUTE', AGE(simple.order_date, simple.view_date))",  # noqa
+            "hour": "DATE_PART('DAY', AGE(simple.order_date, simple.view_date)) * 24 + DATE_PART('HOUR', AGE(simple.order_date, simple.view_date))",  # noqa
+            "day": "DATE_PART('DAY', AGE(simple.order_date, simple.view_date))",
+            "week": "TRUNC(DATE_PART('DAY', AGE(simple.order_date, simple.view_date))/7)",
+            "month": "DATE_PART('YEAR', AGE(simple.order_date, simple.view_date)) * 12 + (DATE_PART('month', AGE(simple.order_date, simple.view_date)))",  # noqa
+            "quarter": "DATE_PART('YEAR', AGE(simple.order_date, simple.view_date)) * 4 + TRUNC(DATE_PART('month', AGE(simple.order_date, simple.view_date))/3)",  # noqa
+            "year": "DATE_PART('YEAR', AGE(simple.order_date, simple.view_date))",
+        }
+        order_by = ""
     else:
         result_lookup = {
             "second": "TIMESTAMP_DIFF(CAST(simple.order_date as TIMESTAMP), CAST(simple.view_date as TIMESTAMP), SECOND)",  # noqa
@@ -756,7 +817,7 @@ def test_simple_query_with_order_by_dict(connections):
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue,"
         "AVG(simple.revenue) as simple_average_order_value FROM analytics.orders simple "
-        "GROUP BY simple.sales_channel ORDER BY total_revenue ASC,average_order_value ASC;"
+        "GROUP BY simple.sales_channel ORDER BY simple_total_revenue ASC,simple_average_order_value ASC;"
     )
     assert query == correct
 
@@ -771,7 +832,7 @@ def test_simple_query_with_order_by_literal(connections):
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-        "analytics.orders simple GROUP BY simple.sales_channel ORDER BY total_revenue ASC;"
+        "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue ASC;"
     )
     assert query == correct
 
@@ -791,6 +852,6 @@ def test_simple_query_with_all(connections):
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
         "analytics.orders simple WHERE simple.sales_channel<>'Email' "
-        "GROUP BY simple.sales_channel HAVING SUM(simple.revenue)>12 ORDER BY total_revenue ASC;"
+        "GROUP BY simple.sales_channel HAVING SUM(simple.revenue)>12 ORDER BY simple_total_revenue ASC;"
     )
     assert query == correct

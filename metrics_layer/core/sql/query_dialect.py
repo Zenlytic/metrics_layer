@@ -12,7 +12,7 @@ SnowflakeQueryBuilder.ALIAS_QUOTE_CHAR = None
 RedShiftQueryBuilder.ALIAS_QUOTE_CHAR = None
 RedShiftQueryBuilder.QUOTE_CHAR = None
 PostgreSQLQueryBuilder.ALIAS_QUOTE_CHAR = None
-PostgreSQLQueryBuilder.QUOTE_CHAR = "'"
+PostgreSQLQueryBuilder.QUOTE_CHAR = None
 
 
 class SnowflakeQuery(Query):
@@ -23,6 +23,16 @@ class SnowflakeQuery(Query):
     @classmethod
     def _builder(cls, **kwargs) -> SnowflakeQueryBuilder:
         return SnowflakeQueryBuilder(**kwargs)
+
+
+class PostgresQuery(Query):
+    """
+    Defines a query class for use with Snowflake.
+    """
+
+    @classmethod
+    def _builder(cls, **kwargs) -> PostgreSQLQueryBuilder:
+        return PostgreSQLQueryBuilder(**kwargs)
 
 
 class RedshiftQuery(Query):
@@ -49,4 +59,5 @@ query_lookup = {
     Definitions.snowflake: SnowflakeQuery,
     Definitions.bigquery: BigQueryQuery,
     Definitions.redshift: RedshiftQuery,
+    Definitions.postgres: PostgresQuery,
 }

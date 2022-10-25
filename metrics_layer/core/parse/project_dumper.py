@@ -1,5 +1,5 @@
 import os
-from collections import OrderedDict
+from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
 from metrics_layer.core.parse.project_reader_base import ProjectReaderBase
 
@@ -35,6 +35,7 @@ class ProjectDumper(ProjectReaderBase):
             "version",
             "type",
             "name",
+            "model_name",
             "sql_table_name",
             "default_date",
             "row_label",
@@ -45,7 +46,7 @@ class ProjectDumper(ProjectReaderBase):
             "fields",
         ]
         extra_keys = [k for k in view.keys() if k not in view_key_order]
-        new_view = OrderedDict()
+        new_view = CommentedMap()
         for k in view_key_order + extra_keys:
             if k in view:
                 if k == "fields":
@@ -56,8 +57,13 @@ class ProjectDumper(ProjectReaderBase):
 
     def _sort_fields(self, fields: list):
         sort_key = ["dimension", "dimension_group", "measure"]
-        sorted_fields = sorted(fields, key=lambda x: sort_key.index(x["field_type"]))
-        return [self._sort_field(f) for f in sorted_fields]
+        sorted_fields = sorted(
+            fields, key=lambda x: (sort_key.index(x["field_type"]), -1 if "id" in x["name"] else 0)
+        )
+        result_seq = CommentedSeq([self._sort_field(f) for f in sorted_fields])
+        for i in range(1, len(sorted_fields)):
+            result_seq.yaml_set_comment_before_after_key(i, before="\n")
+        return result_seq
 
     def _sort_field(self, field: dict):
         field_key_order = [
@@ -84,7 +90,7 @@ class ProjectDumper(ProjectReaderBase):
             "extra",
         ]
         extra_keys = [k for k in field.keys() if k not in field_key_order]
-        new_field = OrderedDict()
+        new_field = CommentedMap()
         for k in field_key_order + extra_keys:
             if k in field:
                 new_field[k] = field[k]
@@ -102,7 +108,7 @@ class ProjectDumper(ProjectReaderBase):
             "access_grants",
         ]
         extra_keys = [k for k in model.keys() if k not in model_key_order]
-        new_model = OrderedDict()
+        new_model = CommentedMap()
         for k in model_key_order + extra_keys:
             if k in model:
                 new_model[k] = model[k]

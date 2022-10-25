@@ -87,6 +87,15 @@ class Project:
             all_errors.extend(model.collect_errors())
 
         all_errors.extend(self.join_graph.collect_errors())
+        for join_graph in self.join_graph.list_join_graphs():
+            try:
+                self.get_field_by_tag(tag_name="customer", join_graphs=(join_graph,))
+            except QueryError as e:
+                error_text = str(e).replace(" name ", " tag ").split("\n")[0]
+                error_text += '. Only one field can have the tag "customer" per joinable graph.'
+                all_errors.append(error_text)
+            except Exception:
+                pass
         for view in self.views():
             try:
                 view.sql_table_name
@@ -331,7 +340,7 @@ class Project:
             view_text = f", in view {view_name}" if view_name else ""
             err_msg = (
                 f"Multiple fields found for the name {field_name}{view_text}"
-                f" - those fields were {matching_names} \n\nPlease specify a "
+                f" - those fields were {matching_names}\n\nPlease specify a "
                 "view name like this: 'view_name.field_name' "
                 "\n\nor change the names of the fields to ensure uniqueness"
             )
@@ -349,7 +358,7 @@ class Project:
             err_msg += " specify 'order_raw' or 'order_date' or 'order_month'"
             raise AccessDeniedOrDoesNotExistException(err_msg, object_name=field_name, object_type="field")
 
-    def resolve_dbt_ref(self, ref_name: str, view_name: str = None):
+    def resolve_dbt_ref(self, ref_name: str):
         # This just returns the table name, assuming the schema will be set in the connection
         if not self.manifest_exists:
             if not self._connection_schema:
@@ -358,7 +367,7 @@ class Project:
                     "use references without a dbt project manifest"
                 )
             return f"{self._connection_schema}.{ref_name}"
-        return self.manifest.resolve_name(ref_name)
+        return self.manifest.resolve_name(ref_name, schema_override=self._connection_schema)
 
     @staticmethod
     def deduplicate_fields(field_list: list):

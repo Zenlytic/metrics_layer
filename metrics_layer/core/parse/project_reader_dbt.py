@@ -9,7 +9,7 @@ class dbtProjectReader(ProjectReaderBase):
     def load(self) -> None:
         self.project_name = self.dbt_project["name"]
 
-        self.generate_manifest_json(self.repo.folder, self.profiles_dir)
+        self.generate_manifest_json(self.dbt_folder, self.profiles_dir)
         self.manifest = self.load_manifest_json()
 
         dbt_profile_name = self.dbt_project.get("profile", self.project_name)
@@ -21,7 +21,9 @@ class dbtProjectReader(ProjectReaderBase):
         models, views = self.parse_dbt_manifest(self.manifest)
         if self.zenlytic_project:
             paths = self.zenlytic_project.get("dashboard-paths", [])
-            dashboards = self._load_dbt_dashboards([os.path.join(self.repo.folder, dp) for dp in paths])
+            dashboards = self._load_dbt_dashboards(
+                [os.path.join(os.path.dirname(self.zenlytic_project_path), dp) for dp in paths]
+            )
         else:
             dashboards = []
 
@@ -45,7 +47,6 @@ class dbtProjectReader(ProjectReaderBase):
     def _load_dashboards_from_folder(self, dashboard_folder: str):
         file_names = BaseRepo.glob_search(dashboard_folder, "*.yml")
         file_names += BaseRepo.glob_search(dashboard_folder, "*.yaml")
-
         dashboards = []
         for fn in file_names:
             yaml_dict = self.read_yaml_file(fn)
@@ -63,7 +64,7 @@ class dbtProjectReader(ProjectReaderBase):
         return [model]
 
     def _load_dbt_views(self, manifest: dict):
-        metrics = [self._make_dbt_metric(m) for m in manifest["metrics"].values()]
+        metrics = [self._make_dbt_metric(m, manifest) for m in manifest["metrics"].values()]
         view_keys = [k for k in manifest["nodes"].keys() if "model." in k]
 
         views = []
@@ -105,7 +106,7 @@ class dbtProjectReader(ProjectReaderBase):
             "version": 1,
             "type": "view",
             "name": view["name"],
-            "model_name": self.profile_name,
+            "model_name": self.project_name,
             "description": view.get("description"),
             "row_label": meta.get("row_label"),
             "sql_table_name": f"ref('{view['name']}')",
@@ -133,21 +134,25 @@ class dbtProjectReader(ProjectReaderBase):
 
     @staticmethod
     def _make_dbt_dimension(dimension: dict):
-        return {
+        core = {
             "field_type": "dimension",
             "name": dimension["name"],
             "type": "string",
-            "label": dimension.get("label"),
             "sql": "${TABLE}." + dimension["name"],
             "description": dimension.get("description"),
             "hidden": not dimension.get("is_dimension"),
             **dimension.get("meta", {}),
         }
+        if dimension.get("label"):
+            core["label"] = dimension.get("label")
+        if dimension.get("primary_key"):
+            core["primary_key"] = dimension.get("primary_key")
+        return core
 
-    def _make_dbt_metric(self, metric: dict):
+    def _make_dbt_metric(self, metric: dict, manifest: dict):
         metric_dict = {
             "name": metric["name"],
-            "model": self._clean_model(metric.get("model")),
+            "model": self._get_dbt_metric_model(metric, manifest),
             "timestamp": metric["timestamp"],
             "time_grains": metric["time_grains"],
             "field_type": "measure",
@@ -158,6 +163,17 @@ class dbtProjectReader(ProjectReaderBase):
             **metric.get("meta", {}),
         }
         return metric_dict
+
+    def _get_dbt_metric_model(self, metric: dict, manifest: dict):
+        if metric["type"] == "expression":
+            models = set()
+            for metric_key in metric["depends_on"]["nodes"]:
+                if "metric." in metric_key:
+                    models.add(self._get_dbt_metric_model(manifest["metrics"][metric_key], manifest))
+            if len(models) == 1:
+                return list(models)[0]
+            raise ValueError(f"Expression {metric['name']} has metrics from multiple models: {models}")
+        return self._clean_model(metric.get("model"))
 
     @staticmethod
     def _clean_model(dbt_model_name: str):

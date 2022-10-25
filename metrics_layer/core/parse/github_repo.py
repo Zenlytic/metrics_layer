@@ -31,6 +31,16 @@ class BaseRepo:
     def fetch(self):
         raise NotImplementedError()
 
+    def get_dbt_path(self):
+        pattern = "dbt_project.yml"
+        in_root = list(glob(f"{self.folder}/{pattern}"))
+        if len(in_root) == 1:
+            return self.folder
+        in_one_folder_deep = list(glob(f"{self.folder}/*/{pattern}"))
+        if len(in_one_folder_deep) == 1:
+            return os.path.dirname(in_one_folder_deep[0]) + "/"
+        return self.folder
+
     @staticmethod
     def read_yaml_file(path: str):
         with open(path, "r") as f:
@@ -43,13 +53,11 @@ class BaseRepo:
 
 
 class LocalRepo(BaseRepo):
-    def __init__(self, repo_path: str, repo_type: str = None, dbt_path: str = None) -> None:
+    def __init__(self, repo_path: str, repo_type: str = None) -> None:
         self.repo_path = repo_path
-        self.dbt_path = dbt_path
-        if isinstance(dbt_path, str) and dbt_path[-1] != "/":
-            self.dbt_path += "/"
         self.repo_type = repo_type
         self.folder = f"{os.path.join(os.getcwd(), self.repo_path)}/"
+        self.dbt_path = self.get_dbt_path()
         self.branch_options = []
 
     def fetch(self):
@@ -66,13 +74,14 @@ class GithubRepo(BaseRepo):
         self.repo_name = utils.generate_uuid()
         self.repo_destination = os.path.join(BASE_PATH, self.repo_name)
         self.folder = f"{self.repo_destination}/"
-        self.dbt_path = self.folder
+        self.dbt_path = None
         self.branch = branch
         self.branch_options = []
 
     def fetch(self):
         self.fetch_github_repo(self.repo_url, self.repo_destination, self.branch)
 
+        self.dbt_path = self.get_dbt_path()
         try:
             dynamic_branch_options = []
             g = git.cmd.Git()

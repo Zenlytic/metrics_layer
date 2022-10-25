@@ -20,7 +20,7 @@ class DashboardElement(MetricsLayerBase):
         model = self.project.get_model(self.model)
         if model is None:
             raise QueryError(
-                f"Could not find model {self.model} referenced in dashboard {self.dashboard.name}"
+                f"Could not find model {self.model} referenced in dashboard {self.dashboard.name}."
             )
         return model
 
@@ -43,8 +43,10 @@ class DashboardElement(MetricsLayerBase):
     @property
     def metrics(self):
         if "metric" in self._definition:
-            return [self._definition["metric"]]
-        return self._definition.get("metrics", [])
+            metric_input = self._definition["metric"]
+        else:
+            metric_input = self._definition.get("metrics", [])
+        return [metric_input] if isinstance(metric_input, str) else metric_input
 
     def _raw_filters(self):
         if self.filters is None:
@@ -58,9 +60,10 @@ class DashboardElement(MetricsLayerBase):
     def collect_errors(self):
         errors = []
 
-        if not self._function_executes(self.project.get_model, self.model):
-            err_msg = f"Could not find model {self.model} referenced in dashboard {self.dashboard.name}"
-            errors.append(err_msg)
+        try:
+            self.get_model()
+        except QueryError as e:
+            errors.append(str(e))
 
         for field in self.metrics + self.slice_by:
             if not self._function_executes(self.project.get_field, field):
