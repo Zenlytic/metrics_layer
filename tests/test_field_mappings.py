@@ -85,7 +85,7 @@ def test_mapped_metric_mapped_dim_having(connection):
         "as orders_number_of_orders FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "GROUP BY orders.sub_channel HAVING SUM(order_lines.revenue)>200 "
-        "ORDER BY order_lines.total_item_revenue ASC,orders.sub_channel DESC;"
+        "ORDER BY order_lines_total_item_revenue ASC,orders_sub_channel DESC;"
     )
     assert query == correct
 
