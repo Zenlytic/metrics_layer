@@ -3,6 +3,7 @@ from collections import defaultdict, Counter
 
 from .github_repo import BaseRepo
 from .project_reader_base import ProjectReaderBase
+from metrics_layer.core.exceptions import QueryError
 
 
 class dbtProjectReader(ProjectReaderBase):
@@ -87,13 +88,6 @@ class dbtProjectReader(ProjectReaderBase):
             matching_column = view.get("columns", {}).get(timestamp, {})
             dimension_groups.append(self._make_dbt_dimension_group(timestamp, time_grains, matching_column))
 
-        metrics = []
-        for m in view_metrics:
-            m.pop("model", None)
-            m.pop("timestamp", None)
-            m.pop("time_grains", None)
-            metrics.append(m)
-
         meta = view["meta"] if view["meta"] != {} else view.get("config", {}).get("meta", {})
         dimension_group_names = [d["name"] for d in dimension_groups]
         dimensions = [
@@ -101,6 +95,21 @@ class dbtProjectReader(ProjectReaderBase):
             for d in view.get("columns", {}).values()
             if d["name"] not in dimension_group_names
         ]
+        primary_key = next((d for d in dimensions if d.get("primary_key", False)), None)
+
+        metrics = []
+        for m in view_metrics:
+            m.pop("model", None)
+            m.pop("timestamp", None)
+            m.pop("time_grains", None)
+            if m["type"] == "count" and m["sql"] is None:
+                if primary_key is None:
+                    raise QueryError(
+                        f'View {view["name"]} has no primary key, cannot use '
+                        '"count" metric type without a defined "sql" property'
+                    )
+                m["sql"] = primary_key["sql"]
+            metrics.append(m)
         default_date = self._dbt_default_date(metric_timestamps)
         view_dict = {
             "version": 1,
@@ -173,7 +182,7 @@ class dbtProjectReader(ProjectReaderBase):
                     models.add(self._get_dbt_metric_model(manifest["metrics"][metric_key], manifest))
             if len(models) == 1:
                 return list(models)[0]
-            raise ValueError(f"Expression {metric['name']} has metrics from multiple models: {models}")
+            raise QueryError(f"Expression {metric['name']} has metrics from multiple models: {models}")
         return self._clean_model(metric.get("model"))
 
     @staticmethod
@@ -195,6 +204,9 @@ class dbtProjectReader(ProjectReaderBase):
                 for metric in metric_group:
                     base_metric_sql = base_metric_sql.replace(metric, "${" + metric + "}")
             return base_metric_sql
+        # This must be a count metric (use the primary key of the table once we know it)
+        elif "sql" not in metric and "expression" not in metric:
+            return None
         else:
             metric_sql = "${TABLE}." + self._metric_get_sql(metric)
             return self._apply_dbt_filters(metric_sql, metric.get("filters", []))

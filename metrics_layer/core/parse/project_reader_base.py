@@ -62,13 +62,18 @@ class ProjectReaderBase:
         return BaseRepo.glob_search(self.dbt_folder, pattern)
 
     def generate_manifest_json(self, project_dir: str, profiles_dir: str):
+        dumped_profiles_file = False
         if profiles_dir is None:
             profiles_dir = project_dir
             if not os.path.exists(os.path.join(profiles_dir, "profiles.yml")):
                 self._dump_profiles_file(profiles_dir, self.dbt_project["profile"])
+                dumped_profiles_file = True
 
         self._run_dbt("deps", project_dir=project_dir, profiles_dir=profiles_dir)
         self._run_dbt("ls", project_dir=project_dir, profiles_dir=profiles_dir)
+
+        if dumped_profiles_file:
+            self._clean_up_profiles_file(profiles_dir)
 
     def load_manifest_json(self):
         manifest_files = self.search_dbt_project("manifest.json")
@@ -98,6 +103,11 @@ class ProjectReaderBase:
             "config": {"send_anonymous_usage_stats": False},
         }
         self.dump_yaml_file(profiles, os.path.join(project_dir, "profiles.yml"))
+
+    def _clean_up_profiles_file(self, project_dir: str):
+        profiles_path = os.path.join(project_dir, "profiles.yml")
+        if os.path.exists(profiles_path):
+            os.remove(profiles_path)
 
     @staticmethod
     def _run_dbt(cmd: str, project_dir: str, profiles_dir: str):
