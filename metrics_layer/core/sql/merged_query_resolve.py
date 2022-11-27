@@ -123,7 +123,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
 
         dimension_mapping, canon_dates, used_join_hashes = self._canon_date_mapping()
 
-        mappings = self.model.get_mappings()
+        mappings = self.model.get_mappings(dimensions_only=True)
         for key, map_to in mappings.items():
             for other_join_hash in used_join_hashes:
                 if map_to["to_join_hash"] in other_join_hash:

@@ -150,13 +150,14 @@ class dbtProjectReader(ProjectReaderBase):
         return core
 
     def _make_dbt_metric(self, metric: dict, manifest: dict):
+        metric_type = self._metric_get_type(metric)
         metric_dict = {
             "name": metric["name"],
             "model": self._get_dbt_metric_model(metric, manifest),
             "timestamp": metric["timestamp"],
             "time_grains": metric["time_grains"],
             "field_type": "measure",
-            "type": self._convert_in_lookup(metric["type"], {"expression": "number"}),
+            "type": self._convert_in_lookup(metric_type, {"derived": "number", "expression": "number"}),
             "label": metric.get("label"),
             "description": metric.get("description"),
             "sql": self._convert_dbt_sql(metric),
@@ -165,7 +166,7 @@ class dbtProjectReader(ProjectReaderBase):
         return metric_dict
 
     def _get_dbt_metric_model(self, metric: dict, manifest: dict):
-        if metric["type"] == "expression":
+        if self._metric_is_number_type(metric):
             models = set()
             for metric_key in metric["depends_on"]["nodes"]:
                 if "metric." in metric_key:
@@ -188,14 +189,14 @@ class dbtProjectReader(ProjectReaderBase):
         return value
 
     def _convert_dbt_sql(self, metric: dict):
-        if metric["type"] == "expression":
-            base_metric_sql = metric["sql"]
+        if self._metric_is_number_type(metric):
+            base_metric_sql = self._metric_get_sql(metric)
             for metric_group in metric["metrics"]:
                 for metric in metric_group:
                     base_metric_sql = base_metric_sql.replace(metric, "${" + metric + "}")
             return base_metric_sql
         else:
-            metric_sql = "${TABLE}." + metric["sql"]
+            metric_sql = "${TABLE}." + self._metric_get_sql(metric)
             return self._apply_dbt_filters(metric_sql, metric.get("filters", []))
 
     def _apply_dbt_filters(self, metric_sql: str, filters: list):
@@ -203,6 +204,18 @@ class dbtProjectReader(ProjectReaderBase):
             return metric_sql
         core_filter = " and ".join([self._dbt_filter_to_sql(f) for f in filters])
         return f"case when {core_filter} then {metric_sql} else null end"
+
+    @staticmethod
+    def _metric_get_type(metric: dict):
+        return metric["type"] if "type" in metric else metric["calculation_method"]
+
+    @staticmethod
+    def _metric_get_sql(metric: dict):
+        return metric["sql"] if "sql" in metric else metric["expression"]
+
+    @staticmethod
+    def _metric_is_number_type(metric: dict):
+        return dbtProjectReader._metric_get_type(metric) in {"expression", "derived"}
 
     @staticmethod
     def _dbt_filter_to_sql(dbt_filter: dict):

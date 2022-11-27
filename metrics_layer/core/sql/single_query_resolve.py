@@ -170,6 +170,7 @@ class SingleSQLQueryResolver:
             self._order_by_field_names = MetricsLayerQuery.parse_identifiers_from_clause(self.order_by)
         else:
             self._order_by_field_names = self.parse_identifiers_from_dicts(self.order_by)
+        return self._where_field_names, self._having_field_names, self._order_by_field_names
 
     def parse_funnel(self, funnel: dict):
         if funnel != {}:

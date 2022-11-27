@@ -95,8 +95,8 @@ metrics:
     label: Avg revenue per customer
     description: "The avg revenue per customer"
 
-    type: expression
-    sql: "{{metric('total_revenue')}} / {{metric('number_of_customers')}}"
+    calculation_method: expression
+    expression: "{{metric('total_revenue')}} / {{metric('number_of_customers')}}"
 
     timestamp: order_date
     time_grains: [day, week, month, quarter, year]

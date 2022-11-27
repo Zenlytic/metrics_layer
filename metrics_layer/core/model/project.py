@@ -295,6 +295,13 @@ class Project:
         matching_fields = [f for f in fields if f.equal(field_name)]
         return self._matching_field_handler(matching_fields, field_name, view_name)
 
+    def get_mapped_field(self, field_name: str, model: Model = None):
+        if model.mappings:
+            field_data = model.mappings.get(field_name.lower())
+            if field_data:
+                return {"name": field_name.lower(), **field_data}
+        return None
+
     @functools.lru_cache(maxsize=None)
     def get_field_by_name(self, field_name: str, view_name: str = None, model: Model = None):
         field_name, view_name = self._parse_field_and_view_name(field_name, view_name)

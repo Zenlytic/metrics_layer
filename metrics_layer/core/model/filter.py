@@ -99,6 +99,7 @@ class FilterInterval(str, Enum):
             return cls.unknown
 
 
+# TODO this does not account for a changed "week_start_date"
 class Filter(MetricsLayerBase):
     week_start_day_default = pendulum.MONDAY
     week_end_day_default = pendulum.SUNDAY
@@ -149,11 +150,7 @@ class Filter(MetricsLayerBase):
         pendulum.week_ends_at(Filter.week_end_day_default)
 
     @staticmethod
-    def _end_date(
-        lag: int,
-        date_part: str,
-        tz: str,
-    ):
+    def _end_date(lag: int, date_part: str, tz: str):
         plural_date_part = FilterInterval.plural(date_part)
         singular_date_part = FilterInterval.singular(date_part)
         now = Filter._today(tz=tz)
