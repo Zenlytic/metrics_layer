@@ -245,7 +245,10 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         for field in self.secondary_metrics + self.dimension_fields:
             joinable_graphs = [j for j in field.join_graphs() if "merged_result" not in j]
             joinable = all(any(j in join_set for j in joinable_graphs) for join_set in joinable_sets)
-            if field.canon_date and (not joinable or len(joinable_sets) == 0):
+
+            cannot_join = not joinable or len(joinable_sets) == 0
+            measure_date_missing = field.canon_date not in canon_dates and field.field_type == "measure"
+            if field.canon_date and (cannot_join or measure_date_missing):
                 canon_dates.append(field.canon_date)
                 joinable_sets.append(joinable_graphs)
 
