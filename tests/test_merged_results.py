@@ -839,3 +839,44 @@ def test_implicit_raise_join_errors(connection):
 
     assert exc_info.value
     assert "Zenlytic tries to merge query results by default" in exc_info.value.message
+
+
+@pytest.mark.query
+def test_4_way_merge_with_joinable_canon_date(connection):
+    metrics = ["number_of_orders", "number_of_customers", "total_item_revenue", "number_of_events"]
+    query = connection.get_sql_query(
+        metrics=metrics,
+        dimensions=["orders.order_month"],
+    )
+
+    correct = (
+        "WITH orders_order__subquery_0 AS (SELECT DATE_TRUNC('MONTH', orders.order_date) as "
+        "orders_order_month,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders "
+        "orders GROUP BY DATE_TRUNC('MONTH', orders.order_date) ORDER BY orders_number_of_orders "
+        "DESC) ,customers_first_order__subquery_1 AS (SELECT DATE_TRUNC('MONTH', "
+        "customers.first_order_date) as customers_first_order_month,COUNT(customers.customer_id) "
+        "as customers_number_of_customers FROM analytics.customers customers GROUP BY DATE_TRUNC('MONTH', "
+        "customers.first_order_date) ORDER BY customers_number_of_customers DESC) ,"
+        "order_lines_order__subquery_0 AS (SELECT DATE_TRUNC('MONTH', order_lines.order_date) "
+        "as order_lines_order_month,SUM(order_lines.revenue) as order_lines_total_item_revenue "
+        "FROM analytics.order_line_items order_lines GROUP BY DATE_TRUNC('MONTH', order_lines.order_date) "
+        "ORDER BY order_lines_total_item_revenue DESC) ,events_event__subquery_3 AS (SELECT "
+        "DATE_TRUNC('MONTH', events.event_date) as events_event_month,COUNT(DISTINCT(events.id)) "
+        "as events_number_of_events FROM analytics.events events GROUP BY DATE_TRUNC('MONTH', "
+        "events.event_date) ORDER BY events_number_of_events DESC) SELECT "
+        "customers_first_order__subquery_1.customers_number_of_customers as "
+        "customers_number_of_customers,events_event__subquery_3.events_number_of_events as "
+        "events_number_of_events,order_lines_order__subquery_0.order_lines_total_item_revenue "
+        "as order_lines_total_item_revenue,orders_order__subquery_0.orders_number_of_orders "
+        "as orders_number_of_orders,customers_first_order__subquery_1.customers_first_order_month "
+        "as customers_first_order_month,events_event__subquery_3.events_event_month as events_event_month,"
+        "order_lines_order__subquery_0.order_lines_order_month as order_lines_order_month,"
+        "orders_order__subquery_0.orders_order_month as orders_order_month FROM "
+        "customers_first_order__subquery_1 JOIN events_event__subquery_3 ON "
+        "customers_first_order__subquery_1.customers_first_order_month=events_event__subquery_3."
+        "events_event_month JOIN order_lines_order__subquery_0 ON customers_first_order__subquery_1."
+        "customers_first_order_month=order_lines_order__subquery_0.order_lines_order_month "
+        "JOIN orders_order__subquery_0 ON customers_first_order__subquery_1.customers_first_order_month"
+        "=orders_order__subquery_0.orders_order_month;"
+    )
+    assert query == correct

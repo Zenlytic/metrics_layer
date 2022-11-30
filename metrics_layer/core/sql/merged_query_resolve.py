@@ -104,13 +104,24 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             for ref_field in merged_metric.referenced_fields(merged_metric.sql):
                 if isinstance(ref_field, str):
                     raise QueryError(f"Unable to find the field {ref_field} in the project")
-
+                if ref_field.canon_date is None:
+                    raise QueryError(
+                        f"Could not find a date field associated with metric {ref_field.name} "
+                        "in the project. \n\nMake sure you have this defined either in the view "
+                        "with the property 'default_date' or on the metric under 'canon_date'"
+                    )
                 join_group_hash = self.project.join_graph.join_graph_hash(ref_field.view.name)
                 key = self._cte_name_from_parts(ref_field.canon_date, join_group_hash)
                 self.query_metrics[key].append(ref_field)
 
         for field in self.secondary_metrics:
             join_group_hash = self.project.join_graph.join_graph_hash(field.view.name)
+            if field.canon_date is None:
+                raise QueryError(
+                    f"Could not find a date field associated with metric {ref_field.name} "
+                    "in the project. \n\nMake sure you have this defined either in the view "
+                    "with the property 'default_date' or on the metric under 'canon_date'"
+                )
             key = self._cte_name_from_parts(field.canon_date, join_group_hash)
             if key in self.query_metrics:
                 already_in_query = any(field.id() in f.id() for f in self.query_metrics[key])
@@ -234,7 +245,10 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         for field in self.secondary_metrics + self.dimension_fields:
             joinable_graphs = [j for j in field.join_graphs() if "merged_result" not in j]
             joinable = all(any(j in join_set for j in joinable_graphs) for join_set in joinable_sets)
-            if field.canon_date and (not joinable or len(joinable_sets) == 0):
+
+            cannot_join = not joinable or len(joinable_sets) == 0
+            measure_date_missing = field.canon_date not in canon_dates and field.field_type == "measure"
+            if field.canon_date and (cannot_join or measure_date_missing):
                 canon_dates.append(field.canon_date)
                 joinable_sets.append(joinable_graphs)
 
