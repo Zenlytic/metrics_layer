@@ -143,14 +143,19 @@ class dbtProjectReader(ProjectReaderBase):
 
     @staticmethod
     def _make_dbt_dimension(dimension: dict):
+        meta = dimension.get("meta", {})
+        if "sql_start" in meta and "sql_end" in meta:
+            sql_dict = {}
+        else:
+            sql_dict = {"sql": "${TABLE}." + dimension["name"]}
         core = {
             "field_type": "dimension",
             "name": dimension["name"],
             "type": "string",
-            "sql": "${TABLE}." + dimension["name"],
+            **sql_dict,
             "description": dimension.get("description"),
             "hidden": not dimension.get("is_dimension"),
-            **dimension.get("meta", {}),
+            **meta,
         }
         if dimension.get("label"):
             core["label"] = dimension.get("label")

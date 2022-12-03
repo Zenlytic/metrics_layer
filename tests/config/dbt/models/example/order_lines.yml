@@ -39,6 +39,14 @@ models:
         description: "The channel for this table"
         is_dimension: true
 
+      - name: between_first_order_and_now
+        meta:
+          field_type: dimension_group
+          type: duration
+          sql_start: ${order_date_date}
+          sql_end: current_date()
+          intervals: [day, week, month, quarter, year]
+
       - name: parent_channel
         description: "The parent_channel for this table"
         is_dimension: true

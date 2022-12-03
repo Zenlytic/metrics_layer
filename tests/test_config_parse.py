@@ -123,7 +123,11 @@ def test_config_load_dbt():
     assert isinstance(view["fields"], list)
 
     total_revenue_measure = next((f for f in view["fields"] if f["name"] == "new_customer_revenue"))
+    duration = next((f for f in view["fields"] if f["name"] == "between_first_order_and_now"))
 
+    assert duration["type"] == "duration"
+    assert "sql" not in duration
+    assert "sql_start" in duration and "sql_end" in duration
     assert total_revenue_measure["name"] == "new_customer_revenue"
     assert total_revenue_measure["field_type"] == "measure"
     assert total_revenue_measure["type"] == "sum"
