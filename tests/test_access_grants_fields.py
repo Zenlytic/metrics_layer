@@ -70,6 +70,20 @@ def test_access_grants_field_visible(connection):
     assert exc_info.value.object_type == "field"
 
 
+def test_access_grants_field_join_graphs(connection):
+    connection.project.set_user({"department": "executive"})
+    field = connection.get_field("sessions.number_of_sessions")
+    field.join_graphs()
+
+    # Having permissions on the field isn't enough, you must also have permissions on the view to see field
+    connection.project.set_user({"department": "engineering"})
+
+    # This is a regression test for a bug where the call to join_graphs would raise an access denied
+    # exception because one of the mapped fields was not visible to this user
+    field = connection.get_field("sessions.number_of_sessions")
+    field.join_graphs()
+
+
 def test_access_grants_dashboard_visible(connection):
     # None always allows access
     connection.project.set_user({"department": None})
