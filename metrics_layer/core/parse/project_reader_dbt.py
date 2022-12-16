@@ -111,6 +111,11 @@ class dbtProjectReader(ProjectReaderBase):
                 m["sql"] = primary_key["sql"]
             metrics.append(m)
         default_date = self._dbt_default_date(metric_timestamps)
+        if default_date is not None and default_date not in dimension_group_names:
+            raise QueryError(
+                f"The default date {default_date} for the view is not found in any of the dimension groups "
+                f"(timestamps): {', '.join(dimension_group_names)}. Check that your spelling is correct."
+            )
         view_dict = {
             "version": 1,
             "type": "view",

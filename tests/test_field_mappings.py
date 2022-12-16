@@ -1,6 +1,7 @@
 import datetime
-
 import pytest
+
+from metrics_layer.core.exceptions import QueryError
 
 
 @pytest.mark.query
@@ -111,3 +112,42 @@ def test_mapped_metric_mapped_merged_results(connection):
         "=sessions_session__subquery_2.sessions_utm_source;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_mapped_metric_incorrect_error_message_on_mapped_filter(connection):
+    with pytest.raises(QueryError) as exc_info:
+        connection.get_sql_query(
+            metrics=["number_of_orders", "number_of_sessions"],
+            dimensions=["source"],
+            where=[
+                {"field": "source", "expression": "equal_to", "value": "google"},
+                {"field": "new_vs_repeat", "expression": "equal_to", "value": "New"},
+            ],
+        )
+
+    correct_error = (
+        f"The field number_of_sessions could not be either joined into the query or mapped "
+        "and merged into the query as a merged result. \n\nCheck that you specify joins to join it "
+        "in, or specify a mapping for a query with two tables that cannot be merged"
+    )
+    assert exc_info.value
+    assert str(exc_info.value) == correct_error
+
+    with pytest.raises(QueryError) as exc_info:
+        connection.get_sql_query(
+            metrics=["number_of_orders", "number_of_sessions"],
+            dimensions=["source", "sessions.session_id"],
+            where=[
+                {"field": "source", "expression": "equal_to", "value": "google"},
+                {"field": "new_vs_repeat", "expression": "equal_to", "value": "New"},
+            ],
+        )
+
+    correct_error = (
+        f"The query could not be either joined or mapped and merged into a valid query with the fields:"
+        "\n\nnumber_of_orders, number_of_sessions, sessions.session_id, new_vs_repeat, source\n\n"
+        "Check that those fields can be joined together or are mapped so they can be merged across tables"
+    )
+    assert exc_info.value
+    assert str(exc_info.value) == correct_error

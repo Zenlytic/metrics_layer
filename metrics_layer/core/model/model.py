@@ -1,5 +1,5 @@
 from .base import MetricsLayerBase
-from metrics_layer.core.exceptions import QueryError
+from metrics_layer.core.exceptions import QueryError, AccessDeniedOrDoesNotExistException
 
 
 class AccessGrant(MetricsLayerBase):
@@ -50,7 +50,12 @@ class Model(MetricsLayerBase):
         for _, mapped_values in self.mappings.items():
 
             for mapped_from_field in mapped_values.get("fields", []):
-                from_field = self.project.get_field(mapped_from_field)
+                # If the user doesn't have access to a mapped field, we skip it but continue
+                # to give them access to the original field which they *do* have access to
+                try:
+                    from_field = self.project.get_field(mapped_from_field)
+                except AccessDeniedOrDoesNotExistException:
+                    continue
                 if dimensions_only and from_field.field_type == "measure":
                     continue
 
@@ -63,7 +68,10 @@ class Model(MetricsLayerBase):
 
                 for mapped_to_field in mapped_values.get("fields", []):
                     if mapped_to_field != mapped_from_field:
-                        to_field = self.project.get_field(mapped_to_field)
+                        try:
+                            to_field = self.project.get_field(mapped_to_field)
+                        except AccessDeniedOrDoesNotExistException:
+                            continue
                         to_join_hash = self.project.join_graph.join_graph_hash(to_field.view.name)
                         if to_field.field_type != from_field.field_type:
                             raise QueryError(

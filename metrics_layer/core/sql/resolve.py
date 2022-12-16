@@ -122,6 +122,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
 
         if self.field_lookup:
             mergeable_graphs, joinable_graphs = self._join_graphs_by_type(self.field_lookup)
+            self._handle_invalid_merged_result(mergeable_graphs, joinable_graphs)
             for name, mapped_field in self.mapping_lookup.items():
                 replace_with = self.determine_field_to_replace_with(
                     mapped_field, joinable_graphs, mergeable_graphs
@@ -134,6 +135,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                     self.field_lookup[name] = replace_with.join_graphs()
                 else:
                     mergeable_graphs, joinable_graphs = self._join_graphs_by_type(self.field_lookup)
+                    self._handle_invalid_merged_result(mergeable_graphs, joinable_graphs)
                     replace_with = self.determine_field_to_replace_with(
                         mapped_field, joinable_graphs, mergeable_graphs
                     )
@@ -148,6 +150,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                 joinable.append(field)
             elif any(g in mergeable_graphs for g in join_graphs):
                 mergeable.append(field)
+
         if joinable:
             return joinable[0]
         elif mergeable:
@@ -159,6 +162,30 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         usable_merged_graphs = set.intersection(*map(set, field_lookup.values()))
         usable_joinable_graphs = [s for s in list(usable_merged_graphs) if "merged_result" not in s]
         return usable_merged_graphs, usable_joinable_graphs
+
+    def _handle_invalid_merged_result(self, mergeable_graphs, joinable_graphs):
+        # If both of these are empty there is no join overlap and the query cannot be run
+        if len(mergeable_graphs) == 0 and len(joinable_graphs) == 0:
+            # first we try to find the issue by removing one key from the lookup and seeing
+            # if it works with the rest. This produces the most sensible error message.
+            for key in self.field_lookup.keys():
+                with_one_removed = {k: v for k, v in self.field_lookup.items() if k != key}
+                merged, joined = self._join_graphs_by_type(with_one_removed)
+                if len(merged) != 0 or len(joined) != 0:
+                    raise QueryError(
+                        f"The field {key} could not be either joined into the query "
+                        "or mapped and merged into the query as a merged result. \n\n"
+                        "Check that you specify joins to join it in, or specify a mapping "
+                        "for a query with two tables that cannot be merged"
+                    )
+            # Otherwise, we have to show this, worse, error message
+            all_fields = list(self.field_lookup.keys()) + list(self.mapping_lookup.keys())
+            raise QueryError(
+                f"The query could not be either joined or mapped and merged into a valid query"
+                f" with the fields:\n\n{', '.join(all_fields)}\n\n"
+                "Check that those fields can be joined together or are mapped so they can "
+                "be merged across tables"
+            )
 
     def _replace_mapped_field(self, to_replace: str, field):
         if to_replace in self.metrics:
