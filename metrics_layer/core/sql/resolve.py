@@ -120,7 +120,6 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         if not self.mapping_lookup:
             return
 
-        print(self.mapping_lookup.keys())
         if self.field_lookup:
             mergeable_graphs, joinable_graphs = self._join_graphs_by_type(self.field_lookup)
             self._handle_invalid_merged_result(mergeable_graphs, joinable_graphs)
