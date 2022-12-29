@@ -26,28 +26,42 @@ def init():
 
 
 @cli_group.command()
+@click.option("--profile", default=None, help="The name of the dbt profile to use for the connection")
+@click.option(
+    "--target",
+    default=None,
+    help="The name of the target for the dbt profile (defaults to the default target)",
+)
 @click.option("--connection", default=None, help="The name of the connection to use for the database")
 @click.option("--database", help="The name of the database to use for seeding (project in BigQuery)")
 @click.option(
     "--schema", default=None, help="The name of the schema to use for seeding (dataset in BigQuery)"
 )
 @click.option("--table", default=None, help="The name of the table to use for seeding")
-def seed(connection, database, schema, table):
+def seed(profile, target, connection, database, schema, table):
     """Seed a metrics layer project by referencing the existing database"""
     SeedMetricsLayer._init_directories()
-    profile = SeedMetricsLayer.get_profile()
+    if profile is None:
+        profile = SeedMetricsLayer.get_profile()
     if SeedMetricsLayer._in_dbt_project():
-        seeder = dbtSeed(profile, connection, database, schema, table)
+        seeder = dbtSeed(connection, database, schema, table, profile, target)
     else:
-        seeder = SeedMetricsLayer(profile, connection, database, schema, table)
+        seeder = SeedMetricsLayer(connection, database, schema, table, profile, target)
     seeder.seed()
 
 
 @cli_group.command()
-def validate():
+@click.option("--profile", default=None, help="The name of the dbt profile to use for the connection")
+@click.option(
+    "--target",
+    default=None,
+    help="The name of the target for the dbt profile (defaults to the default target)",
+)
+def validate(profile, target):
     """Validate a metrics layer project, internally, without hitting the database"""
-    profile = SeedMetricsLayer.get_profile()
-    metrics_layer = SeedMetricsLayer._init_profile(profile)
+    if profile is None:
+        profile = SeedMetricsLayer.get_profile()
+    metrics_layer = SeedMetricsLayer._init_profile(profile, target)
     errors = metrics_layer.project.validate()
 
     if len(errors) == 0:
@@ -60,15 +74,22 @@ def validate():
 
 
 @cli_group.command()
-def debug():
+@click.option("--profile", default=None, help="The name of the dbt profile to use for the connection")
+@click.option(
+    "--target",
+    default=None,
+    help="The name of the target for the dbt profile (defaults to the default target)",
+)
+def debug(profile, target):
     """Debug a metrics layer project. Pass your profile name as the sole argument.
 
     This will list out the inputs and the locations where the metrics layer is finding them,
      in addition to testing the database connection to ensure it works as expected"""
     from metrics_layer import __version__
 
-    profile = SeedMetricsLayer.get_profile()
-    metrics_layer = SeedMetricsLayer._init_profile(profile)
+    if profile is None:
+        profile = SeedMetricsLayer.get_profile()
+    metrics_layer = SeedMetricsLayer._init_profile(profile, target)
 
     # Environment
     metrics_layer_version = __version__
@@ -119,16 +140,23 @@ def debug():
 
 
 @cli_group.command("list")
+@click.option("--profile", default=None, help="The name of the dbt profile to use for the connection")
+@click.option(
+    "--target",
+    default=None,
+    help="The name of the target for the dbt profile (defaults to the default target)",
+)
 @click.option(
     "--view", default=None, help="The name of the view (only applicable for fields, dimensions, and metrics)"
 )
 @click.option("--show-hidden", is_flag=True, help="Set this flag if you want to see hidden fields")
 @click.argument("type")
-def list_(type, view, show_hidden):
+def list_(profile, target, type, view, show_hidden):
     """List attributes in a metrics layer project,
     i.e. models, connections, explores, views, fields, metrics, dimensions"""
-    profile = SeedMetricsLayer.get_profile()
-    metrics_layer = SeedMetricsLayer._init_profile(profile)
+    if profile is None:
+        profile = SeedMetricsLayer.get_profile()
+    metrics_layer = SeedMetricsLayer._init_profile(profile, target)
 
     items = None
     if type == "models":
@@ -160,6 +188,12 @@ def list_(type, view, show_hidden):
 
 
 @cli_group.command()
+@click.option("--profile", default=None, help="The name of the dbt profile to use for the connection")
+@click.option(
+    "--target",
+    default=None,
+    help="The name of the target for the dbt profile (defaults to the default target)",
+)
 @click.option(
     "--type",
     help="The type of object to show. One of: model, connection, explore, view, field, metric, dimension",  # noqa
@@ -168,10 +202,11 @@ def list_(type, view, show_hidden):
     "--view", default=None, help="The name of the view (only applicable for fields, dimensions, and metrics)"
 )
 @click.argument("name")
-def show(type, name, view):
+def show(profile, target, type, name, view):
     """Show information on an attribute in a metrics layer project, by name"""
-    profile = SeedMetricsLayer.get_profile()
-    metrics_layer = SeedMetricsLayer._init_profile(profile)
+    if profile is None:
+        profile = SeedMetricsLayer.get_profile()
+    metrics_layer = SeedMetricsLayer._init_profile(profile, target)
 
     attributes = []
     if type == "model":

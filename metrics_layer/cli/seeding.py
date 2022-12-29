@@ -8,10 +8,13 @@ class SeedMetricsLayer:
     default_models_path = "models"
     default_dashboards_path = "dashboards"
 
-    def __init__(self, profile, connection=None, database=None, schema=None, table=None):
+    def __init__(self, connection=None, database=None, schema=None, table=None, profile=None, target=None):
         self.default_model_name = "base_model"
         self.profile_name = profile
-        self.metrics_layer, self.connection = self._init_connection(self.profile_name, connection)
+        self.target_name = target
+        self.metrics_layer, self.connection = self._init_connection(
+            self.profile_name, self.target_name, connection
+        )
         self.database = database if database else self.connection.database
         self.schema = schema if schema else self.connection.schema
         self.table = table.replace(".sql", "") if table else None
@@ -59,7 +62,7 @@ class SeedMetricsLayer:
             "DECIMAL": "number",
             "BIGINT": "number",
         }
-
+        self._postgres_type_lookup = {**self._redshift_type_lookup}
         self._bigquery_type_lookup = {
             "DATE": "date",
             "DATETIME": "timestamp",
@@ -74,9 +77,9 @@ class SeedMetricsLayer:
     def seed(self):
         from metrics_layer.core.parse import ProjectDumper, ProjectLoader
 
-        if self.connection.type not in {Definitions.snowflake, Definitions.bigquery, Definitions.redshift}:
+        if self.connection.type not in Definitions.supported_warehouses:
             raise NotImplementedError(
-                "The only data warehouses supported for seeding are Snowflake, Redshift and BigQuery"
+                f"The only data warehouses supported for seeding are {Definitions.supported_warehouses_text}"
             )
         table_query = self.table_query()
         data = self.run_query(table_query)
@@ -140,10 +143,12 @@ class SeedMetricsLayer:
         view_name = self.clean_name(table_name)
         count_measure = {"field_type": "measure", "name": "count", "type": "count"}
         fields = self.make_fields(column_data) + [count_measure]
-        if self.connection.type in {Definitions.snowflake, Definitions.redshift}:
+        if self.connection.type in {Definitions.snowflake, Definitions.redshift, Definitions.postgres}:
             sql_table_name = f"{schema_name}.{table_name}"
         elif self.connection.type == Definitions.bigquery:
             sql_table_name = f"`{self.database}.{schema_name}.{table_name}`"
+        else:
+            raise NotImplementedError(f"Unsupported connection type {self.connection.type}")
         view = {
             "version": 1,
             "type": "view",
@@ -164,10 +169,14 @@ class SeedMetricsLayer:
             name = self.clean_name(row["COLUMN_NAME"])
             if self.connection.type == Definitions.snowflake:
                 metrics_layer_type = self._snowflake_type_lookup.get(row["DATA_TYPE"], "string")
-            if self.connection.type == Definitions.redshift:
+            elif self.connection.type == Definitions.redshift:
                 metrics_layer_type = self._redshift_type_lookup.get(row["DATA_TYPE"], "string")
+            elif self.connection.type == Definitions.postgres:
+                metrics_layer_type = self._postgres_type_lookup.get(row["DATA_TYPE"], "string")
             elif self.connection.type == Definitions.bigquery:
                 metrics_layer_type = self._bigquery_type_lookup.get(row["DATA_TYPE"], "string")
+            else:
+                raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
             sql = "${TABLE}." + row["COLUMN_NAME"]
 
             field = {"name": name, "sql": sql}
@@ -185,7 +194,11 @@ class SeedMetricsLayer:
 
     def table_query(self):
         query = "SELECT table_catalog, table_schema, table_name, column_name, data_type FROM "
-        if self.database and self.connection.type in {Definitions.snowflake, Definitions.redshift}:
+        if self.database and self.connection.type in {
+            Definitions.snowflake,
+            Definitions.redshift,
+            Definitions.postgres,
+        }:
             query += f"{self.database}.INFORMATION_SCHEMA.COLUMNS"
         elif self.database and self.schema and self.connection.type == Definitions.bigquery:
             query += f"`{self.database}.{self.schema}`.INFORMATION_SCHEMA.COLUMNS"
@@ -203,8 +216,8 @@ class SeedMetricsLayer:
         )
 
     @staticmethod
-    def _init_connection(profile_name: str, connection_name: str = None):
-        metrics_layer = SeedMetricsLayer._init_profile(profile_name)
+    def _init_connection(profile_name: str, target: str = None, connection_name: str = None):
+        metrics_layer = SeedMetricsLayer._init_profile(profile_name, target)
 
         if connection_name:
             connection = metrics_layer.get_connection(connection_name)
@@ -220,10 +233,10 @@ class SeedMetricsLayer:
         return metrics_layer, connection
 
     @staticmethod
-    def _init_profile(profile_name: str):
+    def _init_profile(profile_name: str, target: str = None):
         from metrics_layer.core import MetricsLayerConnection
 
-        connections = MetricsLayerConnection.get_connections_from_profile(profile_name)
+        connections = MetricsLayerConnection.get_connections_from_profile(profile_name, target)
         metrics_layer = MetricsLayerConnection(location=SeedMetricsLayer._location(), connections=connections)
         return metrics_layer
 

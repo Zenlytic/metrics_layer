@@ -289,8 +289,8 @@ class MetricsLayerConnection:
         return None
 
     @staticmethod
-    def get_connections_from_profile(profile_name: str):
-        return ProjectLoader.get_connections_from_profile(profile_name)
+    def get_connections_from_profile(profile_name: str, target: str = None):
+        return ProjectLoader.get_connections_from_profile(profile_name, target)
 
     @staticmethod
     def pretty_sql(sql: str, keyword_case="lower"):

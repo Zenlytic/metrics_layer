@@ -85,6 +85,47 @@ def seed_snowflake_tables_data():
 
 
 @pytest.fixture(scope="function")
+def seed_redshift_tables_data():
+    order_records = [
+        {"COLUMN_NAME": "ORDER_ID", "DATA_TYPE": "DOUBLE"},
+        {"COLUMN_NAME": "ORDER_CREATED_AT", "DATA_TYPE": "DATE"},
+        {"COLUMN_NAME": "REVENUE", "DATA_TYPE": "DOUBLE PRECISION"},
+        {"COLUMN_NAME": "ACQUISITION_DATE", "DATA_TYPE": "TIMESTAMPTZ"},
+        {"COLUMN_NAME": "ON_SOCIAL_NETWORK", "DATA_TYPE": "BOOLEAN"},
+        {"COLUMN_NAME": "CAMPAIGN", "DATA_TYPE": "VARCHAR"},
+        {"COLUMN_NAME": "NEW_VS_REPEAT", "DATA_TYPE": "VARCHAR"},
+        {"COLUMN_NAME": "PRODUCT", "DATA_TYPE": "VARCHAR"},
+        {"COLUMN_NAME": "DAY_OF_WEEK", "DATA_TYPE": "CHAR"},
+        {"COLUMN_NAME": "TWITTER", "DATA_TYPE": "VARCHAR"},
+        {"COLUMN_NAME": "EMAILS_FROM_US_IN_THE_LAST_WEEK", "DATA_TYPE": "VARCHAR"},
+        {"COLUMN_NAME": "LAST_VIEWED_PAGE", "DATA_TYPE": "VARCHAR"},
+        {"COLUMN_NAME": "CUSTOMER_ID", "DATA_TYPE": "VARCHAR"},
+        {"COLUMN_NAME": "TOP_CUSTOMERS", "DATA_TYPE": "VARCHAR"},
+    ]
+    order_records = [{"TABLE_NAME": "ORDERS", **o} for o in order_records]
+    session_records = [
+        {"COLUMN_NAME": "SESSION_ID", "DATA_TYPE": "VARCHAR"},
+        {"COLUMN_NAME": "SESSION_DATE", "DATA_TYPE": "DATE"},
+        {"COLUMN_NAME": "ADD_TO_CART", "DATA_TYPE": "BIGINT"},
+        {"COLUMN_NAME": "CONVERSION", "DATA_TYPE": "REAL"},
+        {"COLUMN_NAME": "CROSSSELL_PRODUCT", "DATA_TYPE": "VARCHAR"},
+        {"COLUMN_NAME": "ACQUISITION_CHANNEL", "DATA_TYPE": "VARCHAR"},
+        {"COLUMN_NAME": "SOCIAL_NETWORK", "DATA_TYPE": "VARCHAR"},
+        {"COLUMN_NAME": "CAMPAIGN", "DATA_TYPE": "VARCHAR"},
+        {"COLUMN_NAME": "NEW_VS_REPEAT", "DATA_TYPE": "VARCHAR"},
+        {"COLUMN_NAME": "PRODUCT", "DATA_TYPE": "VARCHAR"},
+        {"COLUMN_NAME": "DAY_OF_WEEK", "DATA_TYPE": "VARCHAR"},
+        {"COLUMN_NAME": "TWITTER", "DATA_TYPE": "VARCHAR"},
+        {"COLUMN_NAME": "EMAILS_FROM_US_IN_THE_LAST_WEEK", "DATA_TYPE": "VARCHAR"},
+        {"COLUMN_NAME": "LAST_VIEWED_PAGE", "DATA_TYPE": "VARCHAR"},
+    ]
+    session_records = [{"TABLE_NAME": "SESSIONS", **o} for o in session_records]
+    all_records = order_records + session_records
+    records = [{"TABLE_CATALOG": "DEMO", "TABLE_SCHEMA": "ANALYTICS", **r} for r in all_records]
+    return pd.DataFrame(records)
+
+
+@pytest.fixture(scope="function")
 def seed_bigquery_tables_data():
     order_records = [
         {"column_name": "ORDER_ID", "data_type": "INT64"},
