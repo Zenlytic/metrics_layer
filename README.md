@@ -1,6 +1,6 @@
 # Metrics Layer
 
-[![Build Status](https://app.travis-ci.com/Zenlytic/metrics_layer.svg?branch=master)](https://app.travis-ci.com/Zenlytic/metrics_layer)
+![Github Actions](https://github.com/Zenlytic/metrics_layer/actions/workflows/tests.yaml/badge.svg)
 [![codecov](https://codecov.io/gh/Zenlytic/metrics_layer/branch/master/graph/badge.svg?token=7JA6PKNV57)](https://codecov.io/gh/Zenlytic/metrics_layer)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
@@ -16,7 +16,7 @@ Sound interesting? Here's how to set Metrics Layer up with your data model and s
 
 ## Installation
 
-Make sure that your data warehouse is one of the supported types. Metrics Layer currently supports Snowflake, BigQuery and Redshift, and only works with `python >= 3.8`.
+Make sure that your data warehouse is one of the supported types. Metrics Layer currently supports Snowflake, BigQuery and Redshift, and only works with `python >= 3.8` up to `python < 3.11`.
 
 Install Metrics Layer with the appropriate extra for your warehouse
 
