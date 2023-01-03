@@ -1,6 +1,6 @@
 # Metrics Layer
 
-[![Build Status](https://app.travis-ci.com/Zenlytic/metrics_layer.svg?branch=master)](https://app.travis-ci.com/Zenlytic/metrics_layer)
+![Github Actions](https://github.com/Zenlytic/metrics_layer/actions/workflows/tests.yaml/badge.svg?branch=master)
 [![codecov](https://codecov.io/gh/Zenlytic/metrics_layer/branch/master/graph/badge.svg?token=7JA6PKNV57)](https://codecov.io/gh/Zenlytic/metrics_layer)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 

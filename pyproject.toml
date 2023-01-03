@@ -3,7 +3,7 @@ name = "metrics_layer"
 version = "0.9.16"
 description = "The open source metrics layer."
 authors = ["Paul Blankley <paul@zenlytic.com>"]
-keywords = ["Metrics Layer", "Looker", "Analytics"]
+keywords = ["Metrics Layer", "Business Intelligence", "Analytics"]
 readme = "README.md"
 license = "Apache 2.0"
 homepage = "https://github.com/Zenlytic/metrics_layer"
@@ -11,7 +11,7 @@ repository = "https://github.com/Zenlytic/metrics_layer"
 documentation = "https://docs.zenlytic.com"
 
 [tool.poetry.dependencies]
-python = ">=3.8.1, <3.13"
+python = ">=3.8.1, <3.12"
 GitPython = "^3.1.20"
 sqlparse = "^0.4.1"
 PyPika = "^0.48.8"
