@@ -13,7 +13,7 @@ jobs:
 
       steps:
         - uses: actions/checkout@v3
-        
+
         - name: Set up Python 3.8
           uses: actions/setup-python@v4
           with:
@@ -25,7 +25,7 @@ jobs:
             pip install poetry==1.2.1
 
         - name: Build package
-          run: poetry build
+          run: cd ../ && poetry build
 
         - name: Publish package
           uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
