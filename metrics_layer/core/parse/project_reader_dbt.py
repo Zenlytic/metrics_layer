@@ -8,6 +8,9 @@ from metrics_layer.core.exceptions import QueryError
 
 class dbtProjectReader(ProjectReaderBase):
     def load(self) -> None:
+        if self.dbt_project is None:
+            raise QueryError("No dbt project found")
+
         self.project_name = self.dbt_project["name"]
 
         self.generate_manifest_json(self.dbt_folder, self.profiles_dir)

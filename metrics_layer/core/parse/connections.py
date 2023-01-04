@@ -132,10 +132,10 @@ class PostgresConnection(RedshiftConnection):
         self,
         name: str,
         host: str,
-        username: str,
+        user: str,
         password: str,
-        port: int = 5439,
-        database: str = None,
+        port: int = 5432,
+        dbname: str = None,
         schema: str = None,
         **kwargs,
     ) -> None:
@@ -143,9 +143,11 @@ class PostgresConnection(RedshiftConnection):
         self.name = name
         self.host = host
         self.port = port
-        self.username = username
+        self.user = user
+        self.username = user
         self.password = password
-        self.database = database
+        self.database = dbname
+        self.dbname = dbname
         self.schema = schema
 
 

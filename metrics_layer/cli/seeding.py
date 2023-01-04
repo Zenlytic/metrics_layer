@@ -62,7 +62,22 @@ class SeedMetricsLayer:
             "DECIMAL": "number",
             "BIGINT": "number",
         }
-        self._postgres_type_lookup = {**self._redshift_type_lookup}
+        self._postgres_type_lookup = {
+            "date": "date",
+            "timestamp without time zone": "timestamp",
+            "timestamp with time zone": "timestamp",
+            "text": "string",
+            "boolean": "yesno",
+            "bigint": "number",
+            "integer": "number",
+            "smallint": "number",
+            "real": "number",
+            "double precision": "number",
+            "numeric": "number",
+            "float": "number",
+            "real": "number",
+            "money": "number",
+        }
         self._bigquery_type_lookup = {
             "DATE": "date",
             "DATETIME": "timestamp",
@@ -388,13 +403,14 @@ class dbtSeed(SeedMetricsLayer):
         count_metric = {
             "name": "count",
             "label": "Count",
-            "type": "count",
+            "calculation_method": "count",
+            "expression": fields[0]["name"],
             "model": f"ref('{view_name}')",
             "description": "The count of the rows in the table",
             "timestamp": default_date,
             "time_grains": ["day", "week", "month", "quarter", "year"],
         }
-
+        metrics = [count_metric] if default_date is not None else []
         model_meta = {"row_label": "TODO - Label row", "default_date": default_date, "identifiers": []}
         if model_meta["default_date"] is None:
             model_meta.pop("default_date")
@@ -404,7 +420,7 @@ class dbtSeed(SeedMetricsLayer):
 
         save_dir = os.path.join(dbt_model["root_path"], os.path.dirname(dbt_model["original_file_path"]))
         save_path = os.path.join(save_dir, f"__{view_name}.yml")
-        view = {"version": 2, "save_path": save_path, "models": [model], "metrics": [count_metric]}
+        view = {"version": 2, "save_path": save_path, "models": [model], "metrics": metrics}
         return view
 
     def make_fields(self, column_data: str):
@@ -413,10 +429,14 @@ class dbtSeed(SeedMetricsLayer):
             name = self.clean_name(row["COLUMN_NAME"])
             if self.connection.type == Definitions.snowflake:
                 metrics_layer_type = self._snowflake_type_lookup.get(row["DATA_TYPE"], "string")
-            if self.connection.type == Definitions.redshift:
+            elif self.connection.type == Definitions.redshift:
                 metrics_layer_type = self._redshift_type_lookup.get(row["DATA_TYPE"], "string")
+            elif self.connection.type == Definitions.postgres:
+                metrics_layer_type = self._postgres_type_lookup.get(row["DATA_TYPE"], "string")
             elif self.connection.type == Definitions.bigquery:
                 metrics_layer_type = self._bigquery_type_lookup.get(row["DATA_TYPE"], "string")
+            else:
+                raise ValueError(f"Unknown connection type {self.connection.type}")
 
             field = {"name": name, "description": f"The {name} for this table", "is_dimension": True}
 
@@ -428,6 +448,9 @@ class dbtSeed(SeedMetricsLayer):
 
     def filter_data(self, data, tables: list):
         table_names = [self._table_name(t).lower() for t in tables]
+        if len(table_names) == 0:
+            raise ValueError(f"No tables (that is, models) found in the dbt project")
+
         schema_matches = data["TABLE_SCHEMA"].str.lower() == self.schema.lower()
         table_names_match = data["TABLE_NAME"].str.lower().isin(table_names)
         return data[schema_matches & table_names_match].copy()

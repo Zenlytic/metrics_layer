@@ -57,6 +57,7 @@ def test_cli_seed_metrics_layer(
     seed_snowflake_tables_data,
     seed_bigquery_tables_data,
     seed_redshift_tables_data,
+    seed_postgres_tables_data,
 ):
     mocker.patch("os.mkdir")
     yaml_dump_called = 0
@@ -65,8 +66,10 @@ def test_cli_seed_metrics_layer(
         print(query)
         if query_type == Definitions.snowflake:
             return seed_snowflake_tables_data
-        elif query_type in {Definitions.redshift, Definitions.postgres}:
+        elif query_type == Definitions.redshift:
             return seed_redshift_tables_data
+        elif query_type == Definitions.postgres:
+            return seed_postgres_tables_data
         elif query_type == Definitions.bigquery:
             return seed_bigquery_tables_data
         raise ValueError("Query error, does not match expected")
@@ -80,10 +83,12 @@ def test_cli_seed_metrics_layer(
 
         elif data["type"] == "view" and data["name"] == "orders":
             assert data["model_name"] == "base_model"
-            if query_type in {Definitions.snowflake, Definitions.redshift, Definitions.postgres}:
+            if query_type in {Definitions.snowflake, Definitions.redshift}:
                 assert data["sql_table_name"] == "ANALYTICS.ORDERS"
-            else:
+            elif query_type == Definitions.bigquery:
                 assert data["sql_table_name"] == "`demo.analytics.orders`"
+            elif query_type == Definitions.postgres:
+                assert data["sql_table_name"] == "analytics.orders"
 
             date = next((f for f in data["fields"] if f["name"] == "order_created_at"))
             new = next((f for f in data["fields"] if f["name"] == "new_vs_repeat"))
@@ -114,10 +119,12 @@ def test_cli_seed_metrics_layer(
 
             assert len(data["fields"]) == 15
         elif data["type"] == "view" and data["name"] == "sessions":
-            if query_type in {Definitions.snowflake, Definitions.redshift, Definitions.postgres}:
+            if query_type in {Definitions.snowflake, Definitions.redshift}:
                 assert data["sql_table_name"] == "ANALYTICS.SESSIONS"
-            else:
+            elif query_type == Definitions.bigquery:
                 assert data["sql_table_name"] == "`demo.analytics.sessions`"
+            elif query_type == Definitions.postgres:
+                assert data["sql_table_name"] == "analytics.sessions"
 
             date = next((f for f in data["fields"] if f["name"] == "session_date"))
             pk = next((f for f in data["fields"] if f["name"] == "session_id"))
