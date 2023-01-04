@@ -38,3 +38,16 @@ jobs:
       - name: Report on code coverage
         run: |
           codecov
+
+  publish:
+    runs-on: "ubuntu-latest"
+
+    steps:
+      - name: Build and publish to pypi
+        uses: JRubics/poetry-publish@v1.15
+        if: github.repository == 'Zenlytic/metrics_layer' && github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+        with:
+          python_version: "3.8.11"
+          poetry_version: "==1.2.1" # (PIP version specifier syntax)
+          pypi_token: ${{ secrets.PYPI_TOKEN }}
+      
