@@ -16,7 +16,7 @@ Sound interesting? Here's how to set Metrics Layer up with your data model and s
 
 ## Installation
 
-Make sure that your data warehouse is one of the supported types. Metrics Layer currently supports Snowflake, BigQuery and Redshift, and only works with `python >= 3.8` up to `python < 3.11`.
+Make sure that your data warehouse is one of the supported types. Metrics Layer currently supports Snowflake, BigQuery, Postgres, and Redshift, and only works with `python >= 3.8` up to `python < 3.11`.
 
 Install Metrics Layer with the appropriate extra for your warehouse
 
@@ -25,6 +25,8 @@ For Snowflake run `pip install metrics-layer[snowflake]`
 For BigQuery run `pip install metrics-layer[bigquery]`
 
 For Redshift run `pip install metrics-layer[redshift]`
+
+For Postgres run `pip install metrics-layer[postgres]`
 
 
 ## Profile set up

@@ -14,6 +14,13 @@ try:
 except ModuleNotFoundError:
     pass
 
+try:
+    from sqlalchemy import create_engine
+except ModuleNotFoundError:
+    pass
+
+
+import pandas as pd
 from metrics_layer.core.parse.connections import (
     BaseConnection,
     ConnectionType,
@@ -29,6 +36,7 @@ class QueryRunner:
             ConnectionType.snowflake: self._run_snowflake_query,
             ConnectionType.bigquery: self._run_bigquery_query,
             ConnectionType.redshift: self._run_redshift_query,
+            ConnectionType.postgres: self._run_postgres_query,
         }
         if self.connection.type not in self._query_runner_lookup:
             supported = list(self._query_runner_lookup.keys())
@@ -75,6 +83,19 @@ class QueryRunner:
         if raw_cursor:
             return cursor
         df = cursor.fetch_dataframe()
+        return df
+
+    def _run_postgres_query(
+        self, timeout: int, raw_cursor: bool, run_pre_queries: bool, start_warehouse: bool
+    ):
+        postgres_connection = self._get_postgres_connection(self.connection, timeout=timeout)
+
+        if raw_cursor:
+            cursor = postgres_connection.cursor()
+            return cursor
+
+        df = pd.read_sql(self.query, postgres_connection)
+        postgres_connection.close()
         return df
 
     def _run_bigquery_query(
@@ -132,6 +153,27 @@ class QueryRunner:
                 "MetricsLayer could not find the Redshift modules it needs to run the query. "
                 "Make sure that you have those modules installed or reinstall MetricsLayer with "
                 "the [redshift] option e.g. pip install metrics-layer[redshift]"
+            )
+
+    @staticmethod
+    def _get_postgres_connection(connection: BaseConnection, timeout: int = None):
+        try:
+            username, password, host = connection.username, connection.password, connection.host
+            database, port = connection.database, int(connection.port)
+            connection_url = f"postgresql://{username}:{password}@{host}:{port}/{database}"
+
+            # statement_timeout is in milliseconds
+            if timeout:
+                connect_args = {"options": f"-c statement_timeout={timeout*1000}"}
+            else:
+                connect_args = {}
+            engine = create_engine(connection_url, connect_args=connect_args)
+            return engine.connect()
+        except (ModuleNotFoundError, NameError):
+            raise ModuleNotFoundError(
+                "MetricsLayer could not find the Postgres modules it needs to run the query. "
+                "Make sure that you have those modules installed or reinstall MetricsLayer with "
+                "the [postgres] option e.g. pip install metrics-layer[postgres]"
             )
 
     @staticmethod

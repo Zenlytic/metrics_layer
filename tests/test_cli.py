@@ -37,10 +37,27 @@ def test_cli_init(mocker, monkeypatch):
 
 
 @pytest.mark.cli
-# TODO add redshift test
-@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery])
+@pytest.mark.parametrize(
+    "query_type,profile,target",
+    [
+        (Definitions.snowflake, None, None),
+        (Definitions.bigquery, None, None),
+        (Definitions.postgres, None, None),
+        (Definitions.postgres, "alternative_demo", "alternative_target"),
+        (Definitions.redshift, None, None),
+    ],
+)
 def test_cli_seed_metrics_layer(
-    mocker, monkeypatch, connection, query_type, seed_snowflake_tables_data, seed_bigquery_tables_data
+    mocker,
+    monkeypatch,
+    connection,
+    query_type,
+    profile,
+    target,
+    seed_snowflake_tables_data,
+    seed_bigquery_tables_data,
+    seed_redshift_tables_data,
+    seed_postgres_tables_data,
 ):
     mocker.patch("os.mkdir")
     yaml_dump_called = 0
@@ -49,6 +66,10 @@ def test_cli_seed_metrics_layer(
         print(query)
         if query_type == Definitions.snowflake:
             return seed_snowflake_tables_data
+        elif query_type == Definitions.redshift:
+            return seed_redshift_tables_data
+        elif query_type == Definitions.postgres:
+            return seed_postgres_tables_data
         elif query_type == Definitions.bigquery:
             return seed_bigquery_tables_data
         raise ValueError("Query error, does not match expected")
@@ -64,8 +85,10 @@ def test_cli_seed_metrics_layer(
             assert data["model_name"] == "base_model"
             if query_type in {Definitions.snowflake, Definitions.redshift}:
                 assert data["sql_table_name"] == "ANALYTICS.ORDERS"
-            else:
+            elif query_type == Definitions.bigquery:
                 assert data["sql_table_name"] == "`demo.analytics.orders`"
+            elif query_type == Definitions.postgres:
+                assert data["sql_table_name"] == "analytics.orders"
 
             date = next((f for f in data["fields"] if f["name"] == "order_created_at"))
             new = next((f for f in data["fields"] if f["name"] == "new_vs_repeat"))
@@ -81,7 +104,7 @@ def test_cli_seed_metrics_layer(
             assert acq_date["sql"] == "${TABLE}.ACQUISITION_DATE"
 
             assert date["type"] == "time"
-            if query_type in {Definitions.snowflake, Definitions.redshift}:
+            if query_type in {Definitions.snowflake, Definitions.redshift, Definitions.postgres}:
                 assert date["datatype"] == "date"
             else:
                 assert date["datatype"] == "timestamp"
@@ -98,15 +121,18 @@ def test_cli_seed_metrics_layer(
         elif data["type"] == "view" and data["name"] == "sessions":
             if query_type in {Definitions.snowflake, Definitions.redshift}:
                 assert data["sql_table_name"] == "ANALYTICS.SESSIONS"
-            else:
+            elif query_type == Definitions.bigquery:
                 assert data["sql_table_name"] == "`demo.analytics.sessions`"
+            elif query_type == Definitions.postgres:
+                assert data["sql_table_name"] == "analytics.sessions"
 
             date = next((f for f in data["fields"] if f["name"] == "session_date"))
             pk = next((f for f in data["fields"] if f["name"] == "session_id"))
             num = next((f for f in data["fields"] if f["name"] == "conversion"))
 
+            print(date)
             assert date["type"] == "time"
-            if query_type in {Definitions.snowflake, Definitions.redshift}:
+            if query_type in {Definitions.snowflake, Definitions.redshift, Definitions.postgres}:
                 assert date["datatype"] == "date"
             else:
                 assert date["datatype"] == "timestamp"
@@ -125,7 +151,17 @@ def test_cli_seed_metrics_layer(
 
     old_type = copy(connection._raw_connections[0].type)
     connection._raw_connections[0].type = query_type
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
+
+    def mock_init_profile(profile, target):
+        assert target == target
+        if target is None:
+            assert profile == "demo"
+        else:
+            assert profile == "alternative_demo"
+        return connection
+
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", mock_init_profile)
+
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
     monkeypatch.setattr(SeedMetricsLayer, "run_query", query_runner_mock)
     monkeypatch.setattr(ProjectReaderBase, "dbt_project", None)
@@ -133,10 +169,22 @@ def test_cli_seed_metrics_layer(
 
     runner = CliRunner()
     result = runner.invoke(
-        seed, ["--database", "demo", "--schema", "analytics", "--connection", "testing_snowflake"]
+        seed,
+        [
+            "--database",
+            "demo",
+            "--schema",
+            "analytics",
+            "--connection",
+            "testing_snowflake",
+            "--profile",
+            profile,
+            "--target",
+            target,
+        ],
     )
 
-    print(result.output)
+    print(result)
     assert result.exit_code == 0
     dirs = ["dashboards", "views", "models"]
     calls = [os.path.join(os.getcwd(), dir_path) for dir_path in dirs]
@@ -167,7 +215,9 @@ def test_cli_seed_metrics_layer(
 
 @pytest.mark.cli
 def test_cli_validate(connection, fresh_project, mocker):
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
+    mocker.patch(
+        "metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: connection
+    )
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
     runner = CliRunner()
     result = runner.invoke(validate)
@@ -182,7 +232,7 @@ def test_cli_validate(connection, fresh_project, mocker):
     sorted_fields[17]["name"] = "rev_broken_dim"
     project._views[1]["fields"] = sorted_fields
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
     runner = CliRunner()
@@ -206,7 +256,7 @@ def test_cli_validate_joins(connection, fresh_project, mocker):
     project._views[1]["identifiers"] = identifiers
 
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
     runner = CliRunner()
@@ -230,7 +280,7 @@ def test_cli_validate_dashboards(connection, fresh_project, mocker):
     dashboards[0]["elements"][1]["metrics"][0] = "missing_revenue"
     project._dashboards = dashboards
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
     runner = CliRunner()
@@ -258,7 +308,7 @@ def test_cli_validate_names(connection, fresh_project, mocker):
     sorted_fields[3]["timeframes"] = ["date", "month", "year"]
     project._views[1]["fields"] = sorted_fields
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
     runner = CliRunner()
@@ -279,7 +329,7 @@ def test_cli_validate_model_name_in_view(connection, fresh_project, mocker):
     project = fresh_project
     project._views[1].pop("model_name")
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
     runner = CliRunner()
@@ -298,7 +348,7 @@ def test_cli_validate_two_customer_tags(connection, fresh_project, mocker):
     sorted_fields = sorted(fresh_project._views[1]["fields"], key=lambda x: x["name"])
     sorted_fields[5]["tags"] = ["customer"]
     conn = MetricsLayerConnection(project=fresh_project, connections=connection._raw_connections[0])
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
     runner = CliRunner()
@@ -320,7 +370,7 @@ def test_cli_dashboard_model_does_not_exist(connection, fresh_project, mocker):
 
     dashboards[0]["elements"][0]["model"] = "missing_model"
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
     runner = CliRunner()
@@ -342,7 +392,9 @@ def test_cli_debug(connection, mocker):
         return True
 
     connection.run_query = query_runner_mock
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
+    mocker.patch(
+        "metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: connection
+    )
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
     runner = CliRunner()
@@ -389,7 +441,9 @@ def test_cli_debug(connection, mocker):
 )
 @pytest.mark.cli
 def test_cli_list(connection, mocker, object_type: str, extra_args: list):
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
+    mocker.patch(
+        "metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: connection
+    )
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
     runner = CliRunner()
@@ -428,7 +482,9 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
 )
 @pytest.mark.cli
 def test_cli_show(connection, mocker, name, extra_args):
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile: connection)
+    mocker.patch(
+        "metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: connection
+    )
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
 
     runner = CliRunner()
