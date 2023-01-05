@@ -29,9 +29,9 @@ class ProjectLoader:
         self._project = None
         self._user = None
 
-    def load(self):
+    def load(self, private_key: str = None):
         self._connections = self.load_connections(self._raw_connections)
-        self._project = self._load_project()
+        self._project = self._load_project(private_key)
         return self._project
 
     @property
@@ -48,8 +48,8 @@ class ProjectLoader:
     def get_branch_options(self):
         return self.repo.branch_options
 
-    def _load_project(self):
-        self.repo.fetch()
+    def _load_project(self, private_key):
+        self.repo.fetch(private_key=private_key)
         repo_type = self.repo.get_repo_type()
         if repo_type == "dbt":
             reader = dbtProjectReader(repo=self.repo)

@@ -23,26 +23,29 @@ class MetricsLayerConnection:
         **kwargs,
     ):
         self.location, self.branch, self._raw_connections = location, branch, connections
-        self._raw_project = project
         self.kwargs = kwargs
         self._user = user
         self.branch_options = None
         self._project = None
+        if project is not None:
+            self._project_passed = True
+            self._project = project
+            self._project.set_user(self._user)
+            self.branch_options = []
 
     def set_user(self, user: dict):
         self._user = user
         self.project.set_user(self._user)
 
-    def load(self):
+    def load(self, private_key: str = None):
         if self.location is not None:
             self._loader = ProjectLoader(self.location, self.branch, self._raw_connections)
-            self._project = self._loader.load()
+            self._project = self._loader.load(private_key=private_key)
             self._project.set_user(self._user)
             self.branch_options = self._loader.get_branch_options()
-        elif self._raw_project is not None:
-            self._project = self._raw_project
-            self._project.set_user(self._user)
-            self.branch_options = []
+        elif self._project_passed:
+            # Project is passed in explicitly, nothing else to do
+            pass
         else:
             raise DBConnectionError(
                 "No project or location specified. Pass either the location "
@@ -56,13 +59,12 @@ class MetricsLayerConnection:
     @property
     def project(self):
         if self._project is None:
-            self.load()
+            raise QueryError("You must call the load() method before accessing the project.")
         return self._project
 
     def get_branch_options(self):
-        if self.branch_options is not None:
-            return self.branch_options
-        self.load()
+        if self.branch_options is None:
+            raise QueryError("You must call the load() method before accessing the branch options.")
         return self.branch_options
 
     def add_connections(self, additional_raw_connections: list):

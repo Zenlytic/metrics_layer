@@ -26,7 +26,7 @@ class repo_mock(BaseRepo):
             return "SNOWFLAKE"
         raise NotImplementedError()
 
-    def fetch(self):
+    def fetch(self, private_key=None):
         return
 
     def search(self, pattern, folders):
@@ -52,6 +52,7 @@ def mock_dbt_search(pattern):
 
 def test_get_branch_options():
     loader = MetricsLayerConnection(location=os.path.join(BASE_PATH, "config/metrics_layer/"))
+    loader.load()
     assert loader.get_branch_options() == []
 
 
