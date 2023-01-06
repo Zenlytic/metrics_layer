@@ -109,7 +109,9 @@ class ProjectLoader:
 
     @staticmethod
     def _is_local(location: str):
-        return "https://" not in location
+        is_http = "http://" in location.lower() or "https://" in location.lower()
+        is_ssh = location.lower().startswith("git@")
+        return not (is_http or is_ssh)
 
     @staticmethod
     def load_connections(connections: list):
