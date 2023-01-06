@@ -114,7 +114,7 @@ class GithubRepo(BaseRepo):
 
     @staticmethod
     def _fetch_github_repo_ssh(repo_url: str, repo_destination: str, branch: str, private_key: str):
-        file_name = "ssh_p8_key"
+        file_name = f"ssh_p8_key_{utils.generate_uuid(db_safe=True)}"
         file_path = os.path.join(BASE_PATH, file_name)
         with open(file_path, "wb") as f:
             f.write(private_key)
@@ -132,7 +132,10 @@ class GithubRepo(BaseRepo):
             branch_options = GithubRepo._fetch_branch_options(repo, branch)
             os.remove(file_path)
         except Exception as e:
-            os.remove(file_path)
+            try:
+                os.remove(file_path)
+            except Exception as e:
+                print(f"Exception removing private key file: {e}")
             raise e
 
         return repo, branch_options
