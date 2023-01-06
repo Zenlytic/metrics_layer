@@ -18,11 +18,18 @@ def test_config_explicit_metrics_layer_single_local():
     assert loader.repo.repo_path == "./tests/config/metrics_layer_config/"
 
 
-def test_config_explicit_metrics_layer_single():
+def test_config_explicit_metrics_layer_single_http():
     loader = ProjectLoader(location="https://github.com", branch="dev")
 
     assert loader.repo.branch == "dev"
     assert loader.repo.repo_url == "https://github.com"
+
+
+def test_config_explicit_metrics_layer_single_ssh():
+    loader = ProjectLoader(location="git@github.com:", branch="dev")
+
+    assert loader.repo.branch == "dev"
+    assert loader.repo.repo_url == "git@github.com:"
 
 
 def test_config_explicit_metrics_layer_pickle(project):
