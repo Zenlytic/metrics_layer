@@ -17,6 +17,7 @@ class SeedMetricsLayer:
         profile=None,
         target=None,
         metrics_layer=None,
+        run_query_override=None,
     ):
         self.default_model_name = "base_model"
         self.profile_name = profile
@@ -267,6 +268,8 @@ class SeedMetricsLayer:
         return query + ";"
 
     def run_query(self, query: str):
+        if self.run_query_override:
+            return self.run_query_override(query)
         return self.metrics_layer.run_query(
             query, self.connection, run_pre_queries=False, start_warehouse=True
         )
