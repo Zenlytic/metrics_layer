@@ -8,13 +8,24 @@ class SeedMetricsLayer:
     default_models_path = "models"
     default_dashboards_path = "dashboards"
 
-    def __init__(self, connection=None, database=None, schema=None, table=None, profile=None, target=None):
+    def __init__(
+        self,
+        connection=None,
+        database=None,
+        schema=None,
+        table=None,
+        profile=None,
+        target=None,
+        metrics_layer=None,
+    ):
         self.default_model_name = "base_model"
         self.profile_name = profile
         self.target_name = target
-        self.metrics_layer, self.connection = self._init_connection(
-            self.profile_name, self.target_name, connection
-        )
+        if metrics_layer is None:
+            self.metrics_layer = SeedMetricsLayer._init_profile(self.profile_name, self.target_name)
+        else:
+            self.metrics_layer = metrics_layer
+        self.connection = self._init_connection(self.metrics_layer, connection)
         self.database = database if database else self.connection.database
         self.schema = schema if schema else self.connection.schema
         self.table = table.replace(".sql", "") if table else None
@@ -96,8 +107,8 @@ class SeedMetricsLayer:
             raise NotImplementedError(
                 f"The only data warehouses supported for seeding are {Definitions.supported_warehouses_text}"
             )
-        table_query = self.table_query()
-        data = self.run_query(table_query)
+        columns_query = self.columns_query()
+        data = self.run_query(columns_query)
         data.columns = [c.upper() for c in data.columns]
         print(f"Got information on all tables and views in {self.location_description}")
 
@@ -207,7 +218,7 @@ class SeedMetricsLayer:
             fields.append(field)
         return fields
 
-    def table_query(self):
+    def columns_query(self):
         query = "SELECT table_catalog, table_schema, table_name, column_name, data_type FROM "
         if self.database and self.connection.type in {
             Definitions.snowflake,
@@ -225,15 +236,43 @@ class SeedMetricsLayer:
             raise ValueError("You must specify at least a database for seeding")
         return query + ";"
 
+    def table_query(self):
+        if self.database and self.connection.type == Definitions.snowflake:
+            query = (
+                "SELECT table_catalog as table_database, table_schema as table_schema, "
+                "table_name as table_name, table_owner as table_owner, table_type as table_type, "
+                "bytes as table_size, created as table_created, last_altered as table_last_modified, "
+                f"row_count as table_row_count FROM {self.database}.INFORMATION_SCHEMA.TABLES"
+            )
+        elif self.database and self.connection.type in {Definitions.redshift, Definitions.postgres}:
+            query = (
+                "SELECT table_catalog as table_database, table_schema as table_schema, "
+                "table_name as table_name, table_type as table_type "
+                f"FROM {self.database}.INFORMATION_SCHEMA.TABLES "
+                "WHERE table_schema not in ('pg_catalog', 'information_schema')"
+            )
+        elif self.database and self.schema and self.connection.type == Definitions.bigquery:
+            query = (
+                "SELECT table_catalog as table_database, table_schema as table_schema, "
+                "table_name as table_name, table_type as table_type, "
+                "creation_time as table_created FROM "
+                f"`{self.database}.{self.schema}`.INFORMATION_SCHEMA.TABLES"
+            )
+        elif not self.schema and self.connection.type == Definitions.bigquery:
+            raise ValueError(
+                "You must specify a database (project) AND a schema (dataset) for seeding in BigQuery"
+            )
+        else:
+            raise ValueError("You must specify at least a database for seeding")
+        return query + ";"
+
     def run_query(self, query: str):
         return self.metrics_layer.run_query(
             query, self.connection, run_pre_queries=False, start_warehouse=True
         )
 
     @staticmethod
-    def _init_connection(profile_name: str, target: str = None, connection_name: str = None):
-        metrics_layer = SeedMetricsLayer._init_profile(profile_name, target)
-
+    def _init_connection(metrics_layer, connection_name: str = None):
         if connection_name:
             connection = metrics_layer.get_connection(connection_name)
         else:
@@ -242,10 +281,10 @@ class SeedMetricsLayer:
                 connection = connections[0]
             else:
                 raise ValueError(
-                    f"Could not determine the connection to use with profile {profile_name}, "
+                    f"Could not determine the connection to use, "
                     "please pass the connection name with the --connection arg"
                 )
-        return metrics_layer, connection
+        return connection
 
     @staticmethod
     def _init_profile(profile_name: str, target: str = None):
@@ -354,8 +393,8 @@ class dbtSeed(SeedMetricsLayer):
         else:
             dbt_tables = self.manifest.models(schema=self.schema)
 
-        table_query = self.table_query()
-        data = self.run_query(table_query)
+        columns_query = self.columns_query()
+        data = self.run_query(columns_query)
         data.columns = [c.upper() for c in data.columns]
         print(f"Got information on all tables and views in {self.location_description}")
 
