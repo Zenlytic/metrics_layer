@@ -288,6 +288,8 @@ def connections():
     class bq_mock(BaseConnection):
         name = "testing_bigquery"
         type = "BIGQUERY"
+        database = "analytics"
+        schema = "test_schema"
 
         def printable_attributes(self):
             return {"name": self.name, "type": self.type, "project_id": "fake-proj-id"}
@@ -295,6 +297,8 @@ def connections():
     class sf_mock(BaseConnection):
         name = "testing_snowflake"
         type = "SNOWFLAKE"
+        database = "analytics"
+        schema = None
 
         def printable_attributes(self):
             return {

@@ -80,7 +80,7 @@ class GithubRepo(BaseRepo):
         self.branch_options = []
 
     def fetch(self, private_key: str = None):
-        _, branch_options = self.fetch_github_repo(private_key)
+        self.__git_repo, branch_options = self.fetch_github_repo(private_key)
         self.dbt_path = self.get_dbt_path()
         self.branch_options = branch_options
 
@@ -90,6 +90,29 @@ class GithubRepo(BaseRepo):
 
         if os.path.exists(folder) and os.path.isdir(folder):
             shutil.rmtree(folder)
+
+    def create_branch(self, branch_name: str):
+        current = self.__git_repo.create_head(branch_name)
+        current.checkout()
+        self.__git_repo.git.push("--set-upstream", "origin", current)
+
+    def add_commit_and_push(self, message: str, branch_name: str):
+        self.__git_repo.git.checkout(branch_name)
+        self.__git_repo.git.add(A=True)
+        self.__git_repo.git.commit(m=message)
+        self.__git_repo.git.push("origin", branch_name)
+
+    def pull(self, pulling_from: str, pulling_to: str):
+        self.__git_repo.git.checkout(pulling_to)
+        self.__git_repo.git.pull("--rebase=false", "origin", pulling_from)
+        self.__git_repo.git.push("origin", pulling_to)
+
+    def squash_and_merge(self, merging_from: str, merging_to: str, message: str = None):
+        msg = message if message else f"Squash and merge {merging_from} into {merging_to}"
+        self.__git_repo.git.checkout(merging_to)
+        self.__git_repo.git.merge(f"origin/{merging_from}", squash=True)
+        self.__git_repo.git.commit(m=msg)
+        self.__git_repo.git.push("origin", merging_to)
 
     def fetch_github_repo(self, private_key: str):
         if self.is_ssh:
@@ -108,7 +131,7 @@ class GithubRepo(BaseRepo):
     def _fetch_github_repo_https(repo_url: str, repo_destination: str, branch: str):
         if os.path.exists(repo_destination) and os.path.isdir(repo_destination):
             shutil.rmtree(repo_destination)
-        repo = git.Repo.clone_from(repo_url, to_path=repo_destination, branch=branch, depth=1)
+        repo = git.Repo.clone_from(repo_url, to_path=repo_destination, branch=branch)
         branch_options = GithubRepo._fetch_branch_options(repo, branch)
         return repo, branch_options
 
