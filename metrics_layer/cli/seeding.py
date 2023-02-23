@@ -20,6 +20,7 @@ class SeedMetricsLayer:
         run_query_override=None,
     ):
         self.default_model_name = "base_model"
+        self.run_query_override = run_query_override
         self.profile_name = profile
         self.target_name = target
         if metrics_layer is None:
