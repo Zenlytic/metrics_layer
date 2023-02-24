@@ -142,6 +142,11 @@ class Field(MetricsLayerBase, SQLReplacement):
             return Set(set_definition, project=self.view.project).field_names()
         return drill_fields
 
+    @property
+    def update_where_timeframe(self):
+        # if this value is present we use it, otherwise we default to True
+        return self._definition.get("update_where_timeframe", True)
+
     def cte_prefix(self, aggregated: bool = True):
         if self.type == "cumulative":
             prefix = "aggregated" if aggregated else "subquery"
