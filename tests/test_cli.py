@@ -229,7 +229,7 @@ def test_cli_validate(connection, fresh_project, mocker):
     project = fresh_project
     project._views[1]["default_date"] = "sessions.session_date"
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
-    sorted_fields[17]["name"] = "rev_broken_dim"
+    sorted_fields[18]["name"] = "rev_broken_dim"
     project._views[1]["fields"] = sorted_fields
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)

@@ -192,6 +192,34 @@ def test_cumulative_query_metrics_month_time_frame(connection):
 
 
 @pytest.mark.query
+def test_cumulative_query_metrics_month_time_frame_no_change_where_time_frame(connection):
+    query = connection.get_sql_query(
+        metrics=["cumulative_customers_no_change_grain"], dimensions=["customers.first_order_month"]
+    )
+
+    correct = (
+        "WITH date_spine AS (select dateadd(day, seq4(), '2000-01-01') as date "
+        "from table(generator(rowcount => 365*40))) ,subquery_orders_cumulative_customers_no_change_grain "
+        "AS (SELECT DATE_TRUNC('MONTH', customers.first_order_date) as customers_first_order_month,"
+        "DATE_TRUNC('DAY', customers.cancelled_date) as customers_cancelled_date,"
+        "customers.customer_id as customers_number_of_customers FROM analytics.customers customers) ,"
+        "aggregated_orders_cumulative_customers_no_change_grain AS (SELECT "
+        "COUNT(customers_number_of_customers) as customers_number_of_customers,date_spine.date "
+        "as customers_first_order_month FROM (SELECT DISTINCT DATE_TRUNC('MONTH', date) as date "
+        "FROM date_spine) date_spine JOIN subquery_orders_cumulative_customers_no_change_grain "
+        "ON subquery_orders_cumulative_customers_no_change_grain.customers_first_order_month"
+        "<=date_spine.date AND subquery_orders_cumulative_customers_no_change_grain"
+        ".customers_cancelled_date < date_spine.date WHERE date_spine.date<=current_date() "
+        "GROUP BY date_spine.date) "
+        "SELECT aggregated_orders_cumulative_customers_no_change_grain.customers_first_order_month "
+        "as customers_first_order_month,aggregated_orders_cumulative_customers_no_change_grain"
+        ".customers_number_of_customers as orders_cumulative_customers_no_change_grain "
+        "FROM aggregated_orders_cumulative_customers_no_change_grain;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_cumulative_query_metrics_and_time(connection):
     query = connection.get_sql_query(
         metrics=["total_lifetime_revenue", "total_item_revenue"],
