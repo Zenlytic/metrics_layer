@@ -296,6 +296,7 @@ class SeedMetricsLayer:
 
         connections = MetricsLayerConnection.get_connections_from_profile(profile_name, target)
         metrics_layer = MetricsLayerConnection(location=SeedMetricsLayer._location(), connections=connections)
+        metrics_layer.load()
         return metrics_layer
 
     @staticmethod
