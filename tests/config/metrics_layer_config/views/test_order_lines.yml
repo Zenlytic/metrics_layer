@@ -159,6 +159,11 @@ fields:
     type: number
     sql: "${total_item_revenue} / ${orders.number_of_orders}"
 
+  - name: should_be_number
+    field_type: measure
+    type: sum
+    sql: "${line_item_aov} + ${total_item_costs_pct}"
+
   - name: costs_per_session
     field_type: measure
     type: number 
