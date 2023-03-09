@@ -124,7 +124,7 @@ def test_mapping_multiple_metric_different_canon_date_merged_mapped_date_and_fil
         "orders_number_of_orders as orders_number_of_orders,sessions_session__subquery_2."
         "sessions_number_of_sessions as sessions_number_of_sessions,orders_order__subquery_0."
         "orders_order_date as orders_order_date,sessions_session__subquery_2.sessions_session_date "
-        "as sessions_session_date FROM orders_order__subquery_0 JOIN sessions_session__subquery_2 "
+        "as sessions_session_date FROM orders_order__subquery_0 FULL OUTER JOIN sessions_session__subquery_2 "
         "ON orders_order__subquery_0.orders_order_date=sessions_session__subquery_2.sessions_session_date;"
     )
 
@@ -170,7 +170,7 @@ def test_mapping_multiple_metric_different_canon_date_joinable_mapped_date_dim_a
         "as orders_number_of_orders,order_lines_order__subquery_0.orders_sub_channel "
         "as orders_sub_channel,order_lines_order__subquery_0.order_lines_order_date "
         "as order_lines_order_date,orders_order__subquery_0.orders_order_date as orders_order_date "
-        "FROM order_lines_order__subquery_0 JOIN orders_order__subquery_0 "
+        "FROM order_lines_order__subquery_0 FULL OUTER JOIN orders_order__subquery_0 "
         "ON order_lines_order__subquery_0.orders_sub_channel=orders_order__subquery_0"
         ".orders_sub_channel and order_lines_order__subquery_0.order_lines_order_date"
         "=orders_order__subquery_0.orders_order_date;"
@@ -297,7 +297,7 @@ def test_mapped_metric_mapped_merged_results(connection):
         "order_lines_total_item_revenue,sessions_session__subquery_2.sessions_number_of_sessions "
         "as sessions_number_of_sessions,order_lines_order__subquery_0.orders_sub_channel as "
         "orders_sub_channel,sessions_session__subquery_2.sessions_utm_source as "
-        "sessions_utm_source FROM order_lines_order__subquery_0 JOIN sessions_session__subquery_2 "
+        "sessions_utm_source FROM order_lines_order__subquery_0 FULL OUTER JOIN sessions_session__subquery_2 "
         "ON order_lines_order__subquery_0.orders_sub_channel"
         "=sessions_session__subquery_2.sessions_utm_source;"
     )

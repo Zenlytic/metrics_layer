@@ -39,7 +39,7 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
                 base_cte_query = base_cte_query.from_(AliasedQuery(join_hash))
             else:
                 criteria = self._build_join_criteria(self.join_hashes[0], join_hash)
-                base_cte_query = base_cte_query.inner_join(AliasedQuery(join_hash)).on(criteria)
+                base_cte_query = base_cte_query.outer_join(AliasedQuery(join_hash)).on(criteria)
 
         return base_cte_query
 
