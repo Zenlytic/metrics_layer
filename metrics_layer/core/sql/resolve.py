@@ -21,6 +21,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
     ):
         self.field_lookup = {}
         self.no_group_by = False
+        self.mapping_forces_merged_result = False
         self.verbose = kwargs.get("verbose", False)
         self.select_raw_sql = kwargs.get("select_raw_sql", [])
         self.explore_name = kwargs.get("explore_name")
@@ -42,7 +43,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
     def is_merged_result(self):
         has_explicit_merge = any(self.project.get_field(m).is_merged_result for m in self.metrics)
         has_specified_merge = self.kwargs.get("merged_result", False)
-        return has_explicit_merge or has_specified_merge
+        return has_explicit_merge or has_specified_merge or self.mapping_forces_merged_result
 
     def get_query(self, semicolon: bool = True):
         err_msg = ""
@@ -101,7 +102,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         return query
 
     def _resolve_mapped_fields(self):
-        self.mapping_lookup, self.field_lookup = {}, {}
+        self.mapping_lookup, self.field_lookup, self.field_object_lookup = {}, {}, {}
         self._where_fields, self._having_fields, self._order_fields = self.parse_field_names(
             self.where, self.having, self.order_by
         )
@@ -113,9 +114,9 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             if mapped_field:
                 self.mapping_lookup[field_name] = mapped_field
             else:
-                self.field_lookup[field_name] = self.project.get_field(
-                    field_name, model=self.model
-                ).join_graphs()
+                field_obj = self.project.get_field(field_name, model=self.model)
+                self.field_object_lookup[field_name] = field_obj
+                self.field_lookup[field_name] = field_obj.join_graphs()
 
         if not self.mapping_lookup:
             return
@@ -124,9 +125,27 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             mergeable_graphs, joinable_graphs = self._join_graphs_by_type(self.field_lookup)
             self._handle_invalid_merged_result(mergeable_graphs, joinable_graphs)
             for name, mapped_field in self.mapping_lookup.items():
-                replace_with = self.determine_field_to_replace_with(
-                    mapped_field, joinable_graphs, mergeable_graphs
-                )
+                is_date_mapping = mapped_field["name"] in self.model.special_mapping_values
+                if is_date_mapping and len(self.metrics) >= 1:
+                    # Use the first metric to replace the mapped field everywhere
+                    # This is fine to do in the case we have multiple metrics because in that
+                    # case we'll need to run a merged result query which will take care of mapping the
+                    # canon_date's for each metric regardless of the canon_date chosen for the filters
+                    first_metric_field = self._get_field_from_lookup(self.metrics[0])
+                    canon_date_id = f'{first_metric_field.canon_date}_{mapped_field["name"]}'
+                    replace_with = self.project.get_field(canon_date_id)
+
+                    # If the additional metrics have different canon_dates, we'll need to
+                    # change the query type to be a merged result
+                    for field_name in self.metrics[1:]:
+                        metric_field = self._get_field_from_lookup(field_name)
+                        if metric_field.canon_date != first_metric_field.canon_date:
+                            self.mapping_forces_merged_result = True
+                            break
+                else:
+                    replace_with = self.determine_field_to_replace_with(
+                        mapped_field, joinable_graphs, mergeable_graphs
+                    )
                 self._replace_mapped_field(name, replace_with)
         else:
             for i, (name, mapped_field) in enumerate(self.mapping_lookup.items()):
@@ -140,6 +159,13 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                         mapped_field, joinable_graphs, mergeable_graphs
                     )
                 self._replace_mapped_field(name, replace_with)
+
+    def _get_field_from_lookup(self, field_name: str):
+        if field_name in self.field_object_lookup:
+            metric_field = self.field_object_lookup[field_name]
+        else:
+            metric_field = self.project.get_field(field_name, model=self.model)
+        return metric_field
 
     def determine_field_to_replace_with(self, mapped_field, joinable_graphs, mergeable_graphs):
         joinable, mergeable = [], []

@@ -197,12 +197,18 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         unique_keys = sorted(list(set(keys)), key=lambda x: keys.index(x))
         self.query_where = defaultdict(list)
         for where in self.where:
+            metric_canon_dates = {f.canon_date for v in self.query_metrics.values() for f in v}
             field = self.project.get_field(where["field"])
+            is_canon_date = any(f"{field.view.name}.{field.name}" == d for d in metric_canon_dates)
             dimension_group = field.dimension_group
             join_group_hash = self.project.join_graph.join_graph_hash(field.view.name)
             added_filter = False
             for join_hash in unique_keys:
-                if join_group_hash in join_hash:
+                join_hash_with_canon_date = f"{field.view.name}_{field.name}__{join_group_hash}"
+                joinable_not_canon_date = not is_canon_date and join_group_hash in join_hash
+                is_canon_date_same = is_canon_date and join_hash_with_canon_date in join_hash
+
+                if joinable_not_canon_date or is_canon_date_same:
                     self.query_where[join_hash].append(where)
                     added_filter = True
                 else:
