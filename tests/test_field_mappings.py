@@ -5,6 +5,18 @@ from metrics_layer.core.exceptions import QueryError
 
 
 @pytest.mark.query
+def test_mapping_date_only(connection):
+    query = connection.get_sql_query(metrics=[], dimensions=["date"])
+
+    correct = (
+        "SELECT DATE_TRUNC('DAY', order_lines.order_date) as order_lines_order_date "
+        "FROM analytics.order_line_items order_lines GROUP BY DATE_TRUNC('DAY', "
+        "order_lines.order_date) ORDER BY order_lines_order_date ASC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_mapping_dimension_only(connection):
     query = connection.get_sql_query(metrics=[], dimensions=["source"])
 

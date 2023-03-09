@@ -320,6 +320,13 @@ class Project:
             matching_fields = [f for f in matching_fields if any(j in f.join_graphs() for j in join_graphs)]
         return self._matching_field_handler(matching_fields, tag_name, view_name)
 
+    def does_field_exist(self, field_name: str, view_name: str = None, model: Model = None):
+        try:
+            self.get_field(field_name, view_name, model)
+            return True
+        except AccessDeniedOrDoesNotExistException:
+            return False
+
     def _parse_field_and_view_name(self, field_name: str, view_name: str):
         # Handle the case where the view syntax is passed: view_name.field_name
         if "." in field_name:
