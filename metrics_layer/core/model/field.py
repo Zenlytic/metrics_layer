@@ -707,6 +707,12 @@ class Field(MetricsLayerBase, SQLReplacement):
                     sql_replace = field.raw_sql_query(query_type, alias_only=alias_only)
                 else:
                     sql_replace = to_replace
+                if isinstance(sql_replace, list):
+                    raise QueryError(
+                        f"Field {self.name} has the wrong type. You must use the type 'number' "
+                        f"if you reference other measures in your expression (like {to_replace} "
+                        "referenced here)"
+                    )
                 clean_sql = clean_sql.replace("${" + to_replace + "}", sql_replace)
         return clean_sql.strip()
 

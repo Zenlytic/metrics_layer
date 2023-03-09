@@ -4,15 +4,16 @@ import pytest
 @pytest.mark.project
 def test_list_metrics(connection):
     metrics = connection.list_metrics()
-    assert len(metrics) == 34
+    assert len(metrics) == 35
 
     metrics = connection.list_metrics(view_name="order_lines", names_only=True)
-    assert len(metrics) == 10
+    assert len(metrics) == 11
     assert set(metrics) == {
         "average_order_revenue",
         "costs_per_session",
         "ending_on_hand_qty",
         "line_item_aov",
+        "should_be_number",
         "net_per_session",
         "number_of_email_purchased_items",
         "revenue_per_session",

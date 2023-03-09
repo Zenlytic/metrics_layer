@@ -663,3 +663,19 @@ def test_query_sub_group_by_filter(connection, filter_type):
         "ORDER BY orders_number_of_orders DESC;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_query_sum_when_should_be_number(connection):
+    with pytest.raises(QueryError) as exc_info:
+        connection.get_sql_query(
+            metrics=["should_be_number"],
+            dimensions=["region"],
+        )
+
+    error_message = (
+        "Field should_be_number has the wrong type. You must use the type 'number' if you reference "
+        "other measures in your expression (like line_item_aov referenced here)"
+    )
+    assert isinstance(exc_info.value, QueryError)
+    assert str(exc_info.value) == error_message
