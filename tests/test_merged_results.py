@@ -387,7 +387,7 @@ def test_merged_result_query_with_extra_dim(connection):
         f"{cte_3}.orders_average_days_between_orders as orders_average_days_between_orders,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,"
         f"{cte_1}.order_lines_order_month as order_lines_order_month,"
-        f"{cte_1}.orders_sub_channel as orders_sub_channel,"
+        f"ifnull({cte_1}.orders_sub_channel, {cte_3}.orders_sub_channel) as orders_sub_channel,"
         f"{cte_3}.orders_previous_order_month as orders_previous_order_month,"
         f"{cte_2}.sessions_session_month as sessions_session_month,"
         f"{cte_2}.sessions_utm_source as sessions_utm_source,"
@@ -574,7 +574,8 @@ def test_merged_query_implicit_with_join(connection):
         "GROUP BY customers.gender ORDER BY sessions_number_of_sessions DESC) "
         "SELECT orders_order__subquery_0.orders_number_of_orders as orders_number_of_orders,"
         "sessions_session__subquery_2.sessions_number_of_sessions as sessions_number_of_sessions,"
-        "orders_order__subquery_0.customers_gender as customers_gender "
+        "ifnull(orders_order__subquery_0.customers_gender, "
+        "sessions_session__subquery_2.customers_gender) as customers_gender "
         "FROM orders_order__subquery_0 FULL OUTER JOIN sessions_session__subquery_2 "
         "ON orders_order__subquery_0.customers_gender=sessions_session__subquery_2.customers_gender;"
     )
