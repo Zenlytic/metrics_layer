@@ -490,7 +490,7 @@ def test_merged_query_dimension_mapping_single_metric(connection):
         "orders_campaign as orders_campaign,sessions_session__subquery_2.sessions_utm_source as "
         "sessions_utm_source,sessions_session__subquery_2.sessions_session_date as sessions_session_date,"
         "sessions_session__subquery_2.sessions_utm_campaign as sessions_utm_campaign "
-        "FROM orders_order__subquery_0 FULL OUTER JOIN sessions_session__subquery_2 ON orders_order__subquery_0."
+        "FROM orders_order__subquery_0 FULL OUTER JOIN sessions_session__subquery_2 ON orders_order__subquery_0."  # noqa
         "orders_sub_channel=sessions_session__subquery_2.sessions_utm_source and orders_order__subquery_0."
         "orders_order_date=sessions_session__subquery_2.sessions_session_date and orders_order__subquery_0."
         "orders_campaign=sessions_session__subquery_2.sessions_utm_campaign;"
@@ -853,7 +853,7 @@ def test_4_way_merge_with_joinable_canon_date(connection):
         "WITH orders_order__subquery_0 AS (SELECT DATE_TRUNC('MONTH', orders.order_date) as "
         "orders_order_month,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders "
         "orders GROUP BY DATE_TRUNC('MONTH', orders.order_date) ORDER BY orders_number_of_orders "
-        "DESC) ,customers_first_order__subquery_1 AS (SELECT DATE_TRUNC('MONTH', "
+        "DESC) ,customers_first_order__subquery_0_subquery_1_subquery_2 AS (SELECT DATE_TRUNC('MONTH', "
         "customers.first_order_date) as customers_first_order_month,COUNT(customers.customer_id) "
         "as customers_number_of_customers FROM analytics.customers customers GROUP BY DATE_TRUNC('MONTH', "
         "customers.first_order_date) ORDER BY customers_number_of_customers DESC) ,"
@@ -864,20 +864,20 @@ def test_4_way_merge_with_joinable_canon_date(connection):
         "DATE_TRUNC('MONTH', events.event_date) as events_event_month,COUNT(DISTINCT(events.id)) "
         "as events_number_of_events FROM analytics.events events GROUP BY DATE_TRUNC('MONTH', "
         "events.event_date) ORDER BY events_number_of_events DESC) SELECT "
-        "customers_first_order__subquery_1.customers_number_of_customers as "
+        "customers_first_order__subquery_0_subquery_1_subquery_2.customers_number_of_customers as "
         "customers_number_of_customers,events_event__subquery_3.events_number_of_events as "
         "events_number_of_events,order_lines_order__subquery_0.order_lines_total_item_revenue "
         "as order_lines_total_item_revenue,orders_order__subquery_0.orders_number_of_orders "
-        "as orders_number_of_orders,customers_first_order__subquery_1.customers_first_order_month "
+        "as orders_number_of_orders,customers_first_order__subquery_0_subquery_1_subquery_2.customers_first_order_month "  # noqa
         "as customers_first_order_month,events_event__subquery_3.events_event_month as events_event_month,"
         "order_lines_order__subquery_0.order_lines_order_month as order_lines_order_month,"
         "orders_order__subquery_0.orders_order_month as orders_order_month FROM "
-        "customers_first_order__subquery_1 FULL OUTER JOIN events_event__subquery_3 ON "
-        "customers_first_order__subquery_1.customers_first_order_month=events_event__subquery_3."
+        "customers_first_order__subquery_0_subquery_1_subquery_2 FULL OUTER JOIN events_event__subquery_3 ON "
+        "customers_first_order__subquery_0_subquery_1_subquery_2.customers_first_order_month=events_event__subquery_3."  # noqa
         "events_event_month FULL OUTER JOIN order_lines_order__subquery_0 ON "
-        "customers_first_order__subquery_1.customers_first_order_month=order_lines_order__subquery_0"
+        "customers_first_order__subquery_0_subquery_1_subquery_2.customers_first_order_month=order_lines_order__subquery_0"  # noqa
         ".order_lines_order_month FULL OUTER JOIN orders_order__subquery_0 ON "
-        "customers_first_order__subquery_1.customers_first_order_month=orders_order__subquery_0"
+        "customers_first_order__subquery_0_subquery_1_subquery_2.customers_first_order_month=orders_order__subquery_0"  # noqa
         ".orders_order_month;"
     )
     assert query == correct

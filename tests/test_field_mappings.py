@@ -179,6 +179,50 @@ def test_mapping_multiple_metric_different_canon_date_joinable_mapped_date_dim_a
 
 
 @pytest.mark.query
+def test_mapping_mapped_metric_joined_dim(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders", "average_customer_ltv"],
+        dimensions=["channel"],
+        where=[
+            {
+                "field": "date",
+                "expression": "greater_or_equal_than",
+                "value": datetime.datetime(2022, 1, 5, 0, 0),
+            }
+        ],
+        verbose=True,
+    )
+    correct = (
+        "WITH orders_order__subquery_0 AS (SELECT order_lines.sales_channel as order_lines_channel,"
+        "NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL THEN  orders.id  ELSE NULL END), "
+        "0) as orders_number_of_orders FROM analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id WHERE "
+        "DATE_TRUNC('DAY', orders.order_date)>='2022-01-05T00:00:00' GROUP BY "
+        "order_lines.sales_channel ORDER BY orders_number_of_orders DESC) ,"
+        "customers_first_order__subquery_0_subquery_1_subquery_2 AS (SELECT "
+        "order_lines.sales_channel as order_lines_channel,(COALESCE(CAST((SUM(DISTINCT "
+        "(CAST(FLOOR(COALESCE(customers.customer_ltv, 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) "
+        "+ (TO_NUMBER(MD5(customers.customer_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)"
+        "::NUMERIC(38, 0)) - SUM(DISTINCT (TO_NUMBER(MD5(customers.customer_id), "
+        "'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
+        "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0) / NULLIF(COUNT(DISTINCT CASE WHEN  "
+        "(customers.customer_ltv)  IS NOT NULL THEN  customers.customer_id  ELSE NULL END), "
+        "0)) as customers_average_customer_ltv FROM analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        "WHERE DATE_TRUNC('DAY', customers.first_order_date)>='2022-01-05T00:00:00' "
+        "GROUP BY order_lines.sales_channel ORDER BY customers_average_customer_ltv DESC) "
+        "SELECT customers_first_order__subquery_0_subquery_1_subquery_2.customers_average_customer_ltv "
+        "as customers_average_customer_ltv,orders_order__subquery_0.orders_number_of_orders "
+        "as orders_number_of_orders,customers_first_order__subquery_0_subquery_1_subquery_2"
+        ".order_lines_channel as order_lines_channel FROM "
+        "customers_first_order__subquery_0_subquery_1_subquery_2 FULL OUTER JOIN "
+        "orders_order__subquery_0 ON customers_first_order__subquery_0_subquery_1_subquery_2"
+        ".order_lines_channel=orders_order__subquery_0.order_lines_channel;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_mapping_mapped_metric_mapped_date_and_filter(connection):
     query = connection.get_sql_query(
         metrics=["gross_revenue"],

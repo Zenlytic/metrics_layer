@@ -110,12 +110,12 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                         "in the project. \n\nMake sure you have this defined either in the view "
                         "with the property 'default_date' or on the metric under 'canon_date'"
                     )
-                join_group_hash = self.project.join_graph.join_graph_hash(ref_field.view.name)
+                join_group_hash = self._join_hash_key(ref_field)
                 key = self._cte_name_from_parts(ref_field.canon_date, join_group_hash)
                 self.query_metrics[key].append(ref_field)
 
         for field in self.secondary_metrics:
-            join_group_hash = self.project.join_graph.join_graph_hash(field.view.name)
+            join_group_hash = self._join_hash_key(field)
             if field.canon_date is None:
                 raise QueryError(
                     f"Could not find a date field associated with metric {ref_field.name} "
@@ -263,7 +263,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             for from_canon_date_name in canon_dates:
                 if to_canon_date_name != from_canon_date_name:
                     from_canon_date = self.project.get_field_by_name(from_canon_date_name)
-                    join_group_hash = self.project.join_graph.join_graph_hash(from_canon_date.view.name)
+                    join_group_hash = self._join_hash_key(from_canon_date)
                     key = self._cte_name_from_parts(from_canon_date_name, join_group_hash)
                     canon_date_data = {"field": from_canon_date_name, "from_join_hash": key}
                     dimension_mapping[to_canon_date_name].append(canon_date_data)
@@ -274,6 +274,14 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             key=lambda x: str(list(self.query_metrics.keys()).index(x)) if x in self.query_metrics else x,
         )
         return dimension_mapping, canon_dates, sorted_joins
+
+    @staticmethod
+    def _join_hash_key(field):
+        # This makes the join hash out of all the joinable graphs, it's crucial to use this when
+        # naming the CTEs so in subsequent checks we can match up all joinable fields,
+        # not just fields in the same view
+        joinable_graphs = [jg for jg in field.join_graphs() if "merged_result" not in jg]
+        return "_".join(joinable_graphs)
 
     @staticmethod
     def _cte_name_from_parts(field_id: str, join_group_hash: str):
