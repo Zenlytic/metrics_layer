@@ -133,7 +133,6 @@ def test_merged_result_join_graph(connection):
     field = connection.get_field("sub_channel")
     assert field.join_graphs() == [
         "subquery_0",
-        *_blow_out_by_time_frame("merged_result_canon_date_core", tf),
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_2", tf),
     ]
 
@@ -809,6 +808,28 @@ def test_implicit_merge_subgraph(connection):
     cumulative_field = connection.get_field("cumulative_customers")
 
     assert not any(j in shared_with_orders for j in cumulative_field.join_graphs())
+
+
+@pytest.mark.query
+def test_implicit_merge_subgraph_shared_dimension(connection):
+    session_source_field = connection.get_field("utm_source")
+    session_source_graphs = session_source_field.join_graphs()
+
+    # The canon date options should not be in the subgraph because they
+    # include *all* the merge-able options based on date which
+    # are *not* guaranteed to be in the subgraph of a mapped dimension.
+    should_not_be_here = [
+        "merged_result_canon_date_core_date",
+        "merged_result_canon_date_core_day_of_week",
+        "merged_result_canon_date_core_hour_of_day",
+        "merged_result_canon_date_core_month",
+        "merged_result_canon_date_core_quarter",
+        "merged_result_canon_date_core_raw",
+        "merged_result_canon_date_core_time",
+        "merged_result_canon_date_core_week",
+        "merged_result_canon_date_core_year",
+    ]
+    assert all(j not in session_source_graphs for j in should_not_be_here)
 
 
 @pytest.mark.query
