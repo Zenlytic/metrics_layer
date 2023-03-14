@@ -45,7 +45,7 @@ def test_merged_result_query_additional_metric(connection, query_type):
         f"{cte_1}.order_lines_order_month as order_lines_order_month,"
         f"{cte_2}.sessions_session_month as sessions_session_month,"
         f"order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
-        f"FROM {cte_1} JOIN {cte_2} "
+        f"FROM {cte_1} FULL OUTER JOIN {cte_2} "
         f"ON {cte_1}.order_lines_order_month={cte_2}.sessions_session_month;"
     )
     assert query == correct
@@ -89,7 +89,7 @@ def test_merged_result_query_only_metric(connection, dim):
         f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,{date_seq},"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
-        f"FROM {cte_1} JOIN {cte_2} "
+        f"FROM {cte_1} FULL OUTER JOIN {cte_2} "
         f"ON {cte_1}.order_lines_order_month={cte_2}.sessions_session_month;"
     )
     assert query == correct
@@ -133,7 +133,6 @@ def test_merged_result_join_graph(connection):
     field = connection.get_field("sub_channel")
     assert field.join_graphs() == [
         "subquery_0",
-        *_blow_out_by_time_frame("merged_result_canon_date_core", tf),
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_2", tf),
     ]
 
@@ -188,7 +187,7 @@ def test_merged_result_query_only_metric_no_dim(connection):
         f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
-        f"FROM {cte_1} JOIN {cte_2} ON 1=1;"
+        f"FROM {cte_1} FULL OUTER JOIN {cte_2} ON 1=1;"
     )
     assert query == correct
 
@@ -211,7 +210,7 @@ def test_merged_result_query_ambig_explore(connection):
         f"SELECT {cte_1}.discounts_total_discount_amt as discounts_total_discount_amt,"
         f"{cte_2}.orders_number_of_orders as orders_number_of_orders,"
         "discounts_total_discount_amt / nullif(orders_number_of_orders, 0) "
-        f"as discounts_discount_per_order FROM {cte_1} JOIN {cte_2} ON 1=1;"
+        f"as discounts_discount_per_order FROM {cte_1} FULL OUTER JOIN {cte_2} ON 1=1;"
     )
     assert query == correct
 
@@ -256,7 +255,7 @@ def test_merged_result_query_only_metric_with_where(connection):
         f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,{date_seq},"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
-        f"FROM {cte_1} JOIN {cte_2} "
+        f"FROM {cte_1} FULL OUTER JOIN {cte_2} "
         f"ON {cte_1}.order_lines_order_month={cte_2}.sessions_session_month;"
     )
     assert query == correct
@@ -305,7 +304,7 @@ def test_merged_result_query_only_metric_with_having(connection):
         f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,{date_seq},"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
-        f"FROM {cte_1} JOIN {cte_2} "
+        f"FROM {cte_1} FULL OUTER JOIN {cte_2} "
         f"ON {cte_1}.order_lines_order_month={cte_2}.sessions_session_month "
         "WHERE order_lines_revenue_per_session>=40 AND sessions_number_of_sessions<5400;"
     )
@@ -346,9 +345,9 @@ def test_merged_result_query_with_non_component(connection):
         f"{cte_3}.orders_previous_order_month as orders_previous_order_month,"
         f"{cte_2}.sessions_session_month as sessions_session_month,"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
-        f"FROM {cte_1} JOIN {cte_3} "
+        f"FROM {cte_1} FULL OUTER JOIN {cte_3} "
         f"ON {cte_1}.order_lines_order_month={cte_3}.orders_previous_order_month "
-        f"JOIN {cte_2} ON {cte_1}.order_lines_order_month={cte_2}.sessions_session_month;"
+        f"FULL OUTER JOIN {cte_2} ON {cte_1}.order_lines_order_month={cte_2}.sessions_session_month;"
     )
     assert query == correct
 
@@ -387,15 +386,15 @@ def test_merged_result_query_with_extra_dim(connection):
         f"{cte_3}.orders_average_days_between_orders as orders_average_days_between_orders,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,"
         f"{cte_1}.order_lines_order_month as order_lines_order_month,"
-        f"{cte_1}.orders_sub_channel as orders_sub_channel,"
+        f"ifnull({cte_1}.orders_sub_channel, {cte_3}.orders_sub_channel) as orders_sub_channel,"
         f"{cte_3}.orders_previous_order_month as orders_previous_order_month,"
         f"{cte_2}.sessions_session_month as sessions_session_month,"
         f"{cte_2}.sessions_utm_source as sessions_utm_source,"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
-        f"FROM {cte_1} JOIN {cte_3} "
+        f"FROM {cte_1} FULL OUTER JOIN {cte_3} "
         f"ON {cte_1}.order_lines_order_month={cte_3}.orders_previous_order_month "
         f"and {cte_1}.orders_sub_channel={cte_3}.orders_sub_channel "
-        f"JOIN {cte_2} ON {cte_1}.order_lines_order_month={cte_2}.sessions_session_month "
+        f"FULL OUTER JOIN {cte_2} ON {cte_1}.order_lines_order_month={cte_2}.sessions_session_month "
         f"and {cte_1}.orders_sub_channel={cte_2}.sessions_utm_source;"
     )
     assert query == correct
@@ -418,7 +417,7 @@ def test_merged_query_implicit_with_subgraph(connection):
         "orders_number_of_orders,sessions_session__subquery_2.sessions_number_of_sessions as "
         "sessions_number_of_sessions,orders_order__subquery_0.orders_order_month as orders_order_month,"
         "sessions_session__subquery_2.sessions_session_month as sessions_session_month FROM "
-        "orders_order__subquery_0 JOIN sessions_session__subquery_2 ON orders_order__subquery_0."
+        "orders_order__subquery_0 FULL OUTER JOIN sessions_session__subquery_2 ON orders_order__subquery_0."
         "orders_order_month=sessions_session__subquery_2.sessions_session_month;"
     )
     assert query == correct
@@ -460,7 +459,7 @@ def test_merged_query_implicit_with_subgraph_and_mapping(connection):
         "sessions_session__subquery_2.sessions_session_month as sessions_session_month,"
         "sessions_session__subquery_2.sessions_utm_source as sessions_utm_source,"
         "sessions_session__subquery_2.sessions_utm_campaign as sessions_utm_campaign "
-        "FROM orders_order__subquery_0 JOIN sessions_session__subquery_2 "
+        "FROM orders_order__subquery_0 FULL OUTER JOIN sessions_session__subquery_2 "
         "ON orders_order__subquery_0.orders_order_month=sessions_session__subquery_2.sessions_session_month "
         "and orders_order__subquery_0.orders_sub_channel=sessions_session__subquery_2.sessions_utm_source "
         "and orders_order__subquery_0.orders_campaign=sessions_session__subquery_2.sessions_utm_campaign;"
@@ -490,7 +489,7 @@ def test_merged_query_dimension_mapping_single_metric(connection):
         "orders_campaign as orders_campaign,sessions_session__subquery_2.sessions_utm_source as "
         "sessions_utm_source,sessions_session__subquery_2.sessions_session_date as sessions_session_date,"
         "sessions_session__subquery_2.sessions_utm_campaign as sessions_utm_campaign "
-        "FROM orders_order__subquery_0 JOIN sessions_session__subquery_2 ON orders_order__subquery_0."
+        "FROM orders_order__subquery_0 FULL OUTER JOIN sessions_session__subquery_2 ON orders_order__subquery_0."  # noqa
         "orders_sub_channel=sessions_session__subquery_2.sessions_utm_source and orders_order__subquery_0."
         "orders_order_date=sessions_session__subquery_2.sessions_session_date and orders_order__subquery_0."
         "orders_campaign=sessions_session__subquery_2.sessions_utm_campaign;"
@@ -524,7 +523,7 @@ def test_merged_query_dimension_mapping_no_metric(connection):
         "SELECT orders_order__subquery_0.orders_campaign as orders_campaign,orders_order__subquery_0."
         "orders_order_date as orders_order_date,sessions_session__subquery_2.sessions_utm_campaign "
         "as sessions_utm_campaign,sessions_session__subquery_2.sessions_session_date as "
-        "sessions_session_date FROM orders_order__subquery_0 JOIN sessions_session__subquery_2 "
+        "sessions_session_date FROM orders_order__subquery_0 FULL OUTER JOIN sessions_session__subquery_2 "
         "ON orders_order__subquery_0.orders_campaign=sessions_session__subquery_2.sessions_utm_campaign "
         "and orders_order__subquery_0.orders_order_date=sessions_session__subquery_2.sessions_session_date;"
     )
@@ -550,7 +549,7 @@ def test_merged_query_implicit_no_time(connection):
         "SELECT orders_order__subquery_0.orders_number_of_orders as orders_number_of_orders,"
         "orders_order__subquery_0.orders_campaign as orders_campaign,"
         "sessions_session__subquery_2.sessions_utm_campaign as sessions_utm_campaign "
-        "FROM orders_order__subquery_0 JOIN sessions_session__subquery_2 "
+        "FROM orders_order__subquery_0 FULL OUTER JOIN sessions_session__subquery_2 "
         "ON orders_order__subquery_0.orders_campaign"
         "=sessions_session__subquery_2.sessions_utm_campaign;"
     )
@@ -574,8 +573,9 @@ def test_merged_query_implicit_with_join(connection):
         "GROUP BY customers.gender ORDER BY sessions_number_of_sessions DESC) "
         "SELECT orders_order__subquery_0.orders_number_of_orders as orders_number_of_orders,"
         "sessions_session__subquery_2.sessions_number_of_sessions as sessions_number_of_sessions,"
-        "orders_order__subquery_0.customers_gender as customers_gender "
-        "FROM orders_order__subquery_0 JOIN sessions_session__subquery_2 "
+        "ifnull(orders_order__subquery_0.customers_gender, "
+        "sessions_session__subquery_2.customers_gender) as customers_gender "
+        "FROM orders_order__subquery_0 FULL OUTER JOIN sessions_session__subquery_2 "
         "ON orders_order__subquery_0.customers_gender=sessions_session__subquery_2.customers_gender;"
     )
     assert query == correct
@@ -600,7 +600,7 @@ def test_merged_query_implicit_with_extra_dim_only(connection):
         "orders_order__subquery_0.orders_sub_channel as orders_sub_channel,"
         "sessions_session__subquery_2.sessions_session_date as sessions_session_date,"
         "sessions_session__subquery_2.sessions_utm_source as sessions_utm_source FROM "
-        "orders_order__subquery_0 JOIN sessions_session__subquery_2 ON orders_order__subquery_0"
+        "orders_order__subquery_0 FULL OUTER JOIN sessions_session__subquery_2 ON orders_order__subquery_0"
         ".orders_order_date=sessions_session__subquery_2.sessions_session_date "
         "and orders_order__subquery_0.orders_sub_channel=sessions_session__subquery_2.sessions_utm_source;"
     )
@@ -638,9 +638,9 @@ def test_merged_query_implicit_3_way_merge(connection):
         "sessions_session__subquery_2.sessions_number_of_sessions as sessions_number_of_sessions,"
         "events_event__subquery_3.events_event_date as events_event_date,orders_order__subquery_0."
         "orders_order_date as orders_order_date,sessions_session__subquery_2.sessions_session_date "
-        "as sessions_session_date FROM events_event__subquery_3 JOIN orders_order__subquery_0 ON "
+        "as sessions_session_date FROM events_event__subquery_3 FULL OUTER JOIN orders_order__subquery_0 ON "
         "events_event__subquery_3.events_event_date=orders_order__subquery_0.orders_order_date "
-        "JOIN sessions_session__subquery_2 ON events_event__subquery_3.events_event_date"
+        "FULL OUTER JOIN sessions_session__subquery_2 ON events_event__subquery_3.events_event_date"
         "=sessions_session__subquery_2.sessions_session_date;"
     )
     assert query == correct
@@ -680,7 +680,7 @@ def test_merged_query_merged_results_as_sub_reference(connection):
         "/ nullif(sessions_number_of_sessions, 0)) as order_lines_net_per_session,"
         "(order_lines_total_item_costs * order_lines_number_of_email_purchased_items) "
         "/ nullif(sessions_number_of_sessions, 0) as order_lines_costs_per_session "
-        "FROM order_lines_order__subquery_0 JOIN sessions_session__subquery_2 "
+        "FROM order_lines_order__subquery_0 FULL OUTER JOIN sessions_session__subquery_2 "
         "ON order_lines_order__subquery_0.order_lines_order_month"
         "=sessions_session__subquery_2.sessions_session_month;"
     )
@@ -713,7 +713,7 @@ def test_merged_query_merged_results_joined_filter(connection):
         "orders_number_of_orders as orders_number_of_orders,sessions_session__subquery_2."
         "sessions_number_of_sessions as sessions_number_of_sessions,orders_order__subquery_0."
         "orders_order_date as orders_order_date,sessions_session__subquery_2.sessions_session_date "
-        "as sessions_session_date FROM orders_order__subquery_0 JOIN sessions_session__subquery_2 "
+        "as sessions_session_date FROM orders_order__subquery_0 FULL OUTER JOIN sessions_session__subquery_2 "
         "ON orders_order__subquery_0.orders_order_date=sessions_session__subquery_2"
         ".sessions_session_date;"
     )
@@ -741,9 +741,9 @@ def test_merged_query_merged_results_3_way_third_date_only(connection):
         "sessions_session__subquery_2.sessions_number_of_sessions as sessions_number_of_sessions,"
         "events_event__subquery_3.events_event_date as events_event_date,orders_order__subquery_0."
         "orders_order_date as orders_order_date,sessions_session__subquery_2.sessions_session_date "
-        "as sessions_session_date FROM events_event__subquery_3 JOIN orders_order__subquery_0 "
+        "as sessions_session_date FROM events_event__subquery_3 FULL OUTER JOIN orders_order__subquery_0 "
         "ON events_event__subquery_3.events_event_date=orders_order__subquery_0.orders_order_date "
-        "JOIN sessions_session__subquery_2 ON events_event__subquery_3.events_event_date"
+        "FULL OUTER JOIN sessions_session__subquery_2 ON events_event__subquery_3.events_event_date"
         "=sessions_session__subquery_2.sessions_session_date;"
     )
     assert query == correct
@@ -811,6 +811,28 @@ def test_implicit_merge_subgraph(connection):
 
 
 @pytest.mark.query
+def test_implicit_merge_subgraph_shared_dimension(connection):
+    session_source_field = connection.get_field("utm_source")
+    session_source_graphs = session_source_field.join_graphs()
+
+    # The canon date options should not be in the subgraph because they
+    # include *all* the merge-able options based on date which
+    # are *not* guaranteed to be in the subgraph of a mapped dimension.
+    should_not_be_here = [
+        "merged_result_canon_date_core_date",
+        "merged_result_canon_date_core_day_of_week",
+        "merged_result_canon_date_core_hour_of_day",
+        "merged_result_canon_date_core_month",
+        "merged_result_canon_date_core_quarter",
+        "merged_result_canon_date_core_raw",
+        "merged_result_canon_date_core_time",
+        "merged_result_canon_date_core_week",
+        "merged_result_canon_date_core_year",
+    ]
+    assert all(j not in session_source_graphs for j in should_not_be_here)
+
+
+@pytest.mark.query
 def test_implicit_merge_subgraph_dimension_group_check(connection):
     discount_field = connection.get_field("total_discount_amt")
     session_field = connection.get_field("number_of_sessions")
@@ -853,7 +875,7 @@ def test_4_way_merge_with_joinable_canon_date(connection):
         "WITH orders_order__subquery_0 AS (SELECT DATE_TRUNC('MONTH', orders.order_date) as "
         "orders_order_month,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders "
         "orders GROUP BY DATE_TRUNC('MONTH', orders.order_date) ORDER BY orders_number_of_orders "
-        "DESC) ,customers_first_order__subquery_1 AS (SELECT DATE_TRUNC('MONTH', "
+        "DESC) ,customers_first_order__subquery_0_subquery_1_subquery_2 AS (SELECT DATE_TRUNC('MONTH', "
         "customers.first_order_date) as customers_first_order_month,COUNT(customers.customer_id) "
         "as customers_number_of_customers FROM analytics.customers customers GROUP BY DATE_TRUNC('MONTH', "
         "customers.first_order_date) ORDER BY customers_number_of_customers DESC) ,"
@@ -864,19 +886,20 @@ def test_4_way_merge_with_joinable_canon_date(connection):
         "DATE_TRUNC('MONTH', events.event_date) as events_event_month,COUNT(DISTINCT(events.id)) "
         "as events_number_of_events FROM analytics.events events GROUP BY DATE_TRUNC('MONTH', "
         "events.event_date) ORDER BY events_number_of_events DESC) SELECT "
-        "customers_first_order__subquery_1.customers_number_of_customers as "
+        "customers_first_order__subquery_0_subquery_1_subquery_2.customers_number_of_customers as "
         "customers_number_of_customers,events_event__subquery_3.events_number_of_events as "
         "events_number_of_events,order_lines_order__subquery_0.order_lines_total_item_revenue "
         "as order_lines_total_item_revenue,orders_order__subquery_0.orders_number_of_orders "
-        "as orders_number_of_orders,customers_first_order__subquery_1.customers_first_order_month "
+        "as orders_number_of_orders,customers_first_order__subquery_0_subquery_1_subquery_2.customers_first_order_month "  # noqa
         "as customers_first_order_month,events_event__subquery_3.events_event_month as events_event_month,"
         "order_lines_order__subquery_0.order_lines_order_month as order_lines_order_month,"
         "orders_order__subquery_0.orders_order_month as orders_order_month FROM "
-        "customers_first_order__subquery_1 JOIN events_event__subquery_3 ON "
-        "customers_first_order__subquery_1.customers_first_order_month=events_event__subquery_3."
-        "events_event_month JOIN order_lines_order__subquery_0 ON customers_first_order__subquery_1."
-        "customers_first_order_month=order_lines_order__subquery_0.order_lines_order_month "
-        "JOIN orders_order__subquery_0 ON customers_first_order__subquery_1.customers_first_order_month"
-        "=orders_order__subquery_0.orders_order_month;"
+        "customers_first_order__subquery_0_subquery_1_subquery_2 FULL OUTER JOIN events_event__subquery_3 ON "
+        "customers_first_order__subquery_0_subquery_1_subquery_2.customers_first_order_month=events_event__subquery_3."  # noqa
+        "events_event_month FULL OUTER JOIN order_lines_order__subquery_0 ON "
+        "customers_first_order__subquery_0_subquery_1_subquery_2.customers_first_order_month=order_lines_order__subquery_0"  # noqa
+        ".order_lines_order_month FULL OUTER JOIN orders_order__subquery_0 ON "
+        "customers_first_order__subquery_0_subquery_1_subquery_2.customers_first_order_month=orders_order__subquery_0"  # noqa
+        ".orders_order_month;"
     )
     assert query == correct
