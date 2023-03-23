@@ -903,3 +903,35 @@ def test_4_way_merge_with_joinable_canon_date(connection):
         ".orders_order_month;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_query_merge_results_order_issue(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_customers", "number_of_orders"],
+        dimensions=["month"],
+        where=[
+            {"field": "date", "expression": "greater_than", "value": "2022-04-03"},
+        ],
+    )
+
+    correct = (
+        "WITH customers_first_order__subquery_0_subquery_1_subquery_2 AS (SELECT DATE_TRUNC('MONTH', "
+        "customers.first_order_date) as customers_first_order_month,COUNT(customers.customer_id) as "
+        "customers_number_of_customers FROM analytics.customers customers WHERE DATE_TRUNC('DAY', "
+        "customers.first_order_date)>'2022-04-03' GROUP BY DATE_TRUNC('MONTH', customers.first_order_date) "
+        "ORDER BY customers_number_of_customers DESC) ,orders_order__subquery_0 AS ("
+        "SELECT DATE_TRUNC('MONTH', orders.order_date) as orders_order_month,COUNT(orders.id) as "
+        "orders_number_of_orders FROM analytics.orders orders "
+        "WHERE DATE_TRUNC('DAY', orders.order_date)>'2022-04-03' "
+        "GROUP BY DATE_TRUNC('MONTH', orders.order_date) ORDER BY orders_number_of_orders DESC) "
+        "SELECT customers_first_order__subquery_0_subquery_1_subquery_2.customers_number_of_customers "
+        "as customers_number_of_customers,orders_order__subquery_0.orders_number_of_orders as "
+        "orders_number_of_orders,customers_first_order__subquery_0_subquery_1_subquery_2."
+        "customers_first_order_month as customers_first_order_month,orders_order__subquery_0."
+        "orders_order_month as orders_order_month FROM "
+        "customers_first_order__subquery_0_subquery_1_subquery_2 FULL OUTER JOIN "
+        "orders_order__subquery_0 ON customers_first_order__subquery_0_subquery_1_subquery_2"
+        ".customers_first_order_month=orders_order__subquery_0.orders_order_month;"
+    )
+    assert query == correct

@@ -145,7 +145,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         for dimension in self.dimensions:
             field = self.project.get_field(dimension)
             field_key = f"{field.view.name}.{field.name}"
-            join_group_hash = self.project.join_graph.join_graph_hash(field.view.name)
+            join_group_hash = self._join_hash_key(field)
             if field_key in canon_dates:
                 join_hash = f'{field_key.replace(".", "_")}__{join_group_hash}'
                 self.query_dimensions[join_hash].append(field)
@@ -202,7 +202,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             is_canon_date = any(f"{field.view.name}.{field.name}" == d for d in metric_canon_dates)
             dimension_group = field.dimension_group
             join_group_hash = self.project.join_graph.join_graph_hash(field.view.name)
-            added_filter = False
+            added_filter = {join_hash: False for join_hash in unique_keys}
             for join_hash in unique_keys:
                 join_hash_with_canon_date = f"{field.view.name}_{field.name}__{join_group_hash}"
                 joinable_not_canon_date = not is_canon_date and join_group_hash in join_hash
@@ -210,7 +210,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
 
                 if joinable_not_canon_date or is_canon_date_same:
                     self.query_where[join_hash].append(where)
-                    added_filter = True
+                    added_filter[join_hash] = True
                 else:
                     key = f"{field.view.name}.{field.name}"
                     for mapping_info in dimension_mapping[key]:
@@ -223,9 +223,10 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                             mapped_where = deepcopy(where)
                             mapped_where["field"] = ref_field.id()
                             self.query_where[join_hash].append(mapped_where)
-            if not added_filter:
-                # This handles the case where the where field is joined in and not in a mapping
-                for join_hash in self.query_metrics.keys():
+                            added_filter[join_hash] = True
+            # This handles the case where the where field is joined in and not in a mapping
+            for join_hash in self.query_metrics.keys():
+                if not added_filter[join_hash]:
                     self.query_where[join_hash].append(where)
 
         clean_wheres = defaultdict(list)
