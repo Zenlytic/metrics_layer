@@ -364,8 +364,8 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "year": "DATE_TRUNC('YEAR', simple.order_date)",
             "month_of_year": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'MON')",
             "hour_of_day": "HOUR(CAST(simple.order_date AS TIMESTAMP))",
-            "day_of_week": "DAYOFWEEK(simple.order_date)",
-            "day_of_month": "DAYOFMONTH(simple.order_date)",
+            "day_of_week": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Dy')",
+            "day_of_month": "EXTRACT(DAY FROM simple.order_date)",
         }
         order_by = " ORDER BY simple_total_revenue DESC"
     elif query_type == Definitions.postgres:
@@ -378,7 +378,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "year": "DATE_TRUNC('YEAR', CAST(simple.order_date AS TIMESTAMP))",
             "month_of_year": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'MON')",
             "hour_of_day": "EXTRACT('HOUR' FROM CAST(simple.order_date AS TIMESTAMP))",
-            "day_of_week": "EXTRACT('DOW' FROM CAST(simple.order_date AS TIMESTAMP))",
+            "day_of_week": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Dy')",
             "day_of_month": "EXTRACT('DAY' FROM CAST(simple.order_date AS TIMESTAMP))",
         }
         order_by = ""
