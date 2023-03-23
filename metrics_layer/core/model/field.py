@@ -789,7 +789,11 @@ class Field(MetricsLayerBase, SQLReplacement):
     def is_cumulative(self):
         explicitly_cumulative = self.type == "cumulative"
         if self.sql:
-            has_references = any(field.type == "cumulative" for field in self.referenced_fields(self.sql))
+            has_references = False
+            for field in self.referenced_fields(self.sql):
+                if not isinstance(field, str) and field.type == "cumulative":
+                    has_references = True
+                    break
         else:
             has_references = False
         return explicitly_cumulative or has_references
