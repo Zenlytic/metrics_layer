@@ -527,8 +527,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', {s})",
                 "month_of_year": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'MON')",
                 "hour_of_day": lambda s, qt: f"HOUR(CAST({s} AS TIMESTAMP))",
-                "day_of_week": lambda s, qt: f"DAYOFWEEK({s})",
-                "day_of_month": lambda s, qt: f"DAYOFMONTH({s})",
+                "day_of_week": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Dy')",
+                "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM {s})",
             },
             Definitions.postgres: {
                 "raw": lambda s, qt: s,
@@ -540,7 +540,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
                 "month_of_year": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'MON')",
                 "hour_of_day": lambda s, qt: f"EXTRACT('HOUR' FROM CAST({s} AS TIMESTAMP))",
-                "day_of_week": lambda s, qt: f"EXTRACT('DOW' FROM CAST({s} AS TIMESTAMP))",
+                "day_of_week": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Dy')",
                 "day_of_month": lambda s, qt: f"EXTRACT('DAY' FROM CAST({s} AS TIMESTAMP))",
             },
             Definitions.bigquery: {
