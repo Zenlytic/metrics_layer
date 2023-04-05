@@ -99,6 +99,12 @@ class GithubRepo(BaseRepo):
         current.checkout()
         self.git_repo.git.push("--set-upstream", "origin", current)
 
+    def delete_branch(self, branch_name: str, private_key: str = None):
+        self._ssh_wrapped(self.__delete_branch, branch_name=branch_name, private_key=private_key)
+
+    def __delete_branch(self, branch_name: str):
+        self.git_repo.git_repo.remote().push(refspec=f":{branch_name}")
+
     def add_commit_and_push(self, message: str, branch_name: str, private_key: str = None):
         self._ssh_wrapped(
             self.__add_commit_and_push, message=message, branch_name=branch_name, private_key=private_key
