@@ -80,7 +80,7 @@ class GithubRepo(BaseRepo):
         self.branch_options = []
 
     def fetch(self, private_key: str = None):
-        self.__git_repo, branch_options = self.fetch_github_repo(private_key)
+        self.git_repo, branch_options, self._file_path = self.fetch_github_repo(private_key)
         self.dbt_path = self.get_dbt_path()
         self.branch_options = branch_options
 
@@ -91,41 +91,79 @@ class GithubRepo(BaseRepo):
         if os.path.exists(folder) and os.path.isdir(folder):
             shutil.rmtree(folder)
 
-    def create_branch(self, branch_name: str):
-        current = self.__git_repo.create_head(branch_name)
+    def create_branch(self, branch_name: str, private_key: str = None):
+        self._ssh_wrapped(self.__create_branch, branch_name=branch_name, private_key=private_key)
+
+    def __create_branch(self, branch_name: str):
+        current = self.git_repo.create_head(branch_name)
         current.checkout()
-        self.__git_repo.git.push("--set-upstream", "origin", current)
+        self.git_repo.git.push("--set-upstream", "origin", current)
 
-    def add_commit_and_push(self, message: str, branch_name: str):
-        self.__git_repo.git.checkout(branch_name)
-        self.__git_repo.git.add(A=True)
-        self.__git_repo.git.commit(m=message)
-        self.__git_repo.git.push("origin", branch_name)
+    def add_commit_and_push(self, message: str, branch_name: str, private_key: str = None):
+        self._ssh_wrapped(
+            self.__add_commit_and_push, message=message, branch_name=branch_name, private_key=private_key
+        )
 
-    def pull(self, pulling_from: str, pulling_to: str):
-        self.__git_repo.git.checkout(pulling_to)
-        self.__git_repo.git.pull("--rebase=false", "origin", pulling_from)
-        self.__git_repo.git.push("origin", pulling_to)
+    def __add_commit_and_push(self, message: str, branch_name: str):
+        self.git_repo.git.checkout(branch_name)
+        self.git_repo.git.add(A=True)
+        self.git_repo.git.commit(m=message)
+        self.git_repo.git.push("origin", branch_name)
 
-    def squash_and_merge(self, merging_from: str, merging_to: str, message: str = None):
+    def pull(self, pulling_from: str, pulling_to: str, private_key: str = None):
+        self._ssh_wrapped(
+            self.__pull, pulling_from=pulling_from, pulling_to=pulling_to, private_key=private_key
+        )
+
+    def __pull(self, pulling_from: str, pulling_to: str):
+        self.git_repo.git.checkout(pulling_to)
+        self.git_repo.git.pull("--rebase=false", "origin", pulling_from)
+        self.git_repo.git.push("origin", pulling_to)
+
+    def squash_and_merge(
+        self, merging_from: str, merging_to: str, message: str = None, private_key: str = None
+    ):
+        self._ssh_wrapped(
+            self.__squash_and_merge,
+            merging_from=merging_from,
+            merging_to=merging_to,
+            message=message,
+            private_key=private_key,
+        )
+
+    def __squash_and_merge(self, merging_from: str, merging_to: str, message: str = None):
         msg = message if message else f"Squash and merge {merging_from} into {merging_to}"
-        self.__git_repo.git.checkout(merging_to)
-        self.__git_repo.git.merge(f"origin/{merging_from}", squash=True)
-        self.__git_repo.git.commit(m=msg)
-        self.__git_repo.git.push("origin", merging_to)
+        self.git_repo.git.checkout(merging_to)
+        self.git_repo.git.merge(f"origin/{merging_from}", squash=True)
+        self.git_repo.git.commit(m=msg)
+        self.git_repo.git.push("origin", merging_to)
+
+    def _ssh_wrapped(self, func, **kwargs):
+        private_key = kwargs.pop("private_key", None)
+        if private_key and self._file_path:
+            self._write_private_key(private_key, self._file_path)
+            try:
+                func(**kwargs)
+                os.remove(self._file_path)
+            except Exception as e:
+                os.remove(self._file_path)
+                raise e
+        else:
+            func(**kwargs)
 
     def fetch_github_repo(self, private_key: str):
         if self.is_ssh:
             if private_key is None:
                 raise ValueError("Private key is required for SSH mode of connection to Github.")
-            repo, branch_options = GithubRepo._fetch_github_repo_ssh(
+            repo, branch_options, file_path = GithubRepo._fetch_github_repo_ssh(
                 self.repo_url, self.repo_destination, self.branch, private_key
             )
         else:
             repo, branch_options = GithubRepo._fetch_github_repo_https(
                 self.repo_url, self.repo_destination, self.branch
             )
-        return repo, branch_options
+            file_path = None
+        return repo, branch_options, file_path
 
     @staticmethod
     def _fetch_github_repo_https(repo_url: str, repo_destination: str, branch: str):
@@ -137,21 +175,11 @@ class GithubRepo(BaseRepo):
 
     @staticmethod
     def _fetch_github_repo_ssh(repo_url: str, repo_destination: str, branch: str, private_key: str):
-        file_name = f"ssh_p8_key_{utils.generate_uuid(db_safe=True)}"
-        file_path = os.path.join(BASE_PATH, file_name)
-        with open(file_path, "wb") as f:
-            f.write(private_key)
-            try:
-                os.chmod(file_path, 0o600)
-            except Exception as e:
-                print(f"Exception chmoding private key file: {e}")
-
-        ssh_cmd = f"ssh -o StrictHostKeyChecking=no -i {file_path}"
+        file_path = GithubRepo._write_private_key(private_key)
+        git_env = GithubRepo._private_key_git_ssh_env(file_path)
 
         try:
-            repo = git.Repo.clone_from(
-                url=repo_url, to_path=repo_destination, branch=branch, env={"GIT_SSH_COMMAND": ssh_cmd}
-            )
+            repo = git.Repo.clone_from(url=repo_url, to_path=repo_destination, branch=branch, env=git_env)
             branch_options = GithubRepo._fetch_branch_options(repo, branch)
             os.remove(file_path)
         except Exception as e:
@@ -161,7 +189,29 @@ class GithubRepo(BaseRepo):
                 print(f"Exception removing private key file: {e}")
             raise e
 
-        return repo, branch_options
+        return repo, branch_options, file_path
+
+    @staticmethod
+    def _private_key_git_ssh_env(file_path: str):
+        return {"GIT_SSH_COMMAND": f"ssh -o StrictHostKeyChecking=no -i {file_path}"}
+
+    @staticmethod
+    def _write_private_key(private_key: str, file_path: str = None):
+        if file_path is None:
+            file_name = f"ssh_p8_key_{utils.generate_uuid(db_safe=True)}"
+            file_path = os.path.join(BASE_PATH, file_name)
+        with open(file_path, "wb") as f:
+            f.write(private_key)
+            try:
+                os.chmod(file_path, 0o600)
+            except Exception as e:
+                print(f"Exception chmoding private key file: {e}")
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    print(f"Exception removing private key file: {e}")
+                    raise e
+        return file_path
 
     @staticmethod
     def _fetch_branch_options(repo, branch):
