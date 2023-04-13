@@ -109,7 +109,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     @property
     def convert_timezone(self):
-        return self._definition.get("convert_timezone", True)
+        return self._definition.get("convert_timezone", True) and self._definition.get("convert_tz", True)
 
     @property
     def datatype(self):
