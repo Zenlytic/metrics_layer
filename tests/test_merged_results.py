@@ -935,3 +935,12 @@ def test_query_merge_results_order_issue(connection):
         ".customers_first_order_month=orders_order__subquery_0.orders_order_month;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_query_merge_results_default_date_raise_error(connection):
+    with pytest.raises(QueryError) as exc_info:
+        connection.get_sql_query(metrics=["number_of_customers", "avg_rainfall"], dimensions=["month"])
+
+    assert exc_info.value
+    assert "Could not find a date field associated with metric avg_rainfall" in exc_info.value.message
