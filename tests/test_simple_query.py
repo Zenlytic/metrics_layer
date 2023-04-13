@@ -664,6 +664,22 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
     assert query == correct
 
 
+@pytest.mark.query
+def test_simple_query_convert_tz_alias_no(connections):
+    fields = [f if f["name"] != "order" else {**f, "convert_tz": False} for f in simple_view["fields"]]
+    project = Project(models=[simple_model], views=[{**simple_view, "fields": fields}])
+    project.set_timezone("America/New_York")
+    conn = MetricsLayerConnection(project=project, connections=connections)
+    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["order_date"])
+
+    correct = (
+        "SELECT DATE_TRUNC('DAY', simple.order_date) as simple_order_date,"
+        "SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple "
+        "GROUP BY DATE_TRUNC('DAY', simple.order_date) ORDER BY simple_total_revenue DESC;"
+    )
+    assert query == correct
+
+
 @pytest.mark.parametrize(
     "field_name,filter_type,value",
     [

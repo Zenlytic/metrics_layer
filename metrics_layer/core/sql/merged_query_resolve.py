@@ -118,7 +118,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             join_group_hash = self._join_hash_key(field)
             if field.canon_date is None:
                 raise QueryError(
-                    f"Could not find a date field associated with metric {ref_field.name} "
+                    f"Could not find a date field associated with metric {field.name} "
                     "in the project. \n\nMake sure you have this defined either in the view "
                     "with the property 'default_date' or on the metric under 'canon_date'"
                 )
