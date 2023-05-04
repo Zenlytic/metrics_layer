@@ -175,7 +175,14 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                                 self.query_dimensions[mapping_info["from_join_hash"]].append(ref_field)
                             else:
                                 canon_date = ref_field.canon_date.replace(".", "_")
-                                key = f"{canon_date}__{mapping_info['to_join_hash']}"
+                                existing_join_hashes = (
+                                    join_hash
+                                    for join_hash in used_join_hashes
+                                    if mapping_info["to_join_hash"] in join_hash
+                                )
+                                join_hash = next(existing_join_hashes, None)
+                                default_join_hash = f"{canon_date}__{mapping_info['to_join_hash']}"
+                                key = join_hash if join_hash else default_join_hash
                                 self.query_dimensions[key].append(ref_field)
 
                 if not_in_metrics:
@@ -201,7 +208,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             field = self.project.get_field(where["field"])
             is_canon_date = any(f"{field.view.name}.{field.name}" == d for d in metric_canon_dates)
             dimension_group = field.dimension_group
-            join_group_hash = self.project.join_graph.join_graph_hash(field.view.name)
+            join_group_hash = self._join_hash_key(field)
             added_filter = {join_hash: False for join_hash in unique_keys}
             for join_hash in unique_keys:
                 join_hash_with_canon_date = f"{field.view.name}_{field.name}__{join_group_hash}"

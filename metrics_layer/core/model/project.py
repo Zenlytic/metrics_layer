@@ -5,7 +5,6 @@ from collections import Counter
 from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
 from .dashboard import Dashboard
 from .join_graph import JoinGraph
-from .explore import Explore
 from .field import Field
 from .model import AccessGrant, Model
 from .view import View
@@ -174,20 +173,12 @@ class Project:
     def can_access_dashboard(self, dashboard: Dashboard):
         return self._can_access_object(dashboard)
 
-    def can_access_join(self, join, explore: Explore):
-        can_access_explore = self.can_access_explore(explore)
-        return self._can_access_object(join) and can_access_explore
-
     def can_access_view(self, view: View):
         return self._can_access_object(view)
 
     def can_access_field(self, field):
         can_access_view = self.can_access_view(field.view)
         return self._can_access_object(field) and can_access_view
-
-    def can_access_merged_field(self, field, explore: Explore):
-        can_access_explore = self.can_access_explore(explore)
-        return self._can_access_object(field) and can_access_explore
 
     def _can_access_object(self, obj):
         if self._user is not None:

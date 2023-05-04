@@ -136,7 +136,7 @@ class JoinGraph(SQLReplacement):
                             second_identifier=join_identifier,
                             second_view_name=join_view_name,
                         )
-                        is_fanout = join_info["relationship"] in {"one_to_many", "many_to_many"}
+                        is_fanout = self._is_fanout(join_info["relationship"])
                         if is_fanout and join_view_name not in identifier.get("allowed_fanouts", []):
                             continue
 
@@ -271,7 +271,13 @@ class JoinGraph(SQLReplacement):
                     # We need to invert the join here because this is the inverse
                     # direction of how the join was defined
                     result[view.name][identifier["reference"]] = self._verify_identifier_join(identifier)
-                    result[identifier["reference"]][view.name] = self._verify_identifier_join(join_identifier)
+
+                    # We only want to invert the join by default if it's *not* a fanout join
+                    if not self._is_fanout(join_identifier["relationship"]):
+                        result[identifier["reference"]][view.name] = self._verify_identifier_join(
+                            join_identifier
+                        )
+
         return result
 
     def _identifier_to_join(self, first_identifier, first_view_name, second_identifier, second_view_name):
@@ -346,3 +352,7 @@ class JoinGraph(SQLReplacement):
     @staticmethod
     def _allowed_join(only_join: list, view_name: str):
         return not only_join or (only_join and view_name in only_join)
+
+    @staticmethod
+    def _is_fanout(relationship: str):
+        return relationship in {"one_to_many", "many_to_many"}

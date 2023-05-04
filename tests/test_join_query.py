@@ -1,6 +1,6 @@
 import pytest
 
-from metrics_layer.core.exceptions import QueryError
+from metrics_layer.core.exceptions import QueryError, JoinError
 
 
 @pytest.mark.query
@@ -678,4 +678,37 @@ def test_query_sum_when_should_be_number(connection):
         "other measures in your expression (like line_item_aov referenced here)"
     )
     assert isinstance(exc_info.value, QueryError)
+    assert str(exc_info.value) == error_message
+
+
+@pytest.mark.query
+def test_join_graph_working_as_expected(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_clicks"],
+        dimensions=["date", "context_os"],
+    )
+
+    correct = (
+        "SELECT DATE_TRUNC('DAY', clicked_on_page.session_date) as clicked_on_page_session_date,"
+        "clicked_on_page.context_os as clicked_on_page_context_os,"
+        "COUNT(clicked_on_page.id) as clicked_on_page_number_of_clicks "
+        "FROM analytics.clicked_on_page clicked_on_page "
+        "GROUP BY DATE_TRUNC('DAY', clicked_on_page.session_date),"
+        "clicked_on_page.context_os ORDER BY clicked_on_page_number_of_clicks DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_join_graph_raise_unjoinable_error(connection):
+    with pytest.raises(JoinError) as exc_info:
+        connection.get_sql_query(
+            metrics=["number_of_clicks"], dimensions=["date", "submitted_form.context_os"], single_query=True
+        )
+
+    error_message = (
+        "There was no join path between the views: ['clicked_on_page', 'submitted_form']. Check the "
+        "identifiers on your views and make sure they are joinable."
+    )
+    assert isinstance(exc_info.value, JoinError)
     assert str(exc_info.value) == error_message

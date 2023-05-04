@@ -821,4 +821,4 @@ class Field(MetricsLayerBase, SQLReplacement):
         extended = [f"merged_result_{mr}" for mr, _ in edges]
         if self.is_merged_result:
             return extended
-        return base + extended
+        return list(sorted(base + extended))
