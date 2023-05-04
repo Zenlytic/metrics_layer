@@ -38,7 +38,6 @@ class MetricsLayerDesign:
         required_views = self.required_views()
 
         self._join_subgraph = self.project.join_graph.subgraph(required_views)
-
         try:
             ordered_view_pairs = self.determine_join_order(required_views)
         except networkx.exception.NetworkXNoPath:

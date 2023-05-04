@@ -14,6 +14,9 @@ mappings:
   gross_revenue: 
     fields: [order_lines.total_item_revenue, orders.total_revenue]
     description: "Gross revenue (product revenue + shipping - taxes)"
+  context_os: 
+    fields: [submitted_form.context_os, clicked_on_page.context_os]
+    description: "Context OS (from the web tracker)"
 
 access_grants:
   - name: test_access_grant_department_view

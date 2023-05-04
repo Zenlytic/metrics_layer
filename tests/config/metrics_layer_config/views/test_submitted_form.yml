@@ -1,0 +1,54 @@
+version: 1
+type: view
+name: submitted_form
+
+sql_table_name: analytics.submitted_form
+model_name: test_model
+
+default_date: session
+row_label: Session
+
+identifiers:
+- name: customer_join
+  type: join
+  reference: discounts
+  relationship: many_to_one
+  sql_on: "${customers.customer_id}=${submitted_form.customer_id} AND ${submitted_form.session_date} is not null"
+
+
+fields:
+  - name: session_id
+    field_type: "dimension"
+    type: string
+    primary_key: yes
+    hidden: yes
+    sql: "${TABLE}.id"
+
+  - name: customer_id
+    field_type: dimension
+    type: string
+    sql: ${TABLE}.customer_id
+
+  - name: context_os
+    field_type: dimension
+    type: string
+    sql: ${TABLE}.context_os
+
+  - name: session
+    field_type: "dimension_group"
+    type: time
+    timeframes: [
+      raw,
+      time,
+      date,
+      week,
+      month,
+      quarter,
+      year
+    ]
+    sql: "${TABLE}.session_date"
+
+  - name: number_of_form_submissions
+    field_type: measure
+    type: count
+    sql: ${session_id}
