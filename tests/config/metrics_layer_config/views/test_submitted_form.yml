@@ -11,7 +11,7 @@ row_label: Session
 identifiers:
 - name: customer_join
   type: join
-  reference: discounts
+  reference: customers
   relationship: many_to_one
   sql_on: "${customers.customer_id}=${submitted_form.customer_id} AND ${submitted_form.session_date} is not null"
 

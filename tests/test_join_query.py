@@ -707,7 +707,7 @@ def test_join_graph_raise_unjoinable_error(connection):
         )
 
     error_message = (
-        "There was no join path between the views: ['submitted_form', 'clicked_on_page']. Check the "
+        "There was no join path between the views: ['clicked_on_page', 'submitted_form']. Check the "
         "identifiers on your views and make sure they are joinable."
     )
     assert isinstance(exc_info.value, JoinError)

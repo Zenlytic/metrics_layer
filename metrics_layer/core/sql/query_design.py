@@ -42,7 +42,7 @@ class MetricsLayerDesign:
             ordered_view_pairs = self.determine_join_order(required_views)
         except networkx.exception.NetworkXNoPath:
             raise JoinError(
-                f"There was no join path between the views: {required_views}. "
+                f"There was no join path between the views: {list(sorted(required_views))}. "
                 "Check the identifiers on your views and make sure they are joinable."
             )
 
