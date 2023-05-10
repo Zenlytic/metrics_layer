@@ -110,24 +110,25 @@ def test_mapping_multiple_metric_different_canon_date_merged_mapped_date_and_fil
         verbose=True,
     )
 
-    orders_cte = "orders_order__subquery_0"
+    orders_cte = "orders_order__cte_subquery_0"
+    sessions_cte = "sessions_session__cte_subquery_1"
     correct = (
         f"WITH {orders_cte} AS (SELECT DATE_TRUNC('DAY', orders.order_date) as "
         "orders_order_date,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders "
         "orders WHERE DATE_TRUNC('DAY', orders.order_date)>='2022-01-05T00:00:00' AND "
         "DATE_TRUNC('DAY', orders.order_date)<'2023-03-05T00:00:00' "
         "GROUP BY DATE_TRUNC('DAY', orders.order_date) ORDER BY orders_number_of_orders DESC) ,"
-        "sessions_session__subquery_2 AS (SELECT DATE_TRUNC('DAY', sessions.session_date) "
+        f"{sessions_cte} AS (SELECT DATE_TRUNC('DAY', sessions.session_date) "
         "as sessions_session_date,COUNT(sessions.id) as sessions_number_of_sessions "
         "FROM analytics.sessions sessions WHERE DATE_TRUNC('DAY', sessions.session_date)"
         ">='2022-01-05T00:00:00' AND DATE_TRUNC('DAY', sessions.session_date)<'2023-03-05T00:00:00' "
         "GROUP BY DATE_TRUNC('DAY', sessions.session_date) "
         f"ORDER BY sessions_number_of_sessions DESC) SELECT {orders_cte}."
-        "orders_number_of_orders as orders_number_of_orders,sessions_session__subquery_2."
+        f"orders_number_of_orders as orders_number_of_orders,{sessions_cte}."
         f"sessions_number_of_sessions as sessions_number_of_sessions,{orders_cte}."
-        f"orders_order_date as orders_order_date,sessions_session__subquery_2.sessions_session_date "
-        f"as sessions_session_date FROM {orders_cte} FULL OUTER JOIN sessions_session__subquery_2 "
-        f"ON {orders_cte}.orders_order_date=sessions_session__subquery_2.sessions_session_date;"
+        f"orders_order_date as orders_order_date,{sessions_cte}.sessions_session_date "
+        f"as sessions_session_date FROM {orders_cte} FULL OUTER JOIN {sessions_cte} "
+        f"ON {orders_cte}.orders_order_date={sessions_cte}.sessions_session_date;"
     )
 
     assert query == correct
@@ -153,8 +154,8 @@ def test_mapping_multiple_metric_different_canon_date_joinable_mapped_date_dim_a
         verbose=True,
     )
 
-    orders_cte = "orders_order__subquery_0"
-    order_lines_cte = "order_lines_order__subquery_0"
+    orders_cte = "orders_order__cte_subquery_1"
+    order_lines_cte = "order_lines_order__cte_subquery_0"
     correct = (
         f"WITH {orders_cte} AS (SELECT orders.sub_channel as orders_sub_channel,"
         f"DATE_TRUNC('DAY', orders.order_date) as orders_order_date,COUNT(orders.id) as "
@@ -199,8 +200,8 @@ def test_mapping_mapped_metric_joined_dim(connection):
         verbose=True,
     )
 
-    orders_cte = "orders_order__subquery_0"
-    customers_cte = "customers_first_order__subquery_0_subquery_1_subquery_2_subquery_5_subquery_6"
+    orders_cte = "orders_order__cte_subquery_1"
+    customers_cte = "customers_first_order__cte_subquery_0"
     correct = (
         f"WITH {orders_cte} AS (SELECT order_lines.sales_channel as order_lines_channel,"
         f"NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL THEN  orders.id  ELSE NULL END), "
@@ -338,22 +339,23 @@ def test_mapped_metric_mapped_dim_having(connection):
 def test_mapped_metric_mapped_merged_results(connection):
     query = connection.get_sql_query(metrics=["gross_revenue", "number_of_sessions"], dimensions=["source"])
 
-    order_lines_cte = "order_lines_order__subquery_0"
+    order_lines_cte = "order_lines_order__cte_subquery_0"
+    sessions_cte = "sessions_session__cte_subquery_1"
     correct = (
         f"WITH {order_lines_cte} AS (SELECT orders.sub_channel as orders_sub_channel,"
         f"SUM(order_lines.revenue) as order_lines_total_item_revenue FROM analytics.order_line_items "
         f"order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         f"GROUP BY orders.sub_channel ORDER BY order_lines_total_item_revenue DESC) ,"
-        f"sessions_session__subquery_2 AS (SELECT sessions.utm_source as sessions_utm_source,"
+        f"{sessions_cte} AS (SELECT sessions.utm_source as sessions_utm_source,"
         f"COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions sessions "
         f"GROUP BY sessions.utm_source ORDER BY sessions_number_of_sessions DESC) "
         f"SELECT {order_lines_cte}.order_lines_total_item_revenue as "
-        f"order_lines_total_item_revenue,sessions_session__subquery_2.sessions_number_of_sessions "
+        f"order_lines_total_item_revenue,{sessions_cte}.sessions_number_of_sessions "
         f"as sessions_number_of_sessions,{order_lines_cte}.orders_sub_channel as "
-        f"orders_sub_channel,sessions_session__subquery_2.sessions_utm_source as "
-        f"sessions_utm_source FROM {order_lines_cte} FULL OUTER JOIN sessions_session__subquery_2 "
+        f"orders_sub_channel,{sessions_cte}.sessions_utm_source as "
+        f"sessions_utm_source FROM {order_lines_cte} FULL OUTER JOIN {sessions_cte} "
         f"ON {order_lines_cte}.orders_sub_channel"
-        f"=sessions_session__subquery_2.sessions_utm_source;"
+        f"={sessions_cte}.sessions_utm_source;"
     )
     assert query == correct
 

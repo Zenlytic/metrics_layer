@@ -49,6 +49,13 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         for k in self.query_dimensions.keys():
             if k not in join_hashes:
                 join_hashes.append(k)
+
+        join_hash_readability_lookup = {
+            j: f"{j.split('__')[0]}__cte_subquery_{i}" for i, j in enumerate(sorted(join_hashes))
+        }
+        print(join_hash_readability_lookup)
+
+        readable_join_hashes = []
         for join_hash in join_hashes:
             metrics = [f.id() for f in self.query_metrics.get(join_hash, [])]
             dimensions = [f.id() for f in self.query_dimensions.get(join_hash, [])]
@@ -66,15 +73,19 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                 **kws,
             )
             query = resolver.get_query(semicolon=False)
-            queries_to_join[join_hash] = query
+            readable_hash = join_hash_readability_lookup[join_hash]
+            readable_join_hashes.append(readable_hash)
+            queries_to_join[readable_hash] = query
 
+        readable_metrics = {join_hash_readability_lookup[k]: m for k, m in self.query_metrics.items()}
+        readable_dimensions = {join_hash_readability_lookup[k]: d for k, d in self.query_dimensions.items()}
         query_config = {
             "merged_metrics": self.merged_metrics,
-            "query_metrics": self.query_metrics,
-            "query_dimensions": self.query_dimensions,
+            "query_metrics": readable_metrics,
+            "query_dimensions": readable_dimensions,
             "having": self.having,
             "queries_to_join": queries_to_join,
-            "join_hashes": list(sorted(join_hashes)),
+            "join_hashes": list(sorted(readable_join_hashes)),
             "query_type": resolver.query_type,
             "limit": self.limit,
             "project": self.project,
