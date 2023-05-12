@@ -39,7 +39,7 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
                 base_cte_query = base_cte_query.from_(AliasedQuery(join_hash))
             else:
                 criteria = self._build_join_criteria(self.join_hashes[0], join_hash)
-                base_cte_query = base_cte_query.inner_join(AliasedQuery(join_hash)).on(criteria)
+                base_cte_query = base_cte_query.outer_join(AliasedQuery(join_hash)).on(criteria)
 
         return base_cte_query
 
@@ -70,12 +70,18 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
                     select.append(self.sql(f"{join_hash}.{alias}", alias=alias))
                     existing_aliases.append(alias)
 
+        dimension_sql = {}
         for join_hash, field_set in sorted(self.query_dimensions.items()):
             for field in field_set:
                 alias = field.alias(with_view=True)
-                if alias not in existing_aliases:
-                    select.append(self.sql(f"{join_hash}.{alias}", alias=alias))
-                    existing_aliases.append(alias)
+                if alias not in dimension_sql:
+                    dimension_sql[alias] = f"{join_hash}.{alias}"
+                else:
+                    dimension_sql[alias] = f"ifnull({dimension_sql[alias]}, {join_hash}.{alias})"
+
+        for alias, sql in dimension_sql.items():
+            select.append(self.sql(sql, alias=alias))
+            existing_aliases.append(alias)
 
         for field in self.merged_metrics:
             alias = field.alias(with_view=True)

@@ -1,6 +1,7 @@
 import networkx
 from itertools import combinations
 
+from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.exceptions import QueryError
 from collections import defaultdict
 from copy import deepcopy
@@ -135,7 +136,7 @@ class JoinGraph(SQLReplacement):
                             second_identifier=join_identifier,
                             second_view_name=join_view_name,
                         )
-                        is_fanout = join_info["relationship"] in {"one_to_many", "many_to_many"}
+                        is_fanout = self._is_fanout(join_info["relationship"])
                         if is_fanout and join_view_name not in identifier.get("allowed_fanouts", []):
                             continue
 
@@ -170,10 +171,14 @@ class JoinGraph(SQLReplacement):
         graph = networkx.DiGraph()
 
         existing_root_nodes, join_group_hashes = self._add_canon_dates_to_merged_result(
-            graph, with_dates, join_root="canon_date_core"
+            graph, with_dates, join_root=Definitions.canon_date_join_graph_root
         )
         self._add_mappings_to_merged_result(
-            graph, mappings, must_exist_in=join_group_hashes, root_nodes=existing_root_nodes
+            graph,
+            mappings,
+            must_exist_in=join_group_hashes,
+            root_nodes=existing_root_nodes,
+            measures_only=True,
         )
 
         ordered_hashes = sorted(list(join_group_hashes))
@@ -220,8 +225,14 @@ class JoinGraph(SQLReplacement):
                     existing_root_nodes.add(root_node_name)
         return sorted(list(existing_root_nodes)), join_group_hashes
 
-    def _add_mappings_to_merged_result(self, graph, mappings: dict, must_exist_in: list, root_nodes: list):
+    def _add_mappings_to_merged_result(
+        self, graph, mappings: dict, must_exist_in: list, root_nodes: list, measures_only: bool = False
+    ):
         for from_field, mapping in mappings.items():
+            if mapping.get("is_canon_date_mapping"):
+                continue
+            if measures_only and mapping["field_type"] != "measure":
+                continue
             to_field = mapping["field"]
             if mapping["from_join_hash"] in must_exist_in and mapping["to_join_hash"] in must_exist_in:
                 from_ = self._get_field_with_memo(from_field).id()
@@ -260,7 +271,13 @@ class JoinGraph(SQLReplacement):
                     # We need to invert the join here because this is the inverse
                     # direction of how the join was defined
                     result[view.name][identifier["reference"]] = self._verify_identifier_join(identifier)
-                    result[identifier["reference"]][view.name] = self._verify_identifier_join(join_identifier)
+
+                    # We only want to invert the join by default if it's *not* a fanout join
+                    if not self._is_fanout(join_identifier["relationship"]):
+                        result[identifier["reference"]][view.name] = self._verify_identifier_join(
+                            join_identifier
+                        )
+
         return result
 
     def _identifier_to_join(self, first_identifier, first_view_name, second_identifier, second_view_name):
@@ -335,3 +352,7 @@ class JoinGraph(SQLReplacement):
     @staticmethod
     def _allowed_join(only_join: list, view_name: str):
         return not only_join or (only_join and view_name in only_join)
+
+    @staticmethod
+    def _is_fanout(relationship: str):
+        return relationship in {"one_to_many", "many_to_many"}

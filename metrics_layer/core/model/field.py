@@ -109,7 +109,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     @property
     def convert_timezone(self):
-        return self._definition.get("convert_timezone", True)
+        return self._definition.get("convert_timezone", True) and self._definition.get("convert_tz", True)
 
     @property
     def datatype(self):
@@ -141,6 +141,11 @@ class Field(MetricsLayerBase, SQLReplacement):
             set_definition = {"name": "drill_fields", "fields": drill_fields, "view_name": self.view.name}
             return Set(set_definition, project=self.view.project).field_names()
         return drill_fields
+
+    @property
+    def update_where_timeframe(self):
+        # if this value is present we use it, otherwise we default to True
+        return self._definition.get("update_where_timeframe", True)
 
     def cte_prefix(self, aggregated: bool = True):
         if self.type == "cumulative":
@@ -522,8 +527,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', {s})",
                 "month_of_year": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'MON')",
                 "hour_of_day": lambda s, qt: f"HOUR(CAST({s} AS TIMESTAMP))",
-                "day_of_week": lambda s, qt: f"DAYOFWEEK({s})",
-                "day_of_month": lambda s, qt: f"DAYOFMONTH({s})",
+                "day_of_week": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Dy')",
+                "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM {s})",
             },
             Definitions.postgres: {
                 "raw": lambda s, qt: s,
@@ -535,7 +540,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
                 "month_of_year": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'MON')",
                 "hour_of_day": lambda s, qt: f"EXTRACT('HOUR' FROM CAST({s} AS TIMESTAMP))",
-                "day_of_week": lambda s, qt: f"EXTRACT('DOW' FROM CAST({s} AS TIMESTAMP))",
+                "day_of_week": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Dy')",
                 "day_of_month": lambda s, qt: f"EXTRACT('DAY' FROM CAST({s} AS TIMESTAMP))",
             },
             Definitions.bigquery: {
@@ -702,6 +707,12 @@ class Field(MetricsLayerBase, SQLReplacement):
                     sql_replace = field.raw_sql_query(query_type, alias_only=alias_only)
                 else:
                     sql_replace = to_replace
+                if isinstance(sql_replace, list):
+                    raise QueryError(
+                        f"Field {self.name} has the wrong type. You must use the type 'number' "
+                        f"if you reference other measures in your expression (like {to_replace} "
+                        "referenced here)"
+                    )
                 clean_sql = clean_sql.replace("${" + to_replace + "}", sql_replace)
         return clean_sql.strip()
 
@@ -778,7 +789,11 @@ class Field(MetricsLayerBase, SQLReplacement):
     def is_cumulative(self):
         explicitly_cumulative = self.type == "cumulative"
         if self.sql:
-            has_references = any(field.type == "cumulative" for field in self.referenced_fields(self.sql))
+            has_references = False
+            for field in self.referenced_fields(self.sql):
+                if not isinstance(field, str) and field.type == "cumulative":
+                    has_references = True
+                    break
         else:
             has_references = False
         return explicitly_cumulative or has_references
@@ -806,4 +821,4 @@ class Field(MetricsLayerBase, SQLReplacement):
         extended = [f"merged_result_{mr}" for mr, _ in edges]
         if self.is_merged_result:
             return extended
-        return base + extended
+        return list(sorted(base + extended))

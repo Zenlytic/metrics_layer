@@ -138,6 +138,13 @@ fields:
     measure: customers.number_of_customers
     cumulative_where: ${customers.cancelled_date} < ${cumulative_date}
 
+  - name: cumulative_customers_no_change_grain
+    field_type: measure
+    type: cumulative
+    measure: customers.number_of_customers
+    cumulative_where: ${customers.cancelled_date} < ${cumulative_date}
+    update_where_timeframe: no
+
   - name: cumulative_aov
     field_type: measure
     type: cumulative

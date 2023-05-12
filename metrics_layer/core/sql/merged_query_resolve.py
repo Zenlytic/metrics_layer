@@ -49,6 +49,13 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         for k in self.query_dimensions.keys():
             if k not in join_hashes:
                 join_hashes.append(k)
+
+        join_hash_readability_lookup = {
+            j: f"{j.split('__')[0]}__cte_subquery_{i}" for i, j in enumerate(sorted(join_hashes))
+        }
+        print(join_hash_readability_lookup)
+
+        readable_join_hashes = []
         for join_hash in join_hashes:
             metrics = [f.id() for f in self.query_metrics.get(join_hash, [])]
             dimensions = [f.id() for f in self.query_dimensions.get(join_hash, [])]
@@ -66,15 +73,19 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                 **kws,
             )
             query = resolver.get_query(semicolon=False)
-            queries_to_join[join_hash] = query
+            readable_hash = join_hash_readability_lookup[join_hash]
+            readable_join_hashes.append(readable_hash)
+            queries_to_join[readable_hash] = query
 
+        readable_metrics = {join_hash_readability_lookup[k]: m for k, m in self.query_metrics.items()}
+        readable_dimensions = {join_hash_readability_lookup[k]: d for k, d in self.query_dimensions.items()}
         query_config = {
             "merged_metrics": self.merged_metrics,
-            "query_metrics": self.query_metrics,
-            "query_dimensions": self.query_dimensions,
+            "query_metrics": readable_metrics,
+            "query_dimensions": readable_dimensions,
             "having": self.having,
             "queries_to_join": queries_to_join,
-            "join_hashes": list(sorted(join_hashes)),
+            "join_hashes": list(sorted(readable_join_hashes)),
             "query_type": resolver.query_type,
             "limit": self.limit,
             "project": self.project,
@@ -110,15 +121,15 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                         "in the project. \n\nMake sure you have this defined either in the view "
                         "with the property 'default_date' or on the metric under 'canon_date'"
                     )
-                join_group_hash = self.project.join_graph.join_graph_hash(ref_field.view.name)
+                join_group_hash = self._join_hash_key(ref_field)
                 key = self._cte_name_from_parts(ref_field.canon_date, join_group_hash)
                 self.query_metrics[key].append(ref_field)
 
         for field in self.secondary_metrics:
-            join_group_hash = self.project.join_graph.join_graph_hash(field.view.name)
+            join_group_hash = self._join_hash_key(field)
             if field.canon_date is None:
                 raise QueryError(
-                    f"Could not find a date field associated with metric {ref_field.name} "
+                    f"Could not find a date field associated with metric {field.name} "
                     "in the project. \n\nMake sure you have this defined either in the view "
                     "with the property 'default_date' or on the metric under 'canon_date'"
                 )
@@ -145,7 +156,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         for dimension in self.dimensions:
             field = self.project.get_field(dimension)
             field_key = f"{field.view.name}.{field.name}"
-            join_group_hash = self.project.join_graph.join_graph_hash(field.view.name)
+            join_group_hash = self._join_hash_key(field)
             if field_key in canon_dates:
                 join_hash = f'{field_key.replace(".", "_")}__{join_group_hash}'
                 self.query_dimensions[join_hash].append(field)
@@ -175,7 +186,14 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                                 self.query_dimensions[mapping_info["from_join_hash"]].append(ref_field)
                             else:
                                 canon_date = ref_field.canon_date.replace(".", "_")
-                                key = f"{canon_date}__{mapping_info['to_join_hash']}"
+                                existing_join_hashes = (
+                                    join_hash
+                                    for join_hash in used_join_hashes
+                                    if mapping_info["to_join_hash"] in join_hash
+                                )
+                                join_hash = next(existing_join_hashes, None)
+                                default_join_hash = f"{canon_date}__{mapping_info['to_join_hash']}"
+                                key = join_hash if join_hash else default_join_hash
                                 self.query_dimensions[key].append(ref_field)
 
                 if not_in_metrics:
@@ -197,14 +215,20 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         unique_keys = sorted(list(set(keys)), key=lambda x: keys.index(x))
         self.query_where = defaultdict(list)
         for where in self.where:
+            metric_canon_dates = {f.canon_date for v in self.query_metrics.values() for f in v}
             field = self.project.get_field(where["field"])
+            is_canon_date = any(f"{field.view.name}.{field.name}" == d for d in metric_canon_dates)
             dimension_group = field.dimension_group
-            join_group_hash = self.project.join_graph.join_graph_hash(field.view.name)
-            added_filter = False
+            join_group_hash = self._join_hash_key(field)
+            added_filter = {join_hash: False for join_hash in unique_keys}
             for join_hash in unique_keys:
-                if join_group_hash in join_hash:
+                join_hash_with_canon_date = f"{field.view.name}_{field.name}__{join_group_hash}"
+                joinable_not_canon_date = not is_canon_date and join_group_hash in join_hash
+                is_canon_date_same = is_canon_date and join_hash_with_canon_date in join_hash
+
+                if joinable_not_canon_date or is_canon_date_same:
                     self.query_where[join_hash].append(where)
-                    added_filter = True
+                    added_filter[join_hash] = True
                 else:
                     key = f"{field.view.name}.{field.name}"
                     for mapping_info in dimension_mapping[key]:
@@ -217,9 +241,10 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                             mapped_where = deepcopy(where)
                             mapped_where["field"] = ref_field.id()
                             self.query_where[join_hash].append(mapped_where)
-            if not added_filter:
-                # This handles the case where the where field is joined in and not in a mapping
-                for join_hash in self.query_metrics.keys():
+                            added_filter[join_hash] = True
+            # This handles the case where the where field is joined in and not in a mapping
+            for join_hash in self.query_metrics.keys():
+                if not added_filter[join_hash]:
                     self.query_where[join_hash].append(where)
 
         clean_wheres = defaultdict(list)
@@ -257,7 +282,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             for from_canon_date_name in canon_dates:
                 if to_canon_date_name != from_canon_date_name:
                     from_canon_date = self.project.get_field_by_name(from_canon_date_name)
-                    join_group_hash = self.project.join_graph.join_graph_hash(from_canon_date.view.name)
+                    join_group_hash = self._join_hash_key(from_canon_date)
                     key = self._cte_name_from_parts(from_canon_date_name, join_group_hash)
                     canon_date_data = {"field": from_canon_date_name, "from_join_hash": key}
                     dimension_mapping[to_canon_date_name].append(canon_date_data)
@@ -268,6 +293,14 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             key=lambda x: str(list(self.query_metrics.keys()).index(x)) if x in self.query_metrics else x,
         )
         return dimension_mapping, canon_dates, sorted_joins
+
+    @staticmethod
+    def _join_hash_key(field):
+        # This makes the join hash out of all the joinable graphs, it's crucial to use this when
+        # naming the CTEs so in subsequent checks we can match up all joinable fields,
+        # not just fields in the same view
+        joinable_graphs = [jg for jg in field.join_graphs() if "merged_result" not in jg]
+        return "_".join(joinable_graphs)
 
     @staticmethod
     def _cte_name_from_parts(field_id: str, join_group_hash: str):

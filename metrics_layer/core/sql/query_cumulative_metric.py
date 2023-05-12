@@ -301,7 +301,11 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         for ref in self._cumulative_where_fields(cumulative_metric, refs_only=True):
             field = self.design.get_field(ref)
 
-            if field.field_type == "dimension_group" and field.dimension_group != dimension_group:
+            if (
+                field.field_type == "dimension_group"
+                and field.dimension_group != dimension_group
+                and cumulative_metric.update_where_timeframe
+            ):
                 field.dimension_group = dimension_group
 
             sql = field.sql_query(query_type=self.query_type, alias_only=True)
@@ -320,7 +324,11 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         fields = []
         for r in refs:
             field = self.design.get_field(r)
-            if field.field_type == "dimension_group" and field.dimension_group != dimension_group:
+            if (
+                field.field_type == "dimension_group"
+                and field.dimension_group != dimension_group
+                and cumulative_metric.update_where_timeframe
+            ):
                 field = self.design.get_field(f"{field.view.name}.{field.name}_{dimension_group}")
             fields.append(field)
         return fields

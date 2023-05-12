@@ -364,8 +364,8 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "year": "DATE_TRUNC('YEAR', simple.order_date)",
             "month_of_year": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'MON')",
             "hour_of_day": "HOUR(CAST(simple.order_date AS TIMESTAMP))",
-            "day_of_week": "DAYOFWEEK(simple.order_date)",
-            "day_of_month": "DAYOFMONTH(simple.order_date)",
+            "day_of_week": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Dy')",
+            "day_of_month": "EXTRACT(DAY FROM simple.order_date)",
         }
         order_by = " ORDER BY simple_total_revenue DESC"
     elif query_type == Definitions.postgres:
@@ -378,7 +378,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "year": "DATE_TRUNC('YEAR', CAST(simple.order_date AS TIMESTAMP))",
             "month_of_year": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'MON')",
             "hour_of_day": "EXTRACT('HOUR' FROM CAST(simple.order_date AS TIMESTAMP))",
-            "day_of_week": "EXTRACT('DOW' FROM CAST(simple.order_date AS TIMESTAMP))",
+            "day_of_week": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Dy')",
             "day_of_month": "EXTRACT('DAY' FROM CAST(simple.order_date AS TIMESTAMP))",
         }
         order_by = ""
@@ -660,6 +660,22 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
         f"analytics.orders simple WHERE {condition} GROUP BY simple.sales_channel{order_by};"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_simple_query_convert_tz_alias_no(connections):
+    fields = [f if f["name"] != "order" else {**f, "convert_tz": False} for f in simple_view["fields"]]
+    project = Project(models=[simple_model], views=[{**simple_view, "fields": fields}])
+    project.set_timezone("America/New_York")
+    conn = MetricsLayerConnection(project=project, connections=connections)
+    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["order_date"])
+
+    correct = (
+        "SELECT DATE_TRUNC('DAY', simple.order_date) as simple_order_date,"
+        "SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple "
+        "GROUP BY DATE_TRUNC('DAY', simple.order_date) ORDER BY simple_total_revenue DESC;"
     )
     assert query == correct
 

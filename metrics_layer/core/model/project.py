@@ -5,7 +5,6 @@ from collections import Counter
 from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
 from .dashboard import Dashboard
 from .join_graph import JoinGraph
-from .explore import Explore
 from .field import Field
 from .model import AccessGrant, Model
 from .view import View
@@ -174,20 +173,12 @@ class Project:
     def can_access_dashboard(self, dashboard: Dashboard):
         return self._can_access_object(dashboard)
 
-    def can_access_join(self, join, explore: Explore):
-        can_access_explore = self.can_access_explore(explore)
-        return self._can_access_object(join) and can_access_explore
-
     def can_access_view(self, view: View):
         return self._can_access_object(view)
 
     def can_access_field(self, field):
         can_access_view = self.can_access_view(field.view)
         return self._can_access_object(field) and can_access_view
-
-    def can_access_merged_field(self, field, explore: Explore):
-        can_access_explore = self.can_access_explore(explore)
-        return self._can_access_object(field) and can_access_explore
 
     def _can_access_object(self, obj):
         if self._user is not None:
@@ -319,6 +310,13 @@ class Project:
         if join_graphs:
             matching_fields = [f for f in matching_fields if any(j in f.join_graphs() for j in join_graphs)]
         return self._matching_field_handler(matching_fields, tag_name, view_name)
+
+    def does_field_exist(self, field_name: str, view_name: str = None, model: Model = None):
+        try:
+            self.get_field(field_name, view_name, model)
+            return True
+        except AccessDeniedOrDoesNotExistException:
+            return False
 
     def _parse_field_and_view_name(self, field_name: str, view_name: str):
         # Handle the case where the view syntax is passed: view_name.field_name

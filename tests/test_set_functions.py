@@ -65,6 +65,7 @@ def test_sets(connection):
         "orders.total_revenue",
         "orders.total_lifetime_revenue",
         "orders.cumulative_customers",
+        "orders.cumulative_customers_no_change_grain",
         "orders.cumulative_aov",
         "orders.ltv",
         "orders.ltr",

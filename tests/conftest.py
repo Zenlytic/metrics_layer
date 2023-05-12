@@ -27,6 +27,12 @@ country_detail_view_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/views/test_country_detail.yml"
 )
 session_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_sessions.yml")
+clicked_on_page_view_path = os.path.join(
+    BASE_PATH, "config/metrics_layer_config/views/test_clicked_on_page.yml"
+)
+submitted_form_view_path = os.path.join(
+    BASE_PATH, "config/metrics_layer_config/views/test_submitted_form.yml"
+)
 event_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_events.yml")
 traffic_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/traffic.yml")
 view_paths = [
@@ -39,6 +45,8 @@ view_paths = [
     session_view_path,
     event_view_path,
     traffic_view_path,
+    clicked_on_page_view_path,
+    submitted_form_view_path,
 ]
 dashboard_paths = [sales_dashboard_path, sales_dashboard_v2_path]
 
@@ -288,6 +296,8 @@ def connections():
     class bq_mock(BaseConnection):
         name = "testing_bigquery"
         type = "BIGQUERY"
+        database = "analytics"
+        schema = "test_schema"
 
         def printable_attributes(self):
             return {"name": self.name, "type": self.type, "project_id": "fake-proj-id"}
@@ -295,6 +305,8 @@ def connections():
     class sf_mock(BaseConnection):
         name = "testing_snowflake"
         type = "SNOWFLAKE"
+        database = "analytics"
+        schema = None
 
         def printable_attributes(self):
             return {
