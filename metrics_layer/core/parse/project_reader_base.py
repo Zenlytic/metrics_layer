@@ -4,6 +4,19 @@ import os
 import ruamel.yaml
 import yaml
 
+try:
+    from dbt.cli.main import dbtRunner
+except ImportError:
+
+    class dbtRunner:
+        def __init__(self) -> None:
+            pass
+
+        def invoke(self, args) -> None:
+            cli_args = " ".join(args)
+            os.system(f"dbt {cli_args}")
+
+
 from metrics_layer.core.exceptions import QueryError
 
 from .github_repo import BaseRepo
@@ -111,7 +124,11 @@ class ProjectReaderBase:
 
     @staticmethod
     def _run_dbt(cmd: str, project_dir: str, profiles_dir: str):
-        os.system(f"dbt {cmd} --project-dir {project_dir} --profiles-dir {profiles_dir}")
+        # create CLI args as a list of strings
+        cli_args = [cmd, "--project-dir", project_dir, "--profiles-dir", profiles_dir]
+
+        dbt = dbtRunner()
+        dbt.invoke(cli_args)
 
     @staticmethod
     def read_yaml_if_exists(file_path: str):
