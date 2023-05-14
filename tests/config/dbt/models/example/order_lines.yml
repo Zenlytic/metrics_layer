@@ -103,7 +103,7 @@ metrics:
     label: Avg revenue per customer
     description: "The avg revenue per customer"
 
-    calculation_method: expression
+    calculation_method: derived
     expression: "{{metric('total_revenue')}} / {{metric('number_of_customers')}}"
 
     timestamp: order_date
@@ -114,8 +114,8 @@ metrics:
     model: ref('order_lines')
     description: "The total revenue for the period"
 
-    type: sum
-    sql: product_revenue
+    calculation_method: sum
+    expression: product_revenue
 
     timestamp: order_date
     time_grains: [day, week, month, quarter, year]
@@ -128,8 +128,8 @@ metrics:
     model: ref('order_lines')
     description: "The number of customers"
 
-    type: count_distinct
-    sql: customer_id
+    calculation_method: count_distinct
+    expression: customer_id
 
     timestamp: order_date
     time_grains: [day, week, month, quarter, year]
@@ -140,8 +140,8 @@ metrics:
     model: ref('order_lines')
     description: "Total revenue from new customers"
 
-    type: sum
-    sql: product_revenue
+    calculation_method: sum
+    expression: product_revenue
 
     timestamp: order_date
     time_grains: [day, week, month, quarter, year]
