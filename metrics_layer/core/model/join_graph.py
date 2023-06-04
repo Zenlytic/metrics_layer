@@ -71,7 +71,10 @@ class JoinGraph(SQLReplacement):
 
     def _strongly_connected_components(self, graph):
         components = networkx.strongly_connected_components(graph)
-        sorted_components = sorted(components, key=len, reverse=True)  # Sort by largest component
+        # Sort the sub-components graphs alphabetically
+        sorted_sub_components = [list(sorted(c)) for c in components]
+        # Sort by largest component, then inverse alphabetically based on the first view name
+        sorted_components = sorted(sorted_sub_components, key=lambda x: (len(x), x[0]), reverse=True)
         return sorted_components
 
     @staticmethod
