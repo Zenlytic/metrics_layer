@@ -53,7 +53,6 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         join_hash_readability_lookup = {
             j: f"{j.split('__')[0]}__cte_subquery_{i}" for i, j in enumerate(sorted(join_hashes))
         }
-        print(join_hash_readability_lookup)
 
         readable_join_hashes = []
         for join_hash in join_hashes:
@@ -223,7 +222,12 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             added_filter = {join_hash: False for join_hash in unique_keys}
             for join_hash in unique_keys:
                 join_hash_with_canon_date = f"{field.view.name}_{field.name}__{join_group_hash}"
-                joinable_not_canon_date = not is_canon_date and join_group_hash in join_hash
+                joinable_graphs = join_hash.split("__")[-1]
+                # The field is joinable if the subquery is the same as one in the main join hash's subquery
+                joinable_subqueries = [
+                    f"subquery{g}".strip("_") for g in joinable_graphs.split("subquery") if g != ""
+                ]
+                joinable_not_canon_date = not is_canon_date and join_group_hash in joinable_subqueries
                 is_canon_date_same = is_canon_date and join_hash_with_canon_date in join_hash
 
                 if joinable_not_canon_date or is_canon_date_same:
