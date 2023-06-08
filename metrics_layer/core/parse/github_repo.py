@@ -1,6 +1,7 @@
 import os
 import shutil
 from glob import glob
+import pathlib
 import yaml
 
 import git
@@ -24,9 +25,14 @@ class BaseRepo:
     def delete(self):
         raise NotImplementedError()
 
-    def search(self, pattern: str, folders: list = []):
+    def search(self, pattern: str, folders: list = [], include_hidden: bool = False):
         """Example arg: pattern='*.yml'"""
-        return [fn for f in folders for fn in self.glob_search(f, pattern) if "venv" not in fn]
+        return [
+            fn
+            for f in folders
+            for fn in self.glob_search(f, pattern, include_hidden=include_hidden)
+            if "venv" not in fn
+        ]
 
     def fetch(self):
         raise NotImplementedError()
@@ -48,7 +54,12 @@ class BaseRepo:
         return yaml_dict
 
     @staticmethod
-    def glob_search(folder: str, pattern: str):
+    def glob_search(folder: str, pattern: str, include_hidden: bool = False):
+        if include_hidden:
+            files = []
+            for file_ref in pathlib.Path(folder).glob(f"**/{pattern}"):
+                files.append(str(file_ref))
+            return files
         return glob(f"{folder}**/{pattern}", recursive=True)
 
 
