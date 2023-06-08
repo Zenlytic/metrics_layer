@@ -152,7 +152,20 @@ class SeedMetricsLayer:
         view_folder = loader.zenlytic_project.get("view-paths", [self.default_views_path])[0]
 
         # Dump the models to yaml files
-        ProjectDumper(models, model_folder, views, view_folder).dump(folder)
+        dumper = ProjectDumper(models, model_folder, views, view_folder)
+        dumper.dump(folder)
+
+        # Add the zenlytic_project.yml file if it doesn't exist yet
+        if len(current_models) == 0 and not os.path.exists(os.path.join(folder, "zenlytic_project.yml")):
+            zenlytic_project_path = os.path.join(folder, "zenlytic_project.yml")
+            project_data = {
+                "name": self.connection.name,
+                "profile": self.connection.name,
+                "model-paths": ["models"],
+                "view-paths": ["views"],
+                "dashboard-paths": ["dashboards"],
+            }
+            dumper.dump_yaml_file(project_data, zenlytic_project_path)
 
     def get_model_name(self, current_models: list):
         if len(current_models) > 0:

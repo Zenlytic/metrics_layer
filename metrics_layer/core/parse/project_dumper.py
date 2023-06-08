@@ -18,6 +18,7 @@ class ProjectDumper(ProjectReaderBase):
             if os.path.exists(models_folder):
                 file_path = os.path.join(models_folder, file_name)
             else:
+                os.mkdir(models_folder)
                 file_path = os.path.join(path, file_name)
             self.dump_yaml_file(self._sort_model(model), file_path)
 
@@ -27,6 +28,7 @@ class ProjectDumper(ProjectReaderBase):
             if os.path.exists(views_folder):
                 file_path = os.path.join(views_folder, file_name)
             else:
+                os.mkdir(views_folder)
                 file_path = os.path.join(path, file_name)
             self.dump_yaml_file(self._sort_view(view), file_path)
 

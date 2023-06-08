@@ -79,7 +79,12 @@ def test_cli_seed_metrics_layer(
     def yaml_dump_assert(slf, data, file):
         nonlocal yaml_dump_called
         yaml_dump_called += 1
-        if data["type"] == "model":
+        if "zenlytic_project.yml" in file:
+            assert data["view-paths"] == ["views"]
+            assert data["model-paths"] == ["models"]
+            assert data["dashboard-paths"] == ["dashboards"]
+
+        elif data["type"] == "model":
             assert data["name"] == "base_model"
             assert data["connection"] == "testing_snowflake"
 
@@ -197,7 +202,7 @@ def test_cli_seed_metrics_layer(
     for call in calls:
         os.mkdir.assert_any_call(call)
 
-    assert yaml_dump_called == 3
+    assert yaml_dump_called == 4
 
     runner = CliRunner()
     result = runner.invoke(
@@ -216,7 +221,7 @@ def test_cli_seed_metrics_layer(
 
     connection._raw_connections[0].type = old_type
     assert result.exit_code == 0
-    assert yaml_dump_called == 5
+    assert yaml_dump_called == 7
 
 
 @pytest.mark.cli
