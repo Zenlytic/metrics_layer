@@ -29,6 +29,7 @@ class SeedMetricsLayer:
             self.metrics_layer = metrics_layer
         self.connection = self._init_connection(self.metrics_layer, connection)
         self.database = database if database else self.connection.database
+        self._database_is_not_default = database and database != self.connection.database
         self.schema = schema if schema else self.connection.schema
         self.table = table.replace(".sql", "") if table else None
         if schema and table:
@@ -173,6 +174,8 @@ class SeedMetricsLayer:
         fields = self.make_fields(column_data) + [count_measure]
         if self.connection.type in {Definitions.snowflake, Definitions.redshift, Definitions.postgres}:
             sql_table_name = f"{schema_name}.{table_name}"
+            if self._database_is_not_default:
+                sql_table_name = f"{self.database}.{sql_table_name}"
         elif self.connection.type == Definitions.bigquery:
             sql_table_name = f"`{self.database}.{schema_name}.{table_name}`"
         else:

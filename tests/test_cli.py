@@ -38,13 +38,14 @@ def test_cli_init(mocker, monkeypatch):
 
 @pytest.mark.cli
 @pytest.mark.parametrize(
-    "query_type,profile,target",
+    "query_type,profile,target,database_override",
     [
-        (Definitions.snowflake, None, None),
-        (Definitions.bigquery, None, None),
-        (Definitions.postgres, None, None),
-        (Definitions.postgres, "alternative_demo", "alternative_target"),
-        (Definitions.redshift, None, None),
+        (Definitions.snowflake, None, None, None),
+        (Definitions.bigquery, None, None, None),
+        (Definitions.postgres, None, None, None),
+        (Definitions.postgres, None, None, "segment_events"),
+        (Definitions.postgres, "alternative_demo", "alternative_target", None),
+        (Definitions.redshift, None, None, None),
     ],
 )
 def test_cli_seed_metrics_layer(
@@ -54,6 +55,7 @@ def test_cli_seed_metrics_layer(
     query_type,
     profile,
     target,
+    database_override,
     seed_snowflake_tables_data,
     seed_bigquery_tables_data,
     seed_redshift_tables_data,
@@ -86,9 +88,11 @@ def test_cli_seed_metrics_layer(
             if query_type in {Definitions.snowflake, Definitions.redshift}:
                 assert data["sql_table_name"] == "ANALYTICS.ORDERS"
             elif query_type == Definitions.bigquery:
-                assert data["sql_table_name"] == "`demo.analytics.orders`"
-            elif query_type == Definitions.postgres:
+                assert data["sql_table_name"] == "`analytics.analytics.orders`"
+            elif query_type == Definitions.postgres and database_override is None:
                 assert data["sql_table_name"] == "analytics.orders"
+            elif query_type == Definitions.postgres and database_override:
+                assert data["sql_table_name"] == "segment_events.analytics.orders"
 
             date = next((f for f in data["fields"] if f["name"] == "order_created_at"))
             new = next((f for f in data["fields"] if f["name"] == "new_vs_repeat"))
@@ -122,9 +126,11 @@ def test_cli_seed_metrics_layer(
             if query_type in {Definitions.snowflake, Definitions.redshift}:
                 assert data["sql_table_name"] == "ANALYTICS.SESSIONS"
             elif query_type == Definitions.bigquery:
-                assert data["sql_table_name"] == "`demo.analytics.sessions`"
-            elif query_type == Definitions.postgres:
+                assert data["sql_table_name"] == "`analytics.analytics.sessions`"
+            elif query_type == Definitions.postgres and database_override is None:
                 assert data["sql_table_name"] == "analytics.sessions"
+            elif query_type == Definitions.postgres and database_override:
+                assert data["sql_table_name"] == "segment_events.analytics.sessions"
 
             date = next((f for f in data["fields"] if f["name"] == "session_date"))
             pk = next((f for f in data["fields"] if f["name"] == "session_id"))
@@ -172,7 +178,7 @@ def test_cli_seed_metrics_layer(
         seed,
         [
             "--database",
-            "demo",
+            "analytics" if database_override is None else database_override,
             "--schema",
             "analytics",
             "--connection",
@@ -198,7 +204,7 @@ def test_cli_seed_metrics_layer(
         seed,
         [
             "--database",
-            "demo",
+            "analytics" if database_override is None else database_override,
             "--schema",
             "analytics",
             "--table",
