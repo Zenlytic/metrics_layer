@@ -197,7 +197,7 @@ def test_cli_seed_metrics_layer(
 
     print(result)
     assert result.exit_code == 0
-    dirs = ["dashboards", "views", "models"]
+    dirs = ["views", "models", "dashboards"]
     calls = [os.path.join(os.getcwd(), dir_path) for dir_path in dirs]
     for call in calls:
         os.mkdir.assert_any_call(call)

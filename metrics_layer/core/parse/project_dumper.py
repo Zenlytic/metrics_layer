@@ -15,21 +15,17 @@ class ProjectDumper(ProjectReaderBase):
         for model in self.models_to_dump:
             file_name = model["name"] + "_model.yml"
             models_folder = os.path.join(path, self._model_folder)
-            if os.path.exists(models_folder):
-                file_path = os.path.join(models_folder, file_name)
-            else:
+            if not os.path.exists(models_folder):
                 os.mkdir(models_folder)
-                file_path = os.path.join(path, file_name)
+            file_path = os.path.join(models_folder, file_name)
             self.dump_yaml_file(self._sort_model(model), file_path)
 
         for view in self.views_to_dump:
             file_name = view["name"] + "_view.yml"
             views_folder = os.path.join(path, self._view_folder)
-            if os.path.exists(views_folder):
-                file_path = os.path.join(views_folder, file_name)
-            else:
+            if not os.path.exists(views_folder):
                 os.mkdir(views_folder)
-                file_path = os.path.join(path, file_name)
+            file_path = os.path.join(views_folder, file_name)
             self.dump_yaml_file(self._sort_view(view), file_path)
 
     def _sort_view(self, view: dict):
