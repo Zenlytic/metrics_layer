@@ -699,7 +699,7 @@ def test_join_graph_working_as_expected(connection):
     assert query == correct
 
 
-@pytest.mark.queryyy
+@pytest.mark.query
 def test_join_graph_many_to_many_use_bridge_table(connection):
     query = connection.get_sql_query(metrics=["number_of_customers"], dimensions=["account_name"])
 
@@ -714,7 +714,7 @@ def test_join_graph_many_to_many_use_bridge_table(connection):
     assert query == correct
 
 
-@pytest.mark.queryyy
+@pytest.mark.query
 def test_join_graph_many_to_many_skip_bridge_table(connection):
     query = connection.get_sql_query(
         metrics=["number_of_customers", "number_of_orders"],
