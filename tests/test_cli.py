@@ -240,7 +240,7 @@ def test_cli_validate(connection, fresh_project, mocker):
     project = fresh_project
     project._views[1]["default_date"] = "sessions.session_date"
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
-    sorted_fields[18]["name"] = "rev_broken_dim"
+    sorted_fields[19]["name"] = "rev_broken_dim"
     project._views[1]["fields"] = sorted_fields
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
@@ -315,8 +315,8 @@ def test_cli_validate_names(connection, fresh_project, mocker):
     project = fresh_project
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
 
-    sorted_fields[0]["name"] = "an invalid @name"
-    sorted_fields[3]["timeframes"] = ["date", "month", "year"]
+    sorted_fields[1]["name"] = "an invalid @name"
+    sorted_fields[4]["timeframes"] = ["date", "month", "year"]
     project._views[1]["fields"] = sorted_fields
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
@@ -357,7 +357,7 @@ def test_cli_validate_model_name_in_view(connection, fresh_project, mocker):
 def test_cli_validate_two_customer_tags(connection, fresh_project, mocker):
     # Break something so validation fails
     sorted_fields = sorted(fresh_project._views[1]["fields"], key=lambda x: x["name"])
-    sorted_fields[5]["tags"] = ["customer"]
+    sorted_fields[6]["tags"] = ["customer"]
     conn = MetricsLayerConnection(project=fresh_project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
@@ -463,7 +463,7 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
     result_lookup = {
         "models": "Found 1 model:\n\ntest_model\n",
         "connections": "Found 2 connections:\n\ntesting_snowflake\ntesting_bigquery\n",
-        "views": "Found 11 views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\ntraffic\nclicked_on_page\nsubmitted_form\n",  # noqa
+        "views": "Found 13 views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\nz_customer_accounts\n",  # noqa
         "fields": "Found 2 fields:\n\ndiscount_promo_name\ndiscount_usd\n",
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
         "metrics": "Found 2 metrics:\n\ntotal_discount_amt\ndiscount_per_order\n",  # noqa

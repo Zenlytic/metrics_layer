@@ -70,16 +70,32 @@ class MetricsLayerDesign:
 
             g = self.project.join_graph.graph
             raw_edges = networkx.line_graph(g).nodes
+            bridge_views = self._bridge_views(required_views)
             sub_line_graph_nodes = networkx.line_graph(self._join_subgraph).nodes
             edges = [e for e in raw_edges if e[0] in required_views or e[1] in required_views]
-            # Sorting puts the edges in the subgraph first, then sorts alphabetically
-            for view_pair in sorted(edges, key=lambda x: (int(x in sub_line_graph_nodes) * -1, x)):
+            sorted_edges = sorted(
+                edges,
+                key=lambda x: (
+                    int(any(i in bridge_views for i in x)) * -1,
+                    int(x in sub_line_graph_nodes) * -1,
+                    x,
+                ),
+            )
+            # Sorting puts the bridge views first, edges in the subgraph next, then sorts alphabetically
+            for view_pair in sorted_edges:
                 try:
                     return self._greedy_build_join(g, view_pair, required_views)
                 except ValueError:
                     pass
 
             raise networkx.exception.NetworkXNoPath
+
+    def _bridge_views(self, required_views: list):
+        bridge_views = []
+        for k, v in self.project.join_graph.composite_keys.items():
+            if any(r in k for r in required_views):
+                bridge_views.append(v)
+        return bridge_views
 
     def _validate_join_path(self, pairs: list, required_views: list):
         added_views = []

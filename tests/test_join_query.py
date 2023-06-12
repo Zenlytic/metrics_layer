@@ -699,6 +699,39 @@ def test_join_graph_working_as_expected(connection):
     assert query == correct
 
 
+@pytest.mark.queryyy
+def test_join_graph_many_to_many_use_bridge_table(connection):
+    query = connection.get_sql_query(metrics=["number_of_customers"], dimensions=["account_name"])
+
+    correct = (
+        "SELECT accounts.name as accounts_account_name,COUNT(DISTINCT(customers.customer_id)) as "
+        "customers_number_of_customers FROM analytics.customer_accounts z_customer_accounts "
+        "LEFT JOIN analytics.accounts accounts ON z_customer_accounts.account_id=accounts.account_id "
+        "LEFT JOIN analytics.customers customers ON "
+        "z_customer_accounts.customer_id=customers.customer_id GROUP BY accounts.name "
+        "ORDER BY customers_number_of_customers DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.queryyy
+def test_join_graph_many_to_many_skip_bridge_table(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_customers", "number_of_orders"],
+        dimensions=["account_name"],
+    )
+
+    correct = (
+        "SELECT accounts.name as accounts_account_name,COUNT(DISTINCT(customers.customer_id)) "
+        "as customers_number_of_customers,COUNT(orders.id) as orders_number_of_orders "
+        "FROM analytics.orders orders LEFT JOIN analytics.customers customers "
+        "ON orders.customer_id=customers.customer_id LEFT JOIN analytics.accounts accounts "
+        "ON orders.account_id=accounts.account_id GROUP BY accounts.name "
+        "ORDER BY customers_number_of_customers DESC;"
+    )
+    assert query == correct
+
+
 @pytest.mark.query
 def test_join_graph_raise_unjoinable_error(connection):
     with pytest.raises(JoinError) as exc_info:
