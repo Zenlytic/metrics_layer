@@ -36,6 +36,7 @@ def test_sets(connection):
     _set = connection.project.get_set(set_name="test_set_all_fields")
     assert _set.field_names() == [
         "orders.customer_id",
+        "orders.account_id",
         "orders.do_not_use",
         "orders.order_raw",
         "orders.order_date",

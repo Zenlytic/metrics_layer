@@ -1,5 +1,5 @@
 import networkx
-from itertools import combinations
+from itertools import combinations, product
 
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.exceptions import QueryError
@@ -112,7 +112,8 @@ class JoinGraph(SQLReplacement):
 
     def build(self):
         graph = networkx.DiGraph()
-        identifier_map = self._identifier_map()
+        identifier_map, primary_keys = self._identifier_map()
+        self.composite_keys = self._composite_keys(primary_keys)
         reference_map = self._reference_map()
         for view in self.project.views():
             graph.add_node(view.name)
@@ -256,11 +257,31 @@ class JoinGraph(SQLReplacement):
 
     def _identifier_map(self):
         result = defaultdict(list)
+        primary_keys = defaultdict(list)
         for view in self.project.views():
             for identifier in view.identifiers:
                 if identifier["type"] != IdentifierTypes.join:
                     result[identifier["name"]].append(view.name)
-        return result
+                    # Make an additional mapping from identifier name to view's where it's a primary key
+                    if identifier["type"] == IdentifierTypes.primary:
+                        primary_keys[identifier["name"]].append(view.name)
+
+        return result, primary_keys
+
+    def _composite_keys(self, primary_key_map: dict):
+        composite_keys = {}
+        for view in self.project.views():
+            for identifier in view.identifiers:
+                # For composite identifiers, we need to add the individual
+                # fields to indicate that they're part of the composite key
+                if identifier["type"] != IdentifierTypes.join and "identifiers" in identifier:
+                    composite_key_views = []
+                    for sub_identifier in identifier["identifiers"]:
+                        composite_key_views.append(primary_key_map.get(sub_identifier["name"], []))
+
+                    for view_group in product(*composite_key_views):
+                        composite_keys[tuple(sorted(view_group))] = view.name
+        return composite_keys
 
     def _reference_map(self):
         result = defaultdict(dict)

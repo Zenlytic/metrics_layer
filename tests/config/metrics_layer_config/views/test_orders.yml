@@ -21,6 +21,9 @@ identifiers:
 - name: customer_id
   type: foreign
   sql: ${customer_id}
+- name: account_id
+  type: foreign
+  sql: ${account_id}
   
 access_filters:
   - field: customers.region
@@ -39,6 +42,13 @@ fields:
     type: string
     hidden: yes
     sql: "${TABLE}.customer_id"
+    group_label: "ID's"
+
+  - name: account_id
+    field_type: "dimension"
+    type: string
+    hidden: yes
+    sql: "${TABLE}.account_id"
     group_label: "ID's"
 
   - name: do_not_use

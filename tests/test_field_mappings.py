@@ -9,9 +9,9 @@ def test_mapping_date_only(connection):
     query = connection.get_sql_query(metrics=[], dimensions=["date"])
 
     correct = (
-        "SELECT DATE_TRUNC('DAY', order_lines.order_date) as order_lines_order_date "
-        "FROM analytics.order_line_items order_lines GROUP BY DATE_TRUNC('DAY', "
-        "order_lines.order_date) ORDER BY order_lines_order_date ASC;"
+        "SELECT DATE_TRUNC('DAY', orders.order_date) as orders_order_date "
+        "FROM analytics.orders orders GROUP BY DATE_TRUNC('DAY', orders.order_date) "
+        "ORDER BY orders_order_date ASC;"
     )
     assert query == correct
 
