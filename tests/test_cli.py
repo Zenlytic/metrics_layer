@@ -38,13 +38,14 @@ def test_cli_init(mocker, monkeypatch):
 
 @pytest.mark.cli
 @pytest.mark.parametrize(
-    "query_type,profile,target",
+    "query_type,profile,target,database_override",
     [
-        (Definitions.snowflake, None, None),
-        (Definitions.bigquery, None, None),
-        (Definitions.postgres, None, None),
-        (Definitions.postgres, "alternative_demo", "alternative_target"),
-        (Definitions.redshift, None, None),
+        (Definitions.snowflake, None, None, None),
+        (Definitions.bigquery, None, None, None),
+        (Definitions.postgres, None, None, None),
+        (Definitions.postgres, None, None, "segment_events"),
+        (Definitions.postgres, "alternative_demo", "alternative_target", None),
+        (Definitions.redshift, None, None, None),
     ],
 )
 def test_cli_seed_metrics_layer(
@@ -54,6 +55,7 @@ def test_cli_seed_metrics_layer(
     query_type,
     profile,
     target,
+    database_override,
     seed_snowflake_tables_data,
     seed_bigquery_tables_data,
     seed_redshift_tables_data,
@@ -77,7 +79,12 @@ def test_cli_seed_metrics_layer(
     def yaml_dump_assert(slf, data, file):
         nonlocal yaml_dump_called
         yaml_dump_called += 1
-        if data["type"] == "model":
+        if "zenlytic_project.yml" in file:
+            assert data["view-paths"] == ["views"]
+            assert data["model-paths"] == ["models"]
+            assert data["dashboard-paths"] == ["dashboards"]
+
+        elif data["type"] == "model":
             assert data["name"] == "base_model"
             assert data["connection"] == "testing_snowflake"
 
@@ -86,9 +93,11 @@ def test_cli_seed_metrics_layer(
             if query_type in {Definitions.snowflake, Definitions.redshift}:
                 assert data["sql_table_name"] == "ANALYTICS.ORDERS"
             elif query_type == Definitions.bigquery:
-                assert data["sql_table_name"] == "`demo.analytics.orders`"
-            elif query_type == Definitions.postgres:
+                assert data["sql_table_name"] == "`analytics.analytics.orders`"
+            elif query_type == Definitions.postgres and database_override is None:
                 assert data["sql_table_name"] == "analytics.orders"
+            elif query_type == Definitions.postgres and database_override:
+                assert data["sql_table_name"] == "segment_events.analytics.orders"
 
             date = next((f for f in data["fields"] if f["name"] == "order_created_at"))
             new = next((f for f in data["fields"] if f["name"] == "new_vs_repeat"))
@@ -122,9 +131,11 @@ def test_cli_seed_metrics_layer(
             if query_type in {Definitions.snowflake, Definitions.redshift}:
                 assert data["sql_table_name"] == "ANALYTICS.SESSIONS"
             elif query_type == Definitions.bigquery:
-                assert data["sql_table_name"] == "`demo.analytics.sessions`"
-            elif query_type == Definitions.postgres:
+                assert data["sql_table_name"] == "`analytics.analytics.sessions`"
+            elif query_type == Definitions.postgres and database_override is None:
                 assert data["sql_table_name"] == "analytics.sessions"
+            elif query_type == Definitions.postgres and database_override:
+                assert data["sql_table_name"] == "segment_events.analytics.sessions"
 
             date = next((f for f in data["fields"] if f["name"] == "session_date"))
             pk = next((f for f in data["fields"] if f["name"] == "session_id"))
@@ -172,7 +183,7 @@ def test_cli_seed_metrics_layer(
         seed,
         [
             "--database",
-            "demo",
+            "analytics" if database_override is None else database_override,
             "--schema",
             "analytics",
             "--connection",
@@ -186,19 +197,19 @@ def test_cli_seed_metrics_layer(
 
     print(result)
     assert result.exit_code == 0
-    dirs = ["dashboards", "views", "models"]
+    dirs = ["views", "models", "dashboards"]
     calls = [os.path.join(os.getcwd(), dir_path) for dir_path in dirs]
     for call in calls:
         os.mkdir.assert_any_call(call)
 
-    assert yaml_dump_called == 3
+    assert yaml_dump_called == 4
 
     runner = CliRunner()
     result = runner.invoke(
         seed,
         [
             "--database",
-            "demo",
+            "analytics" if database_override is None else database_override,
             "--schema",
             "analytics",
             "--table",
@@ -210,7 +221,7 @@ def test_cli_seed_metrics_layer(
 
     connection._raw_connections[0].type = old_type
     assert result.exit_code == 0
-    assert yaml_dump_called == 5
+    assert yaml_dump_called == 7
 
 
 @pytest.mark.cli
