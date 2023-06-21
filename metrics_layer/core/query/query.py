@@ -120,19 +120,11 @@ class MetricsLayerConnection:
         sql: str = None,
         **kwargs,
     ):
-        model = self._get_model_for_query(kwargs.get("model_name"), metrics, dimensions)
-        connection = self.get_connection(model.connection)
-        query_type = self._get_query_type(connection, kwargs)
-        connection_schema = self._get_connection_schema(connection)
-        self.project.set_connection_schema(connection_schema)
         if sql:
             converter = MQLConverter(
-                sql,
-                project=self.project,
-                model=model,
-                query_type=query_type,
-                **{**self.kwargs, **kwargs},
+                sql, project=self.project, connections=self.connections, **{**self.kwargs, **kwargs}
             )
+            connection = converter.connection
             query = converter.get_query()
         else:
             resolver = SQLQueryResolver(
@@ -143,10 +135,10 @@ class MetricsLayerConnection:
                 having=having,
                 order_by=order_by,
                 project=self.project,
-                model=model,
-                query_type=query_type,
+                connections=self.connections,
                 **{**self.kwargs, **kwargs},
             )
+            connection = resolver.connection
             query = resolver.get_query()
 
         if kwargs.get("pretty", False):
@@ -163,12 +155,6 @@ class MetricsLayerConnection:
         runner = QueryRunner(query, connection)
         df = runner.run_query(**{**self.kwargs, **kwargs})
         return df
-
-    def define(self, metric: str, **kwargs):
-        field = self.project.get_field(metric)
-        connection = self.get_connection(field.view.model.connection)
-        query_type = self._get_query_type(connection, kwargs)
-        return field.sql_query(query_type)
 
     def list_fields(self, view_name: str = None, names_only: bool = False, show_hidden: bool = False):
         all_fields = self.project.fields(view_name=view_name, show_hidden=show_hidden)
@@ -242,53 +228,6 @@ class MetricsLayerConnection:
 
     def get_all_profiles(self, names_only: bool = False):
         raise NotImplementedError()
-
-    def _get_model_for_query(self, model_name: str = None, metrics: list = [], dimensions: list = []):
-        models = self.project.models()
-
-        # If you specify the model that's top priority
-        if model_name:
-            return self.project.get_model(model_name)
-        # Otherwise, if there's only one option, we use that
-        elif len(models) == 1:
-            return models[0]
-        # Finally, check views for models
-        else:
-            return self._derive_model(metrics, dimensions)
-
-    def _derive_model(self, metrics: list, dimensions: list):
-        all_model_names = {f.view.model_name for f in metrics + dimensions}
-
-        if len(all_model_names) == 0:
-            raise QueryError(
-                "No models found in this data model. Please specify a model "
-                "to connect a data warehouse to your data model."
-            )
-        elif len(all_model_names) == 1:
-            return self.project.get_model(list(all_model_names)[0])
-        else:
-            raise QueryError(
-                "More than one model found in this data model. Please specify a model "
-                "to use by either passing the name of the model using 'model_name' parameter or by  "
-                "setting the `model_name` property on the view."
-            )
-
-    def _get_query_type(self, connection, kwargs: dict):
-        if "query_type" in kwargs:
-            return kwargs.pop("query_type")
-        elif connection:
-            return connection.type
-        else:
-            raise QueryError(
-                "Could not determine query_type. Please have connection information for "
-                "your warehouse in the configuration or explicitly pass the "
-                "'query_type' argument to this function"
-            )
-
-    def _get_connection_schema(self, connection):
-        if connection is not None:
-            return getattr(connection, "schema", None)
-        return None
 
     @staticmethod
     def get_connections_from_profile(profile_name: str, target: str = None):

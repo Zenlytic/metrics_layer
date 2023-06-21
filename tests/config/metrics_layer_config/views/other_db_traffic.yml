@@ -1,0 +1,19 @@
+version: 1
+type: view
+name: other_db_traffic
+
+sql_table_name: analytics.traffic
+model_name: new_model
+
+fields:
+  - name: traffic_id
+    field_type: "dimension"
+    type: string
+    primary_key: yes
+    hidden: yes
+    sql: "${TABLE}.id"
+
+  - name: traffic_source
+    field_type: "dimension"
+    type: string
+    sql: "${TABLE}.traffic_source"

@@ -1,0 +1,4 @@
+version: 1
+type: model
+name: new_model
+connection: testing_snowflake

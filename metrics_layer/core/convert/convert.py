@@ -73,6 +73,7 @@ class MQLConverter:
         self.sql = sql
         self.project = project
         self.kwargs = kwargs
+        self.connection = None
 
     def get_query(self):
         converted_sql = deepcopy(self.sql)
@@ -201,6 +202,8 @@ class MQLConverter:
             project=self.project,
             **self.kwargs,
         )
+        if self.kwargs.get("return_connection", False):
+            self.connection = resolver.connection
         return resolver.get_query(semicolon=False)
 
     def _resolve_mode(self, token, mode):

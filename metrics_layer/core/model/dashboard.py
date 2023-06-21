@@ -145,7 +145,7 @@ class Dashboard(MetricsLayerBase):
     def parsed_filters(self, json_safe=False):
         all_filters = []
         info = {"timezone": self.project.timezone}
-        week_start_days = set(m.week_start_day for m in self.project.models())
+        week_start_days = set(e.get_model().week_start_day for e in self.elements())
         if len(week_start_days) == 1:
             info["week_start_day"] = week_start_days.pop()
         else:

@@ -99,7 +99,6 @@ class FilterInterval(str, Enum):
             return cls.unknown
 
 
-# TODO this does not account for a changed "week_start_date"
 class Filter(MetricsLayerBase):
     week_start_day_default = pendulum.MONDAY
     week_end_day_default = pendulum.SUNDAY

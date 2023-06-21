@@ -12,6 +12,7 @@ from metrics_layer.core.parse.connections import BaseConnection
 BASE_PATH = os.path.dirname(__file__)
 
 model_path = os.path.join(BASE_PATH, "config/metrics_layer_config/models/commerce_test_model.yml")
+new_model_path = os.path.join(BASE_PATH, "config/metrics_layer_config/models/new_model.yml")
 sales_dashboard_path = os.path.join(BASE_PATH, "config/metrics_layer_config/dashboards/sales_dashboard.yml")
 sales_dashboard_v2_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/dashboards/sales_dashboard_v2.yml"
@@ -39,6 +40,7 @@ accounts_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/
 customer_accounts_view_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/views/customer_accounts.yml"
 )
+model_paths = [model_path, new_model_path]
 view_paths = [
     order_lines_view_path,
     orders_view_path,
@@ -223,7 +225,7 @@ def seed_bigquery_tables_data():
 
 @pytest.fixture(scope="function")
 def fresh_models():
-    models = [ProjectReaderBase.read_yaml_file(model_path)]
+    models = [ProjectReaderBase.read_yaml_file(p) for p in model_paths]
     return models
 
 
@@ -241,7 +243,7 @@ def fresh_dashboards():
 
 @pytest.fixture(scope="module")
 def models():
-    models = [ProjectReaderBase.read_yaml_file(model_path)]
+    models = [ProjectReaderBase.read_yaml_file(p) for p in model_paths]
     return models
 
 
