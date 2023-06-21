@@ -16,7 +16,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         having: str = None,  # Either a list of json or a string
         order_by: str = None,  # Either a list of json or a string
         project=None,
-        model=None,
+        connections=[],
         **kwargs,
     ):
         self.field_lookup = {}
@@ -28,7 +28,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self.suppress_warnings = kwargs.get("suppress_warnings", False)
         self.limit = kwargs.get("limit")
         self.single_query = kwargs.get("single_query", False)
-        self.project = project
+        self.connections = connections
         self.metrics = metrics
         self.dimensions = dimensions
         self.funnel = funnel
@@ -36,7 +36,12 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self.having = having
         self.order_by = order_by
         self.kwargs = kwargs
-        self.model = model
+        self.project = project
+        self.model = self._get_model_for_query(kwargs.get("model_name"), metrics, dimensions)
+        self.connection = self._get_connection(self.model.connection)
+        self.kwargs["query_type"] = self._get_query_type(self.connection, self.kwargs)
+        connection_schema = self._get_connection_schema(self.connection)
+        self.project.set_connection_schema(connection_schema)
         self._resolve_mapped_fields()
 
     @property
@@ -235,3 +240,72 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             return where.replace(to_replace, field.id())
         else:
             return [{**w, "field": field.id()} if w["field"] == to_replace else w for w in where]
+
+    def _get_model_for_query(self, model_name: str = None, metrics: list = [], dimensions: list = []):
+        models = self.project.models()
+        # If you specify the model that's top priority
+        if model_name:
+            return self.project.get_model(model_name)
+        # Otherwise, if there's only one option, we use that
+        elif len(models) == 1:
+            return models[0]
+        # Raise an error if the user doesn't have any models defined yet
+        elif len(models) == 0:
+            raise QueryError(
+                "No models found in this data model. Please specify a model "
+                "to connect a data warehouse to your data model."
+            )
+        # Finally, check views for models
+        else:
+            return self._derive_model(metrics, dimensions)
+
+    def _derive_model(self, metrics: list, dimensions: list):
+        all_model_names = []
+        models = self.project.models()
+        for f in metrics + dimensions:
+            try:
+                model_name = self.project.get_field(f).view.model_name
+                all_model_names.append(model_name)
+            except Exception:
+                for model in models:
+                    try:
+                        self.project.get_mapped_field(f, model=model)
+                        all_model_names.append(model.name)
+                        break
+                    except Exception:
+                        pass
+
+        all_model_names = list(set(all_model_names))
+
+        if len(all_model_names) == 0:
+            # In a case that there are no models in the query, we'll just use the first model
+            # in the project. This case should be limited to only mapping-only queries, so this is safe.
+            return self.project.models()[0]
+        elif len(all_model_names) == 1:
+            return self.project.get_model(list(all_model_names)[0])
+        else:
+            raise QueryError(
+                "More than one model found in this query. Please specify a model "
+                "to use by either passing the name of the model using 'model_name' parameter or by  "
+                "setting the `model_name` property on the view."
+            )
+
+    def _get_query_type(self, connection, kwargs: dict):
+        if "query_type" in kwargs:
+            return kwargs.pop("query_type")
+        elif connection:
+            return connection.type
+        else:
+            raise QueryError(
+                "Could not determine query_type. Please have connection information for "
+                "your warehouse in the configuration or explicitly pass the "
+                "'query_type' argument to this function"
+            )
+
+    def _get_connection_schema(self, connection):
+        if connection is not None:
+            return getattr(connection, "schema", None)
+        return None
+
+    def _get_connection(self, connection_name: str):
+        return next((c for c in self.connections if c.name == connection_name), None)
