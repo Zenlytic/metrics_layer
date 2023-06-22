@@ -405,8 +405,8 @@ class SeedMetricsLayer:
 
 
 class dbtSeed(SeedMetricsLayer):
-    def seed(self):
-        self.load_manifest()
+    def seed(self, profiles_dir: str = "LOCAL"):
+        self.load_manifest(profiles_dir)
 
         # We need to filter down the whole result to just the chosen schema and table (if applicable)
         if self.table:
@@ -515,7 +515,7 @@ class dbtSeed(SeedMetricsLayer):
         table_names_match = data["TABLE_NAME"].str.lower().isin(table_names)
         return data[schema_matches & table_names_match].copy()
 
-    def load_manifest(self):
+    def load_manifest(self, profiles_dir):
         from metrics_layer.core.parse.github_repo import LocalRepo
         from metrics_layer.core.parse import dbtProjectReader, ProjectLoader
         from metrics_layer.core.parse.manifest import Manifest
@@ -523,8 +523,9 @@ class dbtSeed(SeedMetricsLayer):
         local_repo = LocalRepo(self._location())
         reader = dbtProjectReader(local_repo)
 
-        profiles_dir = os.path.dirname(ProjectLoader.profiles_path())
-        reader.generate_manifest_json(local_repo.folder, profiles_dir)
+        if profiles_dir == "LOCAL":
+            profiles_dir = os.path.dirname(ProjectLoader.profiles_path())
+        reader.generate_manifest_json(reader.dbt_folder, profiles_dir)
         self.manifest = Manifest(reader.load_manifest_json())
         return self.manifest
 
