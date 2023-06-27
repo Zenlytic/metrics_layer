@@ -229,7 +229,6 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                 ]
                 joinable_not_canon_date = not is_canon_date and join_group_hash in joinable_subqueries
                 is_canon_date_same = is_canon_date and join_hash_with_canon_date in join_hash
-
                 if joinable_not_canon_date or is_canon_date_same:
                     self.query_where[join_hash].append(where)
                     added_filter[join_hash] = True
@@ -298,11 +297,16 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         )
         return dimension_mapping, canon_dates, sorted_joins
 
-    @staticmethod
-    def _join_hash_key(field):
+    def _join_hash_key(self, field):
         # This makes the join hash out of all the joinable graphs, it's crucial to use this when
         # naming the CTEs so in subsequent checks we can match up all joinable fields,
-        # not just fields in the same view
+        # not just fields in the same view.
+
+        # Here we're checking if the field is a measure, if so we need to get the canon date
+        # to calculate the join hash. This solves the issue where the canon date has a different
+        # join hash from its associated metric. In that case we use the canon date's join hash.
+        if field.field_type == "measure" and field.canon_date is not None:
+            field = self.project.get_field_by_name(field.canon_date)
         joinable_graphs = [jg for jg in field.join_graphs() if "merged_result" not in jg]
         return "_".join(joinable_graphs)
 

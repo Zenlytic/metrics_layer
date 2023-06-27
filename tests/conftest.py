@@ -35,6 +35,7 @@ submitted_form_view_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/views/test_submitted_form.yml"
 )
 event_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_events.yml")
+login_event_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_login_events.yml")
 traffic_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/traffic.yml")
 accounts_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/accounts.yml")
 customer_accounts_view_path = os.path.join(
@@ -50,6 +51,7 @@ view_paths = [
     country_detail_view_path,
     session_view_path,
     event_view_path,
+    login_event_view_path,
     traffic_view_path,
     clicked_on_page_view_path,
     submitted_form_view_path,
