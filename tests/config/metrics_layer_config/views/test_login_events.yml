@@ -1,16 +1,16 @@
 version: 1
 type: view
-name: events
+name: login_events
 
-sql_table_name: analytics.events
+sql_table_name: analytics.login_events
 model_name: test_model
 
-default_date: event
+default_date: events.event
 row_label: Event
 
 identifiers:
 - name: event_id
-  type: primary
+  type: foreign
   sql: ${event_id}
 
 fields:
@@ -21,27 +21,12 @@ fields:
     hidden: yes
     sql: "${TABLE}.id"
 
-  - name: event
-    field_type: "dimension_group"
-    type: time
-    timeframes: [
-      raw,
-      time,
-      date,
-      week,
-      month,
-      quarter,
-      year
-    ]
-    sql: "${TABLE}.event_date"
-
   - name: device
     field_type: "dimension"
     type: string
-    sql: "${TABLE}.device"
-    hidden: yes
+    sql: ${events.device}
 
-  - name: number_of_events
+  - name: number_of_login_events
     field_type: measure
     type: count_distinct
     sql: ${event_id}

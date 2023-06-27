@@ -108,7 +108,8 @@ def test_merged_result_join_graph(connection):
     sub_q_0_3 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_3", core_tf)
     sub_q_0_5 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_5", core_tf)
     sub_q_0_6 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_6", core_tf)
-    revenue_set = [*sub_q_cr, *sub_q_0_1, *sub_q_0_2, *sub_q_0_3, *sub_q_0_5, *sub_q_0_6]
+    sub_q_0_8 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_8", core_tf)
+    revenue_set = [*sub_q_cr, *sub_q_0_1, *sub_q_0_2, *sub_q_0_3, *sub_q_0_5, *sub_q_0_6, *sub_q_0_8]
     field = connection.get_field("revenue_per_session")
     assert sorted(field.join_graphs()) == sorted(revenue_set)
 
@@ -124,6 +125,7 @@ def test_merged_result_join_graph(connection):
         "merged_result_subquery_0_subquery_3_date",
         "merged_result_subquery_0_subquery_5_date",
         "merged_result_subquery_0_subquery_6_date",
+        "merged_result_subquery_0_subquery_8_date",
     ]
     assert field.join_graphs() == list(sorted(order_lines_date_graphs))
 
@@ -136,6 +138,7 @@ def test_merged_result_join_graph(connection):
         "merged_result_subquery_0_subquery_3_date",
         "merged_result_subquery_0_subquery_5_date",
         "merged_result_subquery_0_subquery_6_date",
+        "merged_result_subquery_0_subquery_8_date",
     ]
     assert field.join_graphs() == list(sorted(order_date_graphs))
     field = connection.get_field("sub_channel")
@@ -156,18 +159,18 @@ def test_merged_result_join_graph(connection):
         "subquery_3",
         "subquery_1",
         "subquery_4",
-        "subquery_6",
+        "subquery_8",
         "subquery_7",
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_3", tf),
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_7", tf),
         *_blow_out_by_time_frame("merged_result_subquery_3_subquery_7", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_4_subquery_7", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_6_subquery_7", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_3_subquery_6", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_7_subquery_8", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_8", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_3_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_4", tf),
-        *_blow_out_by_time_frame("merged_result_subquery_0_subquery_6", tf),
-        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_6", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_0_subquery_8", tf),
+        *_blow_out_by_time_frame("merged_result_subquery_3_subquery_8", core_tf),
     ]
     assert field.join_graphs() == list(sorted(gender_graphs))
 
@@ -180,6 +183,7 @@ def test_merged_result_join_graph(connection):
         *_blow_out_by_time_frame("merged_result_subquery_4_subquery_7", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_4_subquery_5", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_4_subquery_6", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_8", core_tf),
     ]
     assert field.join_graphs() == list(sorted(sessions_graphs))
 
@@ -996,3 +1000,130 @@ def test_query_merge_results_default_date_raise_error(connection):
 
     assert exc_info.value
     assert "Could not find a date field associated with metric avg_rainfall" in exc_info.value.message
+
+
+@pytest.mark.query
+def test_query_default_date_from_join(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders", "number_of_login_events"],
+        dimensions=["orders.order_date"],
+        where=[
+            {
+                "field": "date",
+                "expression": "greater_or_equal_than",
+                "value": datetime.datetime(2023, 3, 29, 0, 0),
+            },
+            {
+                "field": "date",
+                "expression": "less_or_equal_than",
+                "value": datetime.datetime(2023, 6, 26, 23, 59, 59),
+            },
+        ],
+    )
+
+    correct = (
+        "WITH orders_order__cte_subquery_1 AS (SELECT DATE_TRUNC('DAY', orders.order_date) as "
+        "orders_order_date,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders "
+        "WHERE DATE_TRUNC('DAY', orders.order_date)>='2023-03-29T00:00:00' AND DATE_TRUNC('DAY', "
+        "orders.order_date)<='2023-06-26T23:59:59' GROUP BY DATE_TRUNC('DAY', orders.order_date) "
+        "ORDER BY orders_number_of_orders DESC) ,events_event__cte_subquery_0 AS (SELECT DATE_TRUNC('DAY', "
+        "events.event_date) as events_event_date,COUNT(DISTINCT(login_events.id)) as "
+        "login_events_number_of_login_events FROM analytics.login_events login_events "
+        "LEFT JOIN analytics.events events ON login_events.id=events.id WHERE DATE_TRUNC('DAY', "
+        "events.event_date)>='2023-03-29T00:00:00' AND DATE_TRUNC('DAY', events.event_date)"
+        "<='2023-06-26T23:59:59' GROUP BY DATE_TRUNC('DAY', events.event_date) ORDER BY "
+        "login_events_number_of_login_events DESC) SELECT events_event__cte_subquery_0"
+        ".login_events_number_of_login_events as login_events_number_of_login_events,"
+        "orders_order__cte_subquery_1.orders_number_of_orders as orders_number_of_orders,"
+        "events_event__cte_subquery_0.events_event_date as events_event_date,"
+        "orders_order__cte_subquery_1.orders_order_date as orders_order_date FROM "
+        "events_event__cte_subquery_0 FULL OUTER JOIN orders_order__cte_subquery_1 ON "
+        "events_event__cte_subquery_0.events_event_date=orders_order__cte_subquery_1.orders_order_date;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_mapping_with_a_join(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_sessions", "number_of_login_events"], dimensions=["sessions.session_device"]
+    )
+
+    correct = (
+        "WITH sessions_session__cte_subquery_1 AS (SELECT sessions.session_device as sessions_session_device,"
+        "COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions sessions "
+        "GROUP BY sessions.session_device ORDER BY sessions_number_of_sessions DESC) ,"
+        "events_event__cte_subquery_0 AS (SELECT events.device as login_events_device,"
+        "COUNT(DISTINCT(login_events.id)) as login_events_number_of_login_events "
+        "FROM analytics.login_events login_events LEFT JOIN analytics.events events "
+        "ON login_events.id=events.id GROUP BY events.device ORDER BY login_events_number_of_login_events "
+        "DESC) SELECT events_event__cte_subquery_0.login_events_number_of_login_events as "
+        "login_events_number_of_login_events,sessions_session__cte_subquery_1.sessions_number_of_sessions "
+        "as sessions_number_of_sessions,events_event__cte_subquery_0.login_events_device "
+        "as login_events_device,sessions_session__cte_subquery_1.sessions_session_device "
+        "as sessions_session_device FROM events_event__cte_subquery_0 FULL OUTER JOIN "
+        "sessions_session__cte_subquery_1 ON events_event__cte_subquery_0.login_events_device"
+        "=sessions_session__cte_subquery_1.sessions_session_device;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_mapping_with_a_join_inverted_mapping(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_sessions", "number_of_login_events"], dimensions=["login_events.device"]
+    )
+
+    correct = (
+        "WITH sessions_session__cte_subquery_1 AS (SELECT sessions.session_device as sessions_session_device,"
+        "COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions sessions "
+        "GROUP BY sessions.session_device ORDER BY sessions_number_of_sessions DESC) ,"
+        "events_event__cte_subquery_0 AS (SELECT events.device as login_events_device,"
+        "COUNT(DISTINCT(login_events.id)) as login_events_number_of_login_events "
+        "FROM analytics.login_events login_events LEFT JOIN analytics.events events "
+        "ON login_events.id=events.id GROUP BY events.device ORDER BY "
+        "login_events_number_of_login_events DESC) SELECT events_event__cte_subquery_0"
+        ".login_events_number_of_login_events as login_events_number_of_login_events,"
+        "sessions_session__cte_subquery_1.sessions_number_of_sessions as sessions_number_of_sessions,"
+        "events_event__cte_subquery_0.login_events_device as login_events_device,"
+        "sessions_session__cte_subquery_1.sessions_session_device as sessions_session_device "
+        "FROM events_event__cte_subquery_0 FULL OUTER JOIN sessions_session__cte_subquery_1 "
+        "ON events_event__cte_subquery_0.login_events_device=sessions_session__cte_subquery_1"
+        ".sessions_session_device;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_mapping_with_a_join_and_date(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_sessions", "number_of_login_events"],
+        dimensions=["sessions.session_device"],
+        where=[
+            {
+                "field": "date",
+                "expression": "less_or_equal_than",
+                "value": datetime.datetime(2023, 6, 26, 23, 59, 59),
+            },
+        ],
+    )
+
+    correct = (
+        "WITH sessions_session__cte_subquery_1 AS (SELECT sessions.session_device as sessions_session_device,"
+        "COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions sessions "
+        "WHERE DATE_TRUNC('DAY', sessions.session_date)<='2023-06-26T23:59:59' "
+        "GROUP BY sessions.session_device ORDER BY sessions_number_of_sessions DESC) ,"
+        "events_event__cte_subquery_0 AS (SELECT events.device as login_events_device,"
+        "COUNT(DISTINCT(login_events.id)) as login_events_number_of_login_events FROM analytics.login_events "
+        "login_events LEFT JOIN analytics.events events ON login_events.id=events.id "
+        "WHERE DATE_TRUNC('DAY', events.event_date)<='2023-06-26T23:59:59' GROUP BY events.device "
+        "ORDER BY login_events_number_of_login_events DESC) SELECT events_event__cte_subquery_0"
+        ".login_events_number_of_login_events as login_events_number_of_login_events,"
+        "sessions_session__cte_subquery_1.sessions_number_of_sessions as sessions_number_of_sessions,"
+        "events_event__cte_subquery_0.login_events_device as login_events_device,"
+        "sessions_session__cte_subquery_1.sessions_session_device as sessions_session_device "
+        "FROM events_event__cte_subquery_0 FULL OUTER JOIN sessions_session__cte_subquery_1 "
+        "ON events_event__cte_subquery_0.login_events_device=sessions_session__cte_subquery_1"
+        ".sessions_session_device;"
+    )
+    assert query == correct

@@ -30,6 +30,11 @@ fields:
     field_type: "dimension"
     type: string
     sql: "${TABLE}.utm_campaign"
+  
+  - name: session_device
+    field_type: "dimension"
+    type: string
+    sql: "${TABLE}.session_device"
 
   - name: customer_id
     field_type: dimension
