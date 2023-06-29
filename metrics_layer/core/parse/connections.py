@@ -161,6 +161,7 @@ class BigQueryConnection(BaseConnection):
         creds_to_use = credentials if credentials else keyfile
         self.credentials = self._convert_json_if_needed(creds_to_use, kwargs)
         self.project_id = self.credentials["project_id"]
+        self.database = self.project_id
 
     def to_dict(self):
         """Dict for use with the BigQuery connector"""
