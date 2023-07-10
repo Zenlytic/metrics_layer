@@ -7,6 +7,7 @@ import networkx
 from metrics_layer.core.exceptions import JoinError
 from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.model.definitions import Definitions
+from metrics_layer.core.model.filter import Filter
 
 
 class MetricsLayerDesign:
@@ -259,13 +260,22 @@ class MetricsLayerDesign:
             if view.access_filters:
                 for condition_set in view.access_filters:
                     field = self.project.get_field(condition_set["field"])
-                    sql = field.sql_query(self.query_type)
+                    field_sql = field.sql_query(self.query_type)
                     user_attribute_value = condition_set["user_attribute"]
-
                     if self.project._user and self.project._user.get(user_attribute_value):
-                        condition = f"{sql} = '{self.project._user[user_attribute_value]}'"
-                        conditions.append(condition)
+                        f = Filter(
+                            {
+                                "field": condition_set["field"],
+                                "value": self.project._user[user_attribute_value],
+                            }
+                        )
                         fields.append(field)
+                        for filter_dict in f.filter_dict():
+                            filter_sql = Filter.sql_query(
+                                field_sql, filter_dict["expression"], filter_dict["value"]
+                            )
+                            print(filter_sql)
+                            conditions.append(str(filter_sql))
 
         if conditions and fields:
             return " and ".join(conditions), fields

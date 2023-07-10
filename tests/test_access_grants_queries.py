@@ -73,7 +73,8 @@ def test_access_grants_field_permission_block(connection):
     assert exc_info.value.object_type == "field"
 
 
-def test_access_filter(connection):
+@pytest.mark.query
+def test_access_filters_equal_to(connection):
     connection.project.set_user({"department": "executive"})
 
     query = connection.get_sql_query(metrics=["total_revenue"], dimensions=["new_vs_repeat"])
@@ -87,7 +88,22 @@ def test_access_filter(connection):
     correct = (
         "SELECT orders.new_vs_repeat as orders_new_vs_repeat,SUM(orders.revenue) as orders_total_revenue "
         "FROM analytics.orders orders LEFT JOIN analytics.customers customers "
-        "ON orders.customer_id=customers.customer_id WHERE customers.region = 'US-West' "
+        "ON orders.customer_id=customers.customer_id WHERE customers.region='US-West' "
+        "GROUP BY orders.new_vs_repeat ORDER BY orders_total_revenue DESC;"
+    )
+    assert correct == query
+
+
+@pytest.mark.query
+def test_access_filters_array(connection):
+    connection.project.set_user({"department": "executive", "owned_region": "US-West, US-East"})
+
+    query = connection.get_sql_query(metrics=["total_revenue"], dimensions=["new_vs_repeat"])
+
+    correct = (
+        "SELECT orders.new_vs_repeat as orders_new_vs_repeat,SUM(orders.revenue) as orders_total_revenue "
+        "FROM analytics.orders orders LEFT JOIN analytics.customers customers "
+        "ON orders.customer_id=customers.customer_id WHERE customers.region IN ('US-West','US-East') "
         "GROUP BY orders.new_vs_repeat ORDER BY orders_total_revenue DESC;"
     )
     assert correct == query
