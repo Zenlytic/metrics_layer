@@ -27,5 +27,6 @@ fields:
 
   - name: discount_usd
     field_type: measure
+    canon_date: discounts.order
     type: sum
     sql: ${TABLE}.total_usd

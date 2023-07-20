@@ -80,7 +80,11 @@ class View(MetricsLayerBase):
                     name = self.default_date
                 else:
                     name = f"{self.name}.{self.default_date}"
-                self.project.get_field_by_name(name)
+                field = self.project.get_field_by_name(name)
+                if field.field_type != "dimension_group" or field.type != "time":
+                    field_errors.append(
+                        f"Default date {self.default_date} is not of field_type: dimension_group and type: time in view {self.name}"  # noqa
+                    )
             except (AccessDeniedOrDoesNotExistException, QueryError):
                 field_errors.append(f"Default date {self.default_date} is unreachable in view {self.name}")
 
@@ -96,6 +100,14 @@ class View(MetricsLayerBase):
                 "specify one using the tag primary_key: yes"
             )
             field_errors += [primary_key_error]
+
+        if self.access_filters is not None and isinstance(self.access_filters, dict):
+            access_filter_error = (
+                f"The view {self.name} has an access filter that is incorrectly specified as a "
+                "dictionary instead of a list, to specify it correctly check the documentation "
+                "for access filters at https://docs.zenlytic.com"
+            )
+            field_errors += [access_filter_error]
 
         return field_errors
 

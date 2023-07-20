@@ -1,8 +1,8 @@
 import datetime
 
 import pytest
+from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.exceptions import QueryError, JoinError
-
 from metrics_layer.core.model.definitions import Definitions
 
 
@@ -994,12 +994,17 @@ def test_query_merge_results_order_issue(connection):
 
 
 @pytest.mark.query
-def test_query_merge_results_default_date_raise_error(connection):
+def test_query_merge_results_default_date_raise_error(project, connections):
+    canon_date = project._views[5]["fields"][-1].pop("canon_date")
+    connection = MetricsLayerConnection(project=project, connections=connections)
+
     with pytest.raises(QueryError) as exc_info:
         connection.get_sql_query(metrics=["number_of_customers", "avg_rainfall"], dimensions=["month"])
 
     assert exc_info.value
     assert "Could not find a date field associated with metric avg_rainfall" in exc_info.value.message
+
+    project._views[5]["fields"][-1]["canon_date"] = canon_date
 
 
 @pytest.mark.query

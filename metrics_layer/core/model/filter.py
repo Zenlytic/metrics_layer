@@ -438,6 +438,10 @@ class Filter(MetricsLayerBase):
         case_sql = "case when "
         conditions = []
         for f in filters:
+            # All filters must have both of these keys, otherwise they are invalid
+            if not all(k in f for k in ["field", "value"]):
+                continue
+
             filter_dict = Filter._filter_dict(
                 f["field"], f["value"], f.get("week_start_day"), f.get("timezone")
             )

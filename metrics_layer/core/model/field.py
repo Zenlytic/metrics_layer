@@ -159,6 +159,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                 alias = f"{self.name}_{self.dimension_group}"
             elif self.type == "duration":
                 alias = f"{self.dimension_group}_{self.name}"
+            else:
+                alias = self.name
         else:
             alias = self.name
         if with_view:
@@ -628,6 +630,44 @@ class Field(MetricsLayerBase, SQLReplacement):
                 f"Field {self.name} is of type duration, but has property "
                 "timeframes when it should have property intervals"
             )
+        if self.field_type == "measure" and not self.canon_date:
+            if self.is_merged_result:
+                error_text = (
+                    f"Field {self.name} is a merged result metric (measure), but does not have a date "
+                    "associated with it. Associate a date with the metric (measure) by setting either "
+                    "the canon_date property on the measure itself or the default_date property on "
+                    "the view the measure is in. Merged results are not possible without associated dates."
+                )
+            else:
+                error_text = (
+                    f"Warning: Field {self.name} is a metric (measure), but does not have a date associated "
+                    "with it. Associate a date with the metric (measure) by setting either the canon_date "
+                    "property on the measure itself or the default_date property on the view the measure "
+                    "is in. Time periods and merged results will not be possible to use until you define "
+                    "the date association"
+                )
+            errors.append(error_text)
+
+        if self.field_type in {"measure", "dimension_group"} and self.type is None:
+            error_text = (
+                f"Field {self.name} is a {self.field_type}, but does not have a type associated "
+                f"with it. You must set a type for this {self.field_type}."
+            )
+            errors.append(error_text)
+
+        if self.sql and self.sql == "${" + self.name + "}":
+            error_text = (
+                f"Field {self.name} references itself in its 'sql' property. You need to reference "
+                "a column using the ${TABLE}.myfield_name syntax or reference another dimension or measure."
+            )
+            errors.append(error_text)
+
+        if self.filters:
+            for f in self.filters:
+                if any(k not in f for k in ["field", "value"]):
+                    key = "value" if "field" in f else "value"
+                    error_text = f"Field {self.name} has a filter {f} that is missing the key {key}."
+                    errors.append(error_text)
         return errors
 
     def get_referenced_sql_query(self, strings_only=True):
@@ -651,6 +691,9 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def referenced_fields(self, sql, ignore_explore: bool = False):
         reference_fields = []
+        if sql is None:
+            return []
+
         for to_replace in self.fields_to_replace(sql):
             if to_replace != "TABLE":
                 try:
