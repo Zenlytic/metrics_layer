@@ -6,10 +6,6 @@ from .project_reader_base import ProjectReaderBase
 class MetricsLayerProjectReader(ProjectReaderBase):
     def load(self) -> None:
         models, views, dashboards = [], [], []
-        self.has_dbt_project = self.dbt_project is not None
-        if self.has_dbt_project:
-            self.generate_manifest_json(self.dbt_folder, self.profiles_dir)
-            self.manifest = self.load_manifest_json()
 
         model_folders = self.get_folders("model-paths")
         view_folders = self.get_folders("view-paths")

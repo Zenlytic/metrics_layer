@@ -89,13 +89,11 @@ class ProjectReaderBase:
             self._clean_up_profiles_file(profiles_dir)
 
     def load_manifest_json(self):
-        manifest_files = self.search_dbt_project("manifest.json")
-        if len(manifest_files) > 1:
-            raise QueryError(f"found multiple manifest.json files for your dbt project: {manifest_files}")
-        if len(manifest_files) == 0:
+        manifest_path = os.path.join(self.dbt_folder, "target/manifest.json")
+        if not os.path.exists(manifest_path):
             raise QueryError("could not find a manifest.json file for your dbt project")
 
-        with open(manifest_files[0], "r") as f:
+        with open(manifest_path, "r") as f:
             manifest = json.load(f)
         return manifest
 
