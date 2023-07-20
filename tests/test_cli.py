@@ -282,6 +282,141 @@ def test_cli_validate_joins(connection, fresh_project, mocker):
 
 
 @pytest.mark.cli
+def test_cli_validate_access_grants_setup(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+
+    # This tests the scenario  an access filter is specified like a dict not a list
+    # access_filters:
+    #  user_attribute: 'department'
+    #  allowed_values: ["finance"]
+    #
+    # ^incorrect syntax
+    project._views[1]["access_filters"] = {"user_attribute": "department", "allowed_values": ["finance"]}
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nThe view orders has an access filter that is incorrectly specified as a dictionary instead of a list, to specify it correctly check the documentation for access filters at https://docs.zenlytic.com\n\n"  # noqa
+    )
+
+
+@pytest.mark.cli
+def test_cli_validate_warnings_for_no_date_on_metrics(connection, fresh_project, mocker):
+    # Tests removing the default date and raising a warning for the normal
+    # metric and an error for the merged result
+    project = fresh_project
+    project._views[3].pop("default_date")
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nField discount_per_order is a merged result metric (measure), but does not have a date associated with it. Associate a date with the metric (measure) by setting either the canon_date property on the measure itself or the default_date property on the view the measure is in. Merged results are not possible without associated dates.\n\n"  # noqa
+    )
+
+
+@pytest.mark.cli
+def test_cli_validate_default_date_is_dim_group(connection, fresh_project, mocker):
+    # change the type of the default date to a non dim group
+    project = fresh_project
+
+    project._views[3]["default_date"] = "discount_code"
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nDefault date discount_code is not of field_type: dimension_group and type: time in view discounts\n\n"  # noqa
+    )
+
+
+@pytest.mark.cli
+def test_cli_validate_no_type_dim_group_measure(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+
+    project._views[2]["fields"][2].pop("type")
+    project._views[2]["fields"][3].pop("type")
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 2 errors in the project:\n\n"
+        "\nField cancelled is a dimension_group, but does not have a type associated with it. You must set a type for this dimension_group.\n\n"  # noqa
+        "\nField number_of_customers is a measure, but does not have a type associated with it. You must set a type for this measure.\n\n"  # noqa
+    )
+
+
+@pytest.mark.cli
+def test_cli_validate_metric_self_reference(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+
+    project._views[2]["fields"][3]["sql"] = "${number_of_customers}"
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nField number_of_customers references itself in its 'sql' property. You need to reference a column using the ${TABLE}.myfield_name syntax or reference another dimension or measure.\n\n"  # noqa
+    )
+
+
+@pytest.mark.cli
+def test_cli_validate_filter_with_no_field(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+
+    project._views[2]["fields"][-2]["filters"][0] = {"is_churned": None, "value": False}
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+    conn.project.validate()
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nField total_sessions has a filter {'is_churned': None, 'value': False} that is missing the key value.\n\n"  # noqa
+    )
+
+
+@pytest.mark.cli
 def test_cli_validate_dashboards(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project

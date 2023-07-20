@@ -35,4 +35,5 @@ fields:
   - name: avg_rainfall
     field_type: "measure"
     type: average
+    canon_date: order_lines.order
     sql: ${rainfall}
