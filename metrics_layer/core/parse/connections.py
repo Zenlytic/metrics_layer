@@ -178,8 +178,6 @@ class DruidConnection(BaseConnection):
             self.user = username
         elif user:
             self.user = user
-        else:
-            raise ArgumentError("Received no argument for the Druid user, pass either user or username")
         self.password = password
         self.path = path
         self.scheme = scheme
