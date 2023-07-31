@@ -517,7 +517,7 @@ def test_simple_query_dimension_group_interval(connections, interval: str, query
         field = project.get_field(f"{interval}s_waiting")
 
     semi = ";"
-    if query_type in {Definitions.snowflake, Definitions.redshift, Definitions.druid}:
+    if query_type in {Definitions.snowflake, Definitions.redshift}:
         result_lookup = {
             "second": "DATEDIFF('SECOND', simple.view_date, simple.order_date)",
             "minute": "DATEDIFF('MINUTE', simple.view_date, simple.order_date)",
@@ -529,10 +529,19 @@ def test_simple_query_dimension_group_interval(connections, interval: str, query
             "year": "DATEDIFF('YEAR', simple.view_date, simple.order_date)",
         }
         order_by = " ORDER BY simple_total_revenue DESC"
-        if query_type == Definitions.druid:
-            result_lookup = {k: v.replace("DATEDIFF", "TIMESTAMP_DIFF") for k, v in result_lookup.items()}
-            order_by = ""
-            semi = ""
+    elif query_type == Definitions.druid:
+        result_lookup = {
+            "second": "TIMESTAMPDIFF(SECOND, simple.view_date, simple.order_date)",
+            "minute": "TIMESTAMPDIFF(MINUTE, simple.view_date, simple.order_date)",
+            "hour": "TIMESTAMPDIFF(HOUR, simple.view_date, simple.order_date)",
+            "day": "TIMESTAMPDIFF(DAY, simple.view_date, simple.order_date)",
+            "week": "TIMESTAMPDIFF(WEEK, simple.view_date, simple.order_date)",
+            "month": "TIMESTAMPDIFF(MONTH, simple.view_date, simple.order_date)",
+            "quarter": "TIMESTAMPDIFF(QUARTER, simple.view_date, simple.order_date)",
+            "year": "TIMESTAMPDIFF(YEAR, simple.view_date, simple.order_date)",
+        }
+        order_by = ""
+        semi = ""
     elif query_type == Definitions.postgres:
         result_lookup = {
             "second": "DATE_PART('DAY', AGE(simple.order_date, simple.view_date)) * 24 + DATE_PART('HOUR', AGE(simple.order_date, simple.view_date)) * 60 + DATE_PART('MINUTE', AGE(simple.order_date, simple.view_date)) * 60 + DATE_PART('SECOND', AGE(simple.order_date, simple.view_date))",  # noqa

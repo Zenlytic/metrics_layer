@@ -507,14 +507,14 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "years": lambda start, end: f"DATE_PART('YEAR', AGE({end}, {start}))",
             },
             Definitions.druid: {
-                "seconds": lambda start, end: f"TIMESTAMP_DIFF('SECOND', {start}, {end})",
-                "minutes": lambda start, end: f"TIMESTAMP_DIFF('MINUTE', {start}, {end})",
-                "hours": lambda start, end: f"TIMESTAMP_DIFF('HOUR', {start}, {end})",
-                "days": lambda start, end: f"TIMESTAMP_DIFF('DAY', {start}, {end})",
-                "weeks": lambda start, end: f"TIMESTAMP_DIFF('WEEK', {start}, {end})",
-                "months": lambda start, end: f"TIMESTAMP_DIFF('MONTH', {start}, {end})",
-                "quarters": lambda start, end: f"TIMESTAMP_DIFF('QUARTER', {start}, {end})",
-                "years": lambda start, end: f"TIMESTAMP_DIFF('YEAR', {start}, {end})",
+                "seconds": lambda start, end: f"TIMESTAMPDIFF(SECOND, {start}, {end})",
+                "minutes": lambda start, end: f"TIMESTAMPDIFF(MINUTE, {start}, {end})",
+                "hours": lambda start, end: f"TIMESTAMPDIFF(HOUR, {start}, {end})",
+                "days": lambda start, end: f"TIMESTAMPDIFF(DAY, {start}, {end})",
+                "weeks": lambda start, end: f"TIMESTAMPDIFF(WEEK, {start}, {end})",
+                "months": lambda start, end: f"TIMESTAMPDIFF(MONTH, {start}, {end})",
+                "quarters": lambda start, end: f"TIMESTAMPDIFF(QUARTER, {start}, {end})",
+                "years": lambda start, end: f"TIMESTAMPDIFF(YEAR, {start}, {end})",
             },
             Definitions.bigquery: {
                 "seconds": lambda start, end: f"TIMESTAMP_DIFF(CAST({end} as TIMESTAMP), CAST({start} as TIMESTAMP), SECOND)",  # noqa
