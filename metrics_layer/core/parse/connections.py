@@ -253,3 +253,12 @@ class BigQueryConnection(BaseConnection):
                     return json.load(f)
         else:
             raise TypeError(f"BigQuery credentials json had wrong type: {type(creds)} for value {creds}")
+
+
+connection_class_lookup = {
+    ConnectionType.snowflake: SnowflakeConnection,
+    ConnectionType.redshift: RedshiftConnection,
+    ConnectionType.bigquery: BigQueryConnection,
+    ConnectionType.postgres: PostgresConnection,
+    ConnectionType.druid: DruidConnection,
+}

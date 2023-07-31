@@ -1,14 +1,7 @@
 import os
 
 from metrics_layer.core.model.project import Project
-from metrics_layer.core.parse.connections import (
-    ConnectionType,
-    BaseConnection,
-    BigQueryConnection,
-    RedshiftConnection,
-    PostgresConnection,
-    SnowflakeConnection,
-)
+from metrics_layer.core.parse.connections import connection_class_lookup, BaseConnection
 
 from .github_repo import GithubRepo, LocalRepo
 from .manifest import Manifest
@@ -115,19 +108,13 @@ class ProjectLoader:
 
     @staticmethod
     def load_connections(connections: list):
-        class_lookup = {
-            ConnectionType.snowflake: SnowflakeConnection,
-            ConnectionType.bigquery: BigQueryConnection,
-            ConnectionType.redshift: RedshiftConnection,
-            ConnectionType.postgres: PostgresConnection,
-        }
         results = []
         for connection in connections:
             if isinstance(connection, BaseConnection):
                 connection_class = connection
             else:
                 connection_type = connection["type"].upper()
-                connection_class = class_lookup[connection_type](**connection)
+                connection_class = connection_class_lookup[connection_type](**connection)
             results.append(connection_class)
         return results
 
