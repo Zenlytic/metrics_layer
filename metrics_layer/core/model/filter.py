@@ -5,6 +5,7 @@ from enum import Enum
 import pandas as pd
 import pendulum
 from pypika.terms import LiteralValue
+from pypika.functions import Lower
 from pypika import Criterion
 
 from metrics_layer.core.exceptions import QueryError
@@ -478,21 +479,27 @@ class Filter(MetricsLayerBase):
             MetricsLayerFilterExpressionType.Like: lambda f: f.like(value),
             MetricsLayerFilterExpressionType.Contains: lambda f: f.like(f"%{value}%"),
             MetricsLayerFilterExpressionType.DoesNotContain: lambda f: f.not_like(f"%{value}%"),
-            MetricsLayerFilterExpressionType.ContainsCaseInsensitive: lambda f: f.ilike(f"%{value}%"),
-            MetricsLayerFilterExpressionType.DoesNotContainCaseInsensitive: lambda f: f.not_ilike(
-                f"%{value}%"
+            MetricsLayerFilterExpressionType.ContainsCaseInsensitive: lambda f: Lower(f).like(
+                Lower(f"%{value}%")
+            ),
+            MetricsLayerFilterExpressionType.DoesNotContainCaseInsensitive: lambda f: Lower(f).not_like(
+                Lower(f"%{value}%")
             ),
             MetricsLayerFilterExpressionType.StartsWith: lambda f: f.like(f"{value}%"),
             MetricsLayerFilterExpressionType.EndsWith: lambda f: f.like(f"%{value}"),
             MetricsLayerFilterExpressionType.DoesNotStartWith: lambda f: f.not_like(f"{value}%"),
             MetricsLayerFilterExpressionType.DoesNotEndWith: lambda f: f.not_like(f"%{value}"),
-            MetricsLayerFilterExpressionType.StartsWithCaseInsensitive: lambda f: f.ilike(f"{value}%"),
-            MetricsLayerFilterExpressionType.EndsWithCaseInsensitive: lambda f: f.ilike(f"%{value}"),
-            MetricsLayerFilterExpressionType.DoesNotStartWithCaseInsensitive: lambda f: f.not_ilike(
-                f"{value}%"
+            MetricsLayerFilterExpressionType.StartsWithCaseInsensitive: lambda f: Lower(f).like(
+                Lower(f"{value}%")
             ),
-            MetricsLayerFilterExpressionType.DoesNotEndWithCaseInsensitive: lambda f: f.not_ilike(
-                f"%{value}"
+            MetricsLayerFilterExpressionType.EndsWithCaseInsensitive: lambda f: Lower(f).like(
+                Lower(f"%{value}")
+            ),
+            MetricsLayerFilterExpressionType.DoesNotStartWithCaseInsensitive: lambda f: Lower(f).not_like(
+                Lower(f"{value}%")
+            ),
+            MetricsLayerFilterExpressionType.DoesNotEndWithCaseInsensitive: lambda f: Lower(f).not_like(
+                Lower(f"%{value}")
             ),
             MetricsLayerFilterExpressionType.IsNull: lambda f: f.isnull(),
             MetricsLayerFilterExpressionType.IsNotNull: lambda f: f.notnull(),

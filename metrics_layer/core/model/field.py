@@ -239,12 +239,13 @@ class Field(MetricsLayerBase, SQLReplacement):
         return f"COUNT(DISTINCT({sql}))"
 
     def _sum_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
-        if self._needs_symmetric_aggregate(functional_pk):
+        # Druid doesn't support symmetric aggregates, so we have to ignore this check
+        no_symmetric_aggregates = {Definitions.druid}
+        if self._needs_symmetric_aggregate(functional_pk) and query_type not in no_symmetric_aggregates:
             return self._sum_symmetric_aggregate(sql, query_type, alias_only=alias_only)
         return f"SUM({sql})"
 
     def _sum_distinct_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
-        # sql_distinct_key = self._replace_sql_query(self.sql_distinct_key, query_type, alias_only=alias_only)
         sql_distinct_key = self._get_sql_distinct_key(
             self.sql_distinct_key, query_type, alias_only=alias_only
         )
@@ -260,7 +261,12 @@ class Field(MetricsLayerBase, SQLReplacement):
         alias_only: bool = False,
         factor: int = 1_000_000,
     ):
-        if query_type in {Definitions.snowflake, Definitions.redshift}:
+        if query_type in {Definitions.druid}:
+            raise QueryError(
+                "Symmetric aggregates are not supported in Druid. "
+                "Use the 'sum' type instead of 'sum_distinct'."
+            )
+        elif query_type in {Definitions.snowflake, Definitions.redshift}:
             return self._sum_symmetric_aggregate_snowflake(sql, primary_key_sql, alias_only, factor)
         elif query_type == Definitions.bigquery:
             return self._sum_symmetric_aggregate_bigquery(sql, primary_key_sql, alias_only, factor)
@@ -308,7 +314,8 @@ class Field(MetricsLayerBase, SQLReplacement):
         return result
 
     def _count_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
-        if self._needs_symmetric_aggregate(functional_pk):
+        no_symmetric_aggregates = {Definitions.druid}
+        if self._needs_symmetric_aggregate(functional_pk) and query_type not in no_symmetric_aggregates:
             if self.primary_key_count:
                 return self._count_distinct_aggregate_sql(
                     sql, query_type, functional_pk, alias_only=alias_only
@@ -340,14 +347,19 @@ class Field(MetricsLayerBase, SQLReplacement):
         return result
 
     def _average_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
-        if self._needs_symmetric_aggregate(functional_pk):
+        no_symmetric_aggregates = {Definitions.druid}
+        if self._needs_symmetric_aggregate(functional_pk) and query_type not in no_symmetric_aggregates:
             return self._average_symmetric_aggregate(sql, query_type, alias_only=alias_only)
         return f"AVG({sql})"
 
     def _average_distinct_aggregate_sql(
         self, sql: str, query_type: str, functional_pk: str, alias_only: bool
     ):
-        # sql_distinct_key = self._replace_sql_query(self.sql_distinct_key, query_type, alias_only=alias_only)
+        if query_type in {Definitions.druid}:
+            raise QueryError(
+                "Symmetric aggregates are not supported in Druid. "
+                "Use the 'average' type instead of 'average_distinct'."
+            )
         sql_distinct_key = self._get_sql_distinct_key(self.sql_distinct_key, query_type, alias_only)
         return self._average_symmetric_aggregate(
             sql, query_type, primary_key_sql=sql_distinct_key, alias_only=alias_only
@@ -494,6 +506,16 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "quarters": lambda start, end: f"{meta_lookup[Definitions.postgres]['years'](start, end)} * 4 + TRUNC(DATE_PART('month', AGE({end}, {start}))/3)",  # noqa
                 "years": lambda start, end: f"DATE_PART('YEAR', AGE({end}, {start}))",
             },
+            Definitions.druid: {
+                "seconds": lambda start, end: f"TIMESTAMP_DIFF('SECOND', {start}, {end})",
+                "minutes": lambda start, end: f"TIMESTAMP_DIFF('MINUTE', {start}, {end})",
+                "hours": lambda start, end: f"TIMESTAMP_DIFF('HOUR', {start}, {end})",
+                "days": lambda start, end: f"TIMESTAMP_DIFF('DAY', {start}, {end})",
+                "weeks": lambda start, end: f"TIMESTAMP_DIFF('WEEK', {start}, {end})",
+                "months": lambda start, end: f"TIMESTAMP_DIFF('MONTH', {start}, {end})",
+                "quarters": lambda start, end: f"TIMESTAMP_DIFF('QUARTER', {start}, {end})",
+                "years": lambda start, end: f"TIMESTAMP_DIFF('YEAR', {start}, {end})",
+            },
             Definitions.bigquery: {
                 "seconds": lambda start, end: f"TIMESTAMP_DIFF(CAST({end} as TIMESTAMP), CAST({start} as TIMESTAMP), SECOND)",  # noqa
                 "minutes": lambda start, end: f"TIMESTAMP_DIFF(CAST({end} as TIMESTAMP), CAST({start} as TIMESTAMP), MINUTE)",  # noqa
@@ -545,6 +567,19 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "day_of_week": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Dy')",
                 "day_of_month": lambda s, qt: f"EXTRACT('DAY' FROM CAST({s} AS TIMESTAMP))",
             },
+            Definitions.druid: {
+                "raw": lambda s, qt: s,
+                "time": lambda s, qt: f"CAST({s} AS TIMESTAMP)",
+                "date": lambda s, qt: f"DATE_TRUNC('DAY', CAST({s} AS TIMESTAMP))",
+                "week": self._week_dimension_group_time_sql,
+                "month": lambda s, qt: f"DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))",
+                "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', CAST({s} AS TIMESTAMP))",
+                "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
+                "month_of_year": lambda s, qt: f"CASE EXTRACT(MONTH FROM {s}) WHEN 1 THEN 'Jan' WHEN 2 THEN 'Feb' WHEN 3 THEN 'Mar' WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun' WHEN 7 THEN 'Jul' WHEN 8 THEN 'Aug' WHEN 9 THEN 'Sep' WHEN 10 THEN 'Oct' WHEN 11 THEN 'Nov' WHEN 12 THEN 'Dec' ELSE 'Invalid Month' END",  # noqa
+                "hour_of_day": lambda s, qt: f"EXTRACT(HOUR FROM CAST({s} AS TIMESTAMP))",
+                "day_of_week": lambda s, qt: f"CASE EXTRACT(DOW FROM {s}) WHEN 1 THEN 'Mon' WHEN 2 THEN 'Tue' WHEN 3 THEN 'Wed' WHEN 4 THEN 'Thu' WHEN 5 THEN 'Fri' WHEN 6 THEN 'Sat' WHEN 7 THEN 'Sun' ELSE 'Invalid Day' END",  # noqa
+                "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM CAST({s} AS TIMESTAMP))",
+            },
             Definitions.bigquery: {
                 "raw": lambda s, qt: s,
                 "time": lambda s, qt: f"CAST({s} AS TIMESTAMP)",
@@ -577,6 +612,9 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"CAST(CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP) AS {self.datatype.upper()})"  # noqa
         elif query_type == Definitions.postgres:
             return f"CAST(CAST({sql} AS TIMESTAMP) at time zone 'utc' at time zone '{timezone}' AS {self.datatype.upper()})"  # noqa
+        elif query_type == Definitions.druid:
+            print("Warning: Druid does not support timezone conversion. Timezone will be ignored.")
+            return sql
         else:
             raise QueryError(f"Unable to apply timezone to sql for query type {query_type}")
 
@@ -606,7 +644,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             if offset is None:
                 return f"DATE_TRUNC('WEEK', {casted})"
             return f"DATE_TRUNC('WEEK', {casted} + {offset}) - {offset}"
-        elif query_type == Definitions.postgres:
+        elif query_type in {Definitions.postgres, Definitions.druid}:
             if offset is None:
                 return f"DATE_TRUNC('WEEK', CAST({sql} AS TIMESTAMP))"
             return f"DATE_TRUNC('WEEK', CAST({sql} AS TIMESTAMP) + INTERVAL '{offset}' DAY) - INTERVAL '{offset}' DAY"  # noqa

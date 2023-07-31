@@ -15,6 +15,7 @@ class ConnectionType:
     bigquery = Definitions.bigquery
     redshift = Definitions.redshift
     postgres = Definitions.postgres
+    druid = Definitions.druid
 
 
 class BaseConnection:
@@ -149,6 +150,61 @@ class PostgresConnection(RedshiftConnection):
         self.database = dbname
         self.dbname = dbname
         self.schema = schema
+
+
+class DruidConnection(BaseConnection):
+    def __init__(
+        self,
+        name: str,
+        host: str,
+        username: str = None,
+        user: str = None,
+        password: str = None,
+        port: int = 8082,
+        path: str = "/druid/v2/sql/",
+        scheme: str = "http",
+        **kwargs,
+    ) -> None:
+        self.type = ConnectionType.druid
+        self.name = name
+        self.host = host
+        self.port = port
+        if user and username:
+            raise ArgumentError(
+                "Received arguments for both user and username, "
+                "please send only one argument for the Druid user"
+            )
+        elif username:
+            self.user = username
+        elif user:
+            self.user = user
+        else:
+            raise ArgumentError("Received no argument for the Druid user, pass either user or username")
+        self.password = password
+        self.path = path
+        self.scheme = scheme
+
+    def to_dict(self):
+        base = {
+            "name": self.name,
+            "host": self.host,
+            "port": self.port,
+            "path": self.path,
+            "scheme": self.scheme,
+            "type": self.type,
+        }
+        if self.user:
+            base["user"] = self.user
+        if self.password:
+            base["password"] = self.password
+        return base
+
+    def printable_attributes(self):
+        attributes = deepcopy(self.to_dict())
+        attributes.pop("password")
+        attributes["name"] = self.name
+        sort_order = ["name", "type", "host", "port", "user", "path", "scheme"]
+        return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
 
 
 class BigQueryConnection(BaseConnection):

@@ -3,6 +3,7 @@ from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_generator import MetricsLayerQuery
 from metrics_layer.core.sql.query_funnel import FunnelQuery
 from metrics_layer.core.sql.query_cumulative_metric import CumulativeMetricsQuery
+from metrics_layer.core.model.definitions import Definitions
 
 
 class SingleSQLQueryResolver:
@@ -81,6 +82,9 @@ class SingleSQLQueryResolver:
                 query_definition, design=self.design, suppress_warnings=self.suppress_warnings
             )
 
+        # Druid does not allow semicolons
+        if self.query_type == Definitions.druid:
+            semicolon = False
         query = query_generator.get_query(semicolon=semicolon)
 
         return query

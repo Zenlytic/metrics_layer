@@ -60,4 +60,13 @@ query_lookup = {
     Definitions.bigquery: BigQueryQuery,
     Definitions.redshift: RedshiftQuery,
     Definitions.postgres: PostgresQuery,
+    Definitions.druid: PostgresQuery,  # druid core query logic is postgres compatible
+}
+
+if_null_lookup = {
+    Definitions.snowflake: "ifnull",
+    Definitions.bigquery: "ifnull",
+    Definitions.redshift: "ifnull",
+    Definitions.postgres: "ifnull",
+    Definitions.druid: "nvl",
 }

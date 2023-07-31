@@ -2,6 +2,7 @@ import datetime
 import pytest
 
 from metrics_layer.core.exceptions import QueryError
+from metrics_layer.core.model.definitions import Definitions
 
 
 @pytest.mark.query
@@ -186,7 +187,8 @@ def test_mapping_multiple_metric_different_canon_date_joinable_mapped_date_dim_a
 
 
 @pytest.mark.query
-def test_mapping_mapped_metric_joined_dim(connection):
+@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.druid])
+def test_mapping_mapped_metric_joined_dim(connection, query_type):
     query = connection.get_sql_query(
         metrics=["number_of_orders", "average_customer_ltv"],
         dimensions=["channel"],
@@ -197,37 +199,60 @@ def test_mapping_mapped_metric_joined_dim(connection):
                 "value": datetime.datetime(2022, 1, 5, 0, 0),
             }
         ],
+        query_type=query_type,
         verbose=True,
     )
 
+    if_null = "nvl" if query_type == Definitions.druid else "ifnull"
     orders_cte = "orders_order__cte_subquery_1"
     customers_cte = "customers_first_order__cte_subquery_0"
+
+    # Druid doesn't support symmetric aggregation, and casts timestamps differently
+    if query_type == Definitions.druid:
+        avg_query = "AVG(customers.customer_ltv)"
+        count_query = "COUNT(orders.id)"
+        orders_date_ref = "CAST(orders.order_date AS TIMESTAMP)"
+        customers_date_ref = "CAST(customers.first_order_date AS TIMESTAMP)"
+        order_by_count = ""
+        order_by_avg = ""
+        semi = ""
+    else:
+        avg_query = (
+            "(COALESCE(CAST((SUM(DISTINCT "
+            f"(CAST(FLOOR(COALESCE(customers.customer_ltv, 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) "
+            f"+ (TO_NUMBER(MD5(customers.customer_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)"
+            f"::NUMERIC(38, 0)) - SUM(DISTINCT (TO_NUMBER(MD5(customers.customer_id), "
+            f"'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
+            f"/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0) / NULLIF(COUNT(DISTINCT CASE WHEN  "
+            f"(customers.customer_ltv)  IS NOT NULL THEN  customers.customer_id  ELSE NULL END), 0))"
+        )
+        count_query = (
+            "NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL THEN  orders.id  " "ELSE NULL END), 0)"
+        )
+        orders_date_ref = "orders.order_date"
+        customers_date_ref = "customers.first_order_date"
+        order_by_count = " ORDER BY orders_number_of_orders DESC"
+        order_by_avg = " ORDER BY customers_average_customer_ltv DESC"
+        semi = ";"
     correct = (
         f"WITH {orders_cte} AS (SELECT order_lines.sales_channel as order_lines_channel,"
-        f"NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL THEN  orders.id  ELSE NULL END), "
-        f"0) as orders_number_of_orders FROM analytics.order_line_items order_lines "
+        f"{count_query} as orders_number_of_orders FROM analytics.order_line_items order_lines "
         f"LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id WHERE "
-        f"DATE_TRUNC('DAY', orders.order_date)>='2022-01-05T00:00:00' GROUP BY "
-        f"order_lines.sales_channel ORDER BY orders_number_of_orders DESC) ,"
+        f"DATE_TRUNC('DAY', {orders_date_ref})>='2022-01-05T00:00:00' GROUP BY "
+        f"order_lines.sales_channel{order_by_count}) ,"
         f"{customers_cte} AS (SELECT "
-        f"order_lines.sales_channel as order_lines_channel,(COALESCE(CAST((SUM(DISTINCT "
-        f"(CAST(FLOOR(COALESCE(customers.customer_ltv, 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) "
-        f"+ (TO_NUMBER(MD5(customers.customer_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)"
-        f"::NUMERIC(38, 0)) - SUM(DISTINCT (TO_NUMBER(MD5(customers.customer_id), "
-        f"'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
-        f"/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0) / NULLIF(COUNT(DISTINCT CASE WHEN  "
-        f"(customers.customer_ltv)  IS NOT NULL THEN  customers.customer_id  ELSE NULL END), "
-        f"0)) as customers_average_customer_ltv FROM analytics.order_line_items order_lines "
+        f"order_lines.sales_channel as order_lines_channel,{avg_query} as customers_average_customer_ltv "
+        "FROM analytics.order_line_items order_lines "
         f"LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
-        f"WHERE DATE_TRUNC('DAY', customers.first_order_date)>='2022-01-05T00:00:00' "
-        f"GROUP BY order_lines.sales_channel ORDER BY customers_average_customer_ltv DESC) "
+        f"WHERE DATE_TRUNC('DAY', {customers_date_ref})>='2022-01-05T00:00:00' "
+        f"GROUP BY order_lines.sales_channel{order_by_avg}) "
         f"SELECT {customers_cte}.customers_average_customer_ltv "
         f"as customers_average_customer_ltv,{orders_cte}.orders_number_of_orders "
-        f"as orders_number_of_orders,ifnull({customers_cte}."
+        f"as orders_number_of_orders,{if_null}({customers_cte}."
         f"order_lines_channel, {orders_cte}.order_lines_channel) as order_lines_channel FROM "
         f"{customers_cte} FULL OUTER JOIN "
         f"{orders_cte} ON {customers_cte}"
-        f".order_lines_channel={orders_cte}.order_lines_channel;"
+        f".order_lines_channel={orders_cte}.order_lines_channel{semi}"
     )
     assert query == correct
 

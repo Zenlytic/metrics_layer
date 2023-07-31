@@ -2,7 +2,7 @@ from pypika import AliasedQuery, Criterion
 
 from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
 from metrics_layer.core.model.filter import LiteralValueCriterion
-from metrics_layer.core.sql.query_dialect import query_lookup
+from metrics_layer.core.sql.query_dialect import query_lookup, if_null_lookup
 
 
 class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
@@ -77,7 +77,8 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
                 if alias not in dimension_sql:
                     dimension_sql[alias] = f"{join_hash}.{alias}"
                 else:
-                    dimension_sql[alias] = f"ifnull({dimension_sql[alias]}, {join_hash}.{alias})"
+                    if_null_func = if_null_lookup[self.query_type]
+                    dimension_sql[alias] = f"{if_null_func}({dimension_sql[alias]}, {join_hash}.{alias})"
 
         for alias, sql in dimension_sql.items():
             select.append(self.sql(sql, alias=alias))
