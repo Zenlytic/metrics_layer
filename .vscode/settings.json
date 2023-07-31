@@ -8,9 +8,12 @@
     "--max-line-length=110"
   ],
   "python.linting.enabled": true,
-  "python.formatting.provider": "black",
+  "python.formatting.provider": "none",
   "python.formatting.blackArgs": [
     "--line-length=110"
   ],
-  "python.formatting.blackPath": "./.venv/bin/black"
+  "python.formatting.blackPath": "./.venv/bin/black",
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter"
+  }
 }

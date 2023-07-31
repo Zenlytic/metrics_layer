@@ -4,6 +4,7 @@ from metrics_layer.core.exceptions import QueryError
 from collections import defaultdict
 from copy import deepcopy
 
+from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.sql.query_merged_results import MetricsLayerMergedResultsQuery
 from metrics_layer.core.sql.single_query_resolve import SingleSQLQueryResolver
 
@@ -89,6 +90,9 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             "limit": self.limit,
             "project": self.project,
         }
+        # Druid does not allow semicolons
+        if resolver.query_type == Definitions.druid:
+            semicolon = False
         merged_result_query = MetricsLayerMergedResultsQuery(query_config)
         query = merged_result_query.get_query(semicolon=semicolon)
 
