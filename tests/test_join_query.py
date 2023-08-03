@@ -244,7 +244,7 @@ def test_query_single_join_with_forced_additional_join(connection):
         "AND DATE_TRUNC(CAST(discounts.order_date AS DATE), WEEK) is not null LEFT JOIN "
         "(SELECT * FROM ANALYTICS.COUNTRY_DETAIL) as country_detail "
         "ON discounts.country=country_detail.country "
-        "GROUP BY discount_detail.promo_name;"
+        "GROUP BY discount_detail_discount_promo_name;"
     )
     assert query == correct
 

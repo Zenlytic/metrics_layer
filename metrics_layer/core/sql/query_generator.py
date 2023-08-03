@@ -143,7 +143,9 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         # Group by
         if not self.no_group_by:
             group_by = self.get_group_by_columns()
+            print(group_by)
             base_query = base_query.groupby(*group_by)
+            print(str(base_query))
 
         # Apply the having filters
         if self.having_filters and not self.no_group_by:
@@ -294,7 +296,12 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         group_by = []
         for field_name in self.dimensions:
             field = self.design.get_field(field_name)
-            group_by.append(self.get_sql(field))
+
+            if self.query_type == Definitions.bigquery:
+                reference = LiteralValue(field.alias(with_view=True))
+            else:
+                reference = self.get_sql(field)
+            group_by.append(reference)
 
         if self.select_raw_sql:
             group_by.extend([self.sql(self.strip_alias(clause)) for clause in self.select_raw_sql])

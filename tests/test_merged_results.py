@@ -20,6 +20,7 @@ def test_merged_result_query_additional_metric(connection, query_type):
     if query_type == Definitions.bigquery:
         order_date = "CAST(DATE_TRUNC(CAST(order_lines.order_date AS DATE), MONTH) AS TIMESTAMP)"
         session_date = "CAST(DATE_TRUNC(CAST(sessions.session_date AS DATE), MONTH) AS TIMESTAMP)"
+
         order_by = ""
         session_by = ""
     else:
@@ -32,13 +33,13 @@ def test_merged_result_query_additional_metric(connection, query_type):
         f"SELECT {order_date} as order_lines_order_month,"
         "SUM(order_lines.revenue) as order_lines_total_item_revenue "
         "FROM analytics.order_line_items order_lines "
-        f"GROUP BY {order_date}"
+        f"GROUP BY {order_date if query_type != Definitions.bigquery else 'order_lines_order_month'}"
         f"{order_by}) ,"
         f"{cte_2} AS ("
         f"SELECT {session_date} as sessions_session_month,"
         "COUNT(sessions.id) as sessions_number_of_sessions "
         "FROM analytics.sessions sessions "
-        f"GROUP BY {session_date}"
+        f"GROUP BY {session_date if query_type != Definitions.bigquery else 'sessions_session_month'}"
         f"{session_by}) "
         f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,"
