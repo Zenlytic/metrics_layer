@@ -143,9 +143,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         # Group by
         if not self.no_group_by:
             group_by = self.get_group_by_columns()
-            print(group_by)
             base_query = base_query.groupby(*group_by)
-            print(str(base_query))
 
         # Apply the having filters
         if self.having_filters and not self.no_group_by:
