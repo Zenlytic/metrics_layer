@@ -123,7 +123,7 @@ class ProjectReaderBase:
     @staticmethod
     def _run_dbt(cmd: str, project_dir: str, profiles_dir: str):
         # create CLI args as a list of strings
-        cli_args = [cmd, "--project-dir", project_dir, "--profiles-dir", profiles_dir]
+        cli_args = ["--no-version-check", cmd, "--project-dir", project_dir, "--profiles-dir", profiles_dir]
 
         dbt = dbtRunner()
         dbt.invoke(cli_args)
