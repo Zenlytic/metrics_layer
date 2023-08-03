@@ -147,6 +147,18 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                         if metric_field.canon_date != first_metric_field.canon_date:
                             self.mapping_forces_merged_result = True
                             break
+                elif is_date_mapping and len(self.dimensions) >= 1:
+                    canon_dates = {self._get_field_from_lookup(d).canon_date for d in self.dimensions}
+                    canon_dates = {c for c in canon_dates if c}
+                    if len(canon_dates) >= 1:
+                        canon_date_id = f'{list(canon_dates)[0]}_{mapped_field["name"]}'
+                        replace_with = self.project.get_field(canon_date_id)
+                        if len(canon_dates) > 1:
+                            self.mapping_forces_merged_result = True
+                    else:
+                        replace_with = self.determine_field_to_replace_with(
+                            mapped_field, joinable_graphs, mergeable_graphs
+                        )
                 else:
                     replace_with = self.determine_field_to_replace_with(
                         mapped_field, joinable_graphs, mergeable_graphs
