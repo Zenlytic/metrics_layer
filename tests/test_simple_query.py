@@ -314,7 +314,8 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
 
     correct = (
         f"SELECT {date_result} as simple_{field}_{group},SUM(simple.revenue) as "
-        f"simple_total_revenue FROM analytics.orders simple {where} GROUP BY {date_result}"
+        f"simple_total_revenue FROM analytics.orders simple {where} "
+        f"GROUP BY {date_result if query_type != Definitions.bigquery else f'simple_{field}_{group}'}"
         f"{order_by}{semi}"
     )
     assert query == correct
@@ -441,7 +442,8 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
 
     correct = (
         f"SELECT {date_result} as simple_order_{group},SUM(simple.revenue) as "
-        f"simple_total_revenue FROM analytics.orders simple GROUP BY {date_result}"
+        f"simple_total_revenue FROM analytics.orders simple "
+        f"GROUP BY {date_result if query_type != Definitions.bigquery else f'simple_order_{group}'}"
         f"{order_by}{semi}"
     )
     assert query == correct
@@ -574,7 +576,8 @@ def test_simple_query_dimension_group_interval(connections, interval: str, query
         correct = (
             f"SELECT {interval_result} as simple_{interval}s_waiting,"
             "SUM(simple.revenue) as simple_total_revenue FROM "
-            f"analytics.orders simple GROUP BY {interval_result}{order_by}{semi}"
+            f"analytics.orders simple GROUP BY {interval_result if query_type != Definitions.bigquery else f'simple_{interval}s_waiting'}"  # noqa
+            f"{order_by}{semi}"
         )
         assert query == correct
 
@@ -731,7 +734,9 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-        f"analytics.orders simple WHERE {condition} GROUP BY simple.sales_channel{order_by}{semi}"
+        f"analytics.orders simple WHERE {condition} "
+        f"GROUP BY {'simple.sales_channel' if query_type != Definitions.bigquery else 'simple_channel'}"
+        f"{order_by}{semi}"
     )
     assert query == correct
 

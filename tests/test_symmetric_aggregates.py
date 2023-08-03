@@ -45,7 +45,8 @@ def test_query_sum_with_sql(connection, query_type):
         f"{sa} as orders_total_revenue "
         "FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        f"GROUP BY order_lines.sales_channel{order_by};"
+        f"GROUP BY {'order_lines.sales_channel' if query_type != Definitions.bigquery else 'order_lines_channel'}"  # noqa
+        f"{order_by};"
     )
     assert query == correct
 
@@ -115,7 +116,8 @@ def test_query_average_with_sql(connection, query_type: str):
         "(orders.revenue)  IS NOT NULL THEN  orders.id  ELSE NULL END), 0))"
         " as orders_average_order_value FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        f"GROUP BY order_lines.sales_channel{order_by};"
+        f"GROUP BY {'order_lines.sales_channel' if query_type != Definitions.bigquery else 'order_lines_channel'}"  # noqa
+        f"{order_by};"
     )
     assert query == correct
 
@@ -152,6 +154,7 @@ def test_query_number_with_sql(connection, query_type):
         f"({sa_sum}) / (100 * 1.0)"
         " as customers_total_sessions_divide FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
-        f"GROUP BY order_lines.sales_channel{order_by};"
+        f"GROUP BY {'order_lines.sales_channel' if query_type != Definitions.bigquery else 'order_lines_channel'}"  # noqa
+        f"{order_by};"
     )
     assert query == correct

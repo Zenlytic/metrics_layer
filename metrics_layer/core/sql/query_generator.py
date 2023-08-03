@@ -294,7 +294,12 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         group_by = []
         for field_name in self.dimensions:
             field = self.design.get_field(field_name)
-            group_by.append(self.get_sql(field))
+
+            if self.query_type == Definitions.bigquery:
+                reference = LiteralValue(field.alias(with_view=True))
+            else:
+                reference = self.get_sql(field)
+            group_by.append(reference)
 
         if self.select_raw_sql:
             group_by.extend([self.sql(self.strip_alias(clause)) for clause in self.select_raw_sql])

@@ -422,3 +422,24 @@ def test_mapped_metric_incorrect_error_message_on_mapped_filter(connection):
     )
     assert exc_info.value
     assert str(exc_info.value) == correct_error
+
+
+@pytest.mark.query
+def test_dim_only_joinable_date_chooses_right_mapping_date(connection):
+    query = connection.get_sql_query(
+        metrics=[],
+        dimensions=["orders.customer_id", "orders.account_id", "orders.sub_channel", "orders.campaign"],
+        where=[
+            {"field": "date", "expression": "greater_or_equal_than", "value": "2023-05-05"},
+            {"field": "date", "expression": "less_or_equal_than", "value": "2023-08-02"},
+        ],
+    )
+
+    correct = (
+        "SELECT orders.customer_id as orders_customer_id,orders.account_id as orders_account_id,"
+        "orders.sub_channel as orders_sub_channel,orders.campaign as orders_campaign "
+        "FROM analytics.orders orders WHERE DATE_TRUNC('DAY', orders.order_date)>='2023-05-05' "
+        "AND DATE_TRUNC('DAY', orders.order_date)<='2023-08-02' GROUP BY orders.customer_id,"
+        "orders.account_id,orders.sub_channel,orders.campaign ORDER BY orders_customer_id ASC;"
+    )
+    assert query == correct
