@@ -174,9 +174,9 @@ class dbtProjectReader(ProjectReaderBase):
     def _make_dbt_metric(self, metric: dict, manifest: dict):
         metric_type = self._metric_get_type(metric)
         metric_dict = {
-            "name": metric["name"],
+            "name": metric["name"].lower(),
             "model": self._get_dbt_metric_model(metric, manifest),
-            "timestamp": metric["timestamp"],
+            "timestamp": metric["timestamp"].lower(),
             "time_grains": metric["time_grains"],
             "field_type": "measure",
             "type": self._convert_in_lookup(metric_type, {"derived": "number", "expression": "number"}),
@@ -221,7 +221,7 @@ class dbtProjectReader(ProjectReaderBase):
         elif "sql" not in metric and "expression" not in metric:
             return None
         else:
-            metric_sql = "${TABLE}." + self._metric_get_sql(metric)
+            metric_sql = self._metric_get_sql(metric)
             return self._apply_dbt_filters(metric_sql, metric.get("filters", []))
 
     def _apply_dbt_filters(self, metric_sql: str, filters: list):

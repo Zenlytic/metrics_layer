@@ -109,6 +109,20 @@ metrics:
     timestamp: order_date
     time_grains: [day, week, month, quarter, year]
 
+  - name: total_rev
+    label: Total Revenue
+    model: ref('order_lines')
+    description: "The total revenue for the period"
+
+    calculation_method: sum
+    expression: product_revenue
+
+    timestamp: order_date
+    time_grains: [day, week, month, quarter, year]
+
+    dimensions:
+      - "*"
+
   - name: total_revenue
     label: Total Revenue
     model: ref('order_lines')
@@ -135,7 +149,7 @@ metrics:
     time_grains: [day, week, month, quarter, year]
 
 
-  - name: new_customer_revenue
+  - name: new_customer_REVENUE
     label: New customer revenue
     model: ref('order_lines')
     description: "Total revenue from new customers"
@@ -143,7 +157,7 @@ metrics:
     calculation_method: sum
     expression: product_revenue
 
-    timestamp: order_date
+    timestamp: ORDER_DATE
     time_grains: [day, week, month, quarter, year]
 
     filters:
