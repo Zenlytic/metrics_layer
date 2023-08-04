@@ -134,7 +134,7 @@ def test_config_load_dbt():
     assert total_revenue_measure["type"] == "sum"
     assert total_revenue_measure["label"] == "New customer revenue"
     assert total_revenue_measure["description"] == "Total revenue from new customers"
-    correct_sql = "case when ${new_vs_repeat} = 'New' then ${TABLE}.product_revenue else null end"
+    correct_sql = "case when ${new_vs_repeat} = 'New' then product_revenue else null end"
     assert total_revenue_measure["sql"] == correct_sql
     assert total_revenue_measure["team"] == "Finance"
 
