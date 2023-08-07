@@ -276,11 +276,23 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         joinable_sets = []
         for field in self.secondary_metrics + self.dimension_fields:
             joinable_graphs = [j for j in field.join_graphs() if "merged_result" not in j]
-            joinable = all(any(j in join_set for j in joinable_graphs) for join_set in joinable_sets)
+            all_joinable = all(any(j in join_set for j in joinable_graphs) for join_set in joinable_sets)
+            any_joinable = any(any(j in join_set for j in joinable_graphs) for join_set in joinable_sets)
 
-            cannot_join = not joinable or len(joinable_sets) == 0
-            measure_date_missing = field.canon_date not in canon_dates and field.field_type == "measure"
-            if field.canon_date and (cannot_join or measure_date_missing):
+            is_not_measure = field.field_type != "measure"
+            is_measure = field.field_type == "measure"
+            cannot_join_to_all = not all_joinable or len(joinable_sets) == 0
+            measure_date_missing = field.canon_date not in canon_dates and is_measure
+            if len(self.secondary_metrics + self.merged_metrics) > 0:
+                measure_cannot_join_to_all = cannot_join_to_all and is_measure
+                dim_cannot_join_to_any = is_not_measure and not any_joinable
+            else:
+                measure_cannot_join_to_all = cannot_join_to_all
+                dim_cannot_join_to_any = is_not_measure and not any_joinable
+
+            if field.canon_date and (
+                measure_cannot_join_to_all or dim_cannot_join_to_any or measure_date_missing
+            ):
                 canon_dates.append(field.canon_date)
                 joinable_sets.append(joinable_graphs)
 

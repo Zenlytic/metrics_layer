@@ -443,3 +443,46 @@ def test_dim_only_joinable_date_chooses_right_mapping_date(connection):
         "orders.account_id,orders.sub_channel,orders.campaign ORDER BY orders_customer_id ASC;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_mapping_defer_to_metric_canon_date_not_dim_only(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_clicks", "unique_users_form_submissions"],
+        dimensions=["submitted_form.sent_at_date", "submitted_form.context_os"],
+        where=[{"field": "date", "expression": "greater_or_equal_than", "value": "2023-05-05"}],
+    )
+
+    correct = (
+        "WITH clicked_on_page_session__cte_subquery_0 AS (SELECT DATE_TRUNC('DAY', "
+        "clicked_on_page.session_date) as clicked_on_page_session_date,"
+        "clicked_on_page.context_os as clicked_on_page_context_os,"
+        "COUNT(clicked_on_page.id) as clicked_on_page_number_of_clicks "
+        "FROM analytics.clicked_on_page clicked_on_page WHERE DATE_TRUNC('DAY', "
+        "clicked_on_page.session_date)>='2023-05-05' GROUP BY DATE_TRUNC('DAY', "
+        "clicked_on_page.session_date),clicked_on_page.context_os ORDER BY "
+        "clicked_on_page_number_of_clicks DESC) ,"
+        "submitted_form_sent_at__cte_subquery_1 AS (SELECT DATE_TRUNC('DAY', "
+        "submitted_form.session_date) as submitted_form_sent_at_date,"
+        "submitted_form.context_os as submitted_form_context_os,"
+        "COUNT(DISTINCT(submitted_form.customer_id)) as submitted_form_unique_users_form_submissions "
+        "FROM analytics.submitted_form submitted_form WHERE DATE_TRUNC('DAY', "
+        "submitted_form.session_date)>='2023-05-05' GROUP BY DATE_TRUNC('DAY', "
+        "submitted_form.session_date),submitted_form.context_os ORDER BY "
+        "submitted_form_unique_users_form_submissions DESC) SELECT "
+        "clicked_on_page_session__cte_subquery_0.clicked_on_page_number_of_clicks "
+        "as clicked_on_page_number_of_clicks,submitted_form_sent_at__cte_subquery_1"
+        ".submitted_form_unique_users_form_submissions as "
+        "submitted_form_unique_users_form_submissions,clicked_on_page_session__cte_subquery_0."
+        "clicked_on_page_session_date as clicked_on_page_session_date,"
+        "clicked_on_page_session__cte_subquery_0.clicked_on_page_context_os as "
+        "clicked_on_page_context_os,submitted_form_sent_at__cte_subquery_1."
+        "submitted_form_sent_at_date as submitted_form_sent_at_date,"
+        "submitted_form_sent_at__cte_subquery_1.submitted_form_context_os as "
+        "submitted_form_context_os FROM clicked_on_page_session__cte_subquery_0 FULL OUTER JOIN "
+        "submitted_form_sent_at__cte_subquery_1 ON clicked_on_page_session__cte_subquery_0."
+        "clicked_on_page_session_date=submitted_form_sent_at__cte_subquery_1."
+        "submitted_form_sent_at_date and clicked_on_page_session__cte_subquery_0."
+        "clicked_on_page_context_os=submitted_form_sent_at__cte_subquery_1.submitted_form_context_os;"
+    )
+    assert query == correct
