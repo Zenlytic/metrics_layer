@@ -1,3 +1,4 @@
+from collections import defaultdict
 from pypika import AliasedQuery, Criterion
 
 from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
@@ -70,6 +71,23 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
                     select.append(self.sql(f"{join_hash}.{alias}", alias=alias))
                     existing_aliases.append(alias)
 
+        # Map the dimensions to their counterparts (if present) for the "if null" clauses
+        mapping_lookup = defaultdict(list)
+        for _, fields in self.query_dimensions.items():
+            for field in fields:
+                field_key = f"{field.view.name}.{field.name}"
+                if field.dimension_group:
+                    field_key_dim_group = f"{field_key}_{field.dimension_group}"
+                else:
+                    field_key_dim_group = field_key
+                for mapped_field in self.mapping_lookup.get(field_key, []):
+                    mapped_field_key = mapped_field["field"]
+                    if field.dimension_group:
+                        mapped_field_key += f"_{field.dimension_group}"
+                    mapping_lookup[field_key_dim_group].append(
+                        {"cte": mapped_field["cte"], "field": mapped_field_key}
+                    )
+
         dimension_sql = {}
         for join_hash, field_set in sorted(self.query_dimensions.items()):
             for field in field_set:
@@ -79,6 +97,11 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
                 else:
                     if_null_func = if_null_lookup[self.query_type]
                     dimension_sql[alias] = f"{if_null_func}({dimension_sql[alias]}, {join_hash}.{alias})"
+
+                if field.id() in mapping_lookup:
+                    if_null_func = if_null_lookup[self.query_type]
+                    nested_sql = self.nested_if_null(mapping_lookup[field.id()], if_null_func)
+                    dimension_sql[alias] = f"{if_null_func}({join_hash}.{alias}, {nested_sql})"
 
         for alias, sql in dimension_sql.items():
             select.append(self.sql(sql, alias=alias))
@@ -91,3 +114,11 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
                 existing_aliases.append(alias)
 
         return select
+
+    @staticmethod
+    def nested_if_null(aliases, if_null_func):
+        first_alias = aliases[0]["cte"] + "." + aliases[0]["field"].replace(".", "_")
+        if len(aliases) == 1:
+            return first_alias
+        else:
+            return f"{if_null_func}({first_alias}, {MetricsLayerMergedResultsQuery.nested_if_null(aliases[1:], if_null_func)})"  # noqa

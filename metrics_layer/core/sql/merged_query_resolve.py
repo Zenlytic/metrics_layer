@@ -79,6 +79,12 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
 
         readable_metrics = {join_hash_readability_lookup[k]: m for k, m in self.query_metrics.items()}
         readable_dimensions = {join_hash_readability_lookup[k]: d for k, d in self.query_dimensions.items()}
+        readable_mapping_lookup = {
+            k: [
+                {"cte": join_hash_readability_lookup[v["from_join_hash"]], "field": v["field"]} for v in items
+            ]
+            for k, items in self.mapping_lookup.items()
+        }
         query_config = {
             "merged_metrics": self.merged_metrics,
             "query_metrics": readable_metrics,
@@ -86,6 +92,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             "having": self.having,
             "queries_to_join": queries_to_join,
             "join_hashes": list(sorted(readable_join_hashes)),
+            "mapping_lookup": readable_mapping_lookup,
             "query_type": resolver.query_type,
             "limit": self.limit,
             "project": self.project,
@@ -93,6 +100,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         # Druid does not allow semicolons
         if resolver.query_type == Definitions.druid:
             semicolon = False
+
         merged_result_query = MetricsLayerMergedResultsQuery(query_config)
         query = merged_result_query.get_query(semicolon=semicolon)
 
@@ -103,6 +111,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         self.merged_metrics = []
         self.secondary_metrics = []
         self.dimension_fields = []
+        self.mapping_lookup = {}
 
         for metric in self.metrics:
             field = self.project.get_field(metric)
@@ -147,11 +156,15 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         self.query_metrics = self.deduplicate_fields(self.query_metrics)
 
         dimension_mapping, canon_dates, used_join_hashes = self._canon_date_mapping()
+        self.mapping_lookup = deepcopy(dimension_mapping)
 
         mappings = self.model.get_mappings(dimensions_only=True)
         for key, map_to in mappings.items():
             for other_join_hash in used_join_hashes:
                 if map_to["to_join_hash"] in other_join_hash:
+                    self.mapping_lookup[key].append(
+                        {"field": map_to["field"], "from_join_hash": other_join_hash}
+                    )
                     map_to["from_join_hash"] = other_join_hash
                 dimension_mapping[key].append(deepcopy(map_to))
 
