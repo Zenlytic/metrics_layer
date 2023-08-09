@@ -126,8 +126,9 @@ def test_mapping_multiple_metric_different_canon_date_merged_mapped_date_and_fil
         "GROUP BY DATE_TRUNC('DAY', sessions.session_date) "
         f"ORDER BY sessions_number_of_sessions DESC) SELECT {orders_cte}."
         f"orders_number_of_orders as orders_number_of_orders,{sessions_cte}."
-        f"sessions_number_of_sessions as sessions_number_of_sessions,{orders_cte}."
-        f"orders_order_date as orders_order_date,{sessions_cte}.sessions_session_date "
+        f"sessions_number_of_sessions as sessions_number_of_sessions,ifnull({orders_cte}."
+        f"orders_order_date, {sessions_cte}.sessions_session_date) as orders_order_date,"
+        f"ifnull({sessions_cte}.sessions_session_date, {orders_cte}.orders_order_date) "
         f"as sessions_session_date FROM {orders_cte} FULL OUTER JOIN {sessions_cte} "
         f"ON {orders_cte}.orders_order_date={sessions_cte}.sessions_session_date;"
     )
@@ -176,8 +177,9 @@ def test_mapping_multiple_metric_different_canon_date_joinable_mapped_date_dim_a
         f"order_lines_total_item_revenue,{orders_cte}.orders_number_of_orders "
         f"as orders_number_of_orders,ifnull({order_lines_cte}.orders_sub_channel, "
         f"{orders_cte}.orders_sub_channel) as orders_sub_channel,"
-        f"{order_lines_cte}.order_lines_order_date as order_lines_order_date,"
-        f"{orders_cte}.orders_order_date as orders_order_date "
+        f"ifnull({order_lines_cte}.order_lines_order_date, {orders_cte}.orders_order_date) "
+        f"as order_lines_order_date,ifnull({orders_cte}.orders_order_date, "
+        f"{order_lines_cte}.order_lines_order_date) as orders_order_date "
         f"FROM {order_lines_cte} FULL OUTER JOIN {orders_cte} "
         f"ON {order_lines_cte}.orders_sub_channel={orders_cte}"
         f".orders_sub_channel and {order_lines_cte}.order_lines_order_date"
@@ -366,6 +368,9 @@ def test_mapped_metric_mapped_merged_results(connection):
 
     order_lines_cte = "order_lines_order__cte_subquery_0"
     sessions_cte = "sessions_session__cte_subquery_1"
+
+    sessions_source = f"ifnull({sessions_cte}.sessions_utm_source, {order_lines_cte}.orders_sub_channel)"
+    order_lines_source = f"ifnull({order_lines_cte}.orders_sub_channel, {sessions_cte}.sessions_utm_source)"
     correct = (
         f"WITH {order_lines_cte} AS (SELECT orders.sub_channel as orders_sub_channel,"
         f"SUM(order_lines.revenue) as order_lines_total_item_revenue FROM analytics.order_line_items "
@@ -376,8 +381,8 @@ def test_mapped_metric_mapped_merged_results(connection):
         f"GROUP BY sessions.utm_source ORDER BY sessions_number_of_sessions DESC) "
         f"SELECT {order_lines_cte}.order_lines_total_item_revenue as "
         f"order_lines_total_item_revenue,{sessions_cte}.sessions_number_of_sessions "
-        f"as sessions_number_of_sessions,{order_lines_cte}.orders_sub_channel as "
-        f"orders_sub_channel,{sessions_cte}.sessions_utm_source as "
+        f"as sessions_number_of_sessions,{order_lines_source} as "
+        f"orders_sub_channel,{sessions_source} as "
         f"sessions_utm_source FROM {order_lines_cte} FULL OUTER JOIN {sessions_cte} "
         f"ON {order_lines_cte}.orders_sub_channel"
         f"={sessions_cte}.sessions_utm_source;"
@@ -441,5 +446,49 @@ def test_dim_only_joinable_date_chooses_right_mapping_date(connection):
         "FROM analytics.orders orders WHERE DATE_TRUNC('DAY', orders.order_date)>='2023-05-05' "
         "AND DATE_TRUNC('DAY', orders.order_date)<='2023-08-02' GROUP BY orders.customer_id,"
         "orders.account_id,orders.sub_channel,orders.campaign ORDER BY orders_customer_id ASC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.queryy
+def test_mapping_defer_to_metric_canon_date_not_dim_only(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_clicks", "unique_users_form_submissions"],
+        dimensions=["submitted_form.sent_at_date", "submitted_form.context_os"],
+        where=[{"field": "date", "expression": "greater_or_equal_than", "value": "2023-05-05"}],
+    )
+
+    cte_1 = "clicked_on_page_session__cte_subquery_0"
+    cte_2 = "submitted_form_sent_at__cte_subquery_1"
+    correct = (
+        "WITH clicked_on_page_session__cte_subquery_0 AS (SELECT DATE_TRUNC('DAY', "
+        "clicked_on_page.session_date) as clicked_on_page_session_date,"
+        "clicked_on_page.context_os as clicked_on_page_context_os,"
+        "COUNT(clicked_on_page.id) as clicked_on_page_number_of_clicks "
+        "FROM analytics.clicked_on_page clicked_on_page WHERE DATE_TRUNC('DAY', "
+        "clicked_on_page.session_date)>='2023-05-05' GROUP BY DATE_TRUNC('DAY', "
+        "clicked_on_page.session_date),clicked_on_page.context_os ORDER BY "
+        "clicked_on_page_number_of_clicks DESC) ,"
+        "submitted_form_sent_at__cte_subquery_1 AS (SELECT DATE_TRUNC('DAY', "
+        "submitted_form.session_date) as submitted_form_sent_at_date,"
+        "submitted_form.context_os as submitted_form_context_os,"
+        "COUNT(DISTINCT(submitted_form.customer_id)) as submitted_form_unique_users_form_submissions "
+        "FROM analytics.submitted_form submitted_form WHERE DATE_TRUNC('DAY', "
+        "submitted_form.session_date)>='2023-05-05' GROUP BY DATE_TRUNC('DAY', "
+        "submitted_form.session_date),submitted_form.context_os ORDER BY "
+        "submitted_form_unique_users_form_submissions DESC) SELECT "
+        f"{cte_1}.clicked_on_page_number_of_clicks "
+        f"as clicked_on_page_number_of_clicks,{cte_2}"
+        f".submitted_form_unique_users_form_submissions as "
+        f"submitted_form_unique_users_form_submissions,"
+        f"ifnull({cte_1}.clicked_on_page_session_date, {cte_2}.submitted_form_sent_at_date) "
+        f"as clicked_on_page_session_date,ifnull({cte_1}.clicked_on_page_context_os, "
+        f"{cte_2}.submitted_form_context_os) as clicked_on_page_context_os,"
+        f"ifnull({cte_2}.submitted_form_sent_at_date, {cte_1}.clicked_on_page_session_date) "
+        f"as submitted_form_sent_at_date,ifnull({cte_2}.submitted_form_context_os, "
+        f"{cte_1}.clicked_on_page_context_os) as submitted_form_context_os "
+        f"FROM {cte_1} FULL OUTER JOIN {cte_2} ON {cte_1}."
+        f"clicked_on_page_session_date={cte_2}.submitted_form_sent_at_date "
+        f"and {cte_1}.clicked_on_page_context_os={cte_2}.submitted_form_context_os;"
     )
     assert query == correct

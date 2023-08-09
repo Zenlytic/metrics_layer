@@ -48,7 +48,27 @@ fields:
     ]
     sql: "${TABLE}.session_date"
 
+  - name: sent_at
+    field_type: "dimension_group"
+    type: time
+    timeframes: [
+      raw,
+      time,
+      date,
+      week,
+      month,
+      quarter,
+      year
+    ]
+    sql: "${TABLE}.session_date"
+
   - name: number_of_form_submissions
     field_type: measure
     type: count
     sql: ${session_id}
+
+  - name: unique_users_form_submissions
+    field_type: measure
+    type: count_distinct
+    canon_date: sent_at
+    sql: ${customer_id}

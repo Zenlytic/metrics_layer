@@ -43,8 +43,8 @@ def test_merged_result_query_additional_metric(connection, query_type):
         f"{session_by}) "
         f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,"
-        f"{cte_1}.order_lines_order_month as order_lines_order_month,"
-        f"{cte_2}.sessions_session_month as sessions_session_month,"
+        f"ifnull({cte_1}.order_lines_order_month, {cte_2}.sessions_session_month) as order_lines_order_month,"
+        f"ifnull({cte_2}.sessions_session_month, {cte_1}.order_lines_order_month) as sessions_session_month,"
         f"order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
         f"FROM {cte_1} FULL OUTER JOIN {cte_2} "
         f"ON {cte_1}.order_lines_order_month={cte_2}.sessions_session_month;"
@@ -65,13 +65,13 @@ def test_merged_result_query_only_metric(connection, dim):
     cte_1, cte_2 = "order_lines_order__cte_subquery_0", "sessions_session__cte_subquery_1"
     if "order_month" in dim:
         date_seq = (
-            f"{cte_1}.order_lines_order_month as order_lines_order_month,"
-            f"{cte_2}.sessions_session_month as sessions_session_month"
+            f"ifnull({cte_1}.order_lines_order_month, {cte_2}.sessions_session_month) as order_lines_order_month,"  # noqa
+            f"ifnull({cte_2}.sessions_session_month, {cte_1}.order_lines_order_month) as sessions_session_month"  # noqa
         )
     else:
         date_seq = (
-            f"{cte_1}.order_lines_order_month as order_lines_order_month,"
-            f"{cte_2}.sessions_session_month as sessions_session_month"
+            f"ifnull({cte_1}.order_lines_order_month, {cte_2}.sessions_session_month) as order_lines_order_month,"  # noqa
+            f"ifnull({cte_2}.sessions_session_month, {cte_1}.order_lines_order_month) as sessions_session_month"  # noqa
         )
 
     correct = (
@@ -262,8 +262,8 @@ def test_merged_result_query_only_metric_with_where(connection):
 
     cte_1, cte_2 = "order_lines_order__cte_subquery_0", "sessions_session__cte_subquery_1"
     date_seq = (
-        f"{cte_1}.order_lines_order_month as order_lines_order_month,"
-        f"{cte_2}.sessions_session_month as sessions_session_month"
+        f"ifnull({cte_1}.order_lines_order_month, {cte_2}.sessions_session_month) as order_lines_order_month,"
+        f"ifnull({cte_2}.sessions_session_month, {cte_1}.order_lines_order_month) as sessions_session_month"
     )
 
     correct = (
@@ -313,8 +313,8 @@ def test_merged_result_query_only_metric_with_having(connection):
 
     cte_1, cte_2 = "order_lines_order__cte_subquery_0", "sessions_session__cte_subquery_1"
     date_seq = (
-        f"{cte_1}.order_lines_order_month as order_lines_order_month,"
-        f"{cte_2}.sessions_session_month as sessions_session_month"
+        f"ifnull({cte_1}.order_lines_order_month, {cte_2}.sessions_session_month) as order_lines_order_month,"
+        f"ifnull({cte_2}.sessions_session_month, {cte_1}.order_lines_order_month) as sessions_session_month"
     )
 
     correct = (
@@ -352,6 +352,9 @@ def test_merged_result_query_with_non_component(connection):
     cte_1, cte_2 = "order_lines_order__cte_subquery_0", "sessions_session__cte_subquery_2"
     cte_3 = "orders_previous_order__cte_subquery_1"
 
+    prev_orders = "ifnull(orders_previous_order__cte_subquery_1.orders_previous_order_month, ifnull(order_lines_order__cte_subquery_0.order_lines_order_month, sessions_session__cte_subquery_2.sessions_session_month))"  # noqa
+    orders = "ifnull(order_lines_order__cte_subquery_0.order_lines_order_month, ifnull(orders_previous_order__cte_subquery_1.orders_previous_order_month, sessions_session__cte_subquery_2.sessions_session_month))"  # noqa
+    sessions = "ifnull(sessions_session__cte_subquery_2.sessions_session_month, ifnull(order_lines_order__cte_subquery_0.order_lines_order_month, orders_previous_order__cte_subquery_1.orders_previous_order_month))"  # noqa
     correct = (
         f"WITH {cte_1} AS (SELECT DATE_TRUNC('MONTH', order_lines.order_date) as "
         "order_lines_order_month,SUM(order_lines.revenue) as order_lines_total_item_revenue "
@@ -370,9 +373,9 @@ def test_merged_result_query_with_non_component(connection):
         f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{cte_3}.orders_average_days_between_orders as orders_average_days_between_orders,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,"
-        f"{cte_1}.order_lines_order_month as order_lines_order_month,"
-        f"{cte_3}.orders_previous_order_month as orders_previous_order_month,"
-        f"{cte_2}.sessions_session_month as sessions_session_month,"
+        f"{orders} as order_lines_order_month,"
+        f"{prev_orders} as orders_previous_order_month,"
+        f"{sessions} as sessions_session_month,"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
         f"FROM {cte_1} FULL OUTER JOIN {cte_3} "
         f"ON {cte_1}.order_lines_order_month={cte_3}.orders_previous_order_month "
@@ -393,6 +396,12 @@ def test_merged_result_query_with_extra_dim(connection):
     cte_1, cte_2 = "order_lines_order__cte_subquery_0", "sessions_session__cte_subquery_2"
     cte_3 = "orders_previous_order__cte_subquery_1"
 
+    prev_orders = "ifnull(orders_previous_order__cte_subquery_1.orders_previous_order_month, ifnull(order_lines_order__cte_subquery_0.order_lines_order_month, sessions_session__cte_subquery_2.sessions_session_month))"  # noqa
+    orders = "ifnull(order_lines_order__cte_subquery_0.order_lines_order_month, ifnull(orders_previous_order__cte_subquery_1.orders_previous_order_month, sessions_session__cte_subquery_2.sessions_session_month))"  # noqa
+    sessions = "ifnull(sessions_session__cte_subquery_2.sessions_session_month, ifnull(order_lines_order__cte_subquery_0.order_lines_order_month, orders_previous_order__cte_subquery_1.orders_previous_order_month))"  # noqa
+
+    sessions_source = "ifnull(sessions_session__cte_subquery_2.sessions_utm_source, ifnull(order_lines_order__cte_subquery_0.orders_sub_channel, orders_previous_order__cte_subquery_1.orders_sub_channel))"  # noqa
+    order_lines_source = "ifnull(orders_previous_order__cte_subquery_1.orders_sub_channel, ifnull(sessions_session__cte_subquery_2.sessions_utm_source, sessions_session__cte_subquery_2.sessions_utm_source))"  # noqa
     correct = (
         f"WITH {cte_1} AS (SELECT DATE_TRUNC('MONTH', order_lines.order_date) as "
         "order_lines_order_month,orders.sub_channel as orders_sub_channel,"
@@ -414,11 +423,11 @@ def test_merged_result_query_with_extra_dim(connection):
         f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{cte_3}.orders_average_days_between_orders as orders_average_days_between_orders,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,"
-        f"{cte_1}.order_lines_order_month as order_lines_order_month,"
-        f"ifnull({cte_1}.orders_sub_channel, {cte_3}.orders_sub_channel) as orders_sub_channel,"
-        f"{cte_3}.orders_previous_order_month as orders_previous_order_month,"
-        f"{cte_2}.sessions_session_month as sessions_session_month,"
-        f"{cte_2}.sessions_utm_source as sessions_utm_source,"
+        f"{orders} as order_lines_order_month,"
+        f"{order_lines_source} as orders_sub_channel,"
+        f"{prev_orders} as orders_previous_order_month,"
+        f"{sessions} as sessions_session_month,"
+        f"{sessions_source} as sessions_utm_source,"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
         f"FROM {cte_1} FULL OUTER JOIN {cte_3} "
         f"ON {cte_1}.order_lines_order_month={cte_3}.orders_previous_order_month "
@@ -437,6 +446,7 @@ def test_merged_query_implicit_with_subgraph(connection):
 
     orders_cte = "orders_order__cte_subquery_0"
     sessions_cte = "sessions_session__cte_subquery_1"
+
     correct = (
         f"WITH {orders_cte} AS (SELECT DATE_TRUNC('MONTH', orders.order_date) "
         f"as orders_order_month,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders "
@@ -446,10 +456,11 @@ def test_merged_query_implicit_with_subgraph(connection):
         f"sessions GROUP BY DATE_TRUNC('MONTH', sessions.session_date) ORDER BY "
         f"sessions_number_of_sessions DESC) SELECT {orders_cte}.orders_number_of_orders as "
         f"orders_number_of_orders,{sessions_cte}.sessions_number_of_sessions as "
-        f"sessions_number_of_sessions,{orders_cte}.orders_order_month as orders_order_month,"
-        f"{sessions_cte}.sessions_session_month as sessions_session_month FROM "
-        f"{orders_cte} FULL OUTER JOIN {sessions_cte} ON {orders_cte}."
-        f"orders_order_month={sessions_cte}.sessions_session_month;"
+        f"sessions_number_of_sessions,ifnull({orders_cte}.orders_order_month, "
+        f"{sessions_cte}.sessions_session_month) as orders_order_month,"
+        f"ifnull({sessions_cte}.sessions_session_month, {orders_cte}.orders_order_month) "
+        f"as sessions_session_month FROM {orders_cte} FULL OUTER JOIN {sessions_cte} "
+        f"ON {orders_cte}.orders_order_month={sessions_cte}.sessions_session_month;"
     )
     assert query == correct
 
@@ -470,6 +481,10 @@ def test_merged_query_implicit_with_subgraph_and_mapping(connection):
 
     orders_cte = "orders_order__cte_subquery_0"
     sessions_cte = "sessions_session__cte_subquery_1"
+    orders_source = f"ifnull({orders_cte}.orders_sub_channel, {sessions_cte}.sessions_utm_source)"
+    orders_campaign = f"ifnull({orders_cte}.orders_campaign, {sessions_cte}.sessions_utm_campaign)"
+    sessions_source = f"ifnull({sessions_cte}.sessions_utm_source, {orders_cte}.orders_sub_channel)"
+    sessions_campaign = f"ifnull({sessions_cte}.sessions_utm_campaign, {orders_cte}.orders_campaign)"
     correct = (
         f"WITH {orders_cte} AS ("
         "SELECT DATE_TRUNC('MONTH', orders.order_date) as orders_order_month,"
@@ -486,12 +501,12 @@ def test_merged_query_implicit_with_subgraph_and_mapping(connection):
         ",sessions.utm_source,sessions.utm_campaign ORDER BY sessions_number_of_sessions DESC) "
         f"SELECT {orders_cte}.orders_number_of_orders as orders_number_of_orders,"
         f"{sessions_cte}.sessions_number_of_sessions as sessions_number_of_sessions,"
-        f"{orders_cte}.orders_order_month as orders_order_month,"
-        f"{orders_cte}.orders_sub_channel as orders_sub_channel,"
-        f"{orders_cte}.orders_campaign as orders_campaign,"
-        f"{sessions_cte}.sessions_session_month as sessions_session_month,"
-        f"{sessions_cte}.sessions_utm_source as sessions_utm_source,"
-        f"{sessions_cte}.sessions_utm_campaign as sessions_utm_campaign "
+        f"ifnull({orders_cte}.orders_order_month, {sessions_cte}.sessions_session_month) as orders_order_month,"  # noqa
+        f"{orders_source} as orders_sub_channel,"
+        f"{orders_campaign} as orders_campaign,"
+        f"ifnull({sessions_cte}.sessions_session_month, {orders_cte}.orders_order_month) as sessions_session_month,"  # noqa
+        f"{sessions_source} as sessions_utm_source,"
+        f"{sessions_campaign} as sessions_utm_campaign "
         f"FROM {orders_cte} FULL OUTER JOIN {sessions_cte} "
         f"ON {orders_cte}.orders_order_month={sessions_cte}.sessions_session_month "
         f"and {orders_cte}.orders_sub_channel={sessions_cte}.sessions_utm_source "
@@ -509,6 +524,10 @@ def test_merged_query_dimension_mapping_single_metric(connection):
 
     orders_cte = "orders_order__cte_subquery_0"
     sessions_cte = "sessions_session__cte_subquery_1"
+    orders_source = f"ifnull({orders_cte}.orders_sub_channel, {sessions_cte}.sessions_utm_source)"
+    orders_campaign = f"ifnull({orders_cte}.orders_campaign, {sessions_cte}.sessions_utm_campaign)"
+    sessions_source = f"ifnull({sessions_cte}.sessions_utm_source, {orders_cte}.orders_sub_channel)"
+    sessions_campaign = f"ifnull({sessions_cte}.sessions_utm_campaign, {orders_cte}.orders_campaign)"
     correct = (
         f"WITH {orders_cte} AS (SELECT orders.sub_channel as orders_sub_channel,"
         f"DATE_TRUNC('DAY', orders.order_date) as orders_order_date,orders.campaign as orders_campaign,"
@@ -519,11 +538,12 @@ def test_merged_query_dimension_mapping_single_metric(connection):
         f"sessions.utm_campaign as sessions_utm_campaign FROM analytics.sessions sessions GROUP BY "
         f"sessions.utm_source,DATE_TRUNC('DAY', sessions.session_date),sessions.utm_campaign ORDER BY "
         f"sessions_utm_source ASC) SELECT {orders_cte}.orders_number_of_orders as "
-        f"orders_number_of_orders,{orders_cte}.orders_sub_channel as orders_sub_channel,"
-        f"{orders_cte}.orders_order_date as orders_order_date,{orders_cte}."
-        f"orders_campaign as orders_campaign,{sessions_cte}.sessions_utm_source as "
-        f"sessions_utm_source,{sessions_cte}.sessions_session_date as sessions_session_date,"
-        f"{sessions_cte}.sessions_utm_campaign as sessions_utm_campaign "
+        f"orders_number_of_orders,{orders_source} as orders_sub_channel,"
+        f"ifnull({orders_cte}.orders_order_date, {sessions_cte}.sessions_session_date) as orders_order_date,"
+        f"{orders_campaign} as orders_campaign,{sessions_source} as "
+        f"sessions_utm_source,ifnull({sessions_cte}.sessions_session_date, "
+        f"{orders_cte}.orders_order_date) as sessions_session_date,"
+        f"{sessions_campaign} as sessions_utm_campaign "
         f"FROM {orders_cte} FULL OUTER JOIN {sessions_cte} ON {orders_cte}."  # noqa
         f"orders_sub_channel={sessions_cte}.sessions_utm_source and {orders_cte}."
         f"orders_order_date={sessions_cte}.sessions_session_date and {orders_cte}."
@@ -547,6 +567,11 @@ def test_merged_query_dimension_mapping_no_metric(connection):
     )
     orders_cte = "orders_order__cte_subquery_0"
     sessions_cte = "sessions_session__cte_subquery_1"
+
+    orders_campaign = f"ifnull({orders_cte}.orders_campaign, {sessions_cte}.sessions_utm_campaign)"
+    sessions_campaign = f"ifnull({sessions_cte}.sessions_utm_campaign, {orders_cte}.orders_campaign)"
+    orders_date = f"ifnull({orders_cte}.orders_order_date, {sessions_cte}.sessions_session_date)"
+    sessions_date = f"ifnull({sessions_cte}.sessions_session_date, {orders_cte}.orders_order_date)"
     correct = (
         f"WITH {orders_cte} AS (SELECT orders.campaign as orders_campaign,"
         f"DATE_TRUNC('DAY', orders.order_date) as orders_order_date FROM analytics.orders "
@@ -556,9 +581,9 @@ def test_merged_query_dimension_mapping_no_metric(connection):
         f"sessions.session_date) as sessions_session_date FROM analytics.sessions sessions "
         f"WHERE sessions.session_date>='2022-01-05T00:00:00' GROUP BY sessions.utm_campaign,"
         f"DATE_TRUNC('DAY', sessions.session_date) ORDER BY sessions_utm_campaign ASC) "
-        f"SELECT {orders_cte}.orders_campaign as orders_campaign,{orders_cte}."
-        f"orders_order_date as orders_order_date,{sessions_cte}.sessions_utm_campaign "
-        f"as sessions_utm_campaign,{sessions_cte}.sessions_session_date as "
+        f"SELECT {orders_campaign} as orders_campaign,"
+        f"{orders_date} as orders_order_date,{sessions_campaign} "
+        f"as sessions_utm_campaign,{sessions_date} as "
         f"sessions_session_date FROM {orders_cte} FULL OUTER JOIN {sessions_cte} "
         f"ON {orders_cte}.orders_campaign={sessions_cte}.sessions_utm_campaign "
         f"and {orders_cte}.orders_order_date={sessions_cte}.sessions_session_date;"
@@ -586,8 +611,8 @@ def test_merged_query_implicit_no_time(connection):
         f"FROM analytics.sessions sessions WHERE sessions.utm_source='Iterable' "
         f"GROUP BY sessions.utm_campaign ORDER BY sessions_utm_campaign ASC) "
         f"SELECT {orders_cte}.orders_number_of_orders as orders_number_of_orders,"
-        f"{orders_cte}.orders_campaign as orders_campaign,"
-        f"{sessions_cte}.sessions_utm_campaign as sessions_utm_campaign "
+        f"ifnull({orders_cte}.orders_campaign, {sessions_cte}.sessions_utm_campaign) as orders_campaign,"
+        f"ifnull({sessions_cte}.sessions_utm_campaign, {orders_cte}.orders_campaign) as sessions_utm_campaign "  # noqa
         f"FROM {orders_cte} FULL OUTER JOIN {sessions_cte} "
         f"ON {orders_cte}.orders_campaign"
         f"={sessions_cte}.sessions_utm_campaign;"
@@ -630,6 +655,10 @@ def test_merged_query_implicit_with_extra_dim_only(connection):
 
     orders_cte = "orders_order__cte_subquery_0"
     sessions_cte = "sessions_session__cte_subquery_1"
+    orders_source = f"ifnull({orders_cte}.orders_sub_channel, {sessions_cte}.sessions_utm_source)"
+    sessions_source = f"ifnull({sessions_cte}.sessions_utm_source, {orders_cte}.orders_sub_channel)"
+    orders_date = f"ifnull({orders_cte}.orders_order_date, {sessions_cte}.sessions_session_date)"
+    sessions_date = f"ifnull({sessions_cte}.sessions_session_date, {orders_cte}.orders_order_date)"
     correct = (
         f"WITH {orders_cte} AS (SELECT DATE_TRUNC('DAY', orders.order_date) as "
         f"orders_order_date,orders.sub_channel as orders_sub_channel,COUNT(orders.id) as "
@@ -639,10 +668,10 @@ def test_merged_query_implicit_with_extra_dim_only(connection):
         f"sessions_session_date,sessions.utm_source as sessions_utm_source FROM analytics.sessions "
         f"sessions GROUP BY DATE_TRUNC('DAY', sessions.session_date),sessions.utm_source ORDER BY "
         f"sessions_session_date ASC) SELECT {orders_cte}.orders_number_of_orders as "
-        f"orders_number_of_orders,{orders_cte}.orders_order_date as orders_order_date,"
-        f"{orders_cte}.orders_sub_channel as orders_sub_channel,"
-        f"{sessions_cte}.sessions_session_date as sessions_session_date,"
-        f"{sessions_cte}.sessions_utm_source as sessions_utm_source FROM "
+        f"orders_number_of_orders,{orders_date} as orders_order_date,"
+        f"{orders_source} as orders_sub_channel,"
+        f"{sessions_date} as sessions_session_date,"
+        f"{sessions_source} as sessions_utm_source FROM "
         f"{orders_cte} FULL OUTER JOIN {sessions_cte} ON {orders_cte}"
         f".orders_order_date={sessions_cte}.sessions_session_date "
         f"and {orders_cte}.orders_sub_channel={sessions_cte}.sessions_utm_source;"
@@ -666,6 +695,9 @@ def test_merged_query_implicit_3_way_merge(connection):
     orders_cte = "orders_order__cte_subquery_1"
     sessions_cte = "sessions_session__cte_subquery_2"
     events_cte = "events_event__cte_subquery_0"
+    sessions_date = f"ifnull({sessions_cte}.sessions_session_date, ifnull({events_cte}.events_event_date, {orders_cte}.orders_order_date))"  # noqa
+    orders_date = f"ifnull({orders_cte}.orders_order_date, ifnull({events_cte}.events_event_date, {sessions_cte}.sessions_session_date))"  # noqa
+    events_date = f"ifnull({events_cte}.events_event_date, ifnull({orders_cte}.orders_order_date, {sessions_cte}.sessions_session_date))"  # noqa
     correct = (
         f"WITH {orders_cte} AS (SELECT DATE_TRUNC('DAY', orders.order_date) as "
         f"orders_order_date,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders "
@@ -681,8 +713,8 @@ def test_merged_query_implicit_3_way_merge(connection):
         f"{events_cte}.events_number_of_events as events_number_of_events,"
         f"{orders_cte}.orders_number_of_orders as orders_number_of_orders,"
         f"{sessions_cte}.sessions_number_of_sessions as sessions_number_of_sessions,"
-        f"{events_cte}.events_event_date as events_event_date,{orders_cte}."
-        f"orders_order_date as orders_order_date,{sessions_cte}.sessions_session_date "
+        f"{events_date} as events_event_date,"
+        f"{orders_date} as orders_order_date,{sessions_date} "
         f"as sessions_session_date FROM {events_cte} FULL OUTER JOIN {orders_cte} ON "
         f"{events_cte}.events_event_date={orders_cte}.orders_order_date "
         f"FULL OUTER JOIN {sessions_cte} ON {events_cte}.events_event_date"
@@ -720,8 +752,8 @@ def test_merged_query_merged_results_as_sub_reference(connection):
         f"{order_lines_cte}.order_lines_number_of_email_purchased_items "
         f"as order_lines_number_of_email_purchased_items,"
         f"{sessions_cte}.sessions_number_of_sessions as sessions_number_of_sessions,"
-        f"{order_lines_cte}.order_lines_order_month as order_lines_order_month,"
-        f"{sessions_cte}.sessions_session_month as sessions_session_month,"
+        f"ifnull({order_lines_cte}.order_lines_order_month, {sessions_cte}.sessions_session_month) as order_lines_order_month,"  # noqa
+        f"ifnull({sessions_cte}.sessions_session_month, {order_lines_cte}.order_lines_order_month) as sessions_session_month,"  # noqa
         f"(order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0)) - "
         f"((order_lines_total_item_costs * order_lines_number_of_email_purchased_items) "
         f"/ nullif(sessions_number_of_sessions, 0)) as order_lines_net_per_session,"
@@ -760,8 +792,9 @@ def test_merged_query_merged_results_joined_filter(connection):
         f"AND sessions.utm_source='google' GROUP BY DATE_TRUNC('DAY', sessions.session_date) "
         f"ORDER BY sessions_number_of_sessions DESC) SELECT {orders_cte}."
         f"orders_number_of_orders as orders_number_of_orders,{sessions_cte}."
-        f"sessions_number_of_sessions as sessions_number_of_sessions,{orders_cte}."
-        f"orders_order_date as orders_order_date,{sessions_cte}.sessions_session_date "
+        f"sessions_number_of_sessions as sessions_number_of_sessions,"
+        f"ifnull({orders_cte}.orders_order_date, {sessions_cte}.sessions_session_date) "
+        f"as orders_order_date,ifnull({sessions_cte}.sessions_session_date, {orders_cte}.orders_order_date) "
         f"as sessions_session_date FROM {orders_cte} FULL OUTER JOIN {sessions_cte} "
         f"ON {orders_cte}.orders_order_date={sessions_cte}.sessions_session_date;"
     )
@@ -777,6 +810,9 @@ def test_merged_query_merged_results_3_way_third_date_only(connection):
     orders_cte = "orders_order__cte_subquery_1"
     sessions_cte = "sessions_session__cte_subquery_2"
     events_cte = "events_event__cte_subquery_0"
+    sessions_date = f"ifnull({sessions_cte}.sessions_session_date, ifnull({events_cte}.events_event_date, {orders_cte}.orders_order_date))"  # noqa
+    orders_date = f"ifnull({orders_cte}.orders_order_date, ifnull({events_cte}.events_event_date, {sessions_cte}.sessions_session_date))"  # noqa
+    events_date = f"ifnull({events_cte}.events_event_date, ifnull({orders_cte}.orders_order_date, {sessions_cte}.sessions_session_date))"  # noqa
     correct = (
         f"WITH {orders_cte} AS (SELECT DATE_TRUNC('DAY', orders.order_date) as "
         f"orders_order_date,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders "
@@ -789,9 +825,8 @@ def test_merged_query_merged_results_3_way_third_date_only(connection):
         f"events GROUP BY DATE_TRUNC('DAY', events.event_date) ORDER BY events_event_date ASC) "
         f"SELECT {orders_cte}.orders_number_of_orders as orders_number_of_orders,"
         f"{sessions_cte}.sessions_number_of_sessions as sessions_number_of_sessions,"
-        f"{events_cte}.events_event_date as events_event_date,{orders_cte}."
-        f"orders_order_date as orders_order_date,{sessions_cte}.sessions_session_date "
-        f"as sessions_session_date FROM {events_cte} FULL OUTER JOIN {orders_cte} "
+        f"{events_date} as events_event_date,{orders_date} as orders_order_date,"
+        f"{sessions_date} as sessions_session_date FROM {events_cte} FULL OUTER JOIN {orders_cte} "
         f"ON {events_cte}.events_event_date={orders_cte}.orders_order_date "
         f"FULL OUTER JOIN {sessions_cte} ON {events_cte}.events_event_date"
         f"={sessions_cte}.sessions_session_date;"
@@ -926,6 +961,10 @@ def test_4_way_merge_with_joinable_canon_date(connection):
     customers_cte = "customers_first_order__cte_subquery_0"
     events_cte = "events_event__cte_subquery_1"
 
+    order_lines_month = f"ifnull({order_lines_cte}.order_lines_order_month, ifnull({customers_cte}.customers_first_order_month, ifnull({events_cte}.events_event_month, {orders_cte}.orders_order_month)))"  # noqa
+    orders_month = f"ifnull({orders_cte}.orders_order_month, ifnull({customers_cte}.customers_first_order_month, ifnull({events_cte}.events_event_month, {order_lines_cte}.order_lines_order_month)))"  # noqa
+    events_month = f"ifnull({events_cte}.events_event_month, ifnull({customers_cte}.customers_first_order_month, ifnull({order_lines_cte}.order_lines_order_month, {orders_cte}.orders_order_month)))"  # noqa
+    customers_month = f"ifnull({customers_cte}.customers_first_order_month, ifnull({events_cte}.events_event_month, ifnull({order_lines_cte}.order_lines_order_month, {orders_cte}.orders_order_month)))"  # noqa
     correct = (
         f"WITH {orders_cte} AS (SELECT DATE_TRUNC('MONTH', orders.order_date) as "
         f"orders_order_month,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders "
@@ -945,10 +984,10 @@ def test_4_way_merge_with_joinable_canon_date(connection):
         f"customers_number_of_customers,{events_cte}.events_number_of_events as "
         f"events_number_of_events,{order_lines_cte}.order_lines_total_item_revenue "
         f"as order_lines_total_item_revenue,{orders_cte}.orders_number_of_orders "
-        f"as orders_number_of_orders,{customers_cte}.customers_first_order_month "  # noqa
-        f"as customers_first_order_month,{events_cte}.events_event_month as events_event_month,"
-        f"{order_lines_cte}.order_lines_order_month as order_lines_order_month,"
-        f"{orders_cte}.orders_order_month as orders_order_month FROM "
+        f"as orders_number_of_orders,{customers_month} "
+        f"as customers_first_order_month,{events_month} as events_event_month,"
+        f"{order_lines_month} as order_lines_order_month,"
+        f"{orders_month} as orders_order_month FROM "
         f"{customers_cte} FULL OUTER JOIN {events_cte} ON "
         f"{customers_cte}.customers_first_order_month={events_cte}."  # noqa
         f"events_event_month FULL OUTER JOIN {order_lines_cte} ON "
@@ -984,9 +1023,10 @@ def test_query_merge_results_order_issue(connection):
         f"GROUP BY DATE_TRUNC('MONTH', orders.order_date) ORDER BY orders_number_of_orders DESC) "
         f"SELECT {customers_cte}.customers_number_of_customers "
         f"as customers_number_of_customers,{orders_cte}.orders_number_of_orders as "
-        f"orders_number_of_orders,{customers_cte}."
-        f"customers_first_order_month as customers_first_order_month,{orders_cte}."
-        f"orders_order_month as orders_order_month FROM "
+        f"orders_number_of_orders,ifnull({customers_cte}.customers_first_order_month, "
+        f"{orders_cte}.orders_order_month) as customers_first_order_month,"
+        f"ifnull({orders_cte}.orders_order_month, {customers_cte}.customers_first_order_month) "
+        "as orders_order_month FROM "
         f"{customers_cte} FULL OUTER JOIN "
         f"{orders_cte} ON {customers_cte}"
         f".customers_first_order_month={orders_cte}.orders_order_month;"
@@ -1041,8 +1081,8 @@ def test_query_default_date_from_join(connection):
         "login_events_number_of_login_events DESC) SELECT events_event__cte_subquery_0"
         ".login_events_number_of_login_events as login_events_number_of_login_events,"
         "orders_order__cte_subquery_1.orders_number_of_orders as orders_number_of_orders,"
-        "events_event__cte_subquery_0.events_event_date as events_event_date,"
-        "orders_order__cte_subquery_1.orders_order_date as orders_order_date FROM "
+        "ifnull(events_event__cte_subquery_0.events_event_date, orders_order__cte_subquery_1.orders_order_date) as events_event_date,"  # noqa
+        "ifnull(orders_order__cte_subquery_1.orders_order_date, events_event__cte_subquery_0.events_event_date) as orders_order_date FROM "  # noqa
         "events_event__cte_subquery_0 FULL OUTER JOIN orders_order__cte_subquery_1 ON "
         "events_event__cte_subquery_0.events_event_date=orders_order__cte_subquery_1.orders_order_date;"
     )
@@ -1065,9 +1105,11 @@ def test_query_mapping_with_a_join(connection):
         "ON login_events.id=events.id GROUP BY events.device ORDER BY login_events_number_of_login_events "
         "DESC) SELECT events_event__cte_subquery_0.login_events_number_of_login_events as "
         "login_events_number_of_login_events,sessions_session__cte_subquery_1.sessions_number_of_sessions "
-        "as sessions_number_of_sessions,events_event__cte_subquery_0.login_events_device "
-        "as login_events_device,sessions_session__cte_subquery_1.sessions_session_device "
-        "as sessions_session_device FROM events_event__cte_subquery_0 FULL OUTER JOIN "
+        "as sessions_number_of_sessions,ifnull(events_event__cte_subquery_0.login_events_device, "
+        "sessions_session__cte_subquery_1.sessions_session_device) "
+        "as login_events_device,ifnull(sessions_session__cte_subquery_1.sessions_session_device, "
+        "events_event__cte_subquery_0.login_events_device) as sessions_session_device "
+        "FROM events_event__cte_subquery_0 FULL OUTER JOIN "
         "sessions_session__cte_subquery_1 ON events_event__cte_subquery_0.login_events_device"
         "=sessions_session__cte_subquery_1.sessions_session_device;"
     )
@@ -1091,8 +1133,8 @@ def test_query_mapping_with_a_join_inverted_mapping(connection):
         "login_events_number_of_login_events DESC) SELECT events_event__cte_subquery_0"
         ".login_events_number_of_login_events as login_events_number_of_login_events,"
         "sessions_session__cte_subquery_1.sessions_number_of_sessions as sessions_number_of_sessions,"
-        "events_event__cte_subquery_0.login_events_device as login_events_device,"
-        "sessions_session__cte_subquery_1.sessions_session_device as sessions_session_device "
+        "ifnull(events_event__cte_subquery_0.login_events_device, sessions_session__cte_subquery_1.sessions_session_device) as login_events_device,"  # noqa
+        "ifnull(sessions_session__cte_subquery_1.sessions_session_device, events_event__cte_subquery_0.login_events_device) as sessions_session_device "  # noqa
         "FROM events_event__cte_subquery_0 FULL OUTER JOIN sessions_session__cte_subquery_1 "
         "ON events_event__cte_subquery_0.login_events_device=sessions_session__cte_subquery_1"
         ".sessions_session_device;"
@@ -1126,8 +1168,8 @@ def test_query_mapping_with_a_join_and_date(connection):
         "ORDER BY login_events_number_of_login_events DESC) SELECT events_event__cte_subquery_0"
         ".login_events_number_of_login_events as login_events_number_of_login_events,"
         "sessions_session__cte_subquery_1.sessions_number_of_sessions as sessions_number_of_sessions,"
-        "events_event__cte_subquery_0.login_events_device as login_events_device,"
-        "sessions_session__cte_subquery_1.sessions_session_device as sessions_session_device "
+        "ifnull(events_event__cte_subquery_0.login_events_device, sessions_session__cte_subquery_1.sessions_session_device) as login_events_device,"  # noqa
+        "ifnull(sessions_session__cte_subquery_1.sessions_session_device, events_event__cte_subquery_0.login_events_device) as sessions_session_device "  # noqa
         "FROM events_event__cte_subquery_0 FULL OUTER JOIN sessions_session__cte_subquery_1 "
         "ON events_event__cte_subquery_0.login_events_device=sessions_session__cte_subquery_1"
         ".sessions_session_device;"

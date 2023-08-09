@@ -79,6 +79,12 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
 
         readable_metrics = {join_hash_readability_lookup[k]: m for k, m in self.query_metrics.items()}
         readable_dimensions = {join_hash_readability_lookup[k]: d for k, d in self.query_dimensions.items()}
+        readable_mapping_lookup = {
+            k: [
+                {"cte": join_hash_readability_lookup[v["from_join_hash"]], "field": v["field"]} for v in items
+            ]
+            for k, items in self.mapping_lookup.items()
+        }
         query_config = {
             "merged_metrics": self.merged_metrics,
             "query_metrics": readable_metrics,
@@ -86,6 +92,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             "having": self.having,
             "queries_to_join": queries_to_join,
             "join_hashes": list(sorted(readable_join_hashes)),
+            "mapping_lookup": readable_mapping_lookup,
             "query_type": resolver.query_type,
             "limit": self.limit,
             "project": self.project,
@@ -93,6 +100,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         # Druid does not allow semicolons
         if resolver.query_type == Definitions.druid:
             semicolon = False
+
         merged_result_query = MetricsLayerMergedResultsQuery(query_config)
         query = merged_result_query.get_query(semicolon=semicolon)
 
@@ -103,6 +111,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         self.merged_metrics = []
         self.secondary_metrics = []
         self.dimension_fields = []
+        self.mapping_lookup = {}
 
         for metric in self.metrics:
             field = self.project.get_field(metric)
@@ -147,11 +156,15 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         self.query_metrics = self.deduplicate_fields(self.query_metrics)
 
         dimension_mapping, canon_dates, used_join_hashes = self._canon_date_mapping()
+        self.mapping_lookup = deepcopy(dimension_mapping)
 
         mappings = self.model.get_mappings(dimensions_only=True)
         for key, map_to in mappings.items():
             for other_join_hash in used_join_hashes:
                 if map_to["to_join_hash"] in other_join_hash:
+                    self.mapping_lookup[key].append(
+                        {"field": map_to["field"], "from_join_hash": other_join_hash}
+                    )
                     map_to["from_join_hash"] = other_join_hash
                 dimension_mapping[key].append(deepcopy(map_to))
 
@@ -276,11 +289,23 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         joinable_sets = []
         for field in self.secondary_metrics + self.dimension_fields:
             joinable_graphs = [j for j in field.join_graphs() if "merged_result" not in j]
-            joinable = all(any(j in join_set for j in joinable_graphs) for join_set in joinable_sets)
+            all_joinable = all(any(j in join_set for j in joinable_graphs) for join_set in joinable_sets)
+            any_joinable = any(any(j in join_set for j in joinable_graphs) for join_set in joinable_sets)
 
-            cannot_join = not joinable or len(joinable_sets) == 0
-            measure_date_missing = field.canon_date not in canon_dates and field.field_type == "measure"
-            if field.canon_date and (cannot_join or measure_date_missing):
+            is_not_measure = field.field_type != "measure"
+            is_measure = field.field_type == "measure"
+            cannot_join_to_all = not all_joinable or len(joinable_sets) == 0
+            measure_date_missing = field.canon_date not in canon_dates and is_measure
+            if len(self.secondary_metrics + self.merged_metrics) > 0:
+                measure_cannot_join_to_all = cannot_join_to_all and is_measure
+                dim_cannot_join_to_any = is_not_measure and not any_joinable
+            else:
+                measure_cannot_join_to_all = cannot_join_to_all
+                dim_cannot_join_to_any = is_not_measure and not any_joinable
+
+            if field.canon_date and (
+                measure_cannot_join_to_all or dim_cannot_join_to_any or measure_date_missing
+            ):
                 canon_dates.append(field.canon_date)
                 joinable_sets.append(joinable_graphs)
 
