@@ -80,6 +80,11 @@ fields:
     type: number
     sql: "${TABLE}.customer_ltv"
 
+  - name: median_customer_ltv
+    field_type: "measure"
+    type: median
+    sql: "${customer_ltv}"
+
   - name: average_customer_ltv
     field_type: "measure"
     type: average
