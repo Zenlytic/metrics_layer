@@ -1,6 +1,7 @@
 import pytest
 
 from metrics_layer.core.exceptions import QueryError, JoinError
+from metrics_layer.core.model import Definitions
 
 
 @pytest.mark.query
@@ -745,3 +746,29 @@ def test_join_graph_raise_unjoinable_error(connection):
     )
     assert isinstance(exc_info.value, JoinError)
     assert str(exc_info.value) == error_message
+
+
+@pytest.mark.query
+@pytest.mark.parametrize(
+    "query_type", [Definitions.snowflake, Definitions.druid, Definitions.redshift, Definitions.bigquery]
+)
+def test_median_aggregate_function(connection, query_type):
+    if query_type in [Definitions.snowflake, Definitions.redshift]:
+        query = connection.get_sql_query(
+            metrics=["median_customer_ltv"], dimensions=[], query_type=query_type
+        )
+        correct = (
+            "SELECT MEDIAN(customers.customer_ltv) as customers_median_customer_ltv "
+            "FROM analytics.customers customers ORDER BY customers_median_customer_ltv DESC;"
+        )
+        assert query == correct
+    else:
+        with pytest.raises(QueryError) as exc_info:
+            connection.get_sql_query(metrics=["median_customer_ltv"], dimensions=[], query_type=query_type)
+
+        error_message = (
+            f"Median is not supported in {query_type}. Please choose another "
+            "aggregate function for the customers.median_customer_ltv measure."
+        )
+        assert isinstance(exc_info.value, QueryError)
+        assert str(exc_info.value) == error_message

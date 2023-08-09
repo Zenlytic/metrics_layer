@@ -193,6 +193,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             "count_distinct": self._count_distinct_aggregate_sql,
             "average": self._average_aggregate_sql,
             "average_distinct": self._average_distinct_aggregate_sql,
+            "median": self._median_aggregate_sql,
             "number": self._number_aggregate_sql,
         }
         return type_lookup[self.type](sql, query_type, functional_pk, alias_only)
@@ -376,6 +377,15 @@ class Field(MetricsLayerBase, SQLReplacement):
         )
         result = f"({sum_symmetric} / {count_symmetric})"
         return result
+
+    def _median_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
+        if query_type in {Definitions.druid, Definitions.postgres, Definitions.bigquery}:
+            raise QueryError(
+                f"Median is not supported in {query_type}. Please choose another "
+                f"aggregate function for the {self.id()} measure."
+            )
+        # Medians do not work with symmetric aggregates, so there's just the one return
+        return f"MEDIAN({sql})"
 
     def _number_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
         if isinstance(sql, list):
