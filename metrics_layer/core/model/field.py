@@ -716,6 +716,20 @@ class Field(MetricsLayerBase, SQLReplacement):
                     key = "value" if "field" in f else "value"
                     error_text = f"Field {self.name} has a filter {f} that is missing the key {key}."
                     errors.append(error_text)
+
+        if "." in str(self.view.default_date):
+            view_default_date = self.view.default_date
+        else:
+            view_default_date = f"{self.view.name}.{self.view.default_date}"
+        if self.canon_date is not None and self.canon_date != view_default_date:
+            try:
+                canon_date_field = self.view.project.get_field_by_name(self.canon_date)
+                if canon_date_field.field_type != "dimension_group" or canon_date_field.type != "time":
+                    errors.append(
+                        f"Canon date {self.canon_date} is not of field_type: dimension_group and type: time in field {self.name}."  # noqa
+                    )
+            except (AccessDeniedOrDoesNotExistException, QueryError):
+                errors.append(f"Canon date {self.canon_date} is unreachable in field {self.name}.")
         return errors
 
     def get_referenced_sql_query(self, strings_only=True):
