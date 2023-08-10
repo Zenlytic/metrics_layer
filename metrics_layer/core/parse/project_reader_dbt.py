@@ -74,7 +74,12 @@ class dbtProjectReader(ProjectReaderBase):
         views = []
         for view_key in view_keys:
             view_raw = manifest["nodes"][view_key]
-            view_metrics = [m for m in metrics if view_raw["name"] == m.get("model")]
+            view_metrics = []
+            for m in metrics:
+                metric_model = m.get("model").lower() if m.get("model") else None
+                if view_raw["name"].lower() == metric_model:
+                    view_metrics.append(m)
+
             view = self._make_dbt_view(view_raw, view_metrics)
             views.append(view)
 
@@ -122,7 +127,7 @@ class dbtProjectReader(ProjectReaderBase):
         view_dict = {
             "version": 1,
             "type": "view",
-            "name": view["name"],
+            "name": view["name"].lower(),
             "model_name": self.project_name,
             "description": view.get("description"),
             "row_label": meta.get("row_label"),
@@ -142,7 +147,7 @@ class dbtProjectReader(ProjectReaderBase):
     def _make_dbt_dimension_group(self, name: str, time_grains: list, matching_column: dict):
         return {
             "field_type": "dimension_group",
-            "name": name,
+            "name": name.lower(),
             "type": "time",
             "timeframes": [self._convert_in_lookup(t, {"day": "date"}) for t in time_grains],
             "sql": "${TABLE}." + name,
@@ -158,7 +163,7 @@ class dbtProjectReader(ProjectReaderBase):
             sql_dict = {"sql": "${TABLE}." + dimension["name"]}
         core = {
             "field_type": "dimension",
-            "name": dimension["name"],
+            "name": dimension["name"].lower(),
             "type": "string",
             **sql_dict,
             "description": dimension.get("description"),
@@ -175,7 +180,7 @@ class dbtProjectReader(ProjectReaderBase):
         metric_type = self._metric_get_type(metric)
         metric_dict = {
             "name": metric["name"].lower(),
-            "model": self._get_dbt_metric_model(metric, manifest),
+            "model": self._get_dbt_metric_model(metric, manifest).lower(),
             "timestamp": metric["timestamp"].lower(),
             "time_grains": metric["time_grains"],
             "field_type": "measure",
@@ -201,7 +206,7 @@ class dbtProjectReader(ProjectReaderBase):
     @staticmethod
     def _clean_model(dbt_model_name: str):
         if dbt_model_name:
-            return dbt_model_name.replace("ref('", "").replace("')", "")
+            return dbt_model_name.replace("ref('", "").replace("')", "").lower()
         return None
 
     @staticmethod
@@ -213,21 +218,37 @@ class dbtProjectReader(ProjectReaderBase):
     def _convert_dbt_sql(self, metric: dict):
         if self._metric_is_number_type(metric):
             base_metric_sql = self._metric_get_sql(metric)
-            for metric_group in metric["metrics"]:
-                for metric in metric_group:
-                    base_metric_sql = base_metric_sql.replace(metric, "${" + metric + "}")
-            return base_metric_sql
+            references = [m for metric_group in metric["metrics"] for m in metric_group]
+            sql_parts = []
+            # The references are always in the same order as they appear in the sql which is what allows this
+            for reference_metric in references:
+                replace_with = "${" + reference_metric + "}"
+                base_metric_sql = base_metric_sql.replace(reference_metric, replace_with, 1)
+
+                prefix = base_metric_sql.split(replace_with)[0]
+                sql_section = f"{replace_with}".join([prefix, ""])
+                base_metric_sql = base_metric_sql.replace(sql_section, "")
+
+                sql_parts.append(sql_section)
+
+            sql = "".join(sql_parts)
+            return sql
         # This must be a count metric (use the primary key of the table once we know it)
         elif "sql" not in metric and "expression" not in metric:
             return None
         else:
             metric_sql = self._metric_get_sql(metric)
-            return self._apply_dbt_filters(metric_sql, metric.get("filters", []))
+            return self._apply_dbt_filters(metric_sql, metric)
 
-    def _apply_dbt_filters(self, metric_sql: str, filters: list):
+    def _apply_dbt_filters(self, metric_sql: str, metric: dict):
+        filters = metric.get("filters", [])
         if len(filters) == 0:
             return metric_sql
-        core_filter = " and ".join([self._dbt_filter_to_sql(f) for f in filters])
+        components = []
+        for f in filters:
+            f_sql = self._dbt_filter_to_sql(f, metric.get("timestamp"), metric.get("time_grains", []))
+            components.append(f_sql)
+        core_filter = " and ".join(components)
         return f"case when {core_filter} then {metric_sql} else null end"
 
     @staticmethod
@@ -243,6 +264,9 @@ class dbtProjectReader(ProjectReaderBase):
         return dbtProjectReader._metric_get_type(metric) in {"expression", "derived"}
 
     @staticmethod
-    def _dbt_filter_to_sql(dbt_filter: dict):
-        sql = " ".join(["${" + dbt_filter["field"] + "}", dbt_filter["operator"], dbt_filter["value"]])
+    def _dbt_filter_to_sql(dbt_filter: dict, timestamp: str, timeframes: list):
+        field_name = dbt_filter["field"].lower()
+        if field_name == timestamp.lower() and len(timeframes) > 0:
+            field_name += "_" + timeframes[0].replace("day", "date")
+        sql = " ".join(["${" + field_name + "}", dbt_filter["operator"], dbt_filter["value"]])
         return sql

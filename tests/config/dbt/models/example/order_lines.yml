@@ -2,7 +2,7 @@
 version: 2
 
 models:
-  - name: order_lines
+  - name: order_LINES
     description: "Shopify Order Lines with order and customer information"
     meta:
       row_label: "Order line"
@@ -109,9 +109,19 @@ metrics:
     timestamp: order_date
     time_grains: [day, week, month, quarter, year]
 
+  - name: test_nested_names
+    label: Test nested metric
+    description: "The avg revenue per customer"
+
+    calculation_method: derived
+    expression: "{{metric('total_revenue')}} / {{metric('total_rev')}}"
+
+    timestamp: order_date
+    time_grains: [day, week, month, quarter, year]
+
   - name: total_rev
     label: Total Revenue
-    model: ref('order_lines')
+    model: ref('order_LINES')
     description: "The total revenue for the period"
 
     calculation_method: sum
@@ -125,7 +135,7 @@ metrics:
 
   - name: total_revenue
     label: Total Revenue
-    model: ref('order_lines')
+    model: ref('order_LINES')
     description: "The total revenue for the period"
 
     calculation_method: sum
@@ -139,7 +149,7 @@ metrics:
 
   - name: number_of_customers
     label: Number of customers
-    model: ref('order_lines')
+    model: ref('order_LINES')
     description: "The number of customers"
 
     calculation_method: count_distinct
@@ -151,7 +161,7 @@ metrics:
 
   - name: new_customer_REVENUE
     label: New customer revenue
-    model: ref('order_lines')
+    model: ref('order_LINES')
     description: "Total revenue from new customers"
 
     calculation_method: sum
@@ -166,3 +176,19 @@ metrics:
         value: "'New'"
 
     meta: {team: Finance}
+
+  - name: new_customer_date_filter
+    label: New customer revenue
+    model: ref('order_LINES')
+    description: "Total revenue from new customers"
+
+    calculation_method: sum
+    expression: product_revenue
+
+    timestamp: ORDER_DATE
+    time_grains: [day, week, month, quarter, year]
+
+    filters:
+      - field: ORDER_DATE
+        operator: ">="
+        value: "'2023-08-02'"
