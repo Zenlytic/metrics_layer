@@ -450,7 +450,7 @@ def test_cli_validate_names(connection, fresh_project, mocker):
     project = fresh_project
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
 
-    sorted_fields[1]["name"] = "an invalid @name"
+    sorted_fields[1]["name"] = "an invalid @name\\"
     sorted_fields[4]["timeframes"] = ["date", "month", "year"]
     project._views[1]["fields"] = sorted_fields
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
@@ -464,7 +464,7 @@ def test_cli_validate_names(connection, fresh_project, mocker):
     assert result.output == (
         "Found 3 errors in the project:\n\n"
         "\nCould not locate reference days_between_orders in view orders\n\n"
-        "\nField name: an invalid @name is invalid. Please reference the naming conventions (only letters, numbers, or underscores)\n\n"  # noqa
+        "\nField name: an invalid @name\\ is invalid. Please reference the naming conventions (only letters, numbers, or underscores)\n\n"  # noqa
         "\nField between_orders is of type duration, but has property timeframes when it should have property intervals\n\n"  # noqa
     )
 
@@ -526,6 +526,27 @@ def test_cli_dashboard_model_does_not_exist(connection, fresh_project, mocker):
     assert result.output == (
         "Found 1 error in the project:\n\n"
         "\nCould not find model missing_model referenced in dashboard sales_dashboard.\n\n"
+    )
+
+
+@pytest.mark.cli
+def test_cli_canon_date_inaccessible(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    sorted_fields = sorted(fresh_project._views[1]["fields"], key=lambda x: x["name"])
+    sorted_fields[-1]["canon_date"] = "missing_field"
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nCanon date orders.missing_field is unreachable in field total_revenue.\n\n"
     )
 
 

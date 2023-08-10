@@ -19,6 +19,8 @@ class MetricsLayerBase:
     @staticmethod
     def valid_name(name: str):
         match = re.match(NAME_REGEX, name)
+        if match is None:
+            return False
         return match.group(1) == name
 
     @staticmethod
