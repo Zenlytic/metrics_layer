@@ -450,7 +450,7 @@ def test_dim_only_joinable_date_chooses_right_mapping_date(connection):
     assert query == correct
 
 
-@pytest.mark.queryy
+@pytest.mark.query
 def test_mapping_defer_to_metric_canon_date_not_dim_only(connection):
     query = connection.get_sql_query(
         metrics=["number_of_clicks", "unique_users_form_submissions"],
