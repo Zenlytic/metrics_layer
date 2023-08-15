@@ -147,7 +147,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                 )
             key = self._cte_name_from_parts(field.canon_date, join_group_hash)
             if key in self.query_metrics:
-                already_in_query = any(field.id() in f.id() for f in self.query_metrics[key])
+                already_in_query = any(field.id() == f.id() for f in self.query_metrics[key])
                 if not already_in_query:
                     self.query_metrics[key].append(field)
             else:
@@ -185,8 +185,8 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             else:
                 not_in_metrics = True
                 for join_hash in used_join_hashes:
-                    # If the dimension is available in the join subgraph as the metric, attach it
-                    if any(jg in join_hash for jg in field.join_graphs()):
+                    # If the dimension is available in the same join subgraph as the metric, attach it
+                    if self._join_hash_contains_join_graph(join_hash, field.join_graphs()):
                         self.query_dimensions[join_hash].append(field)
                         not_in_metrics = False
                     else:
@@ -338,6 +338,16 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             field = self.project.get_field_by_name(field.canon_date)
         joinable_graphs = [jg for jg in field.join_graphs() if "merged_result" not in jg]
         return "_".join(joinable_graphs)
+
+    def _join_hash_contains_join_graph(self, join_hash: str, join_graphs: list):
+        # Due to situations like subquery_1 and subquery_12 we have to split these
+        # apart and check if any of the join graphs are in the split list
+        join_hash_subqueries = []
+        for query_number in join_hash.split("subquery"):
+            clean_query_number = query_number.strip("_")
+            if clean_query_number.isdigit():
+                join_hash_subqueries.append(f"subquery_{clean_query_number}")
+        return any(jg in join_hash_subqueries for jg in join_graphs)
 
     @staticmethod
     def _cte_name_from_parts(field_id: str, join_group_hash: str):
