@@ -161,7 +161,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         mappings = self.model.get_mappings(dimensions_only=True)
         for key, map_to in mappings.items():
             for other_join_hash in used_join_hashes:
-                if map_to["to_join_hash"] in other_join_hash:
+                if self._join_hash_contains_join_graph(other_join_hash, [map_to["to_join_hash"]]):
                     self.mapping_lookup[key].append(
                         {"field": map_to["field"], "from_join_hash": other_join_hash}
                     )

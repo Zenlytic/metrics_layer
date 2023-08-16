@@ -1,0 +1,39 @@
+version: 1
+type: view
+name: aa_acquired_accounts
+
+sql_table_name: analytics.accounts
+default_date: created
+model_name: test_model
+
+fields:
+  - name: account_id
+    field_type: "dimension"
+    type: string
+    primary_key: yes
+    hidden: yes
+    sql: "${TABLE}.account_id"
+
+  - name: created
+    field_type: "dimension_group"
+    type: time
+    timeframes: [
+      raw,
+      time,
+      date,
+      week,
+      month,
+      quarter,
+      year
+    ]
+    sql: "${TABLE}.created_at"
+
+  - name: account_type
+    field_type: "dimension"
+    type: string
+    sql: "${TABLE}.type"
+
+  - name: number_of_acquired_accounts
+    field_type: measure
+    type: count
+    sql: ${account_id}

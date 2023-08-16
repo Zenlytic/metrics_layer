@@ -38,6 +38,9 @@ event_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/tes
 login_event_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_login_events.yml")
 traffic_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/traffic.yml")
 accounts_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/accounts.yml")
+acquired_accounts_view_path = os.path.join(
+    BASE_PATH, "config/metrics_layer_config/views/acquired_accounts.yml"
+)
 customer_accounts_view_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/views/customer_accounts.yml"
 )
@@ -56,6 +59,7 @@ view_paths = [
     clicked_on_page_view_path,
     submitted_form_view_path,
     accounts_view_path,
+    acquired_accounts_view_path,
     customer_accounts_view_path,
 ]
 dashboard_paths = [sales_dashboard_path, sales_dashboard_v2_path]
