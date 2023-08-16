@@ -104,13 +104,25 @@ def test_merged_result_join_graph(connection):
     tf = ["date", "day_of_week", "hour_of_day", "month", "quarter", "raw", "time", "week", "year"]
     core_tf = ["raw", "time", "date", "week", "month", "quarter", "year"]
     sub_q_cr = _blow_out_by_time_frame("merged_result_canon_date_core", core_tf)
-    sub_q_0_1 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_4", core_tf)
+    sub_q_0_4 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_4", core_tf)
     sub_q_0_2 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_7", core_tf)
     sub_q_0_3 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_3", core_tf)
     sub_q_0_5 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_5", core_tf)
     sub_q_0_6 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_6", core_tf)
     sub_q_0_8 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_8", core_tf)
-    revenue_set = [*sub_q_cr, *sub_q_0_1, *sub_q_0_2, *sub_q_0_3, *sub_q_0_5, *sub_q_0_6, *sub_q_0_8]
+    sub_q_0_10 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_10", core_tf)
+    sub_q_0_1 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_1", core_tf)
+    revenue_set = [
+        *sub_q_cr,
+        *sub_q_0_4,
+        *sub_q_0_2,
+        *sub_q_0_3,
+        *sub_q_0_5,
+        *sub_q_0_6,
+        *sub_q_0_8,
+        *sub_q_0_10,
+        *sub_q_0_1,
+    ]
     field = connection.get_field("revenue_per_session")
     assert sorted(field.join_graphs()) == sorted(revenue_set)
 
@@ -121,6 +133,8 @@ def test_merged_result_join_graph(connection):
     order_lines_date_graphs = [
         "subquery_0",
         "merged_result_canon_date_core_date",
+        "merged_result_subquery_0_subquery_10_date",
+        "merged_result_subquery_0_subquery_1_date",
         "merged_result_subquery_0_subquery_4_date",
         "merged_result_subquery_0_subquery_7_date",
         "merged_result_subquery_0_subquery_3_date",
@@ -134,6 +148,8 @@ def test_merged_result_join_graph(connection):
     order_date_graphs = [
         "subquery_0",
         "merged_result_canon_date_core_date",
+        "merged_result_subquery_0_subquery_10_date",
+        "merged_result_subquery_0_subquery_1_date",
         "merged_result_subquery_0_subquery_4_date",
         "merged_result_subquery_0_subquery_7_date",
         "merged_result_subquery_0_subquery_3_date",
@@ -162,6 +178,11 @@ def test_merged_result_join_graph(connection):
         "subquery_4",
         "subquery_8",
         "subquery_7",
+        *_blow_out_by_time_frame("merged_result_subquery_0_subquery_1", tf),
+        *_blow_out_by_time_frame("merged_result_subquery_1_subquery_3", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_1_subquery_4", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_1_subquery_7", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_1_subquery_8", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_3", tf),
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_7", tf),
         *_blow_out_by_time_frame("merged_result_subquery_3_subquery_7", core_tf),
@@ -179,6 +200,8 @@ def test_merged_result_join_graph(connection):
     sessions_graphs = [
         "subquery_4",
         *_blow_out_by_time_frame("merged_result_canon_date_core", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_1_subquery_4", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_10_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_3_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_4_subquery_7", core_tf),
@@ -1173,5 +1196,55 @@ def test_query_mapping_with_a_join_and_date(connection):
         "FROM events_event__cte_subquery_0 FULL OUTER JOIN sessions_session__cte_subquery_1 "
         "ON events_event__cte_subquery_0.login_events_device=sessions_session__cte_subquery_1"
         ".sessions_session_device;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_subquery_with_substring_in_name(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_account_customer_connections", "number_of_acquired_accounts"],
+        dimensions=["aa_acquired_accounts.created_month", "aa_acquired_accounts.account_type"],
+        where=[
+            {
+                "field": "date",
+                "expression": "less_or_equal_than",
+                "value": datetime.datetime(2023, 6, 26, 23, 59, 59),
+            },
+        ],
+    )
+
+    cte_1 = "z_customer_accounts_created__cte_subquery_1"
+    cte_2 = "aa_acquired_accounts_created__cte_subquery_0"
+    correct = (
+        f"WITH {cte_1} AS (SELECT DATE_TRUNC('MONTH', "
+        f"z_customer_accounts.created_at) as z_customer_accounts_created_month,"
+        f"z_customer_accounts.account_type as z_customer_accounts_type_of_account,"
+        f"COUNT(z_customer_accounts.account_id || z_customer_accounts.customer_id) as "
+        f"z_customer_accounts_number_of_account_customer_connections FROM analytics.customer_accounts "
+        f"z_customer_accounts WHERE DATE_TRUNC('DAY', z_customer_accounts.created_at)"
+        f"<='2023-06-26T23:59:59' GROUP BY DATE_TRUNC('MONTH', z_customer_accounts.created_at),"
+        f"z_customer_accounts.account_type ORDER BY z_customer_accounts_number_of_account_"
+        f"customer_connections DESC) ,{cte_2} AS (SELECT DATE_TRUNC('MONTH', "
+        f"aa_acquired_accounts.created_at) as aa_acquired_accounts_created_month,"
+        f"aa_acquired_accounts.type as aa_acquired_accounts_account_type,"
+        f"COUNT(aa_acquired_accounts.account_id) as aa_acquired_accounts_number_of_acquired_accounts "
+        f"FROM analytics.accounts aa_acquired_accounts WHERE DATE_TRUNC('DAY', "
+        f"aa_acquired_accounts.created_at)<='2023-06-26T23:59:59' GROUP BY DATE_TRUNC('MONTH', "
+        f"aa_acquired_accounts.created_at),aa_acquired_accounts.type ORDER BY "
+        f"aa_acquired_accounts_number_of_acquired_accounts DESC) SELECT "
+        f"{cte_2}.aa_acquired_accounts_number_of_acquired_accounts as "
+        f"aa_acquired_accounts_number_of_acquired_accounts,{cte_1}."
+        f"z_customer_accounts_number_of_account_customer_connections as z_customer_accounts_"
+        f"number_of_account_customer_connections,ifnull({cte_2}.aa_acquired_accounts_created_month, "
+        f"{cte_1}.z_customer_accounts_created_month) as aa_acquired_accounts_created_month,ifnull("
+        f"{cte_2}.aa_acquired_accounts_account_type, {cte_1}.z_customer_accounts_type_of_account) "
+        f"as aa_acquired_accounts_account_type,ifnull({cte_1}.z_customer_accounts_created_month, "
+        f"{cte_2}.aa_acquired_accounts_created_month) as z_customer_accounts_created_month,"
+        f"ifnull({cte_1}.z_customer_accounts_type_of_account, "
+        f"{cte_2}.aa_acquired_accounts_account_type) as z_customer_accounts_type_of_account "
+        f"FROM {cte_2} FULL OUTER JOIN {cte_1} ON {cte_2}.aa_acquired_accounts_created_month"
+        f"={cte_1}.z_customer_accounts_created_month and {cte_2}.aa_acquired_accounts_account_type"
+        f"={cte_1}.z_customer_accounts_type_of_account;"
     )
     assert query == correct

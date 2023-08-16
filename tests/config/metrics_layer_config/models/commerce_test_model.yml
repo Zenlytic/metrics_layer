@@ -5,6 +5,10 @@ label: "Test commerce data"
 connection: testing_snowflake
 
 mappings: 
+  account_type: 
+    fields: [z_customer_accounts.type_of_account, aa_acquired_accounts.account_type]
+    group_label: "Accounts"
+    description: "The account type of the customer"
   source: 
     fields: [sessions.utm_source, orders.sub_channel]
     group_label: "Marketing"
