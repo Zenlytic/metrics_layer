@@ -6,14 +6,28 @@ sql_table_name: analytics.traffic
 model_name: new_model
 
 fields:
-  - name: traffic_id
+  - name: other_traffic_id
     field_type: "dimension"
     type: string
     primary_key: yes
     hidden: yes
     sql: "${TABLE}.id"
 
-  - name: traffic_source
+  - name: other_traffic_source
     field_type: "dimension"
     type: string
     sql: "${TABLE}.traffic_source"
+
+  - name: original_traffic
+    field_type: "dimension_group"
+    type: time
+    timeframes: [
+      raw,
+      time,
+      date,
+      week,
+      month,
+      quarter,
+      year
+    ]
+    sql: "${TABLE}.date"

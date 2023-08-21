@@ -109,7 +109,15 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     @property
     def convert_timezone(self):
-        return self._definition.get("convert_timezone", True) and self._definition.get("convert_tz", True)
+        default_value = True
+        if self.view.model.default_convert_tz is False or self.view.model.default_convert_timezone is False:
+            default_value = False
+
+        if "convert_timezone" in self._definition:
+            convert = self._definition.get("convert_timezone", default_value)
+        else:
+            convert = self._definition.get("convert_tz", default_value)
+        return convert
 
     @property
     def datatype(self):
@@ -184,7 +192,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         return self.get_replaced_sql_query(query_type, alias_only=alias_only)
 
     def aggregate_sql_query(self, query_type: str, functional_pk: str, alias_only: bool = False):
-        # TODO add median, median_distinct, percentile, max, min, percentile, percentile_distinct
+        # TODO add median_distinct, percentile, percentile, percentile_distinct
         sql = self.raw_sql_query(query_type, alias_only=alias_only)
         type_lookup = {
             "sum": self._sum_aggregate_sql,
@@ -194,8 +202,14 @@ class Field(MetricsLayerBase, SQLReplacement):
             "average": self._average_aggregate_sql,
             "average_distinct": self._average_distinct_aggregate_sql,
             "median": self._median_aggregate_sql,
+            "max": self._max_aggregate_sql,
+            "min": self._min_aggregate_sql,
             "number": self._number_aggregate_sql,
         }
+        if self.type not in type_lookup:
+            raise QueryError(
+                f"Aggregate type {self.type} not supported. Supported types are: {list(type_lookup.keys())}"
+            )
         return type_lookup[self.type](sql, query_type, functional_pk, alias_only)
 
     def strict_replaced_query(self):
@@ -386,6 +400,14 @@ class Field(MetricsLayerBase, SQLReplacement):
             )
         # Medians do not work with symmetric aggregates, so there's just the one return
         return f"MEDIAN({sql})"
+
+    def _max_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
+        # Max works natively with symmetric aggregates, so there's just the one return
+        return f"MAX({sql})"
+
+    def _min_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
+        # Min works natively with symmetric aggregates, so there's just the one return
+        return f"MIN({sql})"
 
     def _number_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
         if isinstance(sql, list):

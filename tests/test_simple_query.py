@@ -30,6 +30,8 @@ simple_view = {
             "name": "revenue_per_aov",
         },
         {"field_type": "measure", "type": "sum", "sql": "${TABLE}.revenue", "name": "total_revenue"},
+        {"field_type": "measure", "type": "max", "sql": "${TABLE}.revenue", "name": "max_revenue"},
+        {"field_type": "measure", "type": "min", "sql": "${TABLE}.revenue", "name": "min_revenue"},
         {
             "field_type": "measure",
             "type": "average",
@@ -163,6 +165,47 @@ def test_simple_query(connections):
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
     )
     correct += "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC;"
+    assert query == correct
+
+
+@pytest.mark.query
+@pytest.mark.parametrize(
+    "metric,query_type",
+    [
+        ("max_revenue", Definitions.snowflake),
+        ("min_revenue", Definitions.snowflake),
+        ("max_revenue", Definitions.druid),
+        ("min_revenue", Definitions.druid),
+        ("max_revenue", Definitions.redshift),
+        ("min_revenue", Definitions.redshift),
+        ("max_revenue", Definitions.postgres),
+        ("min_revenue", Definitions.postgres),
+        ("max_revenue", Definitions.bigquery),
+        ("min_revenue", Definitions.bigquery),
+    ],
+)
+def test_simple_query_min_max(connections, metric, query_type):
+    project = Project(models=[simple_model], views=[simple_view])
+    conn = MetricsLayerConnection(project=project, connections=connections)
+    query = conn.get_sql_query(metrics=[metric], dimensions=["channel"], query_type=query_type)
+
+    agg = "MIN" if "min" in metric else "MAX"
+    group_by = "simple.sales_channel"
+    semi = ";"
+    if query_type in {Definitions.snowflake, Definitions.redshift}:
+        order_by = f" ORDER BY simple_{agg.lower()}_revenue DESC"
+    else:
+        order_by = ""
+
+    if query_type == Definitions.druid:
+        semi = ""
+
+    if query_type == Definitions.bigquery:
+        group_by = "simple_channel"
+    correct = (
+        f"SELECT simple.sales_channel as simple_channel,{agg}(simple.revenue) as simple_{agg.lower()}_revenue"
+        f" FROM analytics.orders simple GROUP BY {group_by}{order_by}{semi}"
+    )
     assert query == correct
 
 
