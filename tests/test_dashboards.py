@@ -456,3 +456,13 @@ def test_dashboard_element_filter_processing(connection, raw_filter_dict):
         assert parsed_filters[0]["field"] == raw_filter_dict["field"]
         assert parsed_filters[0]["expression"].value == expression_lookup[raw_filter_dict["value"]]
         assert parsed_filters[0]["value"] == value_lookup[raw_filter_dict["value"]]
+
+
+@pytest.mark.project
+def test_convert_tz_default(connection):
+    project = connection.project
+    default_convert = project.get_field("customers.first_order_date")
+    default_no_convert = project.get_field("other_db_traffic.original_traffic_date")
+
+    assert default_convert.convert_timezone is True
+    assert default_no_convert.convert_timezone is False

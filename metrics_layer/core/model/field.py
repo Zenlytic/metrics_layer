@@ -109,7 +109,15 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     @property
     def convert_timezone(self):
-        return self._definition.get("convert_timezone", True) and self._definition.get("convert_tz", True)
+        default_value = True
+        if self.view.model.default_convert_tz is False or self.view.model.default_convert_timezone is False:
+            default_value = False
+
+        if "convert_timezone" in self._definition:
+            convert = self._definition.get("convert_timezone", default_value)
+        else:
+            convert = self._definition.get("convert_tz", default_value)
+        return convert
 
     @property
     def datatype(self):

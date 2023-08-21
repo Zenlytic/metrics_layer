@@ -107,10 +107,10 @@ def test_merged_result_join_graph(connection):
     sub_q_0_4 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_4", core_tf)
     sub_q_0_2 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_7", core_tf)
     sub_q_0_3 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_3", core_tf)
-    sub_q_0_5 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_5", core_tf)
+    sub_q_0_5 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_9", core_tf)
     sub_q_0_6 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_6", core_tf)
     sub_q_0_8 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_8", core_tf)
-    sub_q_0_10 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_10", core_tf)
+    sub_q_0_10 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_11", core_tf)
     sub_q_0_1 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_1", core_tf)
     revenue_set = [
         *sub_q_cr,
@@ -133,12 +133,12 @@ def test_merged_result_join_graph(connection):
     order_lines_date_graphs = [
         "subquery_0",
         "merged_result_canon_date_core_date",
-        "merged_result_subquery_0_subquery_10_date",
+        "merged_result_subquery_0_subquery_11_date",
         "merged_result_subquery_0_subquery_1_date",
         "merged_result_subquery_0_subquery_4_date",
         "merged_result_subquery_0_subquery_7_date",
         "merged_result_subquery_0_subquery_3_date",
-        "merged_result_subquery_0_subquery_5_date",
+        "merged_result_subquery_0_subquery_9_date",
         "merged_result_subquery_0_subquery_6_date",
         "merged_result_subquery_0_subquery_8_date",
     ]
@@ -148,12 +148,12 @@ def test_merged_result_join_graph(connection):
     order_date_graphs = [
         "subquery_0",
         "merged_result_canon_date_core_date",
-        "merged_result_subquery_0_subquery_10_date",
+        "merged_result_subquery_0_subquery_11_date",
         "merged_result_subquery_0_subquery_1_date",
         "merged_result_subquery_0_subquery_4_date",
         "merged_result_subquery_0_subquery_7_date",
         "merged_result_subquery_0_subquery_3_date",
-        "merged_result_subquery_0_subquery_5_date",
+        "merged_result_subquery_0_subquery_9_date",
         "merged_result_subquery_0_subquery_6_date",
         "merged_result_subquery_0_subquery_8_date",
     ]
@@ -177,17 +177,17 @@ def test_merged_result_join_graph(connection):
         "subquery_1",
         "subquery_4",
         "subquery_8",
-        "subquery_7",
+        "subquery_9",
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_1", tf),
         *_blow_out_by_time_frame("merged_result_subquery_1_subquery_3", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_1_subquery_4", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_1_subquery_7", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_1_subquery_9", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_1_subquery_8", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_3", tf),
-        *_blow_out_by_time_frame("merged_result_subquery_0_subquery_7", tf),
-        *_blow_out_by_time_frame("merged_result_subquery_3_subquery_7", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_7", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_7_subquery_8", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_0_subquery_9", tf),
+        *_blow_out_by_time_frame("merged_result_subquery_3_subquery_9", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_9", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_8_subquery_9", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_4_subquery_8", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_3_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_4", tf),
@@ -201,11 +201,11 @@ def test_merged_result_join_graph(connection):
         "subquery_4",
         *_blow_out_by_time_frame("merged_result_canon_date_core", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_1_subquery_4", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_10_subquery_4", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_11_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_3_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_4_subquery_7", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_5", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_9", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_4_subquery_6", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_4_subquery_8", core_tf),
     ]
