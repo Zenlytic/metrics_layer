@@ -117,7 +117,9 @@ class View(MetricsLayerBase):
         for field in fields:
             all_fields = [field]
             if not field.is_merged_result:
-                all_fields += field.get_referenced_sql_query(strings_only=False)
+                referenced_sql = field.get_referenced_sql_query(strings_only=False)
+                if referenced_sql is not None:
+                    all_fields += referenced_sql
             result.extend(all_fields)
         return result
 
