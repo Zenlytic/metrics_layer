@@ -732,6 +732,13 @@ class Field(MetricsLayerBase, SQLReplacement):
             )
             errors.append(error_text)
 
+        if self.get_referenced_sql_query(strings_only=False) is None:
+            error_text = (
+                f"Field {self.view.name}.{self.name} contains invalid SQL for Zenlytic. "
+                "Remove any Looker parameter references from the SQL."
+            )
+            errors.append(error_text)
+
         if self.filters:
             for f in self.filters:
                 if any(k not in f for k in ["field", "value"]):
@@ -788,7 +795,9 @@ class Field(MetricsLayerBase, SQLReplacement):
                 to_replace_type = None if field is None else field.type
 
                 if to_replace_type == "number":
-                    reference_fields.extend(field.get_referenced_sql_query(strings_only=False))
+                    reference_fields_raw = field.get_referenced_sql_query(strings_only=False)
+                    if reference_fields_raw is not None:
+                        reference_fields.extend(reference_fields_raw)
                 elif to_replace_type is None and field is None:
                     reference_fields.append(to_replace)
                 else:

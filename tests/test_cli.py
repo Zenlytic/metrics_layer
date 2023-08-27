@@ -551,6 +551,27 @@ def test_cli_canon_date_inaccessible(connection, fresh_project, mocker):
 
 
 @pytest.mark.cli
+def test_cli_looker_parameter(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    sorted_fields = sorted(fresh_project._views[1]["fields"], key=lambda x: x["name"])
+    sorted_fields[-1]["sql"] = "{% if time_._parameter_value == 'seconds' %}\n ${TABLE}.time_second"
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nField orders.total_revenue contains invalid SQL for Zenlytic. Remove any Looker parameter references from the SQL.\n\n"  # noqa
+    )
+
+
+@pytest.mark.cli
 def test_cli_debug(connection, mocker):
     def query_runner_mock(query, connection, run_pre_queries=True):
         assert query == "select 1 as id;"
