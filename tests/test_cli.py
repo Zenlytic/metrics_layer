@@ -98,6 +98,7 @@ def test_cli_seed_metrics_layer(
                 assert data["sql_table_name"] == "analytics.orders"
             elif query_type == Definitions.postgres and database_override:
                 assert data["sql_table_name"] == "segment_events.analytics.orders"
+            assert "row_label" not in data
 
             date = next((f for f in data["fields"] if f["name"] == "order_created_at"))
             new = next((f for f in data["fields"] if f["name"] == "new_vs_repeat"))
@@ -126,7 +127,8 @@ def test_cli_seed_metrics_layer(
             assert num["type"] == "number"
             assert num["sql"] == "${TABLE}.REVENUE"
 
-            assert len(data["fields"]) == 15
+            assert len(data["fields"]) == 14
+            assert all(f["field_type"] != "measure" for f in data["fields"])
         elif data["type"] == "view" and data["name"] == "sessions":
             if query_type in {Definitions.snowflake, Definitions.redshift}:
                 assert data["sql_table_name"] == "ANALYTICS.SESSIONS"
@@ -136,6 +138,7 @@ def test_cli_seed_metrics_layer(
                 assert data["sql_table_name"] == "analytics.sessions"
             elif query_type == Definitions.postgres and database_override:
                 assert data["sql_table_name"] == "segment_events.analytics.sessions"
+            assert "row_label" not in data
 
             date = next((f for f in data["fields"] if f["name"] == "session_date"))
             pk = next((f for f in data["fields"] if f["name"] == "session_id"))
@@ -156,7 +159,8 @@ def test_cli_seed_metrics_layer(
             assert num["type"] == "number"
             assert num["sql"] == "${TABLE}.CONVERSION"
 
-            assert len(data["fields"]) == 15
+            assert len(data["fields"]) == 14
+            assert all(f["field_type"] != "measure" for f in data["fields"])
         else:
             raise AssertionError("undefined model type for seeding")
 
