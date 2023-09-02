@@ -183,8 +183,7 @@ class SeedMetricsLayer:
 
     def make_view(self, column_data, model_name: str, table_name: str, schema_name: str):
         view_name = self.clean_name(table_name)
-        count_measure = {"field_type": "measure", "name": "count", "type": "count"}
-        fields = self.make_fields(column_data) + [count_measure]
+        fields = self.make_fields(column_data)
         if self.connection.type in {Definitions.snowflake, Definitions.redshift, Definitions.postgres}:
             sql_table_name = f"{schema_name}.{table_name}"
             if self._database_is_not_default:
@@ -200,7 +199,6 @@ class SeedMetricsLayer:
             "model_name": model_name,
             "sql_table_name": sql_table_name,
             "default_date": next((f["name"] for f in fields if f["field_type"] == "dimension_group"), None),
-            "row_label": "TODO - Label row",
             "fields": fields,
         }
         if view["default_date"] is None:
@@ -460,18 +458,8 @@ class dbtSeed(SeedMetricsLayer):
         default_date = next(
             (f["name"] for f in fields if f.get("meta", {}).get("datatype") is not None), None
         )
-        count_metric = {
-            "name": "count",
-            "label": "Count",
-            "calculation_method": "count",
-            "expression": fields[0]["name"],
-            "model": f"ref('{view_name}')",
-            "description": "The count of the rows in the table",
-            "timestamp": default_date,
-            "time_grains": ["day", "week", "month", "quarter", "year"],
-        }
-        metrics = [count_metric] if default_date is not None else []
-        model_meta = {"row_label": "TODO - Label row", "default_date": default_date, "identifiers": []}
+        metrics = []
+        model_meta = {"default_date": default_date, "identifiers": []}
         if model_meta["default_date"] is None:
             model_meta.pop("default_date")
 
