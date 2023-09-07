@@ -46,6 +46,7 @@ def test_cli_init(mocker, monkeypatch):
         (Definitions.postgres, None, None, "segment_events"),
         (Definitions.postgres, "alternative_demo", "alternative_target", None),
         (Definitions.redshift, None, None, None),
+        (Definitions.druid, None, None, None),
     ],
 )
 def test_cli_seed_metrics_layer(
@@ -60,6 +61,7 @@ def test_cli_seed_metrics_layer(
     seed_bigquery_tables_data,
     seed_redshift_tables_data,
     seed_postgres_tables_data,
+    seed_druid_tables_data,
 ):
     mocker.patch("os.mkdir")
     yaml_dump_called = 0
@@ -74,6 +76,8 @@ def test_cli_seed_metrics_layer(
             return seed_postgres_tables_data
         elif query_type == Definitions.bigquery:
             return seed_bigquery_tables_data
+        elif query_type == Definitions.druid:
+            return seed_druid_tables_data
         raise ValueError("Query error, does not match expected")
 
     def yaml_dump_assert(slf, data, file):
@@ -92,6 +96,8 @@ def test_cli_seed_metrics_layer(
             assert data["model_name"] == "base_model"
             if query_type in {Definitions.snowflake, Definitions.redshift}:
                 assert data["sql_table_name"] == "ANALYTICS.ORDERS"
+            if query_type in {Definitions.druid}:
+                assert data["sql_table_name"] == "druid.orders"
             elif query_type == Definitions.bigquery:
                 assert data["sql_table_name"] == "`analytics.analytics.orders`"
             elif query_type == Definitions.postgres and database_override is None:
@@ -114,7 +120,12 @@ def test_cli_seed_metrics_layer(
             assert acq_date["sql"] == "${TABLE}.ACQUISITION_DATE"
 
             assert date["type"] == "time"
-            if query_type in {Definitions.snowflake, Definitions.redshift, Definitions.postgres}:
+            if query_type in {
+                Definitions.snowflake,
+                Definitions.redshift,
+                Definitions.postgres,
+                Definitions.druid,
+            }:
                 assert date["datatype"] == "date"
             else:
                 assert date["datatype"] == "timestamp"
@@ -146,7 +157,12 @@ def test_cli_seed_metrics_layer(
 
             print(date)
             assert date["type"] == "time"
-            if query_type in {Definitions.snowflake, Definitions.redshift, Definitions.postgres}:
+            if query_type in {
+                Definitions.snowflake,
+                Definitions.redshift,
+                Definitions.postgres,
+                Definitions.druid,
+            }:
                 assert date["datatype"] == "date"
             else:
                 assert date["datatype"] == "timestamp"
@@ -189,7 +205,7 @@ def test_cli_seed_metrics_layer(
             "--database",
             "analytics" if database_override is None else database_override,
             "--schema",
-            "analytics",
+            "analytics" if query_type != Definitions.druid else "druid",
             "--connection",
             "testing_snowflake",
             "--profile",
@@ -215,7 +231,7 @@ def test_cli_seed_metrics_layer(
             "--database",
             "analytics" if database_override is None else database_override,
             "--schema",
-            "analytics",
+            "analytics" if query_type != Definitions.druid else "druid",
             "--table",
             "orders",
             "--connection",
