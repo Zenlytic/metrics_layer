@@ -288,7 +288,7 @@ class SeedMetricsLayer:
             query = (
                 "SELECT TABLE_CATALOG as table_database, TABLE_SCHEMA as table_schema, "
                 "TABLE_NAME as table_name, TABLE_TYPE as table_type "
-                "FROM INFORMATION_SCHEMA.TABLES"
+                "FROM INFORMATION_SCHEMA.TABLES "
                 "WHERE TABLE_SCHEMA not in ('sys', 'INFORMATION_SCHEMA')"
             )
         elif self.database and self.connection.type in {Definitions.redshift, Definitions.postgres}:
