@@ -76,6 +76,21 @@ class SeedMetricsLayer:
             "DECIMAL": "number",
             "BIGINT": "number",
         }
+        self._druid_type_lookup = {
+            "CHAR": "string",
+            "VARCHAR": "string",
+            "DECIMAL": "number",
+            "FLOAT": "number",
+            "REAL": "number",
+            "DOUBLE": "number",
+            "BOOLEAN": "yesno",
+            "TINYINT": "number",
+            "SMALLINT": "number",
+            "INTEGER": "number",
+            "BIGINT": "number",
+            "TIMESTAMP": "timestamp",
+            "DATE": "date",
+        }
         self._postgres_type_lookup = {
             "date": "date",
             "timestamp without time zone": "timestamp",
@@ -188,6 +203,8 @@ class SeedMetricsLayer:
             sql_table_name = f"{schema_name}.{table_name}"
             if self._database_is_not_default:
                 sql_table_name = f"{self.database}.{sql_table_name}"
+        elif self.connection.type == Definitions.druid:
+            sql_table_name = f"{schema_name}.{table_name}"
         elif self.connection.type == Definitions.bigquery:
             sql_table_name = f"`{self.database}.{schema_name}.{table_name}`"
         else:
@@ -217,6 +234,8 @@ class SeedMetricsLayer:
                 metrics_layer_type = self._postgres_type_lookup.get(row["DATA_TYPE"], "string")
             elif self.connection.type == Definitions.bigquery:
                 metrics_layer_type = self._bigquery_type_lookup.get(row["DATA_TYPE"], "string")
+            elif self.connection.type == Definitions.druid:
+                metrics_layer_type = self._druid_type_lookup.get(row["DATA_TYPE"], "string")
             else:
                 raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
             sql = "${TABLE}." + row["COLUMN_NAME"]
@@ -242,6 +261,11 @@ class SeedMetricsLayer:
             Definitions.postgres,
         }:
             query += f"{self.database}.INFORMATION_SCHEMA.COLUMNS"
+        elif self.connection.type == Definitions.druid:
+            query = (
+                "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE "
+                "FROM INFORMATION_SCHEMA.COLUMNS"
+            )
         elif self.database and self.schema and self.connection.type == Definitions.bigquery:
             query += f"`{self.database}.{self.schema}`.INFORMATION_SCHEMA.COLUMNS"
         elif not self.schema and self.connection.type == Definitions.bigquery:
@@ -250,7 +274,7 @@ class SeedMetricsLayer:
             )
         else:
             raise ValueError("You must specify at least a database for seeding")
-        return query + ";"
+        return query + ";" if self.connection.type != Definitions.druid else query
 
     def table_query(self):
         if self.database and self.connection.type == Definitions.snowflake:
@@ -259,6 +283,13 @@ class SeedMetricsLayer:
                 "table_name as table_name, table_owner as table_owner, table_type as table_type, "
                 "bytes as table_size, created as table_created, last_altered as table_last_modified, "
                 f"row_count as table_row_count FROM {self.database}.INFORMATION_SCHEMA.TABLES"
+            )
+        elif self.connection.type == Definitions.druid:
+            query = (
+                "SELECT TABLE_CATALOG as table_database, TABLE_SCHEMA as table_schema, "
+                "TABLE_NAME as table_name, TABLE_TYPE as table_type "
+                "FROM INFORMATION_SCHEMA.TABLES"
+                "WHERE TABLE_SCHEMA not in ('sys', 'INFORMATION_SCHEMA')"
             )
         elif self.database and self.connection.type in {Definitions.redshift, Definitions.postgres}:
             query = (
@@ -280,7 +311,7 @@ class SeedMetricsLayer:
             )
         else:
             raise ValueError("You must specify at least a database for seeding")
-        return query + ";"
+        return query + ";" if self.connection.type != Definitions.druid else query
 
     def run_query(self, query: str):
         if self.run_query_override:
