@@ -181,6 +181,8 @@ class DruidConnection(BaseConnection):
         self.password = password
         self.path = path
         self.scheme = scheme
+        self.database = None
+        self.schema = None
 
     def to_dict(self):
         base = {
