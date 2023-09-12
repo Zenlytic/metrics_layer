@@ -1,5 +1,5 @@
 import os
-
+import re
 from metrics_layer.core.model.definitions import Definitions
 
 
@@ -430,7 +430,8 @@ class SeedMetricsLayer:
 
     @staticmethod
     def clean_name(txt: str):
-        return txt.lower().replace(" ", "_")
+        alphanumeric_string = re.sub(r"[^a-zA-Z0-9\s_]", "", txt)
+        return alphanumeric_string.lower().strip().replace(" ", "_")
 
 
 class dbtSeed(SeedMetricsLayer):
