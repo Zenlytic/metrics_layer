@@ -154,8 +154,11 @@ def test_cli_seed_metrics_layer(
             date = next((f for f in data["fields"] if f["name"] == "session_date"))
             pk = next((f for f in data["fields"] if f["name"] == "session_id"))
             num = next((f for f in data["fields"] if f["name"] == "conversion"))
+            cross_sell = next((f for f in data["fields"] if f["name"] == "crossell_product"))
 
-            print(date)
+            assert cross_sell["name"] == "crossell_product"
+            assert cross_sell["sql"] == "${TABLE}.@CRoSSell P-roduct:"
+
             assert date["type"] == "time"
             if query_type in {
                 Definitions.snowflake,
