@@ -176,6 +176,8 @@ def test_simple_query(connections):
         ("min_revenue", Definitions.snowflake),
         ("max_revenue", Definitions.druid),
         ("min_revenue", Definitions.druid),
+        ("max_revenue", Definitions.sql_server),
+        ("min_revenue", Definitions.sql_server),
         ("max_revenue", Definitions.redshift),
         ("min_revenue", Definitions.redshift),
         ("max_revenue", Definitions.postgres),
@@ -236,6 +238,28 @@ def test_simple_query_single_dimension(connections):
 
 
 @pytest.mark.query
+@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.sql_server])
+def test_simple_query_limit(connections, query_type):
+    project = Project(models=[simple_model], views=[simple_view])
+    conn = MetricsLayerConnection(project=project, connections=connections)
+    query = conn.get_sql_query(dimensions=["channel"], limit=10, query_type=query_type)
+
+    if Definitions.snowflake == query_type:
+        correct = (
+            "SELECT simple.sales_channel as simple_channel FROM analytics.orders simple "
+            "GROUP BY simple.sales_channel ORDER BY simple_channel ASC LIMIT 10;"
+        )
+    elif Definitions.sql_server == query_type:
+        correct = (
+            "SELECT TOP (10) simple.sales_channel as simple_channel FROM analytics.orders simple "
+            "GROUP BY simple.sales_channel;"
+        )
+    else:
+        raise NotImplementedError()
+    assert query == correct
+
+
+@pytest.mark.query
 def test_simple_query_count(connections):
     project = Project(models=[simple_model], views=[simple_view])
     conn = MetricsLayerConnection(project=project, connections=connections)
@@ -266,6 +290,9 @@ def test_simple_query_alias_keyword(connections):
         ("order", "date", Definitions.druid),
         ("order", "week", Definitions.druid),
         ("previous_order", "date", Definitions.druid),
+        ("order", "date", Definitions.sql_server),
+        ("order", "week", Definitions.sql_server),
+        ("previous_order", "date", Definitions.sql_server),
         ("order", "date", Definitions.redshift),
         ("order", "week", Definitions.redshift),
         ("order", "date", Definitions.postgres),
@@ -353,6 +380,20 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         order_by = ""
         semi = ""
 
+    elif query_type == Definitions.sql_server:
+        if field == "previous_order":
+            result_lookup = {"date": "CAST(CAST(simple.previous_order_date AS DATE) AS DATETIME)"}
+        else:
+            result_lookup = {
+                "date": "CAST(CAST(simple.order_date AS DATE) AS DATETIME)",  # noqa
+                "week": "DATEADD(DAY, -1, DATEADD(WEEK, DATEDIFF(WEEK, 0, DATEADD(DAY, 1, CAST(simple.order_date AS DATE))), 0))",  # noqa
+            }
+        where = (
+            f"WHERE CAST(CAST(simple.order_date AS DATE) AS DATETIME)>='{start}' "
+            f"AND CAST(CAST(simple.order_date AS DATE) AS DATETIME)<='{end}'"
+        )
+        order_by = ""
+
     date_result = result_lookup[group]
 
     correct = (
@@ -387,6 +428,16 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("hour_of_day", Definitions.druid),
         ("day_of_week", Definitions.druid),
         ("day_of_month", Definitions.druid),
+        ("time", Definitions.sql_server),
+        ("date", Definitions.sql_server),
+        ("week", Definitions.sql_server),
+        ("month", Definitions.sql_server),
+        ("quarter", Definitions.sql_server),
+        ("year", Definitions.sql_server),
+        ("month_of_year", Definitions.sql_server),
+        ("hour_of_day", Definitions.sql_server),
+        ("day_of_week", Definitions.sql_server),
+        ("day_of_month", Definitions.sql_server),
         ("time", Definitions.redshift),
         ("date", Definitions.redshift),
         ("week", Definitions.redshift),
@@ -441,6 +492,21 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "day_of_month": "EXTRACT(DAY FROM simple.order_date)",
         }
         order_by = " ORDER BY simple_total_revenue DESC"
+
+    elif query_type == Definitions.sql_server:
+        result_lookup = {
+            "time": "CAST(simple.order_date AS DATETIME)",
+            "date": "CAST(CAST(simple.order_date AS DATE) AS DATETIME)",
+            "week": "DATEADD(DAY, -1, DATEADD(WEEK, DATEDIFF(WEEK, 0, DATEADD(DAY, 1, CAST(simple.order_date AS DATE))), 0))",  # noqa
+            "month": "DATEADD(MONTH, DATEDIFF(MONTH, 0, CAST(simple.order_date AS DATE)), 0)",
+            "quarter": "DATEADD(QUARTER, DATEDIFF(QUARTER, 0, CAST(simple.order_date AS DATE)), 0)",
+            "year": "DATEADD(YEAR, DATEDIFF(YEAR, 0, CAST(simple.order_date AS DATE)), 0)",
+            "month_of_year": "LEFT(DATENAME(MONTH, CAST(simple.order_date AS DATE)), 3)",
+            "hour_of_day": "DATEPART(HOUR, CAST(simple.order_date AS DATETIME))",
+            "day_of_week": "LEFT(DATENAME(WEEKDAY, CAST(simple.order_date AS DATE)), 3)",
+            "day_of_month": "DATEPART(DAY, CAST(simple.order_date AS DATE))",
+        }
+        order_by = ""
 
     elif query_type in {Definitions.postgres, Definitions.druid}:
         result_lookup = {
@@ -514,6 +580,14 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         ("month", Definitions.druid),
         ("quarter", Definitions.druid),
         ("year", Definitions.druid),
+        ("second", Definitions.sql_server),
+        ("minute", Definitions.sql_server),
+        ("hour", Definitions.sql_server),
+        ("day", Definitions.sql_server),
+        ("week", Definitions.sql_server),
+        ("month", Definitions.sql_server),
+        ("quarter", Definitions.sql_server),
+        ("year", Definitions.sql_server),
         ("second", Definitions.redshift),
         ("minute", Definitions.redshift),
         ("hour", Definitions.redshift),
@@ -587,6 +661,18 @@ def test_simple_query_dimension_group_interval(connections, interval: str, query
         }
         order_by = ""
         semi = ""
+    elif query_type == Definitions.sql_server:
+        result_lookup = {
+            "second": "DATEDIFF(SECOND, simple.view_date, simple.order_date)",
+            "minute": "DATEDIFF(MINUTE, simple.view_date, simple.order_date)",
+            "hour": "DATEDIFF(HOUR, simple.view_date, simple.order_date)",
+            "day": "DATEDIFF(DAY, simple.view_date, simple.order_date)",
+            "week": "DATEDIFF(WEEK, simple.view_date, simple.order_date)",
+            "month": "DATEDIFF(MONTH, simple.view_date, simple.order_date)",
+            "quarter": "DATEDIFF(QUARTER, simple.view_date, simple.order_date)",
+            "year": "DATEDIFF(YEAR, simple.view_date, simple.order_date)",
+        }
+        order_by = ""
     elif query_type == Definitions.postgres:
         result_lookup = {
             "second": "DATE_PART('DAY', AGE(simple.order_date, simple.view_date)) * 24 + DATE_PART('HOUR', AGE(simple.order_date, simple.view_date)) * 60 + DATE_PART('MINUTE', AGE(simple.order_date, simple.view_date)) * 60 + DATE_PART('SECOND', AGE(simple.order_date, simple.view_date))",  # noqa
@@ -694,23 +780,28 @@ def test_simple_query_custom_metric(connections):
     [
         ("order_date", "greater_than", "2021-08-04", Definitions.snowflake),
         ("order_date", "greater_than", "2021-08-04", Definitions.druid),
+        ("order_date", "greater_than", "2021-08-04", Definitions.sql_server),
         ("order_date", "greater_than", "2021-08-04", Definitions.redshift),
         ("order_date", "greater_than", "2021-08-04", Definitions.bigquery),
         ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.snowflake),
         ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.druid),
+        ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.sql_server),
         ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.redshift),
         ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.bigquery),
         ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.snowflake),
         ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.druid),
+        ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.sql_server),
         ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.redshift),
         ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.bigquery),
         ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.snowflake),
         ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.druid),
+        ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.sql_server),
         ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.redshift),
         ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.bigquery),
         ("order_date", "matches", "last week", Definitions.snowflake),
         ("order_date", "matches", "last year", Definitions.snowflake),
         ("order_date", "matches", "last year", Definitions.druid),
+        ("order_date", "matches", "last year", Definitions.sql_server),
         ("order_date", "matches", "last year", Definitions.redshift),
         ("order_date", "matches", "last year", Definitions.bigquery),
     ],
@@ -726,7 +817,7 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
         query_type=query_type,
     )
 
-    if query_type in {Definitions.bigquery, Definitions.druid}:
+    if query_type in {Definitions.bigquery, Definitions.druid, Definitions.sql_server}:
         order_by = ""
     else:
         order_by = " ORDER BY simple_total_revenue DESC"
@@ -739,6 +830,12 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
     field_id = f"simple.{field}" if query_type != Definitions.druid else f"CAST(simple.{field} AS TIMESTAMP)"
     if sf_or_rs and expression == "greater_than" and isinstance(value, str):
         condition = f"DATE_TRUNC('DAY', {field_id})>'2021-08-04'"
+    elif query_type == Definitions.sql_server and isinstance(value, str) and expression == "greater_than":
+        condition = f"CAST(CAST({field_id} AS DATE) AS DATETIME)>'2021-08-04'"
+    elif (
+        query_type == Definitions.sql_server and isinstance(value, datetime) and expression == "greater_than"
+    ):
+        condition = f"CAST(CAST({field_id} AS DATE) AS DATETIME)>'2021-08-04T00:00:00'"
     elif sf_or_rs and isinstance(value, datetime):
         condition = f"DATE_TRUNC('DAY', {field_id})>'2021-08-04T00:00:00'"
     elif (
@@ -760,6 +857,10 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
         last_year = pendulum.now("UTC").year - 1
         condition = f"DATE_TRUNC('DAY', {field_id})>='{last_year}-01-01T00:00:00' AND "
         condition += f"DATE_TRUNC('DAY', {field_id})<='{last_year}-12-31T23:59:59'"
+    elif query_type == Definitions.sql_server and expression == "matches" and value == "last year":
+        last_year = pendulum.now("UTC").year - 1
+        condition = f"CAST(CAST({field_id} AS DATE) AS DATETIME)>='{last_year}-01-01T00:00:00' AND "
+        condition += f"CAST(CAST({field_id} AS DATE) AS DATETIME)<='{last_year}-12-31T23:59:59'"
     elif sf_or_rs and expression == "matches" and value == "last week":
         date_format = "%Y-%m-%dT%H:%M:%S"
         pendulum.week_starts_at(pendulum.SUNDAY)
@@ -810,8 +911,10 @@ def test_simple_query_convert_tz_alias_no(connections):
         ("channel", "does_not_contain", "Email", Definitions.snowflake),
         ("channel", "contains_case_insensitive", "Email", Definitions.snowflake),
         ("channel", "contains_case_insensitive", "Email", Definitions.druid),
+        ("channel", "contains_case_insensitive", "Email", Definitions.sql_server),
         ("channel", "does_not_contain_case_insensitive", "Email", Definitions.snowflake),
         ("channel", "does_not_contain_case_insensitive", "Email", Definitions.druid),
+        ("channel", "does_not_contain_case_insensitive", "Email", Definitions.sql_server),
         ("channel", "starts_with", "Email", Definitions.snowflake),
         ("channel", "ends_with", "Email", Definitions.snowflake),
         ("channel", "does_not_start_with", "Email", Definitions.snowflake),
@@ -823,8 +926,11 @@ def test_simple_query_convert_tz_alias_no(connections):
         ("is_valid_order", "is_null", None, Definitions.snowflake),
         ("is_valid_order", "is_not_null", None, Definitions.snowflake),
         ("is_valid_order", "is_not_null", None, Definitions.druid),
+        ("is_valid_order", "is_not_null", None, Definitions.sql_server),
         ("is_valid_order", "boolean_true", None, Definitions.snowflake),
         ("is_valid_order", "boolean_false", None, Definitions.snowflake),
+        ("is_valid_order", "boolean_true", None, Definitions.sql_server),
+        ("is_valid_order", "boolean_false", None, Definitions.sql_server),
     ],
 )
 @pytest.mark.query
@@ -842,9 +948,12 @@ def test_simple_query_with_where_dict(connections, field_name, filter_type, valu
     if query_type == Definitions.snowflake:
         order_by = " ORDER BY simple_total_revenue DESC"
         semi = ";"
-    else:
+    elif query_type == Definitions.druid:
         order_by = ""
         semi = ""
+    else:
+        order_by = ""
+        semi = ";"
     result_lookup = {
         "equal_to": f"='{value}'",
         "not_equal_to": f"<>'{value}'",

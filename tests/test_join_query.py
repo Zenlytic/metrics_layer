@@ -750,7 +750,14 @@ def test_join_graph_raise_unjoinable_error(connection):
 
 @pytest.mark.query
 @pytest.mark.parametrize(
-    "query_type", [Definitions.snowflake, Definitions.druid, Definitions.redshift, Definitions.bigquery]
+    "query_type",
+    [
+        Definitions.snowflake,
+        Definitions.druid,
+        Definitions.redshift,
+        Definitions.bigquery,
+        Definitions.sql_server,
+    ],
 )
 def test_median_aggregate_function(connection, query_type):
     if query_type in [Definitions.snowflake, Definitions.redshift]:
