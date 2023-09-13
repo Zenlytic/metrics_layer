@@ -274,7 +274,6 @@ class MetricsLayerDesign:
                             filter_sql = Filter.sql_query(
                                 field_sql, filter_dict["expression"], filter_dict["value"]
                             )
-                            print(filter_sql)
                             conditions.append(str(filter_sql))
 
         if conditions and fields:

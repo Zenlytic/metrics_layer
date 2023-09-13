@@ -107,6 +107,27 @@ class SeedMetricsLayer:
             "real": "number",
             "money": "number",
         }
+        self._sql_server_type_lookup = {
+            "float": "number",
+            "real": "number",
+            "bigint": "number",
+            "numeric": "number",
+            "smallint": "number",
+            "decimal": "number",
+            "smallmoney": "number",
+            "int": "number",
+            "tinyint": "number",
+            "money": "number",
+            "char": "string",
+            "varchar": "string",
+            "text": "string",
+            "date": "date",
+            "datetime2": "datetime",
+            "smalldatetime": "datetime",
+            "datetime": "datetime",
+            "time": "datetime",
+            "bit": "yesno",
+        }
         self._bigquery_type_lookup = {
             "DATE": "date",
             "DATETIME": "timestamp",
@@ -199,7 +220,12 @@ class SeedMetricsLayer:
     def make_view(self, column_data, model_name: str, table_name: str, schema_name: str):
         view_name = self.clean_name(table_name)
         fields = self.make_fields(column_data)
-        if self.connection.type in {Definitions.snowflake, Definitions.redshift, Definitions.postgres}:
+        if self.connection.type in {
+            Definitions.snowflake,
+            Definitions.redshift,
+            Definitions.postgres,
+            Definitions.sql_server,
+        }:
             sql_table_name = f"{schema_name}.{table_name}"
             if self._database_is_not_default:
                 sql_table_name = f"{self.database}.{sql_table_name}"
@@ -236,13 +262,15 @@ class SeedMetricsLayer:
                 metrics_layer_type = self._bigquery_type_lookup.get(row["DATA_TYPE"], "string")
             elif self.connection.type == Definitions.druid:
                 metrics_layer_type = self._druid_type_lookup.get(row["DATA_TYPE"], "string")
+            elif self.connection.type == Definitions.sql_server:
+                metrics_layer_type = self._sql_server_type_lookup.get(row["DATA_TYPE"], "string")
             else:
                 raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
             sql = "${TABLE}." + row["COLUMN_NAME"]
 
             field = {"name": name, "sql": sql}
 
-            if metrics_layer_type in {"timestamp", "date"}:
+            if metrics_layer_type in {"timestamp", "date", "datetime"}:
                 field["field_type"] = "dimension_group"
                 field["type"] = "time"
                 field["timeframes"] = ["raw", "date", "week", "month", "quarter", "year"]
@@ -259,6 +287,7 @@ class SeedMetricsLayer:
             Definitions.snowflake,
             Definitions.redshift,
             Definitions.postgres,
+            Definitions.sql_server,
         }:
             query += f"{self.database}.INFORMATION_SCHEMA.COLUMNS"
         elif self.connection.type == Definitions.druid:
@@ -284,14 +313,18 @@ class SeedMetricsLayer:
                 "bytes as table_size, created as table_created, last_altered as table_last_modified, "
                 f"row_count as table_row_count FROM {self.database}.INFORMATION_SCHEMA.TABLES"
             )
-        elif self.connection.type == Definitions.druid:
+        elif self.connection.type in {Definitions.druid}:
             query = (
                 "SELECT TABLE_CATALOG as table_database, TABLE_SCHEMA as table_schema, "
                 "TABLE_NAME as table_name, TABLE_TYPE as table_type "
                 "FROM INFORMATION_SCHEMA.TABLES "
                 "WHERE TABLE_SCHEMA not in ('sys', 'INFORMATION_SCHEMA')"
             )
-        elif self.database and self.connection.type in {Definitions.redshift, Definitions.postgres}:
+        elif self.database and self.connection.type in {
+            Definitions.redshift,
+            Definitions.postgres,
+            Definitions.sql_server,
+        }:
             query = (
                 "SELECT table_catalog as table_database, table_schema as table_schema, "
                 "table_name as table_name, table_type as table_type "

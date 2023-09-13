@@ -16,6 +16,7 @@ class ConnectionType:
     redshift = Definitions.redshift
     postgres = Definitions.postgres
     druid = Definitions.druid
+    sql_server = Definitions.sql_server
 
 
 class BaseConnection:
@@ -204,6 +205,57 @@ class DruidConnection(BaseConnection):
         attributes.pop("password")
         attributes["name"] = self.name
         sort_order = ["name", "type", "host", "port", "user", "path", "scheme"]
+        return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
+
+
+class SQLServerConnection(BaseConnection):
+    def __init__(
+        self,
+        name: str,
+        host: str,
+        username: str = None,
+        user: str = None,
+        password: str = None,
+        port: int = 1433,
+        database: str = None,
+        schema: str = None,
+        **kwargs,
+    ) -> None:
+        self.type = ConnectionType.sql_server
+        self.name = name
+        self.host = host
+        self.port = port
+        if user and username:
+            raise ArgumentError(
+                "Received arguments for both user and username, "
+                "please send only one argument for the SQL Server user"
+            )
+        elif username:
+            self.user = username
+        elif user:
+            self.user = user
+        self.password = password
+        self.database = database
+        self.schema = schema
+
+    def to_dict(self):
+        base = {
+            "name": self.name,
+            "host": self.host,
+            "port": self.port,
+            "type": self.type,
+        }
+        if self.user:
+            base["user"] = self.user
+        if self.password:
+            base["password"] = self.password
+        return base
+
+    def printable_attributes(self):
+        attributes = deepcopy(self.to_dict())
+        attributes.pop("password")
+        attributes["name"] = self.name
+        sort_order = ["name", "type", "host", "port", "user"]
         return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
 
 

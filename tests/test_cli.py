@@ -47,6 +47,7 @@ def test_cli_init(mocker, monkeypatch):
         (Definitions.postgres, "alternative_demo", "alternative_target", None),
         (Definitions.redshift, None, None, None),
         (Definitions.druid, None, None, None),
+        (Definitions.sql_server, None, None, None),
     ],
 )
 def test_cli_seed_metrics_layer(
@@ -62,6 +63,7 @@ def test_cli_seed_metrics_layer(
     seed_redshift_tables_data,
     seed_postgres_tables_data,
     seed_druid_tables_data,
+    seed_sql_server_tables_data,
 ):
     mocker.patch("os.mkdir")
     yaml_dump_called = 0
@@ -78,6 +80,8 @@ def test_cli_seed_metrics_layer(
             return seed_bigquery_tables_data
         elif query_type == Definitions.druid:
             return seed_druid_tables_data
+        elif query_type == Definitions.sql_server:
+            return seed_sql_server_tables_data
         raise ValueError("Query error, does not match expected")
 
     def yaml_dump_assert(slf, data, file):
@@ -100,9 +104,9 @@ def test_cli_seed_metrics_layer(
                 assert data["sql_table_name"] == "druid.orders"
             elif query_type == Definitions.bigquery:
                 assert data["sql_table_name"] == "`analytics.analytics.orders`"
-            elif query_type == Definitions.postgres and database_override is None:
+            elif query_type in {Definitions.postgres, Definitions.sql_server} and database_override is None:
                 assert data["sql_table_name"] == "analytics.orders"
-            elif query_type == Definitions.postgres and database_override:
+            elif query_type in {Definitions.postgres, Definitions.sql_server} and database_override:
                 assert data["sql_table_name"] == "segment_events.analytics.orders"
             assert "row_label" not in data
 
@@ -116,7 +120,10 @@ def test_cli_seed_metrics_layer(
             assert social["sql"] == "${TABLE}.ON_SOCIAL_NETWORK"
 
             assert acq_date["type"] == "time"
-            assert acq_date["datatype"] == "timestamp"
+            if query_type == Definitions.sql_server:
+                assert acq_date["datatype"] == "datetime"
+            else:
+                assert acq_date["datatype"] == "timestamp"
             assert acq_date["sql"] == "${TABLE}.ACQUISITION_DATE"
 
             assert date["type"] == "time"
@@ -125,6 +132,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.postgres,
                 Definitions.druid,
+                Definitions.sql_server,
             }:
                 assert date["datatype"] == "date"
             else:
@@ -145,9 +153,9 @@ def test_cli_seed_metrics_layer(
                 assert data["sql_table_name"] == "ANALYTICS.SESSIONS"
             elif query_type == Definitions.bigquery:
                 assert data["sql_table_name"] == "`analytics.analytics.sessions`"
-            elif query_type == Definitions.postgres and database_override is None:
+            elif query_type in {Definitions.postgres, Definitions.sql_server} and database_override is None:
                 assert data["sql_table_name"] == "analytics.sessions"
-            elif query_type == Definitions.postgres and database_override:
+            elif query_type in {Definitions.postgres, Definitions.sql_server} and database_override:
                 assert data["sql_table_name"] == "segment_events.analytics.sessions"
             assert "row_label" not in data
 
@@ -165,6 +173,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.postgres,
                 Definitions.druid,
+                Definitions.sql_server,
             }:
                 assert date["datatype"] == "date"
             else:

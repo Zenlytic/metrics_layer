@@ -4,7 +4,8 @@ class Definitions:
     redshift = "REDSHIFT"
     postgres = "POSTGRES"
     druid = "DRUID"
-    supported_warehouses = [snowflake, bigquery, redshift, postgres, druid]
+    sql_server = "SQL_SERVER"
+    supported_warehouses = [snowflake, bigquery, redshift, postgres, druid, sql_server]
     supported_warehouses_text = ", ".join(supported_warehouses)
 
     does_not_exist = "__DOES_NOT_EXIST__"
