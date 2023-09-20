@@ -5,11 +5,20 @@ import pytest
 from metrics_layer import MetricsLayerConnection
 from metrics_layer.core.parse import ProjectLoader
 from metrics_layer.core.parse import ConfigError
+from metrics_layer.core.parse.connections import connection_class_lookup
 from metrics_layer.core.parse.connections import (
     BigQueryConnection,
     RedshiftConnection,
     SnowflakeConnection,
+    ConnectionType,
 )
+
+
+def test_connection_types_present_in_lookup():
+    for connection_type_attr in dir(ConnectionType):
+        if "__" not in connection_type_attr:
+            connection_type = getattr(ConnectionType, connection_type_attr)
+            assert connection_type in connection_class_lookup
 
 
 def test_config_explicit_metrics_layer_single_local():
