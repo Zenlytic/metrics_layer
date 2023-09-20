@@ -313,4 +313,5 @@ connection_class_lookup = {
     ConnectionType.bigquery: BigQueryConnection,
     ConnectionType.postgres: PostgresConnection,
     ConnectionType.druid: DruidConnection,
+    ConnectionType.sql_server: SQLServerConnection,
 }
