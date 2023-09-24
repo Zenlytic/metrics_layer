@@ -779,3 +779,23 @@ def test_median_aggregate_function(connection, query_type):
         )
         assert isinstance(exc_info.value, QueryError)
         assert str(exc_info.value) == error_message
+
+
+@pytest.mark.query
+def test_always_filter_with_and_without_join(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_workspace_creations"],
+        dimensions=["date"],
+    )
+
+    correct = (
+        "SELECT DATE_TRUNC('DAY', created_workspace.session_date) as created_workspace_created_date,"
+        "COUNT(created_workspace.id) as created_workspace_number_of_workspace_creations "
+        "FROM analytics.created_workspace created_workspace "
+        "LEFT JOIN analytics.customers customers "
+        "ON created_workspace.customer_id=customers.customer_id "
+        "WHERE NOT customers.is_churned AND NOT created_workspace.context_os IS NULL "
+        "GROUP BY DATE_TRUNC('DAY', created_workspace.session_date) "
+        "ORDER BY created_workspace_number_of_workspace_creations DESC;"
+    )
+    assert query == correct

@@ -4,6 +4,7 @@ from metrics_layer.core.exceptions import QueryError, JoinError
 from metrics_layer.core.sql.single_query_resolve import SingleSQLQueryResolver
 from metrics_layer.core.sql.merged_query_resolve import MergedSQLQueryResolver
 from metrics_layer.core.sql.query_base import QueryKindTypes
+from metrics_layer.core.model.filter import Filter
 
 
 class SQLQueryResolver(SingleSQLQueryResolver):
@@ -28,16 +29,19 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self.suppress_warnings = kwargs.get("suppress_warnings", False)
         self.limit = kwargs.get("limit")
         self.single_query = kwargs.get("single_query", False)
+        self.project = project
+        self.model = self._get_model_for_query(kwargs.get("model_name"), metrics, dimensions)
         self.connections = connections
         self.metrics = metrics
         self.dimensions = dimensions
         self.funnel = funnel
-        self.where = where
+        self.where = where if where else []
+        always_where = self._apply_always_filter(metrics + dimensions)
+        if always_where:
+            self.where.extend(always_where)
         self.having = having
         self.order_by = order_by
         self.kwargs = kwargs
-        self.project = project
-        self.model = self._get_model_for_query(kwargs.get("model_name"), metrics, dimensions)
         self.connection = self._get_connection(self.model.connection)
         self.kwargs["query_type"] = self._get_query_type(self.connection, self.kwargs)
         connection_schema = self._get_connection_schema(self.connection)
@@ -313,6 +317,37 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                 "your warehouse in the configuration or explicitly pass the "
                 "'query_type' argument to this function"
             )
+
+    def _apply_always_filter(self, fields: list):
+        always_where = []
+        to_add = {"week_start_day": self.model.week_start_day, "timezone": self.project.timezone}
+        for field_str in fields:
+            try:
+                field = self.project.get_field(field_str)
+                if field.view.always_filter:
+                    parsed_filters = []
+                    for f in field.view.always_filter:
+                        if "." not in f["field"]:
+                            f["field"] = f"{field.view.name}.{f['field']}"
+                        parsed_filters.extend(Filter({**f, **to_add}).filter_dict(json_safe=True))
+                    always_where.extend(parsed_filters)
+            # Handle mappings exception
+            except Exception:
+                pass
+
+        return self._deduplicate_always_where_filters(always_where)
+
+    @staticmethod
+    def _deduplicate_always_where_filters(filters: list):
+        seen = set()
+        cleaned_filters = []
+        for f in filters:
+
+            hashable_filter = tuple(f.items())
+            if hashable_filter not in seen:
+                seen.add(hashable_filter)
+                cleaned_filters.append(f)
+        return cleaned_filters
 
     def _get_connection_schema(self, connection):
         if connection is not None:
