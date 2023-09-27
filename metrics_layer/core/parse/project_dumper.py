@@ -41,6 +41,7 @@ class ProjectDumper(ProjectReaderBase):
             "extension",
             "required_access_grants",
             "sets",
+            "identifiers",
             "fields",
         ]
         extra_keys = [k for k in view.keys() if k not in view_key_order]
