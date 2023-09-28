@@ -331,6 +331,9 @@ class Filter(MetricsLayerBase):
         date_condition = Filter.parse_date_condition(value, tz=tz)
         Filter._reset_week_start_day()
 
+        first_word = str(value).split(" ")[0]
+        first_two_words = " ".join(str(value).split(" ")[:2])
+
         # Handle null conditional
         if value == "NULL":
             expression = MetricsLayerFilterExpressionType.IsNull
@@ -359,12 +362,16 @@ class Filter(MetricsLayerBase):
             return multiple_filter_dicts
 
         # Handle date after and before
-        elif value.split(" ")[0] in {"after", "before"}:
+        elif first_word in {"after", "before", "on"} or first_two_words in {"not on"}:
             cleaned_value = Filter._parse_date_string(value.split(" ")[-1])
-            if value.split(" ")[0] == "after":
+            if first_word == "after":
                 expression = MetricsLayerFilterExpressionType.GreaterOrEqualThan
-            else:
+            elif first_word == "before":
                 expression = MetricsLayerFilterExpressionType.LessOrEqualThan
+            elif first_word == "on":
+                expression = MetricsLayerFilterExpressionType.EqualTo
+            else:
+                expression = MetricsLayerFilterExpressionType.NotEqualTo
 
         # isin for strings
         elif len(value.split(", ")) > 1:
