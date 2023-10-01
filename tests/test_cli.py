@@ -583,6 +583,28 @@ def test_cli_canon_date_inaccessible(connection, fresh_project, mocker):
 
 
 @pytest.mark.cli
+def test_cli_dimension_group_timeframes(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    sorted_fields = sorted(fresh_project._views[1]["fields"], key=lambda x: x["name"])
+    date_idx = next((i for i, f in enumerate(sorted_fields) if f["name"] == "order"))
+    sorted_fields[date_idx]["timeframes"] = ["raw", "timestamp", "date", "week", "month", "year"]
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nField order is of type time and has timeframe value of 'timestamp' which is not a valid timeframes (valid timeframes are ['raw', 'time', 'date', 'week', 'month', 'quarter', 'year', 'month_of_year', 'hour_of_day', 'day_of_week', 'day_of_month'])\n\n"  # noqa
+    )
+
+
+@pytest.mark.cli
 def test_cli_looker_parameter(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project

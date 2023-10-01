@@ -324,7 +324,12 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         .subtract(days=1 if pendulum.now("UTC").day != 1 else 0)
         .end_of("day")
         .strftime(date_format),
-        "quarter to date": pendulum.now("UTC").subtract(days=1).end_of("day").strftime(date_format),
+        "quarter to date": pendulum.now("UTC")
+        .subtract(
+            days=1 if pendulum.now("UTC").day != 1 or pendulum.now("UTC").month not in {1, 4, 7, 10} else 0
+        )
+        .end_of("day")
+        .strftime(date_format),
         "year to date": pendulum.now("UTC").subtract(days=1).end_of("day").strftime(date_format),
         "last week to date": pendulum.now("UTC")
         .subtract(weeks=1)
