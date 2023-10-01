@@ -10,6 +10,29 @@ from .filter import Filter
 from .set import Set
 
 SQL_KEYWORDS = {"order", "group", "by", "as", "from", "select", "on", "with"}
+VALID_TIMEFRAMES = [
+    "raw",
+    "time",
+    "date",
+    "week",
+    "month",
+    "quarter",
+    "year",
+    "month_of_year",
+    "hour_of_day",
+    "day_of_week",
+    "day_of_month",
+]
+VALID_INTERVALS = [
+    "second",
+    "minute",
+    "hour",
+    "day",
+    "week",
+    "month",
+    "quarter",
+    "year",
+]
 
 
 class Field(MetricsLayerBase, SQLReplacement):
@@ -732,11 +755,28 @@ class Field(MetricsLayerBase, SQLReplacement):
                 f"Field {self.name} is of type time, but has property "
                 "intervals when it should have property timeframes"
             )
+        if self.type == "time":
+            timeframes = self._definition.get("timeframes", [])
+            for i in timeframes:
+                if i not in VALID_TIMEFRAMES:
+                    errors.append(
+                        f"Field {self.name} is of type time and has timeframe value of '{i}' "
+                        f"which is not a valid timeframes (valid timeframes are {VALID_TIMEFRAMES})"
+                    )
+
         if self.type == "duration" and "timeframes" in self._definition:
             errors.append(
                 f"Field {self.name} is of type duration, but has property "
                 "timeframes when it should have property intervals"
             )
+        if self.type == "duration":
+            intervals = self._definition.get("intervals", [])
+            for i in intervals:
+                if i not in VALID_INTERVALS:
+                    errors.append(
+                        f"Field {self.name} is of type duration and has interval value of '{i}' "
+                        f"which is not a valid interval (valid intervals are {VALID_INTERVALS})"
+                    )
         if self.field_type == "measure" and not self.canon_date:
             if self.is_merged_result:
                 error_text = (
