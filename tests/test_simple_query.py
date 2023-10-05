@@ -32,6 +32,7 @@ simple_view = {
         {"field_type": "measure", "type": "sum", "sql": "${TABLE}.revenue", "name": "total_revenue"},
         {"field_type": "measure", "type": "max", "sql": "${TABLE}.revenue", "name": "max_revenue"},
         {"field_type": "measure", "type": "min", "sql": "${TABLE}.revenue", "name": "min_revenue"},
+        {"field_type": "measure", "type": "count_distinct", "sql": "${group}", "name": "unique_groups"},
         {
             "field_type": "measure",
             "type": "average",
@@ -209,6 +210,44 @@ def test_simple_query_min_max(connections, metric, query_type):
     correct = (
         f"SELECT simple.sales_channel as simple_channel,{agg}(simple.revenue) as simple_{agg.lower()}_revenue"
         f" FROM analytics.orders simple GROUP BY {group_by}{order_by}{semi}"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+@pytest.mark.parametrize(
+    "query_type",
+    [
+        (Definitions.snowflake),
+        (Definitions.druid),
+        (Definitions.sql_server),
+        (Definitions.redshift),
+        (Definitions.postgres),
+        (Definitions.bigquery),
+        (Definitions.duck_db),
+    ],
+)
+def test_simple_query_count_distinct(connections, query_type):
+    project = Project(models=[simple_model], views=[simple_view])
+    conn = MetricsLayerConnection(project=project, connections=connections)
+    query = conn.get_sql_query(metrics=["unique_groups"], dimensions=["channel"], query_type=query_type)
+
+    group_by = "simple.sales_channel"
+    semi = ";"
+    if query_type in {Definitions.snowflake, Definitions.redshift, Definitions.duck_db}:
+        order_by = f" ORDER BY simple_unique_groups DESC"
+    else:
+        order_by = ""
+
+    if query_type == Definitions.druid:
+        semi = ""
+
+    if query_type == Definitions.bigquery:
+        group_by = "simple_channel"
+    correct = (
+        "SELECT simple.sales_channel as simple_channel,COUNT(DISTINCT(simple.group_name)) "
+        "as simple_unique_groups FROM analytics.orders simple "
+        f"GROUP BY {group_by}{order_by}{semi}"
     )
     assert query == correct
 
