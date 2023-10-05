@@ -80,6 +80,7 @@ query_lookup = {
     Definitions.redshift: RedshiftQuery,
     Definitions.postgres: PostgresQuery,
     Definitions.druid: PostgresQuery,  # druid core query logic is postgres compatible
+    Definitions.duck_db: PostgresQuery,  # duck db core query logic is postgres compatible
     Definitions.sql_server: MSSSQLQuery,
 }
 
@@ -88,6 +89,7 @@ if_null_lookup = {
     Definitions.bigquery: "ifnull",
     Definitions.redshift: "ifnull",
     Definitions.postgres: "ifnull",
+    Definitions.duck_db: "ifnull",
     Definitions.druid: "nvl",
     Definitions.sql_server: "isnull",
 }

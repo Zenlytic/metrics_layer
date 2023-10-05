@@ -72,7 +72,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
 
         if order_by:
             self.order_by_args.extend(self._parse_order_by_object(order_by))
-        elif self.query_type in {Definitions.snowflake, Definitions.redshift}:
+        elif self.query_type in {Definitions.snowflake, Definitions.redshift, Definitions.duck_db}:
             self.order_by_args.append({"field": "__DEFAULT__"})
 
     def _parse_filter_object(self, filter_object, filter_type: str, access_filter: str = None):

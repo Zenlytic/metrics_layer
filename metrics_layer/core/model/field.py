@@ -599,6 +599,8 @@ class Field(MetricsLayerBase, SQLReplacement):
         }
         # Snowflake and redshift have identical syntax in this case
         meta_lookup[Definitions.redshift] = meta_lookup[Definitions.snowflake]
+        # Snowflake and duck db have identical syntax in this case
+        meta_lookup[Definitions.duck_db] = meta_lookup[Definitions.snowflake]
         try:
             return meta_lookup[query_type][dimension_group](sql_start, sql_end)
         except KeyError:
@@ -679,6 +681,8 @@ class Field(MetricsLayerBase, SQLReplacement):
         }
         # Snowflake and redshift have identical syntax in this case
         meta_lookup[Definitions.redshift] = meta_lookup[Definitions.snowflake]
+        # Snowflake and duck db have identical syntax in this case
+        meta_lookup[Definitions.duck_db] = meta_lookup[Definitions.postgres]
 
         if self.view.project.timezone and self.convert_timezone:
             sql = self._apply_timezone_to_sql(sql, self.view.project.timezone, query_type)
@@ -693,7 +697,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"CAST(DATETIME(CAST({sql} AS TIMESTAMP), '{timezone}') AS {self.datatype.upper()})"
         elif query_type == Definitions.redshift:
             return f"CAST(CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP) AS {self.datatype.upper()})"  # noqa
-        elif query_type == Definitions.postgres:
+        elif query_type in {Definitions.postgres, Definitions.duck_db}:
             return f"CAST(CAST({sql} AS TIMESTAMP) at time zone 'utc' at time zone '{timezone}' AS {self.datatype.upper()})"  # noqa
         elif query_type in {Definitions.druid, Definitions.sql_server}:
             print(
@@ -730,7 +734,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             if offset is None:
                 return f"DATE_TRUNC('WEEK', {casted})"
             return f"DATE_TRUNC('WEEK', {casted} + {offset}) - {offset}"
-        elif query_type in {Definitions.postgres, Definitions.druid}:
+        elif query_type in {Definitions.postgres, Definitions.druid, Definitions.duck_db}:
             if offset is None:
                 return f"DATE_TRUNC('WEEK', CAST({sql} AS TIMESTAMP))"
             return f"DATE_TRUNC('WEEK', CAST({sql} AS TIMESTAMP) + INTERVAL '{offset}' DAY) - INTERVAL '{offset}' DAY"  # noqa
