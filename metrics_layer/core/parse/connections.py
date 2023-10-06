@@ -17,6 +17,7 @@ class ConnectionType:
     postgres = Definitions.postgres
     druid = Definitions.druid
     sql_server = Definitions.sql_server
+    duck_db = Definitions.duck_db
 
 
 class BaseConnection:
@@ -150,6 +151,29 @@ class PostgresConnection(RedshiftConnection):
         self.password = password
         self.database = dbname
         self.dbname = dbname
+        self.schema = schema
+
+
+class DuckDBConnection(RedshiftConnection):
+    def __init__(
+        self,
+        name: str,
+        host: str,
+        user: str,
+        password: str,
+        port: int = 5432,
+        database: str = None,
+        schema: str = None,
+        **kwargs,
+    ) -> None:
+        self.type = ConnectionType.duck_db
+        self.name = name
+        self.host = host
+        self.port = port
+        self.user = user
+        self.username = user
+        self.password = password
+        self.database = database
         self.schema = schema
 
 
@@ -314,4 +338,5 @@ connection_class_lookup = {
     ConnectionType.postgres: PostgresConnection,
     ConnectionType.druid: DruidConnection,
     ConnectionType.sql_server: SQLServerConnection,
+    ConnectionType.duck_db: DuckDBConnection,
 }

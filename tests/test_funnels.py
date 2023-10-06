@@ -31,7 +31,14 @@ def test_orders_funnel_query_boolean_step(connection):
 
 @pytest.mark.query
 @pytest.mark.parametrize(
-    "query_type", [Definitions.snowflake, Definitions.bigquery, Definitions.redshift, Definitions.postgres]
+    "query_type",
+    [
+        Definitions.snowflake,
+        Definitions.bigquery,
+        Definitions.redshift,
+        Definitions.postgres,
+        Definitions.duck_db,
+    ],
 )
 def test_orders_funnel_query(connection, query_type):
     funnel = {
@@ -50,7 +57,7 @@ def test_orders_funnel_query(connection, query_type):
 
     if query_type == Definitions.bigquery:
         date_diff = "DATE_DIFF(CAST(base.orders_order_raw as DATE), CAST(step_1.step_1_time as DATE), DAY)"
-    elif query_type in [Definitions.snowflake, Definitions.redshift]:
+    elif query_type in [Definitions.snowflake, Definitions.redshift, Definitions.duck_db]:
         date_diff = "DATEDIFF('DAY', step_1.step_1_time, base.orders_order_raw)"
     elif query_type == Definitions.postgres:
         date_diff = "DATE_PART('DAY', AGE(base.orders_order_raw, step_1.step_1_time))"

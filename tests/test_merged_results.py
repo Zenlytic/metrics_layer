@@ -7,7 +7,9 @@ from metrics_layer.core.model.definitions import Definitions
 
 
 @pytest.mark.query
-@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery, Definitions.redshift])
+@pytest.mark.parametrize(
+    "query_type", [Definitions.snowflake, Definitions.bigquery, Definitions.redshift, Definitions.duck_db]
+)
 def test_merged_result_query_additional_metric(connection, query_type):
     query = connection.get_sql_query(
         metrics=["revenue_per_session", "total_item_revenue", "number_of_sessions"],
@@ -23,6 +25,11 @@ def test_merged_result_query_additional_metric(connection, query_type):
 
         order_by = ""
         session_by = ""
+    elif query_type == Definitions.duck_db:
+        order_date = "DATE_TRUNC('MONTH', CAST(order_lines.order_date AS TIMESTAMP))"
+        session_date = "DATE_TRUNC('MONTH', CAST(sessions.session_date AS TIMESTAMP))"
+        order_by = " ORDER BY order_lines_total_item_revenue DESC"
+        session_by = " ORDER BY sessions_number_of_sessions DESC"
     else:
         order_date = "DATE_TRUNC('MONTH', order_lines.order_date)"
         session_date = "DATE_TRUNC('MONTH', sessions.session_date)"

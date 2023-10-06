@@ -10,13 +10,13 @@ Metrics Layer is an open source project with the goal of making access to metric
 
 ## How does it work?
 
-Right now, [Zenlytic](https://zenlytic.com) is the only supported BI tool. The Metrics Layer will read your data model and give you the ability to access those metrics and dimensions in a python client library, or through SQL with a special `MQL` tag.
+[Zenlytic](https://zenlytic.com) is the only supported BI tool. The Metrics Layer will read your data model and give you the ability to access those metrics and dimensions in a python client library, or through SQL with a special `MQL` tag.
 
 Sound interesting? Here's how to set Metrics Layer up with your data model and start querying your metrics in **in under 2 minutes**.
 
 ## Installation
 
-Make sure that your data warehouse is one of the supported types. Metrics Layer currently supports Snowflake, BigQuery, Postgres, Druid (only SQL compilation, not running the query), and Redshift, and only works with `python >= 3.8` up to `python < 3.11`.
+Make sure that your data warehouse is one of the supported types. Metrics Layer currently supports Snowflake, BigQuery, Postgres, Druid (only SQL compilation, not running the query), Duck DB (only SQL compilation, not running the query), and Redshift, and only works with `python >= 3.8` up to `python < 3.11`.
 
 Install Metrics Layer with the appropriate extra for your warehouse
 

@@ -757,10 +757,11 @@ def test_join_graph_raise_unjoinable_error(connection):
         Definitions.redshift,
         Definitions.bigquery,
         Definitions.sql_server,
+        Definitions.duck_db,
     ],
 )
 def test_median_aggregate_function(connection, query_type):
-    if query_type in [Definitions.snowflake, Definitions.redshift]:
+    if query_type in [Definitions.snowflake, Definitions.redshift, Definitions.duck_db]:
         query = connection.get_sql_query(
             metrics=["median_customer_ltv"], dimensions=[], query_type=query_type
         )
