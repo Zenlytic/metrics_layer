@@ -885,8 +885,8 @@ python-versions = "*"
 
 [[package]]
 name = "metricflow-to-zenlytic"
-version = "0.1.0"
-description = "Adapters for Zenyltic"
+version = "0.1.1"
+description = "Adapter for Metricflow to Zenlytic"
 category = "main"
 optional = false
 python-versions = ">=3.8.1,<3.12"
@@ -1702,7 +1702,7 @@ snowflake = ["snowflake-connector-python", "pyarrow", "dbt-snowflake"]
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.8.1, <3.12"
-content-hash = "0cd0f8f949e9a5dd41ebe9edbe9da426d78535fecf949d9b64f9f4d365e6c9fa"
+content-hash = "b36301e396558a8f5c29d9d9d176c810d6209eecdcd9dc5d62b00984bb49d07c"
 
 [metadata.files]
 agate = [
@@ -2526,8 +2526,8 @@ mccabe = [
     {file = "mccabe-0.6.1.tar.gz", hash = "sha256:dd8d182285a0fe56bace7f45b5e7d1a6ebcbf524e8f3bd87eb0f125271b8831f"},
 ]
 metricflow-to-zenlytic = [
-    {file = "metricflow-to-zenlytic-0.1.0.tar.gz", hash = "sha256:45592285abe1943f768593ea5a05827e9ec50466be2a1de129b6718d39e62b49"},
-    {file = "metricflow_to_zenlytic-0.1.0-py3-none-any.whl", hash = "sha256:75be43a12a48c933915fced82cea311e7afa067926a0886c2043a882c6c296ea"},
+    {file = "metricflow-to-zenlytic-0.1.1.tar.gz", hash = "sha256:fcb3bde5cb9166af2ec6f3cd72fdf8c07044d68121120c2bababb1c0e85376c5"},
+    {file = "metricflow_to_zenlytic-0.1.1-py3-none-any.whl", hash = "sha256:9fb77b6280472b74ef4e75121d0a3451c9acdccbb0c4f6477de7c141b028b853"},
 ]
 minimal-snowplow-tracker = [
     {file = "minimal-snowplow-tracker-0.0.2.tar.gz", hash = "sha256:acabf7572db0e7f5cbf6983d495eef54081f71be392330eb3aadb9ccb39daaa4"},
