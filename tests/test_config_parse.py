@@ -4,7 +4,12 @@ import pytest
 
 from metrics_layer.core.parse.github_repo import BaseRepo
 from metrics_layer.core.query.query import MetricsLayerConnection
-from metrics_layer.core.parse import dbtProjectReader, MetricsLayerProjectReader, ProjectLoader
+from metrics_layer.core.parse import (
+    dbtProjectReader,
+    MetricsLayerProjectReader,
+    ProjectLoader,
+    MetricflowProjectReader,
+)
 
 BASE_PATH = os.path.dirname(__file__)
 
@@ -149,3 +154,54 @@ def test_config_load_dbt():
     assert dash["type"] == "dashboard"
     assert dash["name"] == "sales_dashboard"
     assert dash["elements"][0]["title"] == "First element"
+
+
+@pytest.mark.dbt
+def test_config_load_metricflow():
+    mock = repo_mock(repo_type="metricflow")
+    mock.dbt_path = os.path.join(BASE_PATH, "config/metricflow/")
+    reader = MetricflowProjectReader(repo=mock)
+    models, views, dashboards = reader.load()
+
+    model = models[0]
+
+    assert model["type"] == "model"
+    assert isinstance(model["name"], str)
+    assert model["connection"] == "test_dbt_project"
+
+    view = next(v for v in views if v["name"] == "order_item")
+
+    assert view["type"] == "view"
+    assert isinstance(view["name"], str)
+    assert isinstance(view["identifiers"], list)
+    # assert view["sql_table_name"] == "order_item"
+    assert view["default_date"] == "ordered_at"
+    assert isinstance(view["fields"], list)
+
+    ordered_at = next((f for f in view["fields"] if f["name"] == "ordered_at"))
+    food_bool = next((f for f in view["fields"] if f["name"] == "is_food_item"))
+    revenue_measure = next((f for f in view["fields"] if f["name"] == "_revenue"))
+    median_revenue_metric = next((f for f in view["fields"] if f["name"] == "median_revenue"))
+
+    assert ordered_at["type"] == "time"
+    assert ordered_at["field_type"] == "dimension_group"
+    assert "sql" in ordered_at
+    assert isinstance(ordered_at["timeframes"], list)
+    assert ordered_at["timeframes"][1] == "date"
+
+    assert food_bool["type"] == "string"
+    assert food_bool["field_type"] == "dimension"
+    assert food_bool["sql"] == "is_food_item"
+
+    assert revenue_measure["type"] == "sum"
+    assert revenue_measure["field_type"] == "measure"
+    assert revenue_measure["sql"] == "product_price"
+    assert revenue_measure["hidden"]
+
+    assert median_revenue_metric["type"] == "median"
+    assert median_revenue_metric["field_type"] == "measure"
+    assert median_revenue_metric["sql"] == "product_price"
+    assert median_revenue_metric["label"] == "Median Revenue"
+    assert not median_revenue_metric["hidden"]
+
+    assert len(dashboards) == 0

@@ -1,0 +1,13 @@
+test_dbt_project:
+  target: temp
+  outputs:
+    temp:
+      type: snowflake
+      account: fake-url.us-east-1
+      user: fake
+      password: fake
+      warehouse: fake
+      database: fake
+      schema: fake
+config:
+  send_anonymous_usage_stats: false
