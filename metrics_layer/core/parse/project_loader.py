@@ -7,6 +7,7 @@ from .github_repo import GithubRepo, LocalRepo
 from .manifest import Manifest
 from .project_reader_base import ProjectReaderBase
 from .project_reader_dbt import dbtProjectReader
+from .project_reader_metricflow import MetricflowProjectReader
 from .project_reader_metrics_layer import MetricsLayerProjectReader
 
 
@@ -46,10 +47,14 @@ class ProjectLoader:
         repo_type = self.repo.get_repo_type()
         if repo_type == "dbt":
             reader = dbtProjectReader(repo=self.repo)
+        elif repo_type == "metricflow":
+            reader = MetricflowProjectReader(repo=self.repo)
         elif repo_type == "metrics_layer":
             reader = MetricsLayerProjectReader(self.repo)
         else:
-            raise TypeError(f"Unknown repo type: {repo_type}, valid values are 'metrics_layer', 'dbt'")
+            raise TypeError(
+                f"Unknown repo type: {repo_type}, valid types are 'metrics_layer', 'metricflow', 'dbt'"
+            )
 
         models, views, dashboards = reader.load()
 
