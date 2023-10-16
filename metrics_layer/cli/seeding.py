@@ -91,6 +91,7 @@ class SeedMetricsLayer:
             "TIMESTAMP": "timestamp",
             "DATE": "date",
         }
+        # Also duck db type lookup
         self._postgres_type_lookup = {
             "date": "date",
             "timestamp without time zone": "timestamp",
@@ -225,6 +226,7 @@ class SeedMetricsLayer:
             Definitions.redshift,
             Definitions.postgres,
             Definitions.sql_server,
+            Definitions.duck_db,
         }:
             sql_table_name = f"{schema_name}.{table_name}"
             if self._database_is_not_default:
@@ -256,7 +258,7 @@ class SeedMetricsLayer:
                 metrics_layer_type = self._snowflake_type_lookup.get(row["DATA_TYPE"], "string")
             elif self.connection.type == Definitions.redshift:
                 metrics_layer_type = self._redshift_type_lookup.get(row["DATA_TYPE"], "string")
-            elif self.connection.type == Definitions.postgres:
+            elif self.connection.type in {Definitions.postgres, Definitions.duck_db}:
                 metrics_layer_type = self._postgres_type_lookup.get(row["DATA_TYPE"], "string")
             elif self.connection.type == Definitions.bigquery:
                 metrics_layer_type = self._bigquery_type_lookup.get(row["DATA_TYPE"], "string")
@@ -288,6 +290,7 @@ class SeedMetricsLayer:
             Definitions.redshift,
             Definitions.postgres,
             Definitions.sql_server,
+            Definitions.duck_db,
         }:
             query += f"{self.database}.INFORMATION_SCHEMA.COLUMNS"
         elif self.connection.type == Definitions.druid:
@@ -324,6 +327,7 @@ class SeedMetricsLayer:
             Definitions.redshift,
             Definitions.postgres,
             Definitions.sql_server,
+            Definitions.duck_db,
         }:
             query = (
                 "SELECT table_catalog as table_database, table_schema as table_schema, "
@@ -544,7 +548,7 @@ class dbtSeed(SeedMetricsLayer):
                 metrics_layer_type = self._snowflake_type_lookup.get(row["DATA_TYPE"], "string")
             elif self.connection.type == Definitions.redshift:
                 metrics_layer_type = self._redshift_type_lookup.get(row["DATA_TYPE"], "string")
-            elif self.connection.type == Definitions.postgres:
+            elif self.connection.type in {Definitions.postgres, Definitions.duck_db}:
                 metrics_layer_type = self._postgres_type_lookup.get(row["DATA_TYPE"], "string")
             elif self.connection.type == Definitions.bigquery:
                 metrics_layer_type = self._bigquery_type_lookup.get(row["DATA_TYPE"], "string")
