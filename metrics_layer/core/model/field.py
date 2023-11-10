@@ -616,6 +616,9 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.snowflake: {
                 "raw": lambda s, qt: s,
                 "time": lambda s, qt: f"CAST({s} AS TIMESTAMP)",
+                "second": lambda s, qt: f"DATE_TRUNC('SECOND', {s})",
+                "minute": lambda s, qt: f"DATE_TRUNC('MINUTE', {s})",
+                "hour": lambda s, qt: f"DATE_TRUNC('HOUR', {s})",
                 "date": lambda s, qt: f"DATE_TRUNC('DAY', {s})",
                 "week": self._week_dimension_group_time_sql,
                 "month": lambda s, qt: f"DATE_TRUNC('MONTH', {s})",
@@ -629,6 +632,9 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.postgres: {
                 "raw": lambda s, qt: s,
                 "time": lambda s, qt: f"CAST({s} AS TIMESTAMP)",
+                "second": lambda s, qt: f"DATE_TRUNC('SECOND', CAST({s} AS TIMESTAMP))",
+                "minute": lambda s, qt: f"DATE_TRUNC('MINUTE', CAST({s} AS TIMESTAMP))",
+                "hour": lambda s, qt: f"DATE_TRUNC('HOUR', CAST({s} AS TIMESTAMP))",
                 "date": lambda s, qt: f"DATE_TRUNC('DAY', CAST({s} AS TIMESTAMP))",
                 "week": self._week_dimension_group_time_sql,
                 "month": lambda s, qt: f"DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))",
@@ -642,6 +648,9 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.druid: {
                 "raw": lambda s, qt: s,
                 "time": lambda s, qt: f"CAST({s} AS TIMESTAMP)",
+                "second": lambda s, qt: f"DATE_TRUNC('SECOND', CAST({s} AS TIMESTAMP))",
+                "minute": lambda s, qt: f"DATE_TRUNC('MINUTE', CAST({s} AS TIMESTAMP))",
+                "hour": lambda s, qt: f"DATE_TRUNC('HOUR', CAST({s} AS TIMESTAMP))",
                 "date": lambda s, qt: f"DATE_TRUNC('DAY', CAST({s} AS TIMESTAMP))",
                 "week": self._week_dimension_group_time_sql,
                 "month": lambda s, qt: f"DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))",
@@ -655,6 +664,9 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.sql_server: {
                 "raw": lambda s, qt: s,
                 "time": lambda s, qt: f"CAST({s} AS DATETIME)",
+                "second": lambda s, qt: f"DATEADD(SECOND, DATEDIFF(SECOND, 0, CAST({s} AS DATETIME)), 0)",
+                "minute": lambda s, qt: f"DATEADD(MINUTE, DATEDIFF(MINUTE, 0, CAST({s} AS DATETIME)), 0)",
+                "hour": lambda s, qt: f"DATEADD(HOUR, DATEDIFF(HOUR, 0, CAST({s} AS DATETIME)), 0)",
                 "date": lambda s, qt: f"CAST(CAST({s} AS DATE) AS DATETIME)",
                 "week": self._week_dimension_group_time_sql,
                 "month": lambda s, qt: f"DATEADD(MONTH, DATEDIFF(MONTH, 0, CAST({s} AS DATE)), 0)",
@@ -668,6 +680,9 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.bigquery: {
                 "raw": lambda s, qt: s,
                 "time": lambda s, qt: f"CAST({s} AS TIMESTAMP)",
+                "second": lambda s, qt: f"CAST(DATETIME_TRUNC(CAST({s} AS DATETIME), SECOND) AS {self.datatype.upper()})",  # noqa
+                "minute": lambda s, qt: f"CAST(DATETIME_TRUNC(CAST({s} AS DATETIME), MINUTE) AS {self.datatype.upper()})",  # noqa
+                "hour": lambda s, qt: f"CAST(DATETIME_TRUNC(CAST({s} AS DATETIME), HOUR) AS {self.datatype.upper()})",  # noqa
                 "date": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} AS DATE), DAY) AS {self.datatype.upper()})",
                 "week": self._week_dimension_group_time_sql,
                 "month": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} AS DATE), MONTH) AS {self.datatype.upper()})",  # noqa
