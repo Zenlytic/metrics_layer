@@ -54,6 +54,9 @@ simple_view = {
             "timeframes": [
                 "raw",
                 "time",
+                "second",
+                "minute",
+                "hour",
                 "date",
                 "week",
                 "month",
@@ -460,6 +463,9 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
     "group,query_type",
     [
         ("time", Definitions.snowflake),
+        ("second", Definitions.snowflake),
+        ("minute", Definitions.snowflake),
+        ("hour", Definitions.snowflake),
         ("date", Definitions.snowflake),
         ("week", Definitions.snowflake),
         ("month", Definitions.snowflake),
@@ -470,6 +476,9 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("day_of_week", Definitions.snowflake),
         ("day_of_month", Definitions.snowflake),
         ("time", Definitions.druid),
+        ("second", Definitions.druid),
+        ("minute", Definitions.druid),
+        ("hour", Definitions.druid),
         ("date", Definitions.druid),
         ("week", Definitions.druid),
         ("month", Definitions.druid),
@@ -480,6 +489,9 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("day_of_week", Definitions.druid),
         ("day_of_month", Definitions.druid),
         ("time", Definitions.sql_server),
+        ("second", Definitions.sql_server),
+        ("minute", Definitions.sql_server),
+        ("hour", Definitions.sql_server),
         ("date", Definitions.sql_server),
         ("week", Definitions.sql_server),
         ("month", Definitions.sql_server),
@@ -490,6 +502,9 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("day_of_week", Definitions.sql_server),
         ("day_of_month", Definitions.sql_server),
         ("time", Definitions.redshift),
+        ("second", Definitions.redshift),
+        ("minute", Definitions.redshift),
+        ("hour", Definitions.redshift),
         ("date", Definitions.redshift),
         ("week", Definitions.redshift),
         ("month", Definitions.redshift),
@@ -499,6 +514,9 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("hour_of_day", Definitions.redshift),
         ("day_of_week", Definitions.redshift),
         ("time", Definitions.postgres),
+        ("second", Definitions.postgres),
+        ("minute", Definitions.postgres),
+        ("hour", Definitions.postgres),
         ("date", Definitions.postgres),
         ("week", Definitions.postgres),
         ("month", Definitions.postgres),
@@ -508,6 +526,9 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("hour_of_day", Definitions.postgres),
         ("day_of_week", Definitions.postgres),
         ("time", Definitions.duck_db),
+        ("second", Definitions.duck_db),
+        ("minute", Definitions.duck_db),
+        ("hour", Definitions.duck_db),
         ("date", Definitions.duck_db),
         ("week", Definitions.duck_db),
         ("month", Definitions.duck_db),
@@ -517,6 +538,9 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("hour_of_day", Definitions.duck_db),
         ("day_of_week", Definitions.duck_db),
         ("time", Definitions.bigquery),
+        ("second", Definitions.bigquery),
+        ("minute", Definitions.bigquery),
+        ("hour", Definitions.bigquery),
         ("date", Definitions.bigquery),
         ("week", Definitions.bigquery),
         ("month", Definitions.bigquery),
@@ -541,6 +565,9 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
     if query_type in {Definitions.snowflake, Definitions.redshift}:
         result_lookup = {
             "time": "CAST(simple.order_date AS TIMESTAMP)",
+            "second": "DATE_TRUNC('SECOND', simple.order_date)",
+            "minute": "DATE_TRUNC('MINUTE', simple.order_date)",
+            "hour": "DATE_TRUNC('HOUR', simple.order_date)",
             "date": "DATE_TRUNC('DAY', simple.order_date)",
             "week": "DATE_TRUNC('WEEK', CAST(simple.order_date AS DATE) + 1) - 1",
             "month": "DATE_TRUNC('MONTH', simple.order_date)",
@@ -556,6 +583,9 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
     elif query_type == Definitions.sql_server:
         result_lookup = {
             "time": "CAST(simple.order_date AS DATETIME)",
+            "second": "DATEADD(SECOND, DATEDIFF(SECOND, 0, CAST(simple.order_date AS DATETIME)), 0)",
+            "minute": "DATEADD(MINUTE, DATEDIFF(MINUTE, 0, CAST(simple.order_date AS DATETIME)), 0)",
+            "hour": "DATEADD(HOUR, DATEDIFF(HOUR, 0, CAST(simple.order_date AS DATETIME)), 0)",
             "date": "CAST(CAST(simple.order_date AS DATE) AS DATETIME)",
             "week": "DATEADD(DAY, -1, DATEADD(WEEK, DATEDIFF(WEEK, 0, DATEADD(DAY, 1, CAST(simple.order_date AS DATE))), 0))",  # noqa
             "month": "DATEADD(MONTH, DATEDIFF(MONTH, 0, CAST(simple.order_date AS DATE)), 0)",
@@ -571,6 +601,9 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
     elif query_type in {Definitions.postgres, Definitions.druid, Definitions.duck_db}:
         result_lookup = {
             "time": "CAST(simple.order_date AS TIMESTAMP)",
+            "second": "DATE_TRUNC('SECOND', CAST(simple.order_date AS TIMESTAMP))",
+            "minute": "DATE_TRUNC('MINUTE', CAST(simple.order_date AS TIMESTAMP))",
+            "hour": "DATE_TRUNC('HOUR', CAST(simple.order_date AS TIMESTAMP))",
             "date": "DATE_TRUNC('DAY', CAST(simple.order_date AS TIMESTAMP))",
             "week": "DATE_TRUNC('WEEK', CAST(simple.order_date AS TIMESTAMP) + INTERVAL '1' DAY) - INTERVAL '1' DAY",  # noqa
             "month": "DATE_TRUNC('MONTH', CAST(simple.order_date AS TIMESTAMP))",
@@ -598,6 +631,9 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
     else:
         result_lookup = {
             "time": "CAST(simple.order_date AS TIMESTAMP)",
+            "second": "CAST(DATETIME_TRUNC(CAST(simple.order_date AS DATETIME), SECOND) AS TIMESTAMP)",
+            "minute": "CAST(DATETIME_TRUNC(CAST(simple.order_date AS DATETIME), MINUTE) AS TIMESTAMP)",
+            "hour": "CAST(DATETIME_TRUNC(CAST(simple.order_date AS DATETIME), HOUR) AS TIMESTAMP)",
             "date": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), DAY) AS TIMESTAMP)",
             "week": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE) + 1, WEEK) - 1 AS TIMESTAMP)",
             "month": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), MONTH) AS TIMESTAMP)",
