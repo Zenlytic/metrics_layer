@@ -13,6 +13,9 @@ SQL_KEYWORDS = {"order", "group", "by", "as", "from", "select", "on", "with"}
 VALID_TIMEFRAMES = [
     "raw",
     "time",
+    "second",
+    "minute",
+    "hour",
     "date",
     "week",
     "month",
