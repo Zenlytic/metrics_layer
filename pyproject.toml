@@ -32,7 +32,7 @@ networkx = "^2.8.2"
 click = "^8.0"
 colorama = "^0.4.4"
 "ruamel.yaml" = "^0.17.20"
-pendulum = "^2.1.2"
+pendulum = "^3.0.0b1"
 PyYAML = "^6.0"
 metricflow-to-zenlytic = "^0.1.3"
 
