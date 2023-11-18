@@ -1127,7 +1127,7 @@ def test_simple_query_with_where_literal(connections):
     project = Project(models=[simple_model], views=[simple_view])
     conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(
-        metrics=["total_revenue"], dimensions=["simple.channel"], where="simple.channel != 'Email'"
+        metrics=["total_revenue"], dimensions=["simple.channel"], where="${simple.channel} != 'Email'"
     )
 
     correct = (
@@ -1187,7 +1187,7 @@ def test_simple_query_with_having_dict(connections, filter_type):
 def test_simple_query_with_having_literal(connections):
     project = Project(models=[simple_model], views=[simple_view])
     conn = MetricsLayerConnection(project=project, connections=connections)
-    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"], having="total_revenue > 12")
+    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"], having="${total_revenue} > 12")
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "

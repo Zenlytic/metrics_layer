@@ -128,40 +128,13 @@ class MetricsLayerFilter(MetricsLayerBase):
         return f.criterion(group_by_field.sql_query(self.query_type))
 
     def replace_fields_literal_filter(self):
-        tokens = self._parse_sql_literal(self.literal)
         if self.filter_type == "where":
             extra_args = {"field_type": None}
         else:
             extra_args = {"field_type": "measure", "type": "number"}
         view = self.design.get_view(self.design.base_view_name)
-        field = MetricsLayerField({"sql": "".join(tokens), "name": None, **extra_args}, view=view)
+        field = MetricsLayerField({"sql": self.literal, "name": None, **extra_args}, view=view)
         return field.sql_query(self.query_type, functional_pk=self.design.functional_pk())
-
-    def _parse_sql_literal(self, clause: str):
-        generator = list(sqlparse.parse(clause)[0].flatten())
-        tokens, field_names = [], []
-
-        for i, token in enumerate(generator):
-            not_already_added = i == 0 or str(generator[i - 1]) != "."
-
-            if token.ttype == Name and not_already_added:
-                try:
-                    field = self.design.get_field(str(token))
-                    tokens.append("${" + field.view.name + "." + str(token) + "}")
-                except Exception:
-                    field_names.append(str(token))
-                    if (len(generator) - i - 1) >= 2 and generator[i + 2].ttype != Name:
-                        tokens.append(str(token))
-            elif token.ttype == Name and not not_already_added:
-                pass
-            elif token.ttype == Punctuation and str(token) == ".":
-                if generator[i - 1].ttype == Name and generator[i + 1].ttype == Name:
-                    field = self.design.get_field(f"{field_names[-1]}.{str(generator[i+1])}")
-                    tokens.append("${" + field.view.name + "." + str(generator[i + 1]) + "}")
-            elif token.ttype != Error:
-                tokens.append(str(token))
-
-        return tokens
 
     def criterion(self, field_sql: str) -> Criterion:
         """

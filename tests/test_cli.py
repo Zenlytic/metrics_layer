@@ -566,7 +566,7 @@ def test_cli_canon_date_inaccessible(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
     sorted_fields = sorted(fresh_project._views[1]["fields"], key=lambda x: x["name"])
-    sorted_fields[-1]["canon_date"] = "missing_field"
+    sorted_fields[-2]["canon_date"] = "missing_field"
 
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
@@ -609,7 +609,7 @@ def test_cli_looker_parameter(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
     sorted_fields = sorted(fresh_project._views[1]["fields"], key=lambda x: x["name"])
-    sorted_fields[-1]["sql"] = "{% if time_._parameter_value == 'seconds' %}\n ${TABLE}.time_second"
+    sorted_fields[-2]["sql"] = "{% if time_._parameter_value == 'seconds' %}\n ${TABLE}.time_second"
 
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
