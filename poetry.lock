@@ -76,6 +76,7 @@ files = [
 
 [package.dependencies]
 pytz = {version = ">=2015.7", markers = "python_version < \"3.9\""}
+setuptools = {version = "*", markers = "python_version >= \"3.12\""}
 
 [package.extras]
 dev = ["freezegun (>=1.0,<2.0)", "pytest (>=6.0)", "pytest-cov"]
@@ -1638,13 +1639,13 @@ files = [
 
 [[package]]
 name = "metricflow-to-zenlytic"
-version = "0.1.2"
+version = "0.1.3"
 description = "Adapter for Metricflow to Zenlytic"
 optional = false
-python-versions = ">=3.8.1,<3.12"
+python-versions = ">=3.8.1,<3.14"
 files = [
-    {file = "metricflow-to-zenlytic-0.1.2.tar.gz", hash = "sha256:0ae273372cbeebaff8b6a262bb5a12400d3c2e75b6dad7c4390c6cf73779c4de"},
-    {file = "metricflow_to_zenlytic-0.1.2-py3-none-any.whl", hash = "sha256:f49c2a0ace69e2eec4e55301e592b28bd02578363d227dfc2f00e18974de1718"},
+    {file = "metricflow_to_zenlytic-0.1.3-py3-none-any.whl", hash = "sha256:eb214021ece4abe023e666a8f9298179921ab780fdd3b9a89910c6dcdc806e9c"},
+    {file = "metricflow_to_zenlytic-0.1.3.tar.gz", hash = "sha256:81df65dcbc1416f1707f4ebec39594df716cde23f4f9ef7e07a5a66a1afe591f"},
 ]
 
 [package.dependencies]
@@ -3128,5 +3129,5 @@ snowflake = ["dbt-snowflake", "pyarrow", "snowflake-connector-python"]
 
 [metadata]
 lock-version = "2.0"
-python-versions = ">=3.8.1, <3.12"
-content-hash = "bd5a70cfcec4966735d23b54218f1c8559ac1f7174a1fee3d1d783bf616e04d5"
+python-versions = ">=3.8.1, <3.13"
+content-hash = "fbcc9c79c8f8d786174fdf94c64fdb21d3fe2e0a87624bc8ebffac1c66888199"
