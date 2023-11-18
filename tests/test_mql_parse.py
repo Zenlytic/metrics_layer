@@ -5,7 +5,6 @@ from metrics_layer.core.sql.query_errors import ParseError
 
 @pytest.mark.query
 def test_query_no_join_mql(connection):
-
     query = connection.get_sql_query(
         sql="SELECT * FROM MQL(total_item_revenue BY channel)",
     )
@@ -43,7 +42,6 @@ def test_query_no_join_mql_syntax_error(connection):
 
 @pytest.mark.query
 def test_query_single_join_mql(connection):
-
     query = connection.get_sql_query(
         sql="SELECT * FROM MQL(total_item_revenue BY channel, new_vs_repeat) as rev_group",
     )
@@ -61,7 +59,6 @@ def test_query_single_join_mql(connection):
 
 @pytest.mark.query
 def test_query_multiple_join_mql(connection):
-
     query = connection.get_sql_query(
         sql="SELECT * FROM MQL(total_item_revenue BY region, new_vs_repeat) as rev_group",
     )
@@ -81,9 +78,8 @@ def test_query_multiple_join_mql(connection):
 
 @pytest.mark.query
 def test_query_multiple_join_all_mql(connection):
-
     query = connection.get_sql_query(
-        sql="SELECT * FROM MQL(total_item_revenue BY region, new_vs_repeat WHERE region != 'West' AND new_vs_repeat <> 'New' HAVING total_item_revenue > -12 AND total_item_revenue < 122 ORDER BY total_item_revenue ASC, new_vs_repeat) as rev_group",  # noqa
+        sql="SELECT * FROM MQL(total_item_revenue BY region, new_vs_repeat WHERE ${customers.region} != 'West' AND ${orders.new_vs_repeat} <> 'New' HAVING ${total_item_revenue} > -12 AND ${total_item_revenue} < 122 ORDER BY total_item_revenue ASC, new_vs_repeat) as rev_group",  # noqa
     )
 
     correct = (
@@ -104,7 +100,7 @@ def test_query_multiple_join_all_mql(connection):
 @pytest.mark.query
 def test_query_mql_sequence(connection):
     query = connection.get_sql_query(
-        sql="SELECT * FROM MQL(number_of_orders, total_item_revenue FOR orders FUNNEL channel = 'Paid' THEN channel = 'Organic' THEN channel = 'Paid' or region = 'West' WITHIN 3 days WHERE region != 'West') as sequence_group",  # noqa
+        sql="SELECT * FROM MQL(number_of_orders, total_item_revenue FOR orders FUNNEL ${order_lines.channel} = 'Paid' THEN ${order_lines.channel} = 'Organic' THEN ${order_lines.channel} = 'Paid' or ${customers.region} = 'West' WITHIN 3 days WHERE ${customers.region} != 'West') as sequence_group",  # noqa
     )
 
     revenue_calc = (
@@ -117,10 +113,10 @@ def test_query_mql_sequence(connection):
     )
 
     correct = (
-        "SELECT * FROM (WITH base AS (SELECT order_lines.sales_channel as order_lines_channel,"
-        "customers.customer_id as customers_customer_id,order_lines.order_line_id as "
-        "order_lines_order_line_id,orders.id as orders_order_id,orders.order_date as orders_order_raw,"
-        "customers.region as customers_region,orders.id as orders_number_of_orders,order_lines.revenue "
+        "SELECT * FROM (WITH base AS (SELECT customers.customer_id as customers_customer_id,"
+        "customers.region as customers_region,order_lines.sales_channel as order_lines_channel,"
+        "order_lines.order_line_id as order_lines_order_line_id,orders.id as orders_order_id,"
+        "orders.order_date as orders_order_raw,orders.id as orders_number_of_orders,order_lines.revenue "
         "as order_lines_total_item_revenue FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
@@ -150,7 +146,6 @@ def test_query_mql_sequence(connection):
 
 @pytest.mark.query
 def test_query_mql_as_subset(connection):
-
     mql = (
         "SELECT channelinfo.channel, channelinfo.channel_owner, rev_group.total_item_revenue FROM "
         "MQL(total_item_revenue BY channel, new_vs_repeat) as rev_group LEFT JOIN analytics.channeldata "

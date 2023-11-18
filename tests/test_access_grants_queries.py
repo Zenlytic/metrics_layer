@@ -107,3 +107,17 @@ def test_access_filters_array(connection):
         "GROUP BY orders.new_vs_repeat ORDER BY orders_total_revenue DESC;"
     )
     assert correct == query
+
+
+@pytest.mark.query
+def test_access_filters_underscore(connection):
+    connection.project.set_user({"warehouse_location": "New Jersey"})
+
+    query = connection.get_sql_query(metrics=["total_revenue"], dimensions=["new_vs_repeat"])
+
+    correct = (
+        "SELECT orders.new_vs_repeat as orders_new_vs_repeat,SUM(orders.revenue) as orders_total_revenue "
+        "FROM analytics.orders orders WHERE orders.warehouselocation='New Jersey' "
+        "GROUP BY orders.new_vs_repeat ORDER BY orders_total_revenue DESC;"
+    )
+    assert correct == query

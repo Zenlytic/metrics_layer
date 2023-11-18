@@ -6,7 +6,6 @@ from metrics_layer.core.model import Definitions
 
 @pytest.mark.query
 def test_query_no_join_with_limit(connection):
-
     query = connection.get_sql_query(metrics=["total_item_revenue"], dimensions=["channel"], limit=499)
 
     correct = (
@@ -71,7 +70,6 @@ def test_query_no_join_average_distinct(connection):
 
 @pytest.mark.query
 def test_query_single_join(connection):
-
     query = connection.get_sql_query(metrics=["total_item_revenue"], dimensions=["channel", "new_vs_repeat"])
 
     correct = (
@@ -87,7 +85,6 @@ def test_query_single_join(connection):
 
 @pytest.mark.query
 def test_query_single_dimension(connection):
-
     query = connection.get_sql_query(metrics=[], dimensions=["new_vs_repeat"])
 
     correct = (
@@ -207,7 +204,6 @@ def test_ensure_only_join_is_respected(fresh_project):
 
 @pytest.mark.query
 def test_query_single_join_metric_with_sub_field(connection):
-
     query = connection.get_sql_query(
         metrics=["line_item_aov"],
         dimensions=["channel"],
@@ -425,7 +421,6 @@ def test_query_multiple_join_with_duration(connection):
 
 @pytest.mark.query
 def test_query_multiple_join_where_dict(connection):
-
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],
@@ -446,11 +441,10 @@ def test_query_multiple_join_where_dict(connection):
 
 @pytest.mark.query
 def test_query_multiple_join_where_literal(connection):
-
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],
-        where="first_order_week > '2021-07-12'",
+        where="${customers.first_order_week} > '2021-07-12'",
     )
 
     correct = (
@@ -467,7 +461,6 @@ def test_query_multiple_join_where_literal(connection):
 
 @pytest.mark.query
 def test_query_multiple_join_having_dict(connection):
-
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],
@@ -488,11 +481,10 @@ def test_query_multiple_join_having_dict(connection):
 
 @pytest.mark.query
 def test_query_multiple_join_having_literal(connection):
-
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],
-        having="total_item_revenue > -12",
+        having="${total_item_revenue} > -12",
     )
 
     correct = (
@@ -509,7 +501,6 @@ def test_query_multiple_join_having_literal(connection):
 
 @pytest.mark.query
 def test_query_multiple_join_order_by_literal(connection):
-
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],
@@ -529,7 +520,6 @@ def test_query_multiple_join_order_by_literal(connection):
 
 @pytest.mark.query
 def test_query_multiple_join_all(connection):
-
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["region", "new_vs_repeat"],

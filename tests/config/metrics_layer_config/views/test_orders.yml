@@ -28,6 +28,8 @@ identifiers:
 access_filters:
   - field: customers.region
     user_attribute: owned_region
+  - field: orders.warehouse_location
+    user_attribute: warehouse_location
 
 fields:
   - name: order_id
@@ -108,6 +110,11 @@ fields:
     field_type: "dimension"
     type: string
     sql: "${TABLE}.sub_channel"
+
+  - name: warehouse_location
+    field_type: dimension
+    type: string
+    sql: ${TABLE}.warehouselocation
 
   - name: campaign
     field_type: "dimension"
