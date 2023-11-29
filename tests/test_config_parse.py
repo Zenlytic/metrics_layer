@@ -4,12 +4,7 @@ import pytest
 
 from metrics_layer.core.parse.github_repo import BaseRepo
 from metrics_layer.core.query.query import MetricsLayerConnection
-from metrics_layer.core.parse import (
-    dbtProjectReader,
-    MetricsLayerProjectReader,
-    ProjectLoader,
-    MetricflowProjectReader,
-)
+from metrics_layer.core.parse import MetricsLayerProjectReader, ProjectLoader, MetricflowProjectReader
 
 BASE_PATH = os.path.dirname(__file__)
 
@@ -103,57 +98,6 @@ def test_bad_repo_type(monkeypatch):
         reader.load()
 
     assert exc_info.value
-
-
-@pytest.mark.dbt
-def test_config_load_dbt():
-    mock = repo_mock(repo_type="dbt")
-    mock.dbt_path = os.path.join(BASE_PATH, "config/dbt/")
-    reader = dbtProjectReader(repo=mock)
-    models, views, dashboards = reader.load()
-
-    model = models[0]
-
-    assert model["type"] == "model"
-    assert isinstance(model["name"], str)
-    assert model["connection"] == "test_dbt_project"
-
-    view = next(v for v in views if v["name"] == "order_lines")
-
-    assert view["type"] == "view"
-    assert isinstance(view["name"], str)
-    assert isinstance(view["identifiers"], list)
-    assert view["sql_table_name"] == "ref('order_LINES')"
-    assert view["default_date"] == "order_date"
-    assert view["row_label"] == "Order line"
-    assert isinstance(view["fields"], list)
-
-    total_revenue_measure = next((f for f in view["fields"] if f["name"] == "new_customer_revenue"))
-    duration = next((f for f in view["fields"] if f["name"] == "between_first_order_and_now"))
-    nested_metric = next((f for f in view["fields"] if f["name"] == "test_nested_names"))
-    date_filter_metric = next((f for f in view["fields"] if f["name"] == "new_customer_date_filter"))
-
-    assert duration["type"] == "duration"
-    assert "sql" not in duration
-    assert "sql_start" in duration and "sql_end" in duration
-    assert nested_metric["sql"] == "${total_revenue} / ${total_rev}"
-    assert total_revenue_measure["name"] == "new_customer_revenue"
-    assert total_revenue_measure["field_type"] == "measure"
-    assert total_revenue_measure["type"] == "sum"
-    assert total_revenue_measure["label"] == "New customer revenue"
-    assert total_revenue_measure["description"] == "Total revenue from new customers"
-    correct_sql = "case when ${new_vs_repeat} = 'New' then product_revenue else null end"
-    assert total_revenue_measure["sql"] == correct_sql
-    assert total_revenue_measure["team"] == "Finance"
-
-    correct_sql = "case when ${order_date_date} >= '2023-08-02' then product_revenue else null end"
-    assert date_filter_metric["sql"] == correct_sql
-
-    dash = dashboards[0]
-
-    assert dash["type"] == "dashboard"
-    assert dash["name"] == "sales_dashboard"
-    assert dash["elements"][0]["title"] == "First element"
 
 
 @pytest.mark.dbt

@@ -4,21 +4,8 @@ import os
 import ruamel.yaml
 import yaml
 
-try:
-    from dbt.cli.main import dbtRunner
-except ImportError:
-
-    class dbtRunner:
-        def __init__(self) -> None:
-            pass
-
-        def invoke(self, args) -> None:
-            cli_args = " ".join(args)
-            os.system(f"dbt {cli_args}")
-
 
 from metrics_layer.core.exceptions import QueryError
-
 from .github_repo import BaseRepo
 
 
@@ -70,63 +57,6 @@ class ProjectReaderBase:
     @property
     def dbt_folder(self):
         return self.repo.dbt_path if self.repo.dbt_path else self.repo.folder
-
-    def search_dbt_project(self, pattern: str):
-        return BaseRepo.glob_search(self.dbt_folder, pattern)
-
-    def generate_manifest_json(self, project_dir: str, profiles_dir: str):
-        dumped_profiles_file = False
-        if profiles_dir is None:
-            profiles_dir = project_dir
-            if not os.path.exists(os.path.join(profiles_dir, "profiles.yml")):
-                self._dump_profiles_file(profiles_dir, self.dbt_project["profile"])
-                dumped_profiles_file = True
-
-        self._run_dbt("deps", project_dir=project_dir, profiles_dir=profiles_dir)
-        self._run_dbt("ls", project_dir=project_dir, profiles_dir=profiles_dir)
-
-        if dumped_profiles_file:
-            self._clean_up_profiles_file(profiles_dir)
-
-    def load_manifest_json(self):
-        manifest_path = os.path.join(self.dbt_folder, "target/manifest.json")
-        if not os.path.exists(manifest_path):
-            raise QueryError("could not find a manifest.json file for your dbt project")
-
-        with open(manifest_path, "r") as f:
-            manifest = json.load(f)
-        return manifest
-
-    def _dump_profiles_file(self, project_dir: str, project_name: str):
-        # It doesn't matter the warehouse type here because we're just compiling the models
-        params = {
-            "type": "snowflake",
-            "account": "fake-url.us-east-1",
-            "user": "fake",
-            "password": "fake",
-            "warehouse": "fake",
-            "database": "fake",
-            "schema": "fake",
-        }
-
-        profiles = {
-            project_name: {"target": "temp", "outputs": {"temp": {**params}}},
-            "config": {"send_anonymous_usage_stats": False},
-        }
-        self.dump_yaml_file(profiles, os.path.join(project_dir, "profiles.yml"))
-
-    def _clean_up_profiles_file(self, project_dir: str):
-        profiles_path = os.path.join(project_dir, "profiles.yml")
-        if os.path.exists(profiles_path):
-            os.remove(profiles_path)
-
-    @staticmethod
-    def _run_dbt(cmd: str, project_dir: str, profiles_dir: str):
-        # create CLI args as a list of strings
-        cli_args = ["--no-version-check", cmd, "--project-dir", project_dir, "--profiles-dir", profiles_dir]
-
-        dbt = dbtRunner()
-        dbt.invoke(cli_args)
 
     @staticmethod
     def read_yaml_if_exists(file_path: str):

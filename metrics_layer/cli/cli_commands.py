@@ -2,7 +2,7 @@ import sys
 
 import click
 
-from .seeding import SeedMetricsLayer, dbtSeed
+from .seeding import SeedMetricsLayer
 
 
 def echo(text: str, color: str = None, bold: bool = True):
@@ -43,10 +43,7 @@ def seed(profile, target, connection, database, schema, table):
     SeedMetricsLayer._init_directories()
     if profile is None:
         profile = SeedMetricsLayer.get_profile()
-    if SeedMetricsLayer._in_dbt_project():
-        seeder = dbtSeed(connection, database, schema, table, profile, target)
-    else:
-        seeder = SeedMetricsLayer(connection, database, schema, table, profile, target)
+    seeder = SeedMetricsLayer(connection, database, schema, table, profile, target)
     seeder.seed()
 
 
