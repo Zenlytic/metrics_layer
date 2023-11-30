@@ -63,6 +63,7 @@ simple_view = {
                 "quarter",
                 "year",
                 "month_of_year",
+                "month_name",
                 "day_of_week",
                 "day_of_month",
                 "hour_of_day",
@@ -472,6 +473,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("quarter", Definitions.snowflake),
         ("year", Definitions.snowflake),
         ("month_of_year", Definitions.snowflake),
+        ("month_name", Definitions.snowflake),
         ("hour_of_day", Definitions.snowflake),
         ("day_of_week", Definitions.snowflake),
         ("day_of_month", Definitions.snowflake),
@@ -574,6 +576,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "quarter": "DATE_TRUNC('QUARTER', simple.order_date)",
             "year": "DATE_TRUNC('YEAR', simple.order_date)",
             "month_of_year": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'MON')",
+            "month_name": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'MON')",
             "hour_of_day": "HOUR(CAST(simple.order_date AS TIMESTAMP))",
             "day_of_week": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Dy')",
             "day_of_month": "EXTRACT(DAY FROM simple.order_date)",
@@ -1187,7 +1190,9 @@ def test_simple_query_with_having_dict(connections, filter_type):
 def test_simple_query_with_having_literal(connections):
     project = Project(models=[simple_model], views=[simple_view])
     conn = MetricsLayerConnection(project=project, connections=connections)
-    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["channel"], having="${total_revenue} > 12")
+    query = conn.get_sql_query(
+        metrics=["total_revenue"], dimensions=["channel"], having="${total_revenue} > 12"
+    )
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "

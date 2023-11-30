@@ -702,6 +702,10 @@ class Field(MetricsLayerBase, SQLReplacement):
         # Snowflake and duck db have identical syntax in this case
         meta_lookup[Definitions.duck_db] = meta_lookup[Definitions.postgres]
 
+        # We alias month_name as the same thing as month_of_year to aid with looker migration
+        for _, lookup in meta_lookup.items():
+            lookup["month_name"] = lookup["month_of_year"]
+
         if self.view.project.timezone and self.convert_timezone:
             sql = self._apply_timezone_to_sql(sql, self.view.project.timezone, query_type)
         return meta_lookup[query_type][self.dimension_group](sql, query_type)
