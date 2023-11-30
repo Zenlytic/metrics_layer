@@ -46,6 +46,7 @@ fields:
   - name: order
     field_type: "dimension_group"
     type: time
+    datatype: date
     timeframes: [
       raw,
       time,
