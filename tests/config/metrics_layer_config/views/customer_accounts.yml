@@ -60,6 +60,6 @@ fields:
 
   - name: number_of_account_customer_connections
     field_type: measure
-    canon_date: created
+    canon_date: ${created}
     type: count
     sql: ${unique_key}

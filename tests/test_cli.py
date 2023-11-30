@@ -600,7 +600,7 @@ def test_cli_dimension_group_timeframes(connection, fresh_project, mocker):
     assert result.exit_code == 0
     assert result.output == (
         "Found 1 error in the project:\n\n"
-        "\nField order is of type time and has timeframe value of 'timestamp' which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second', 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'month_of_year', 'hour_of_day', 'day_of_week', 'day_of_month'])\n\n"  # noqa
+        "\nField order is of type time and has timeframe value of 'timestamp' which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second', 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'week_index', 'month_of_year', 'month_of_year_index', 'month_name', 'month_index', 'hour_of_day', 'day_of_week', 'day_of_month'])\n\n"  # noqa
     )
 
 
