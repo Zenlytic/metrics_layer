@@ -779,6 +779,11 @@ class Field(MetricsLayerBase, SQLReplacement):
             )
         if self.type == "time":
             timeframes = self._definition.get("timeframes", [])
+            if not timeframes:
+                errors.append(
+                    f"Field {self.name} is of type time and but does not have values for the timeframe property"
+                    f"Add valid timeframes (options: {VALID_TIMEFRAMES})"
+                )
             for i in timeframes:
                 if i not in VALID_TIMEFRAMES:
                     errors.append(
