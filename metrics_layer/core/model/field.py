@@ -162,7 +162,7 @@ class Field(MetricsLayerBase, SQLReplacement):
     @property
     def canon_date(self):
         if "canon_date" in self._definition:
-            canon_date = self._definition["canon_date"]
+            canon_date = self._definition["canon_date"].replace("${", "").replace("}", "")
             return self._add_view_name_if_needed(canon_date)
         if self.view.default_date:
             return self._add_view_name_if_needed(self.view.default_date)
