@@ -1,5 +1,6 @@
 import os
 import re
+import pandas as pd
 from metrics_layer.core.model.definitions import Definitions
 
 
@@ -150,15 +151,25 @@ class SeedMetricsLayer:
         columns_query = self.columns_query()
         data = self.run_query(columns_query)
         data.columns = [c.upper() for c in data.columns]
+
+        if self.connection.type == Definitions.snowflake:
+            table_query = self.table_query()
+            table_data = self.run_query(table_query)
+            table_data.columns = [c.upper() for c in table_data.columns]
+        else:
+            table_data = pd.DataFrame()
         print(f"Got information on all tables and views in {self.location_description}")
 
         # We need to filter down the whole result to just the chosen schema and table (if applicable)
         if self.schema:
             data = data[data["TABLE_SCHEMA"].str.lower() == self.schema.lower()].copy()
+            if not table_data.empty:
+                table_data = table_data[table_data["TABLE_SCHEMA"].str.lower() == self.schema.lower()].copy()
 
         if self.table:
             data = data[data["TABLE_NAME"].str.lower() == self.table.lower()].copy()
-
+            if not table_data.empty:
+                table_data = table_data[table_data["TABLE_NAME"].str.lower() == self.table.lower()].copy()
         folder = self._location()
         loader = ProjectLoader(folder)
         project = loader.load()
@@ -170,9 +181,14 @@ class SeedMetricsLayer:
         views, tables = [], data["TABLE_NAME"].unique()
         for i, table_name in enumerate(tables):
             column_df = data[data["TABLE_NAME"].str.lower() == table_name.lower()].copy()
+            if not table_data.empty:
+                table_comment = table_data[table_data["TABLE_NAME"].str.lower() == table_name.lower()][
+                    "COMMENT"
+                ].values[0]
+            else:
+                table_comment = None
             schema_name = column_df["TABLE_SCHEMA"].values[0]
-            view = self.make_view(column_df, model_name, table_name, schema_name)
-
+            view = self.make_view(column_df, model_name, table_name, schema_name, table_comment)
             if self.table:
                 progress = ""
             else:
@@ -218,7 +234,9 @@ class SeedMetricsLayer:
         }
         return [model]
 
-    def make_view(self, column_data, model_name: str, table_name: str, schema_name: str):
+    def make_view(
+        self, column_data, model_name: str, table_name: str, schema_name: str, table_comment: str = None
+    ):
         view_name = self.clean_name(table_name)
         fields = self.make_fields(column_data)
         if self.connection.type in {
@@ -246,13 +264,19 @@ class SeedMetricsLayer:
             "default_date": next((f["name"] for f in fields if f["field_type"] == "dimension_group"), None),
             "fields": fields,
         }
+        if table_comment:
+            view["description"] = table_comment
         if view["default_date"] is None:
             view.pop("default_date")
         return view
 
     def make_fields(self, column_data: str):
         fields = []
-        for _, row in column_data[["COLUMN_NAME", "DATA_TYPE"]].iterrows():
+        if self.connection.type == Definitions.snowflake:
+            data_to_iterate = column_data[["COLUMN_NAME", "DATA_TYPE", "COMMENT"]]
+        else:
+            data_to_iterate = column_data[["COLUMN_NAME", "DATA_TYPE"]]
+        for _, row in data_to_iterate.iterrows():
             name = self.clean_name(row["COLUMN_NAME"])
             if self.connection.type == Definitions.snowflake:
                 metrics_layer_type = self._snowflake_type_lookup.get(row["DATA_TYPE"], "string")
@@ -272,6 +296,9 @@ class SeedMetricsLayer:
 
             field = {"name": name, "sql": sql}
 
+            if "COMMENT" in row and row["COMMENT"] is not None:
+                field["description"] = row["COMMENT"]
+
             if metrics_layer_type in {"timestamp", "date", "datetime"}:
                 field["field_type"] = "dimension_group"
                 field["type"] = "time"
@@ -284,7 +311,10 @@ class SeedMetricsLayer:
         return fields
 
     def columns_query(self):
-        query = "SELECT table_catalog, table_schema, table_name, column_name, data_type FROM "
+        comment_statement = ", comment as comment" if self.connection.type == Definitions.snowflake else ""
+        query = (
+            f"SELECT table_catalog, table_schema, table_name, column_name, data_type{comment_statement} FROM "
+        )
         if self.database and self.connection.type in {
             Definitions.snowflake,
             Definitions.redshift,
@@ -314,7 +344,7 @@ class SeedMetricsLayer:
                 "SELECT table_catalog as table_database, table_schema as table_schema, "
                 "table_name as table_name, table_owner as table_owner, table_type as table_type, "
                 "bytes as table_size, created as table_created, last_altered as table_last_modified, "
-                f"row_count as table_row_count FROM {self.database}.INFORMATION_SCHEMA.TABLES"
+                f"row_count as table_row_count, comment as comment FROM {self.database}.INFORMATION_SCHEMA.TABLES"
             )
         elif self.connection.type in {Definitions.druid}:
             query = (
