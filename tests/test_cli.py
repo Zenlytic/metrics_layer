@@ -1,6 +1,6 @@
 import os
 from copy import copy
-
+import pandas as pd
 import pytest
 from click.testing import CliRunner
 
@@ -70,8 +70,15 @@ def test_cli_seed_metrics_layer(
 
     def query_runner_mock(slf, query):
         print(query)
-        if query_type == Definitions.snowflake:
+        if query_type == Definitions.snowflake and ".COLUMNS" in query:
             return seed_snowflake_tables_data
+        elif query_type == Definitions.snowflake and ".TABLES" in query:
+            return pd.DataFrame(
+                [
+                    {"TABLE_SCHEMA": "ANALYTICS", "TABLE_NAME": "ORDERS", "COMMENT": "orders table, bro"},
+                    {"TABLE_SCHEMA": "ANALYTICS", "TABLE_NAME": "SESSIONS", "COMMENT": None},
+                ]
+            )
         elif query_type == Definitions.redshift:
             return seed_redshift_tables_data
         elif query_type == Definitions.postgres:

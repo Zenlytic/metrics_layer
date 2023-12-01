@@ -16,7 +16,7 @@ def test_seeding_table_query(connection, db_conn):
             "SELECT table_catalog as table_database, table_schema as table_schema, "
             "table_name as table_name, table_owner as table_owner, table_type as table_type, "
             "bytes as table_size, created as table_created, last_altered as table_last_modified, "
-            "row_count as table_row_count FROM test.INFORMATION_SCHEMA.TABLES;"
+            "row_count as table_row_count, comment as comment FROM test.INFORMATION_SCHEMA.TABLES;"
         )
     else:
         correct = (
