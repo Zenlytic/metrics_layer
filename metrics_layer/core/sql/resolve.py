@@ -342,8 +342,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         seen = set()
         cleaned_filters = []
         for f in filters:
-
-            hashable_filter = tuple(f.items())
+            hashable_filter = tuple((k, v if not isinstance(v, list) else tuple(v)) for k, v in f.items())
             if hashable_filter not in seen:
                 seen.add(hashable_filter)
                 cleaned_filters.append(f)

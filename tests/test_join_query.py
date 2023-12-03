@@ -786,6 +786,7 @@ def test_always_filter_with_and_without_join(connection):
         "LEFT JOIN analytics.customers customers "
         "ON created_workspace.customer_id=customers.customer_id "
         "WHERE NOT customers.is_churned AND NOT created_workspace.context_os IS NULL "
+        "AND created_workspace.context_os IN ('1','Google','os:iOS') "
         "GROUP BY DATE_TRUNC('DAY', created_workspace.session_date) "
         "ORDER BY created_workspace_number_of_workspace_creations DESC;"
     )
