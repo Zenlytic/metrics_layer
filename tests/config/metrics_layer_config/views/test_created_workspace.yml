@@ -17,6 +17,8 @@ always_filter:
   value: FALSE
 - field: context_os
   value: -NULL
+- field: context_os
+  value: 1, Google, os:iOS
 
 fields:
   - name: session_id
