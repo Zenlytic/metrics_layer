@@ -308,7 +308,7 @@ class Field(MetricsLayerBase, SQLReplacement):
     ):
         if query_type in {Definitions.druid, Definitions.sql_server}:
             raise QueryError(
-                "Symmetric aggregates are not supported in Druid. "
+                f"Symmetric aggregates are not supported in {query_type}. "
                 "Use the 'sum' type instead of 'sum_distinct'."
             )
         elif query_type in {Definitions.snowflake, Definitions.redshift}:
@@ -402,7 +402,7 @@ class Field(MetricsLayerBase, SQLReplacement):
     ):
         if query_type in {Definitions.druid, Definitions.sql_server}:
             raise QueryError(
-                "Symmetric aggregates are not supported in Druid. "
+                f"Symmetric aggregates are not supported in {query_type}. "
                 "Use the 'average' type instead of 'average_distinct'."
             )
         sql_distinct_key = self._get_sql_distinct_key(self.sql_distinct_key, query_type, alias_only)
