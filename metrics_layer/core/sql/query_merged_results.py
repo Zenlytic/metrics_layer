@@ -4,6 +4,7 @@ from pypika import AliasedQuery, Criterion
 from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
 from metrics_layer.core.model.filter import LiteralValueCriterion
 from metrics_layer.core.sql.query_dialect import query_lookup, if_null_lookup
+from metrics_layer.core.model.definitions import Definitions
 
 
 class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
@@ -56,7 +57,14 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
             second_field = self.query_dimensions[second_query_alias][i]
             first_alias_and_id = f"{first_query_alias}.{first_field.alias(with_view=True)}"
             second_alias_and_id = f"{second_query_alias}.{second_field.alias(with_view=True)}"
-            join_criteria.append(f"{first_alias_and_id}={second_alias_and_id}")
+            # We need to add casting for differing datatypes on dimension groups for BigQuery
+            if Definitions.bigquery == self.query_type and first_field.datatype != second_field.datatype:
+                join_logic = (
+                    f"CAST({first_alias_and_id} AS TIMESTAMP)=CAST({second_alias_and_id} AS TIMESTAMP)"
+                )
+            else:
+                join_logic = f"{first_alias_and_id}={second_alias_and_id}"
+            join_criteria.append(join_logic)
 
         return LiteralValueCriterion(" and ".join(join_criteria))
 

@@ -1,6 +1,6 @@
 import os
 from copy import copy
-
+import pandas as pd
 import pytest
 from click.testing import CliRunner
 
@@ -70,8 +70,15 @@ def test_cli_seed_metrics_layer(
 
     def query_runner_mock(slf, query):
         print(query)
-        if query_type == Definitions.snowflake:
+        if query_type == Definitions.snowflake and ".COLUMNS" in query:
             return seed_snowflake_tables_data
+        elif query_type == Definitions.snowflake and ".TABLES" in query:
+            return pd.DataFrame(
+                [
+                    {"TABLE_SCHEMA": "ANALYTICS", "TABLE_NAME": "ORDERS", "COMMENT": "orders table, bro"},
+                    {"TABLE_SCHEMA": "ANALYTICS", "TABLE_NAME": "SESSIONS", "COMMENT": None},
+                ]
+            )
         elif query_type == Definitions.redshift:
             return seed_redshift_tables_data
         elif query_type == Definitions.postgres:
@@ -600,7 +607,7 @@ def test_cli_dimension_group_timeframes(connection, fresh_project, mocker):
     assert result.exit_code == 0
     assert result.output == (
         "Found 1 error in the project:\n\n"
-        "\nField order is of type time and has timeframe value of 'timestamp' which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second', 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'month_of_year', 'hour_of_day', 'day_of_week', 'day_of_month'])\n\n"  # noqa
+        "\nField order is of type time and has timeframe value of 'timestamp' which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second', 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'week_index', 'month_of_year', 'month_of_year_index', 'month_name', 'month_index', 'hour_of_day', 'day_of_week', 'day_of_month'])\n\n"  # noqa
     )
 
 

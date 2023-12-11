@@ -33,6 +33,8 @@ class ProjectDumper(ProjectReaderBase):
             "version",
             "type",
             "name",
+            "label",
+            "description",
             "model_name",
             "sql_table_name",
             "default_date",

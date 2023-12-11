@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "metrics_layer"
-version = "0.10.50"
+version = "0.10.53"
 description = "The open source metrics layer."
 authors = ["Paul Blankley <paul@zenlytic.com>"]
 keywords = ["Metrics Layer", "Business Intelligence", "Analytics"]
