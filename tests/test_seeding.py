@@ -1,6 +1,6 @@
 import pytest
 
-from metrics_layer.cli.seeding import SeedMetricsLayer, dbtSeed
+from metrics_layer.cli.seeding import SeedMetricsLayer
 
 
 @pytest.mark.seeding
@@ -9,8 +9,6 @@ def test_seeding_table_query(connection, db_conn):
     seeder = SeedMetricsLayer(database="test", metrics_layer=connection, connection=db_conn)
     table_query = seeder.table_query()
 
-    seeder = dbtSeed(database="test", metrics_layer=connection, connection=db_conn)
-    dbt_table_query = seeder.table_query()
     if db_conn == "testing_snowflake":
         correct = (
             "SELECT table_catalog as table_database, table_schema as table_schema, "
@@ -26,4 +24,3 @@ def test_seeding_table_query(connection, db_conn):
         )
 
     assert table_query == correct
-    assert dbt_table_query == correct

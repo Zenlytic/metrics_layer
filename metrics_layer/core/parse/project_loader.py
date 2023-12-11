@@ -6,7 +6,6 @@ from metrics_layer.core.parse.connections import connection_class_lookup, BaseCo
 from .github_repo import GithubRepo, LocalRepo
 from .manifest import Manifest
 from .project_reader_base import ProjectReaderBase
-from .project_reader_dbt import dbtProjectReader
 from .project_reader_metricflow import MetricflowProjectReader
 from .project_reader_metrics_layer import MetricsLayerProjectReader
 
@@ -45,16 +44,12 @@ class ProjectLoader:
     def _load_project(self, private_key):
         self.repo.fetch(private_key=private_key)
         repo_type = self.repo.get_repo_type()
-        if repo_type == "dbt":
-            reader = dbtProjectReader(repo=self.repo)
-        elif repo_type == "metricflow":
+        if repo_type == "metricflow":
             reader = MetricflowProjectReader(repo=self.repo)
         elif repo_type == "metrics_layer":
             reader = MetricsLayerProjectReader(self.repo)
         else:
-            raise TypeError(
-                f"Unknown repo type: {repo_type}, valid types are 'metrics_layer', 'metricflow', 'dbt'"
-            )
+            raise TypeError(f"Unknown repo type: {repo_type}, valid types are 'metrics_layer', 'metricflow'")
 
         models, views, dashboards = reader.load()
 
@@ -126,7 +121,7 @@ class ProjectLoader:
     def get_connections_from_profile(profile_name: str, target: str = None):
         profile_path = ProjectLoader.profiles_path()
         profiles_directory = os.path.dirname(profile_path)
-        profiles_dict = dbtProjectReader.read_yaml_if_exists(profile_path)
+        profiles_dict = MetricsLayerProjectReader.read_yaml_if_exists(profile_path)
         if profiles_dict is None:
             raise ConfigError(f"Could not find dbt profiles.yml at {profile_path}")
 

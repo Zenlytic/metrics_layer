@@ -16,7 +16,7 @@ Sound interesting? Here's how to set Metrics Layer up with your data model and s
 
 ## Installation
 
-Make sure that your data warehouse is one of the supported types. Metrics Layer currently supports Snowflake, BigQuery, Postgres, Druid (only SQL compilation, not running the query), Duck DB (only SQL compilation, not running the query), and Redshift, and only works with `python >= 3.8` up to `python < 3.11`.
+Make sure that your data warehouse is one of the supported types. Metrics Layer currently supports Snowflake, BigQuery, Postgres, Druid (only SQL compilation, not running the query), DuckDB (only SQL compilation, not running the query), SQL Server (only SQL compilation, not running the query), and Redshift, and only works with `python >= 3.8` up to `python < 3.11`.
 
 Install Metrics Layer with the appropriate extra for your warehouse
 
