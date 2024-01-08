@@ -56,7 +56,6 @@ class SeedMetricsLayer:
             "CHAR": "string",
             "CHARACTER": "string",
             "STRING": "string",
-            "TEXT": "string",
             "BINARY": "string",
             "VARBINARY": "string",
         }
@@ -106,7 +105,6 @@ class SeedMetricsLayer:
             "double precision": "number",
             "numeric": "number",
             "float": "number",
-            "real": "number",
             "money": "number",
         }
         self._sql_server_type_lookup = {
@@ -235,10 +233,21 @@ class SeedMetricsLayer:
         return [model]
 
     def make_view(
-        self, column_data, model_name: str, table_name: str, schema_name: str, table_comment: str = None
+        self,
+        column_data,
+        model_name: str,
+        table_name: str,
+        schema_name: str,
+        table_comment: str = None,
+        auto_tag_searchable_fields: bool = True,
     ):
         view_name = self.clean_name(table_name)
-        fields = self.make_fields(column_data)
+        fields = self.make_fields(
+            column_data,
+            schema_name=schema_name,
+            table_name=table_name,
+            auto_tag_searchable_fields=auto_tag_searchable_fields,
+        )
         if self.connection.type in {
             Definitions.snowflake,
             Definitions.redshift,
@@ -270,7 +279,13 @@ class SeedMetricsLayer:
             view.pop("default_date")
         return view
 
-    def make_fields(self, column_data: str):
+    def make_fields(self, column_data, schema_name: str, table_name: str, auto_tag_searchable_fields: bool):
+        if auto_tag_searchable_fields:
+            if schema_name is None:
+                raise ValueError("schema_name is required to auto tag searchable fields")
+            if table_name is None:
+                raise ValueError("table_name is required to auto tag searchable fields")
+
         fields = []
         if self.connection.type == Definitions.snowflake:
             data_to_iterate = column_data[["COLUMN_NAME", "DATA_TYPE", "COMMENT"]]
@@ -304,11 +319,37 @@ class SeedMetricsLayer:
                 field["type"] = "time"
                 field["timeframes"] = ["raw", "date", "week", "month", "quarter", "year"]
                 field["datatype"] = metrics_layer_type
+            elif metrics_layer_type == "string" and auto_tag_searchable_fields:
+                field["field_type"] = "dimension"
+                field["type"] = "string"
+                column_cardinality_query = self.column_cardinality_query(
+                    column_name=row["COLUMN_NAME"], schema_name=schema_name, table_name=table_name
+                )
+                cardinality = self.run_query(query=column_cardinality_query)
+                cardinality = cardinality["CARDINALITY"].values[0]
+                if cardinality < 100:
+                    field["tags"] = ["searchable"]
             else:
                 field["field_type"] = "dimension"
                 field["type"] = metrics_layer_type
             fields.append(field)
         return fields
+
+    def column_cardinality_query(self, column_name: str, schema_name: str, table_name: str) -> str:
+        if self.connection.type in (Definitions.snowflake, Definitions.duck_db, Definitions.druid):
+            query = f"SELECT '{column_name}' as COLUMN_NAME, APPROX_COUNT_DISTINCT( {column_name} ) as cardinality FROM "  # noqa: E501
+        elif self.connection.type == Definitions.redshift:
+            query = f"SELECT '{column_name}' as COLUMN_NAME, APPROXIMATE COUNT(DISTINCT {column_name} ) as cardinality FROM "  # noqa: E501
+        elif self.connection.type == Definitions.postgres:
+            query = (
+                f"SELECT '{column_name}' as COLUMN_NAME, COUNT(DISTINCT {column_name} ) as cardinality FROM "
+            )
+        elif self.connection.type == Definitions.sql_server:
+            query = f"SELECT '{column_name}' as COLUMN_NAME, APPROX_COUNT_DISTINCT( {column_name} ) as cardinality FROM "  # noqa: E501
+        else:
+            raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
+        query += f"{self.database}.{schema_name}.{table_name}"
+        return query + ";" if self.connection.type != Definitions.druid else query
 
     def columns_query(self):
         comment_statement = ", comment as comment" if self.connection.type == Definitions.snowflake else ""
