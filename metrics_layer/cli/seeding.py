@@ -139,7 +139,7 @@ class SeedMetricsLayer:
             "STRING": "string",
         }
 
-    def seed(self):
+    def seed(self, auto_tag_searchable_fields: bool = False):
         from metrics_layer.core.parse import ProjectDumper, ProjectLoader
 
         if self.connection.type not in Definitions.supported_warehouses:
@@ -186,7 +186,14 @@ class SeedMetricsLayer:
             else:
                 table_comment = None
             schema_name = column_df["TABLE_SCHEMA"].values[0]
-            view = self.make_view(column_df, model_name, table_name, schema_name, table_comment)
+            view = self.make_view(
+                column_df,
+                model_name,
+                table_name,
+                schema_name,
+                table_comment,
+                auto_tag_searchable_fields=auto_tag_searchable_fields,
+            )
             if self.table:
                 progress = ""
             else:
@@ -327,8 +334,8 @@ class SeedMetricsLayer:
                 )
                 cardinality = self.run_query(query=column_cardinality_query)
                 cardinality = cardinality["CARDINALITY"].values[0]
-                if cardinality < 100:
-                    field["tags"] = ["searchable"]
+                if cardinality <= 100:
+                    field["searchable"] = True
             else:
                 field["field_type"] = "dimension"
                 field["type"] = metrics_layer_type
