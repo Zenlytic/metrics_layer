@@ -101,6 +101,19 @@ def test_bad_repo_type(monkeypatch):
 
 
 @pytest.mark.dbt
+def test_config_load_dbt(monkeypatch):
+    mock = repo_mock(repo_type="dbt")
+    mock.dbt_path = os.path.join(BASE_PATH, "config/dbt/")
+    monkeypatch.setattr(ProjectLoader, "_get_repo", lambda *args: mock)
+
+    reader = ProjectLoader(location=None)
+    with pytest.raises(TypeError) as exc_info:
+        reader.load()
+
+    assert exc_info.value
+
+
+@pytest.mark.dbt
 def test_config_load_metricflow():
     mock = repo_mock(repo_type="metricflow")
     mock.dbt_path = os.path.join(BASE_PATH, "config/metricflow/")
