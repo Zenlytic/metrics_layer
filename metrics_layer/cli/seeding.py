@@ -361,18 +361,19 @@ class SeedMetricsLayer:
         for column_name in column_names:
             if self.connection.type in (Definitions.snowflake, Definitions.duck_db, Definitions.druid):
                 query = (
-                    f"APPROX_COUNT_DISTINCT( {column_name} ) as {column_name}_cardinality FROM "  # noqa: E501
+                    f'APPROX_COUNT_DISTINCT( "{column_name}" ) as "{column_name}_cardinality"'  # noqa: E501
                 )
             elif self.connection.type == Definitions.redshift:
-                query = f"APPROXIMATE COUNT(DISTINCT {column_name} ) as {column_name}_cardinality FROM "  # noqa: E501
+                query = f'APPROXIMATE COUNT(DISTINCT "{column_name}" ) as "{column_name}_cardinality"'  # noqa: E501
             elif self.connection.type == Definitions.postgres:
-                query = f"COUNT(DISTINCT {column_name} ) as {column_name}_cardinality FROM "  # noqa: E501
+                query = f'COUNT(DISTINCT "{column_name}" ) as "{column_name}_cardinality"'  # noqa: E501
             elif self.connection.type == Definitions.sql_server:
                 query = (
-                    f"APPROX_COUNT_DISTINCT( {column_name} ) as {column_name}_cardinality FROM "  # noqa: E501
+                    f'APPROX_COUNT_DISTINCT( "{column_name}" ) as "{column_name}_cardinality"'  # noqa: E501
                 )
             else:
                 raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
+            cardinality_queries.append(query)
 
         query = f"SELECT {', '.join(cardinality_queries)} FROM {self.database}.{schema_name}.{table_name}"
 
