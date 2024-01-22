@@ -371,11 +371,25 @@ class SeedMetricsLayer:
                 query = (
                     f'APPROX_COUNT_DISTINCT( "{column_name}" ) as "{column_name}_cardinality"'  # noqa: E501
                 )
+            elif self.connection.type == Definitions.bigquery:
+                query = f"COUNT(DISTINCT `{column_name}` ) as `{column_name}_cardinality`"
             else:
                 raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
             cardinality_queries.append(query)
 
-        query = f"SELECT {', '.join(cardinality_queries)} FROM {self.database}.{schema_name}.{table_name}"
+        query = f"SELECT {', '.join(cardinality_queries)}"
+
+        if self.connection.type in {
+            Definitions.snowflake,
+            Definitions.duck_db,
+            Definitions.druid,
+            Definitions.redshift,
+            Definitions.postgres,
+            Definitions.sql_server,
+        }:
+            query += f" FROM {self.database}.{schema_name}.{table_name}"
+        elif self.connection.type == Definitions.bigquery:
+            query += f" FROM `{self.database}.{schema_name}`.{table_name}"
 
         return query + ";" if self.connection.type != Definitions.druid else query
 
