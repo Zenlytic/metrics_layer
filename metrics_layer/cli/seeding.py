@@ -389,7 +389,7 @@ class SeedMetricsLayer:
         }:
             query += f" FROM {self.database}.{schema_name}.{table_name}"
         elif self.connection.type == Definitions.bigquery:
-            query += f" FROM `{self.database}.{schema_name}`.{table_name}"
+            query += f" FROM `{self.database}`.`{schema_name}`.`{table_name}`"
 
         return query + ";" if self.connection.type != Definitions.druid else query
 
