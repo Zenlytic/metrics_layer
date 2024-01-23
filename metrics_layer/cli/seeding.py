@@ -372,7 +372,7 @@ class SeedMetricsLayer:
                     f'APPROX_COUNT_DISTINCT( "{column_name}" ) as "{column_name}_cardinality"'  # noqa: E501
                 )
             elif self.connection.type == Definitions.bigquery:
-                query = f"COUNT(DISTINCT `{column_name}` ) as `{column_name}_cardinality`"
+                query = f"APPROX_COUNT_DISTINCT( `{column_name}` ) as `{column_name}_cardinality`"
             else:
                 raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
             cardinality_queries.append(query)
