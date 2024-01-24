@@ -7,6 +7,7 @@ from metrics_layer.core.exceptions import QueryError, AccessDeniedOrDoesNotExist
 
 class AccessGrant(MetricsLayerBase):
     def __init__(self, definition: dict = {}) -> None:
+
         self.validate(definition)
         super().__init__(definition)
 
