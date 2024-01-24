@@ -144,7 +144,16 @@ def test_cli_seed_metrics_layer(
                 assert date["datatype"] == "date"
             else:
                 assert date["datatype"] == "timestamp"
-            assert date["timeframes"] == ["raw", "date", "week", "month", "quarter", "year"]
+            assert date["timeframes"] == [
+                "raw",
+                "date",
+                "week",
+                "week_of_year",
+                "month",
+                "month_of_year",
+                "quarter",
+                "year",
+            ]
             assert date["sql"] == "${TABLE}.ORDER_CREATED_AT"
 
             assert new["type"] == "string"
@@ -185,7 +194,16 @@ def test_cli_seed_metrics_layer(
                 assert date["datatype"] == "date"
             else:
                 assert date["datatype"] == "timestamp"
-            assert date["timeframes"] == ["raw", "date", "week", "month", "quarter", "year"]
+            assert date["timeframes"] == [
+                "raw",
+                "date",
+                "week",
+                "week_of_year",
+                "month",
+                "month_of_year",
+                "quarter",
+                "year",
+            ]
             assert date["sql"] == "${TABLE}.SESSION_DATE"
 
             assert pk["type"] == "string"
@@ -607,7 +625,7 @@ def test_cli_dimension_group_timeframes(connection, fresh_project, mocker):
     assert result.exit_code == 0
     assert result.output == (
         "Found 1 error in the project:\n\n"
-        "\nField order is of type time and has timeframe value of 'timestamp' which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second', 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'week_index', 'month_of_year', 'month_of_year_index', 'month_name', 'month_index', 'hour_of_day', 'day_of_week', 'day_of_month'])\n\n"  # noqa
+        "\nField order is of type time and has timeframe value of 'timestamp' which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second', 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'week_index', 'week_of_year', 'month_of_year', 'month_of_year_index', 'month_name', 'month_index', 'quarter_of_year', 'hour_of_day', 'day_of_week', 'day_of_month', 'day_of_year'])\n\n"  # noqa
     )
 
 

@@ -29,7 +29,9 @@ def test_mapping_dimension_only(connection):
 
 
 @pytest.mark.query
-@pytest.mark.parametrize("time_grain", ["date", "week", "month", "quarter", "year"])
+@pytest.mark.parametrize(
+    "time_grain", ["date", "week", "week_of_year", "month", "month_of_year", "quarter", "year"]
+)
 def test_mapping_metric_mapped_date_and_filter(connection, time_grain):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
@@ -48,8 +50,12 @@ def test_mapping_metric_mapped_date_and_filter(connection, time_grain):
         date_part = "DATE_TRUNC('DAY', orders.order_date)"
     elif time_grain == "week":
         date_part = "DATE_TRUNC('WEEK', CAST(orders.order_date AS DATE))"
+    elif time_grain == "week_of_year":
+        date_part = "EXTRACT(WEEK FROM orders.order_date)"
     elif time_grain == "month":
         date_part = "DATE_TRUNC('MONTH', orders.order_date)"
+    elif time_grain == "month_of_year":
+        date_part = "TO_CHAR(CAST(orders.order_date AS TIMESTAMP), 'MON')"
     elif time_grain == "quarter":
         date_part = "DATE_TRUNC('QUARTER', orders.order_date)"
     elif time_grain == "year":
