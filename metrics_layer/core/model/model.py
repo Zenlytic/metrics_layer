@@ -7,7 +7,6 @@ from metrics_layer.core.exceptions import QueryError, AccessDeniedOrDoesNotExist
 
 class AccessGrant(MetricsLayerBase):
     def __init__(self, definition: dict = {}) -> None:
-
         self.validate(definition)
         super().__init__(definition)
 
@@ -20,7 +19,15 @@ class AccessGrant(MetricsLayerBase):
 
 class Model(MetricsLayerBase):
     def __init__(self, definition: dict = {}, project=None) -> None:
-        self.special_mapping_values = {"date", "week", "month", "quarter", "year"}
+        self.special_mapping_values = {
+            "date",
+            "week_index",
+            "week",
+            "month_of_year",
+            "month",
+            "quarter",
+            "year",
+        }
         self.project = project
         self.validate(definition)
         super().__init__(definition)
