@@ -23,6 +23,7 @@ VALID_TIMEFRAMES = [
     "year",
     "week_index",
     "week_of_year",
+    "week_of_month",
     "month_of_year",
     "month_of_year_index",
     "month_name",
