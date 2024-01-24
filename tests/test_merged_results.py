@@ -113,7 +113,19 @@ def test_merged_result_join_graph(connection):
     def _blow_out_by_time_frame(join_graph: str, tf: list):
         return [f"{join_graph}_{tf}" for tf in tf]
 
-    tf = ["date", "day_of_week", "hour_of_day", "month", "quarter", "raw", "time", "week", "year"]
+    tf = [
+        "date",
+        "day_of_week",
+        "hour_of_day",
+        "month",
+        "month_of_year",
+        "quarter",
+        "raw",
+        "time",
+        "week",
+        "week_of_year",
+        "year",
+    ]
     core_tf = ["raw", "time", "date", "week", "month", "quarter", "year"]
     sub_q_cr = _blow_out_by_time_frame("merged_result_canon_date_core", core_tf)
     sub_q_0_4 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_4", core_tf)

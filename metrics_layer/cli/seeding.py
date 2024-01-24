@@ -326,7 +326,16 @@ class SeedMetricsLayer:
             if metrics_layer_type in {"timestamp", "date", "datetime"}:
                 field["field_type"] = "dimension_group"
                 field["type"] = "time"
-                field["timeframes"] = ["raw", "date", "week", "month", "quarter", "year"]
+                field["timeframes"] = [
+                    "raw",
+                    "date",
+                    "week",
+                    "week_of_year",
+                    "month",
+                    "month_of_year",
+                    "quarter",
+                    "year",
+                ]
                 field["datatype"] = metrics_layer_type
             elif metrics_layer_type == "string" and auto_tag_searchable_fields:
                 field["field_type"] = "dimension"
