@@ -436,7 +436,8 @@ class SeedMetricsLayer:
                 "SELECT table_catalog as table_database, table_schema as table_schema, "
                 "table_name as table_name, table_owner as table_owner, table_type as table_type, "
                 "bytes as table_size, created as table_created, last_altered as table_last_modified, "
-                f"row_count as table_row_count, comment as comment FROM {self.database}.INFORMATION_SCHEMA.TABLES"
+                "row_count as table_row_count, comment as comment "
+                f"FROM {self.database}.INFORMATION_SCHEMA.TABLES"
             )
         elif self.connection.type in {Definitions.druid}:
             query = (

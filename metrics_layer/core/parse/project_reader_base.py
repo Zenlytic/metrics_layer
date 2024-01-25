@@ -1,11 +1,9 @@
-import json
 import os
 
 import ruamel.yaml
 import yaml
 
 
-from metrics_layer.core.exceptions import QueryError
 from .github_repo import BaseRepo
 
 
