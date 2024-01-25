@@ -1102,7 +1102,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         if self.non_additive_dimension:
             window_choice = self.non_additive_dimension["window_choice"]
             window_name = self.non_additive_dimension["name"].split(".")[-1].lower()
-            return f"{self.name}_{window_choice}_{window_name}"
+            return f"{self.view.name}_{window_choice}_{window_name}"
         return None
 
     def non_additive_cte_alias(self):
