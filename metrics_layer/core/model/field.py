@@ -2,6 +2,7 @@ import functools
 import hashlib
 import re
 from copy import deepcopy
+from pypika.terms import LiteralValue
 
 from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
 from .base import MetricsLayerBase, SQLReplacement
@@ -105,16 +106,31 @@ class Field(MetricsLayerBase, SQLReplacement):
             else:
                 definition["sql"] = "*"
 
-        if "sql" in definition and "filters" in definition:
+        if "sql" in definition and ("filters" in definition or self.non_additive_dimension):
             if definition["sql"] == "*":
                 raise QueryError(
                     "To apply filters to a count measure you must have the primary_key specified "
                     "for the view. You can do this by adding the tag 'primary_key: yes' to the "
                     "necessary dimension"
                 )
-            definition["sql"] = Filter.translate_looker_filters_to_sql(
-                definition["sql"], definition["filters"]
-            )
+            filters_to_apply = definition.get("filters", [])
+
+            if non_additive_dimension := self.non_additive_dimension:
+                filters_to_apply += [
+                    {
+                        "field": non_additive_dimension["name"],
+                        "value": LiteralValue(f"{self.non_additive_cte_alias()}.{self.non_additive_alias()}"),
+                    }
+                ]
+                for window_grouping in non_additive_dimension.get("window_groupings", []):
+                    window_alias = window_grouping.replace(".", "_")
+                    filters_to_apply += [
+                        {
+                            "field": window_grouping,
+                            "value": LiteralValue(f"{self.non_additive_cte_alias()}.{window_alias}"),
+                        }
+                    ]
+            definition["sql"] = Filter.translate_looker_filters_to_sql(definition["sql"], filters_to_apply)
 
         if "sql" in definition and definition.get("type") == "tier":
             definition["sql"] = self._translate_looker_tier_to_sql(definition["sql"], definition["tiers"])
@@ -183,6 +199,25 @@ class Field(MetricsLayerBase, SQLReplacement):
             set_definition = {"name": "drill_fields", "fields": drill_fields, "view_name": self.view.name}
             return Set(set_definition, project=self.view.project).field_names()
         return drill_fields
+
+    @property
+    def non_additive_dimension(self):
+        non_additive_dimension = self._definition.get("non_additive_dimension")
+        if non_additive_dimension:
+            if "." not in non_additive_dimension["name"]:
+                qualified_name = f"{self.view.name}.{non_additive_dimension['name']}"
+                non_additive_dimension["name"] = qualified_name
+            if window_groupings := non_additive_dimension.get("window_groupings", []):
+                qualified_groupings = []
+                for grouping in window_groupings:
+                    if "." not in grouping:
+                        qualified_name = f"{self.view.name}.{grouping}"
+                    else:
+                        qualified_name = grouping
+                    qualified_groupings.append(qualified_name)
+                non_additive_dimension["window_groupings"] = qualified_groupings
+
+        return non_additive_dimension
 
     @property
     def update_where_timeframe(self):
@@ -1062,6 +1097,19 @@ class Field(MetricsLayerBase, SQLReplacement):
         if "." in field_name:
             return field_name
         return f"{self.view.name}.{field_name}"
+
+    def non_additive_alias(self):
+        if self.non_additive_dimension:
+            window_choice = self.non_additive_dimension["window_choice"]
+            window_name = self.non_additive_dimension["name"].split(".")[-1].lower()
+            return f"{self.name}_{window_choice}_{window_name}"
+        return None
+
+    def non_additive_cte_alias(self):
+        if self.non_additive_dimension:
+            window_name = self.non_additive_dimension["name"].split(".")[-1].lower()
+            return f"cte_{self.name}_{window_name}"
+        return None
 
     def is_cumulative(self):
         explicitly_cumulative = self.type == "cumulative"

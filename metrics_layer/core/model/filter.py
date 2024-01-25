@@ -334,8 +334,13 @@ class Filter(MetricsLayerBase):
         first_word = str(value).split(" ")[0]
         first_two_words = " ".join(str(value).split(" ")[:2])
 
+        # Handle field to field comparison
+        if isinstance(value, LiteralValue):
+            expression = MetricsLayerFilterExpressionType.EqualTo
+            cleaned_value = value
+
         # Handle null conditional
-        if value == "NULL":
+        elif value == "NULL":
             expression = MetricsLayerFilterExpressionType.IsNull
             cleaned_value = None
 

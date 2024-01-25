@@ -41,6 +41,7 @@ accounts_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/
 acquired_accounts_view_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/views/acquired_accounts.yml"
 )
+mrr_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/mrr.yml")
 customer_accounts_view_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/views/customer_accounts.yml"
 )
@@ -67,6 +68,7 @@ view_paths = [
     customer_accounts_view_path,
     other_db_view_path,
     created_workspaces_view_path,
+    mrr_view_path,
 ]
 dashboard_paths = [sales_dashboard_path, sales_dashboard_v2_path]
 
