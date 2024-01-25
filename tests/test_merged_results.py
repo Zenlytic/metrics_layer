@@ -37,7 +37,7 @@ def test_merged_result_query_additional_metric(connection, query_type):
         session_by = " ORDER BY sessions_number_of_sessions DESC"
 
     if Definitions.bigquery == query_type:
-        on_statement = f"CAST({cte_1}.order_lines_order_month AS TIMESTAMP)=CAST({cte_2}.sessions_session_month AS TIMESTAMP)"
+        on_statement = f"CAST({cte_1}.order_lines_order_month AS TIMESTAMP)=CAST({cte_2}.sessions_session_month AS TIMESTAMP)"  # noqa
     else:
         on_statement = f"{cte_1}.order_lines_order_month={cte_2}.sessions_session_month"
     correct = (

@@ -79,7 +79,6 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         # Parse any non-additive dimension on given metrics to collect
         # them as CTE's for the appropriate filters
         self.non_additive_ctes = []
-        dimensions = definition.get("dimensions", [])
         for metric in definition.get("metrics", []):
             metric_field = self.design.get_field(metric)
             if non_additive_dimension := metric_field.non_additive_dimension:
@@ -178,7 +177,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
             base_query = base_query.where(Criterion.all(group_by_where))
 
         if self.non_additive_ctes:
-            for i, definition in enumerate(sorted(self.non_additive_ctes)):
+            for definition in sorted(self.non_additive_ctes):
                 group_by_dimensions = definition.get("window_groupings", []) + self.dimensions
                 group_by_dimensions = list(
                     sorted(set(group_by_dimensions), key=lambda x: group_by_dimensions.index(x))
@@ -186,7 +185,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                 cte_query = self._non_additive_cte(definition, group_by_dimensions)
 
                 base_query = base_query.with_(Table(cte_query), definition["cte_alias"])
-                # When there are no group by dimensions, we need to join on a dummy join for the case filter value
+                # When there are no group by dimensions, we need to join on a dummy join for the case filter
                 if len(group_by_dimensions) == 0:
                     join_sql = LiteralValueCriterion("1=1")
                     base_query = base_query.join(Table(definition["cte_alias"])).on(join_sql)
