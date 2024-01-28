@@ -109,6 +109,14 @@ class View(MetricsLayerBase):
             )
             field_errors += [access_filter_error]
 
+        for i in self.identifiers:
+            if not self.valid_name(i["name"]):
+                field_errors.append(self.name_error("identifier", i["name"]))
+            if "sql" in i and "${" not in str(i["sql"]):
+                field_errors.append(
+                    f'Warning: Identifier {i["name"]} in view {self.name} is missing'
+                    ' "${", are you sure you are using the reference syntax correctly?'
+                )
         return field_errors
 
     def referenced_fields(self):

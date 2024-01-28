@@ -651,6 +651,47 @@ def test_cli_looker_parameter(connection, fresh_project, mocker):
 
 
 @pytest.mark.cli
+def test_cli_invalid_join_sql_syntax(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    fresh_project._views[1]["identifiers"][0]["sql"] = "{order_id}"
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        '\nWarning: Identifier order_id in view orders is missing "${", are you sure you are using the reference syntax correctly?\n\n'  # noqa
+    )
+
+
+@pytest.mark.cli
+def test_cli_duplicate_view_names(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    fresh_project._views[0]["name"] = "orders"
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 1
+    assert "QueryError" in str(result)
+    assert (
+        "Duplicate view names found in your project for the name orders. Please make sure all view names are unique."  # noqa
+        in str(result)
+    )
+
+
+@pytest.mark.cli
 def test_cli_debug(connection, mocker):
     def query_runner_mock(query, connection, run_pre_queries=True):
         assert query == "select 1 as id;"
