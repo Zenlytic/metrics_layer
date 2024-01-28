@@ -643,6 +643,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "years": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), ISOYEAR)",
             },
         }
+        # SQL Server and Databricks have identical syntax in this case
+        meta_lookup[Definitions.databricks] = meta_lookup[Definitions.sql_server]
         # Snowflake and redshift have identical syntax in this case
         meta_lookup[Definitions.redshift] = meta_lookup[Definitions.snowflake]
         # Snowflake and duck db have identical syntax in this case
@@ -677,6 +679,27 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "day_of_week": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Dy')",
                 "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM {s})",
                 "day_of_year": lambda s, qt: f"EXTRACT(DOY FROM {s})",
+            },
+            Definitions.databricks: {
+                "raw": lambda s, qt: s,
+                "time": lambda s, qt: f"CAST({s} AS TIMESTAMP)",
+                "second": lambda s, qt: f"DATE_TRUNC('SECOND', CAST({s} AS TIMESTAMP))",
+                "minute": lambda s, qt: f"DATE_TRUNC('MINUTE', CAST({s} AS TIMESTAMP))",
+                "hour": lambda s, qt: f"DATE_TRUNC('HOUR', CAST({s} AS TIMESTAMP))",
+                "date": lambda s, qt: f"DATE_TRUNC('DAY', CAST({s} AS TIMESTAMP))",
+                "week": self._week_dimension_group_time_sql,
+                "month": lambda s, qt: f"DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))",
+                "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', CAST({s} AS TIMESTAMP))",
+                "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
+                "week_index": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP))",
+                "week_of_month": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))) + 1",  # noqa
+                "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP))",
+                "month_of_year": lambda s, qt: f"DATE_FORMAT(CAST({s} AS TIMESTAMP), 'MMM')",
+                "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP))",
+                "hour_of_day": lambda s, qt: f"EXTRACT(HOUR FROM CAST({s} AS TIMESTAMP))",
+                "day_of_week": lambda s, qt: f"DATE_FORMAT(CAST(ORDER_CREATED_AT AS TIMESTAMP), 'E')",
+                "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM CAST({s} AS TIMESTAMP))",
+                "day_of_year": lambda s, qt: f"EXTRACT(DOY FROM CAST({s} AS TIMESTAMP))",
             },
             Definitions.postgres: {
                 "raw": lambda s, qt: s,
@@ -781,7 +804,7 @@ class Field(MetricsLayerBase, SQLReplacement):
     def _apply_timezone_to_sql(self, sql: str, timezone: str, query_type: str):
         # We need the second cast here in the case you apply the timezone with
         # the dimension group 'raw' to ensure they're the same initial type post-timezone transformation
-        if query_type == Definitions.snowflake:
+        if query_type in {Definitions.snowflake, Definitions.databricks}:
             return f"CAST(CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP_NTZ) AS {self.datatype.upper()})"  # noqa
         elif query_type == Definitions.bigquery:
             return f"CAST(DATETIME(CAST({sql} AS TIMESTAMP), '{timezone}') AS {self.datatype.upper()})"
@@ -824,7 +847,12 @@ class Field(MetricsLayerBase, SQLReplacement):
             if offset is None:
                 return f"DATE_TRUNC('WEEK', {casted})"
             return f"DATE_TRUNC('WEEK', {casted} + {offset}) - {offset}"
-        elif query_type in {Definitions.postgres, Definitions.druid, Definitions.duck_db}:
+        elif query_type in {
+            Definitions.postgres,
+            Definitions.druid,
+            Definitions.duck_db,
+            Definitions.databricks,
+        }:
             if offset is None:
                 return f"DATE_TRUNC('WEEK', CAST({sql} AS TIMESTAMP))"
             return f"DATE_TRUNC('WEEK', CAST({sql} AS TIMESTAMP) + INTERVAL '{offset}' DAY) - INTERVAL '{offset}' DAY"  # noqa
