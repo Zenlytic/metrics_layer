@@ -115,7 +115,14 @@ class JoinGraph(SQLReplacement):
         identifier_map, primary_keys = self._identifier_map()
         self.composite_keys = self._composite_keys(primary_keys)
         reference_map = self._reference_map()
+        views_seen = set()
         for view in self.project.views():
+            if view.name in views_seen:
+                raise QueryError(
+                    f"Duplicate view names found in your project for the name {view.name}."
+                    " Please make sure all view names are unique."
+                )
+            views_seen.add(view.name)
             graph.add_node(view.name)
             if view.name in reference_map:
                 # Add all explicit "join" type references
@@ -126,7 +133,6 @@ class JoinGraph(SQLReplacement):
                 only_join = identifier.get("only_join", [])
                 # Add all identifier matches across other views
                 for join_view_name in identifier_map.get(identifier["name"], []):
-
                     if join_view_name != view.name and self._allowed_join(only_join, join_view_name):
                         join_view = self.project.get_view(join_view_name)
                         join_identifier = join_view.get_identifier(identifier["name"])
@@ -315,8 +321,8 @@ class JoinGraph(SQLReplacement):
 
     def _identifier_join_clause(self, identifier: dict, view_name: str):
         if "sql" in identifier:
-            cleaned_sql = deepcopy(identifier["sql"])
-            for field_name in self.fields_to_replace(identifier["sql"]):
+            cleaned_sql = deepcopy(str(identifier["sql"]))
+            for field_name in self.fields_to_replace(str(identifier["sql"])):
                 to_replace = "${" + field_name + "}"
                 if field_name != "TABLE" and "." not in field_name:
                     cleaned_reference = "${" + f"{view_name}.{field_name}" + "}"

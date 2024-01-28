@@ -2,6 +2,7 @@ import functools
 import hashlib
 import re
 from copy import deepcopy
+from pypika.terms import LiteralValue
 
 from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
 from .base import MetricsLayerBase, SQLReplacement
@@ -22,13 +23,17 @@ VALID_TIMEFRAMES = [
     "quarter",
     "year",
     "week_index",
+    "week_of_year",
+    "week_of_month",
     "month_of_year",
     "month_of_year_index",
     "month_name",
     "month_index",
+    "quarter_of_year",
     "hour_of_day",
     "day_of_week",
     "day_of_month",
+    "day_of_year",
 ]
 VALID_INTERVALS = [
     "second",
@@ -101,16 +106,31 @@ class Field(MetricsLayerBase, SQLReplacement):
             else:
                 definition["sql"] = "*"
 
-        if "sql" in definition and "filters" in definition:
+        if "sql" in definition and ("filters" in definition or self.non_additive_dimension):
             if definition["sql"] == "*":
                 raise QueryError(
                     "To apply filters to a count measure you must have the primary_key specified "
                     "for the view. You can do this by adding the tag 'primary_key: yes' to the "
                     "necessary dimension"
                 )
-            definition["sql"] = Filter.translate_looker_filters_to_sql(
-                definition["sql"], definition["filters"]
-            )
+            filters_to_apply = definition.get("filters", [])
+
+            if non_additive_dimension := self.non_additive_dimension:
+                filters_to_apply += [
+                    {
+                        "field": non_additive_dimension["name"],
+                        "value": LiteralValue(f"{self.non_additive_cte_alias()}.{self.non_additive_alias()}"),
+                    }
+                ]
+                for window_grouping in non_additive_dimension.get("window_groupings", []):
+                    window_alias = window_grouping.replace(".", "_")
+                    filters_to_apply += [
+                        {
+                            "field": window_grouping,
+                            "value": LiteralValue(f"{self.non_additive_cte_alias()}.{window_alias}"),
+                        }
+                    ]
+            definition["sql"] = Filter.translate_looker_filters_to_sql(definition["sql"], filters_to_apply)
 
         if "sql" in definition and definition.get("type") == "tier":
             definition["sql"] = self._translate_looker_tier_to_sql(definition["sql"], definition["tiers"])
@@ -179,6 +199,25 @@ class Field(MetricsLayerBase, SQLReplacement):
             set_definition = {"name": "drill_fields", "fields": drill_fields, "view_name": self.view.name}
             return Set(set_definition, project=self.view.project).field_names()
         return drill_fields
+
+    @property
+    def non_additive_dimension(self):
+        non_additive_dimension = self._definition.get("non_additive_dimension")
+        if non_additive_dimension:
+            if "." not in non_additive_dimension["name"]:
+                qualified_name = f"{self.view.name}.{non_additive_dimension['name']}"
+                non_additive_dimension["name"] = qualified_name
+            if window_groupings := non_additive_dimension.get("window_groupings", []):
+                qualified_groupings = []
+                for grouping in window_groupings:
+                    if "." not in grouping:
+                        qualified_name = f"{self.view.name}.{grouping}"
+                    else:
+                        qualified_name = grouping
+                    qualified_groupings.append(qualified_name)
+                non_additive_dimension["window_groupings"] = qualified_groupings
+
+        return non_additive_dimension
 
     @property
     def update_where_timeframe(self):
@@ -617,8 +656,6 @@ class Field(MetricsLayerBase, SQLReplacement):
             )
 
     def apply_dimension_group_time_sql(self, sql: str, query_type: str):
-        # TODO add day_of_week_index, month_name, month_num
-        # more types here https://docs.looker.com/reference/field-params/dimension_group
         meta_lookup = {
             Definitions.snowflake: {
                 "raw": lambda s, qt: s,
@@ -632,11 +669,14 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', {s})",
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', {s})",
                 "week_index": lambda s, qt: f"EXTRACT(WEEK FROM {s})",
+                "week_of_month": lambda s, qt: f"EXTRACT(WEEK FROM {s}) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH', {s})) + 1",  # noqa
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM {s})",
                 "month_of_year": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'MON')",
+                "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM {s})",
                 "hour_of_day": lambda s, qt: f"HOUR(CAST({s} AS TIMESTAMP))",
                 "day_of_week": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Dy')",
                 "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM {s})",
+                "day_of_year": lambda s, qt: f"EXTRACT(DOY FROM {s})",
             },
             Definitions.postgres: {
                 "raw": lambda s, qt: s,
@@ -649,12 +689,15 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "month": lambda s, qt: f"DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))",
                 "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', CAST({s} AS TIMESTAMP))",
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
-                "week_index": lambda s, qt: f"EXTRACT(WEEK FROM {s})",
-                "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM {s})",
+                "week_index": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP))",
+                "week_of_month": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))) + 1",  # noqa
+                "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP))",
                 "month_of_year": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'MON')",
+                "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP))",
                 "hour_of_day": lambda s, qt: f"EXTRACT('HOUR' FROM CAST({s} AS TIMESTAMP))",
                 "day_of_week": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Dy')",
                 "day_of_month": lambda s, qt: f"EXTRACT('DAY' FROM CAST({s} AS TIMESTAMP))",
+                "day_of_year": lambda s, qt: f"EXTRACT('DOY' FROM CAST({s} AS TIMESTAMP))",
             },
             Definitions.druid: {
                 "raw": lambda s, qt: s,
@@ -667,12 +710,15 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "month": lambda s, qt: f"DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))",
                 "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', CAST({s} AS TIMESTAMP))",
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
-                "week_index": lambda s, qt: f"EXTRACT(WEEK FROM {s})",
-                "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM {s})",
-                "month_of_year": lambda s, qt: f"CASE EXTRACT(MONTH FROM {s}) WHEN 1 THEN 'Jan' WHEN 2 THEN 'Feb' WHEN 3 THEN 'Mar' WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun' WHEN 7 THEN 'Jul' WHEN 8 THEN 'Aug' WHEN 9 THEN 'Sep' WHEN 10 THEN 'Oct' WHEN 11 THEN 'Nov' WHEN 12 THEN 'Dec' ELSE 'Invalid Month' END",  # noqa
+                "week_index": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP))",
+                "week_of_month": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))) + 1",  # noqa
+                "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP))",
+                "month_of_year": lambda s, qt: f"CASE EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP)) WHEN 1 THEN 'Jan' WHEN 2 THEN 'Feb' WHEN 3 THEN 'Mar' WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun' WHEN 7 THEN 'Jul' WHEN 8 THEN 'Aug' WHEN 9 THEN 'Sep' WHEN 10 THEN 'Oct' WHEN 11 THEN 'Nov' WHEN 12 THEN 'Dec' ELSE 'Invalid Month' END",  # noqa
+                "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP))",
                 "hour_of_day": lambda s, qt: f"EXTRACT(HOUR FROM CAST({s} AS TIMESTAMP))",
-                "day_of_week": lambda s, qt: f"CASE EXTRACT(DOW FROM {s}) WHEN 1 THEN 'Mon' WHEN 2 THEN 'Tue' WHEN 3 THEN 'Wed' WHEN 4 THEN 'Thu' WHEN 5 THEN 'Fri' WHEN 6 THEN 'Sat' WHEN 7 THEN 'Sun' ELSE 'Invalid Day' END",  # noqa
+                "day_of_week": lambda s, qt: f"CASE EXTRACT(DOW FROM CAST({s} AS TIMESTAMP)) WHEN 1 THEN 'Mon' WHEN 2 THEN 'Tue' WHEN 3 THEN 'Wed' WHEN 4 THEN 'Thu' WHEN 5 THEN 'Fri' WHEN 6 THEN 'Sat' WHEN 7 THEN 'Sun' ELSE 'Invalid Day' END",  # noqa
                 "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM CAST({s} AS TIMESTAMP))",
+                "day_of_year": lambda s, qt: f"EXTRACT(DOY FROM CAST({s} AS TIMESTAMP))",
             },
             Definitions.sql_server: {
                 "raw": lambda s, qt: s,
@@ -685,12 +731,15 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "month": lambda s, qt: f"DATEADD(MONTH, DATEDIFF(MONTH, 0, CAST({s} AS DATE)), 0)",
                 "quarter": lambda s, qt: f"DATEADD(QUARTER, DATEDIFF(QUARTER, 0, CAST({s} AS DATE)), 0)",
                 "year": lambda s, qt: f"DATEADD(YEAR, DATEDIFF(YEAR, 0, CAST({s} AS DATE)), 0)",
-                "week_index": lambda s, qt: f"EXTRACT(WEEK FROM {s})",
-                "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM {s})",
+                "week_index": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS DATE))",
+                "week_of_month": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS DATE)) - EXTRACT(WEEK FROM DATEADD(MONTH, DATEDIFF(MONTH, 0, CAST({s} AS DATE)), 0)) + 1",  # noqa
+                "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS DATE))",
                 "month_of_year": lambda s, qt: f"LEFT(DATENAME(MONTH, CAST({s} AS DATE)), 3)",
+                "quarter_of_year": lambda s, qt: f"DATEPART(QUARTER, CAST({s} AS DATE))",
                 "hour_of_day": lambda s, qt: f"DATEPART(HOUR, CAST({s} AS DATETIME))",
                 "day_of_week": lambda s, qt: f"LEFT(DATENAME(WEEKDAY, CAST({s} AS DATE)), 3)",
                 "day_of_month": lambda s, qt: f"DATEPART(DAY, CAST({s} AS DATE))",
+                "day_of_year": lambda s, qt: f"DATEPART(DOY, CAST({s} AS DATE))",
             },
             Definitions.bigquery: {
                 "raw": lambda s, qt: s,
@@ -704,11 +753,14 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "quarter": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} AS DATE), QUARTER) AS {self.datatype.upper()})",  # noqa
                 "year": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} AS DATE), YEAR) AS {self.datatype.upper()})",
                 "week_index": lambda s, qt: f"EXTRACT(WEEK FROM {s})",
+                "week_of_month": lambda s, qt: f"EXTRACT(WEEK FROM {s}) - EXTRACT(WEEK FROM DATE_TRUNC(CAST({s} AS DATE), MONTH)) + 1",  # noqa
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM {s})",
                 "month_of_year": lambda s, qt: f"FORMAT_DATETIME('%B', CAST({s} as DATETIME))",
+                "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM {s})",
                 "hour_of_day": lambda s, qt: f"CAST({s} AS STRING FORMAT 'HH24')",
                 "day_of_week": lambda s, qt: f"CAST({s} AS STRING FORMAT 'DAY')",
                 "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM {s})",
+                "day_of_year": lambda s, qt: f"EXTRACT(DAYOFYEAR FROM {s})",
             },
         }
         # Snowflake and redshift have identical syntax in this case
@@ -720,6 +772,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         for _, lookup in meta_lookup.items():
             lookup["month_name"] = lookup["month_of_year"]
             lookup["month_index"] = lookup["month_of_year_index"]
+            lookup["week_of_year"] = lookup["week_index"]
 
         if self.view.project.timezone and self.convert_timezone:
             sql = self._apply_timezone_to_sql(sql, self.view.project.timezone, query_type)
@@ -800,8 +853,8 @@ class Field(MetricsLayerBase, SQLReplacement):
             timeframes = self._definition.get("timeframes", [])
             if not timeframes:
                 errors.append(
-                    f"Field {self.name} is of type time and but does not have values for the timeframe property"
-                    f"Add valid timeframes (options: {VALID_TIMEFRAMES})"
+                    f"Field {self.name} is of type time and but does not have values for the timeframe "
+                    f"property. Add valid timeframes (options: {VALID_TIMEFRAMES})"
                 )
             for i in timeframes:
                 if i not in VALID_TIMEFRAMES:
@@ -1044,6 +1097,19 @@ class Field(MetricsLayerBase, SQLReplacement):
         if "." in field_name:
             return field_name
         return f"{self.view.name}.{field_name}"
+
+    def non_additive_alias(self):
+        if self.non_additive_dimension:
+            window_choice = self.non_additive_dimension["window_choice"]
+            window_name = self.non_additive_dimension["name"].split(".")[-1].lower()
+            return f"{self.view.name}_{window_choice}_{window_name}"
+        return None
+
+    def non_additive_cte_alias(self):
+        if self.non_additive_dimension:
+            window_name = self.non_additive_dimension["name"].split(".")[-1].lower()
+            return f"cte_{self.name}_{window_name}"
+        return None
 
     def is_cumulative(self):
         explicitly_cumulative = self.type == "cumulative"

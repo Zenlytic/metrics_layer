@@ -1,10 +1,8 @@
 import datetime
 from typing import Dict
 
-import sqlparse
 from pypika import Criterion, Table, Field
 from pypika.terms import LiteralValue
-from sqlparse.tokens import Error, Name, Punctuation
 from metrics_layer.core.exceptions import QueryError
 
 from metrics_layer.core.model.base import MetricsLayerBase

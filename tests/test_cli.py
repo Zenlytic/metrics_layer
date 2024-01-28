@@ -144,7 +144,16 @@ def test_cli_seed_metrics_layer(
                 assert date["datatype"] == "date"
             else:
                 assert date["datatype"] == "timestamp"
-            assert date["timeframes"] == ["raw", "date", "week", "month", "quarter", "year"]
+            assert date["timeframes"] == [
+                "raw",
+                "date",
+                "week",
+                "week_of_year",
+                "month",
+                "month_of_year",
+                "quarter",
+                "year",
+            ]
             assert date["sql"] == "${TABLE}.ORDER_CREATED_AT"
 
             assert new["type"] == "string"
@@ -185,7 +194,16 @@ def test_cli_seed_metrics_layer(
                 assert date["datatype"] == "date"
             else:
                 assert date["datatype"] == "timestamp"
-            assert date["timeframes"] == ["raw", "date", "week", "month", "quarter", "year"]
+            assert date["timeframes"] == [
+                "raw",
+                "date",
+                "week",
+                "week_of_year",
+                "month",
+                "month_of_year",
+                "quarter",
+                "year",
+            ]
             assert date["sql"] == "${TABLE}.SESSION_DATE"
 
             assert pk["type"] == "string"
@@ -607,7 +625,7 @@ def test_cli_dimension_group_timeframes(connection, fresh_project, mocker):
     assert result.exit_code == 0
     assert result.output == (
         "Found 1 error in the project:\n\n"
-        "\nField order is of type time and has timeframe value of 'timestamp' which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second', 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'week_index', 'month_of_year', 'month_of_year_index', 'month_name', 'month_index', 'hour_of_day', 'day_of_week', 'day_of_month'])\n\n"  # noqa
+        "\nField order is of type time and has timeframe value of 'timestamp' which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second', 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'week_index', 'week_of_year', 'week_of_month', 'month_of_year', 'month_of_year_index', 'month_name', 'month_index', 'quarter_of_year', 'hour_of_day', 'day_of_week', 'day_of_month', 'day_of_year'])\n\n"  # noqa
     )
 
 
@@ -629,6 +647,47 @@ def test_cli_looker_parameter(connection, fresh_project, mocker):
     assert result.output == (
         "Found 1 error in the project:\n\n"
         "\nField orders.total_revenue contains invalid SQL for Zenlytic. Remove any Looker parameter references from the SQL.\n\n"  # noqa
+    )
+
+
+@pytest.mark.cli
+def test_cli_invalid_join_sql_syntax(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    fresh_project._views[1]["identifiers"][0]["sql"] = "{order_id}"
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        '\nWarning: Identifier order_id in view orders is missing "${", are you sure you are using the reference syntax correctly?\n\n'  # noqa
+    )
+
+
+@pytest.mark.cli
+def test_cli_duplicate_view_names(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    fresh_project._views[0]["name"] = "orders"
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 1
+    assert "QueryError" in str(result)
+    assert (
+        "Duplicate view names found in your project for the name orders. Please make sure all view names are unique."  # noqa
+        in str(result)
     )
 
 
@@ -701,7 +760,7 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
     result_lookup = {
         "models": "Found 2 models:\n\ntest_model\nnew_model\n",
         "connections": "Found 2 connections:\n\ntesting_snowflake\ntesting_bigquery\n",
-        "views": "Found 17 views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\n",  # noqa
+        "views": "Found 18 views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nmrr\n",  # noqa
         "fields": "Found 2 fields:\n\ndiscount_promo_name\ndiscount_usd\n",
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
         "metrics": "Found 2 metrics:\n\ntotal_discount_amt\ndiscount_per_order\n",  # noqa

@@ -2,6 +2,7 @@ import os
 import re
 import pandas as pd
 from metrics_layer.core.model.definitions import Definitions
+from typing import List
 
 
 class SeedMetricsLayer:
@@ -56,7 +57,6 @@ class SeedMetricsLayer:
             "CHAR": "string",
             "CHARACTER": "string",
             "STRING": "string",
-            "TEXT": "string",
             "BINARY": "string",
             "VARBINARY": "string",
         }
@@ -106,7 +106,6 @@ class SeedMetricsLayer:
             "double precision": "number",
             "numeric": "number",
             "float": "number",
-            "real": "number",
             "money": "number",
         }
         self._sql_server_type_lookup = {
@@ -141,7 +140,7 @@ class SeedMetricsLayer:
             "STRING": "string",
         }
 
-    def seed(self):
+    def seed(self, auto_tag_searchable_fields: bool = False):
         from metrics_layer.core.parse import ProjectDumper, ProjectLoader
 
         if self.connection.type not in Definitions.supported_warehouses:
@@ -188,7 +187,14 @@ class SeedMetricsLayer:
             else:
                 table_comment = None
             schema_name = column_df["TABLE_SCHEMA"].values[0]
-            view = self.make_view(column_df, model_name, table_name, schema_name, table_comment)
+            view = self.make_view(
+                column_df,
+                model_name,
+                table_name,
+                schema_name,
+                table_comment,
+                auto_tag_searchable_fields=auto_tag_searchable_fields,
+            )
             if self.table:
                 progress = ""
             else:
@@ -235,10 +241,21 @@ class SeedMetricsLayer:
         return [model]
 
     def make_view(
-        self, column_data, model_name: str, table_name: str, schema_name: str, table_comment: str = None
+        self,
+        column_data,
+        model_name: str,
+        table_name: str,
+        schema_name: str,
+        table_comment: str = None,
+        auto_tag_searchable_fields: bool = True,
     ):
         view_name = self.clean_name(table_name)
-        fields = self.make_fields(column_data)
+        fields = self.make_fields(
+            column_data,
+            schema_name=schema_name,
+            table_name=table_name,
+            auto_tag_searchable_fields=auto_tag_searchable_fields,
+        )
         if self.connection.type in {
             Definitions.snowflake,
             Definitions.redshift,
@@ -270,8 +287,15 @@ class SeedMetricsLayer:
             view.pop("default_date")
         return view
 
-    def make_fields(self, column_data: str):
+    def make_fields(self, column_data, schema_name: str, table_name: str, auto_tag_searchable_fields: bool):
+        if auto_tag_searchable_fields:
+            if schema_name is None:
+                raise ValueError("schema_name is required to auto tag searchable fields")
+            if table_name is None:
+                raise ValueError("table_name is required to auto tag searchable fields")
+
         fields = []
+        searchable_field_candidates = []
         if self.connection.type == Definitions.snowflake:
             data_to_iterate = column_data[["COLUMN_NAME", "DATA_TYPE", "COMMENT"]]
         else:
@@ -302,13 +326,81 @@ class SeedMetricsLayer:
             if metrics_layer_type in {"timestamp", "date", "datetime"}:
                 field["field_type"] = "dimension_group"
                 field["type"] = "time"
-                field["timeframes"] = ["raw", "date", "week", "month", "quarter", "year"]
+                field["timeframes"] = [
+                    "raw",
+                    "date",
+                    "week",
+                    "week_of_year",
+                    "month",
+                    "month_of_year",
+                    "quarter",
+                    "year",
+                ]
                 field["datatype"] = metrics_layer_type
+            elif metrics_layer_type == "string" and auto_tag_searchable_fields:
+                field["field_type"] = "dimension"
+                field["type"] = "string"
+                searchable_field_candidates.append(row["COLUMN_NAME"])
             else:
                 field["field_type"] = "dimension"
                 field["type"] = metrics_layer_type
             fields.append(field)
+        if searchable_field_candidates:
+            column_cardinalities_query = self.column_cardinalities_query(
+                column_names=searchable_field_candidates, schema_name=schema_name, table_name=table_name
+            )
+            column_cardinalities = self.run_query(query=column_cardinalities_query)
+
+            # Get the column names that have a cardinality of less than 100
+            # Note: running the query doesn't preserve the column name cases
+            searchable_column_names = [
+                col.lower().rsplit("_cardinality", 1)[0]
+                for col in column_cardinalities.columns
+                if column_cardinalities.loc[0, col] < 100
+            ]
+
+            for field in fields:
+                if field["sql"].split(".", 1)[1].lower() in searchable_column_names:
+                    field["searchable"] = True
+
         return fields
+
+    def column_cardinalities_query(self, column_names: List[str], schema_name: str, table_name: str) -> str:
+        cardinality_queries = []
+        for column_name in column_names:
+            if self.connection.type in (Definitions.snowflake, Definitions.duck_db, Definitions.druid):
+                query = (
+                    f'APPROX_COUNT_DISTINCT( "{column_name}" ) as "{column_name}_cardinality"'  # noqa: E501
+                )
+            elif self.connection.type == Definitions.redshift:
+                query = f'APPROXIMATE COUNT(DISTINCT "{column_name}" ) as "{column_name}_cardinality"'  # noqa: E501
+            elif self.connection.type == Definitions.postgres:
+                query = f'COUNT(DISTINCT "{column_name}" ) as "{column_name}_cardinality"'  # noqa: E501
+            elif self.connection.type == Definitions.sql_server:
+                query = (
+                    f'APPROX_COUNT_DISTINCT( "{column_name}" ) as "{column_name}_cardinality"'  # noqa: E501
+                )
+            elif self.connection.type == Definitions.bigquery:
+                query = f"APPROX_COUNT_DISTINCT( `{column_name}` ) as `{column_name}_cardinality`"
+            else:
+                raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
+            cardinality_queries.append(query)
+
+        query = f"SELECT {', '.join(cardinality_queries)}"
+
+        if self.connection.type in {
+            Definitions.snowflake,
+            Definitions.duck_db,
+            Definitions.druid,
+            Definitions.redshift,
+            Definitions.postgres,
+            Definitions.sql_server,
+        }:
+            query += f" FROM {self.database}.{schema_name}.{table_name}"
+        elif self.connection.type == Definitions.bigquery:
+            query += f" FROM `{self.database}`.`{schema_name}`.`{table_name}`"
+
+        return query + ";" if self.connection.type != Definitions.druid else query
 
     def columns_query(self):
         comment_statement = ", comment as comment" if self.connection.type == Definitions.snowflake else ""
@@ -344,7 +436,8 @@ class SeedMetricsLayer:
                 "SELECT table_catalog as table_database, table_schema as table_schema, "
                 "table_name as table_name, table_owner as table_owner, table_type as table_type, "
                 "bytes as table_size, created as table_created, last_altered as table_last_modified, "
-                f"row_count as table_row_count, comment as comment FROM {self.database}.INFORMATION_SCHEMA.TABLES"
+                "row_count as table_row_count, comment as comment "
+                f"FROM {self.database}.INFORMATION_SCHEMA.TABLES"
             )
         elif self.connection.type in {Definitions.druid}:
             query = (
