@@ -186,6 +186,8 @@ def test_simple_query(connections):
     [
         ("max_revenue", Definitions.snowflake),
         ("min_revenue", Definitions.snowflake),
+        ("max_revenue", Definitions.databricks),
+        ("min_revenue", Definitions.databricks),
         ("max_revenue", Definitions.druid),
         ("min_revenue", Definitions.druid),
         ("max_revenue", Definitions.sql_server),
@@ -230,6 +232,7 @@ def test_simple_query_min_max(connections, metric, query_type):
     "query_type",
     [
         (Definitions.snowflake),
+        (Definitions.databricks),
         (Definitions.druid),
         (Definitions.sql_server),
         (Definitions.redshift),
@@ -339,6 +342,9 @@ def test_simple_query_alias_keyword(connections):
         ("order", "date", Definitions.snowflake),
         ("order", "week", Definitions.snowflake),
         ("previous_order", "date", Definitions.snowflake),
+        ("order", "date", Definitions.databricks),
+        ("order", "week", Definitions.databricks),
+        ("previous_order", "date", Definitions.databricks),
         ("order", "date", Definitions.druid),
         ("order", "week", Definitions.druid),
         ("previous_order", "date", Definitions.druid),
@@ -395,6 +401,20 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
             f"CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS {ttype}) AS TIMESTAMP))<='{end}'"  # noqa
         )
         order_by = " ORDER BY simple_total_revenue DESC"
+    elif query_type == Definitions.databricks:
+        if field == "previous_order":
+            result_lookup = {"date": "DATE_TRUNC('DAY', CAST(simple.previous_order_date AS TIMESTAMP))"}
+        else:
+            result_lookup = {
+                "date": f"DATE_TRUNC('DAY', CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS TIMESTAMP) AS TIMESTAMP))",  # noqa
+                "week": f"DATE_TRUNC('WEEK', CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS TIMESTAMP) AS TIMESTAMP) + INTERVAL '1' DAY) - INTERVAL '1' DAY",  # noqa
+            }
+        where = (
+            "WHERE DATE_TRUNC('DAY', CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) "
+            f"AS TIMESTAMP_NTZ) AS TIMESTAMP) AS TIMESTAMP))>='{start}' AND DATE_TRUNC('DAY', "
+            f"CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS TIMESTAMP) AS TIMESTAMP))<='{end}'"  # noqa
+        )
+        order_by = ""
     elif query_type in {Definitions.postgres, Definitions.duck_db}:
         if field == "previous_order":
             if query_type == Definitions.duck_db:
@@ -491,6 +511,24 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("day_of_week", Definitions.snowflake),
         ("day_of_month", Definitions.snowflake),
         ("day_of_year", Definitions.snowflake),
+        ("time", Definitions.databricks),
+        ("second", Definitions.databricks),
+        ("minute", Definitions.databricks),
+        ("hour", Definitions.databricks),
+        ("date", Definitions.databricks),
+        ("week", Definitions.databricks),
+        ("month", Definitions.databricks),
+        ("quarter", Definitions.databricks),
+        ("year", Definitions.databricks),
+        ("week_index", Definitions.databricks),
+        ("week_of_month", Definitions.databricks),
+        ("month_of_year_index", Definitions.databricks),
+        ("month_of_year", Definitions.databricks),
+        ("quarter_of_year", Definitions.databricks),
+        ("hour_of_day", Definitions.databricks),
+        ("day_of_week", Definitions.databricks),
+        ("day_of_month", Definitions.databricks),
+        ("day_of_year", Definitions.databricks),
         ("time", Definitions.druid),
         ("second", Definitions.druid),
         ("minute", Definitions.druid),
@@ -660,7 +698,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         }
         order_by = ""
 
-    elif query_type in {Definitions.postgres, Definitions.druid, Definitions.duck_db}:
+    elif query_type in {Definitions.postgres, Definitions.databricks, Definitions.druid, Definitions.duck_db}:
         result_lookup = {
             "time": "CAST(simple.order_date AS TIMESTAMP)",
             "second": "DATE_TRUNC('SECOND', CAST(simple.order_date AS TIMESTAMP))",
@@ -685,6 +723,13 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             order_by = " ORDER BY simple_total_revenue DESC"
         else:
             order_by = ""
+
+        if query_type == Definitions.databricks:
+            result_lookup["month_of_year"] = "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'MMM')"
+            result_lookup["hour_of_day"] = "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))"
+            result_lookup["day_of_week"] = "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'E')"
+            result_lookup["day_of_month"] = "EXTRACT(DAY FROM CAST(simple.order_date AS TIMESTAMP))"
+            result_lookup["day_of_year"] = "EXTRACT(DOY FROM CAST(simple.order_date AS TIMESTAMP))"
         if query_type == Definitions.druid:
             result_lookup[
                 "month_of_year"
@@ -746,6 +791,14 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         ("month", Definitions.snowflake),
         ("quarter", Definitions.snowflake),
         ("year", Definitions.snowflake),
+        ("second", Definitions.databricks),
+        ("minute", Definitions.databricks),
+        ("hour", Definitions.databricks),
+        ("day", Definitions.databricks),
+        ("week", Definitions.databricks),
+        ("month", Definitions.databricks),
+        ("quarter", Definitions.databricks),
+        ("year", Definitions.databricks),
         ("second", Definitions.druid),
         ("minute", Definitions.druid),
         ("hour", Definitions.druid),
@@ -843,7 +896,7 @@ def test_simple_query_dimension_group_interval(connections, interval: str, query
         }
         order_by = ""
         semi = ""
-    elif query_type == Definitions.sql_server:
+    elif query_type in {Definitions.sql_server, Definitions.databricks}:
         result_lookup = {
             "second": "DATEDIFF(SECOND, simple.view_date, simple.order_date)",
             "minute": "DATEDIFF(MINUTE, simple.view_date, simple.order_date)",
@@ -961,24 +1014,28 @@ def test_simple_query_custom_metric(connections):
     "field,expression,value,query_type",
     [
         ("order_date", "greater_than", "2021-08-04", Definitions.snowflake),
+        ("order_date", "greater_than", "2021-08-04", Definitions.databricks),
         ("order_date", "greater_than", "2021-08-04", Definitions.druid),
         ("order_date", "greater_than", "2021-08-04", Definitions.sql_server),
         ("order_date", "greater_than", "2021-08-04", Definitions.redshift),
         ("order_date", "greater_than", "2021-08-04", Definitions.bigquery),
         ("order_date", "greater_than", "2021-08-04", Definitions.duck_db),
         ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.snowflake),
+        ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.databricks),
         ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.druid),
         ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.sql_server),
         ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.redshift),
         ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.bigquery),
         ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.duck_db),
         ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.snowflake),
+        ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.databricks),
         ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.druid),
         ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.sql_server),
         ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.redshift),
         ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.bigquery),
         ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.duck_db),
         ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.snowflake),
+        ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.databricks),
         ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.druid),
         ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.sql_server),
         ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.redshift),
@@ -986,6 +1043,7 @@ def test_simple_query_custom_metric(connections):
         ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.duck_db),
         ("order_date", "matches", "last week", Definitions.snowflake),
         ("order_date", "matches", "last year", Definitions.snowflake),
+        ("order_date", "matches", "last year", Definitions.databricks),
         ("order_date", "matches", "last year", Definitions.druid),
         ("order_date", "matches", "last year", Definitions.sql_server),
         ("order_date", "matches", "last year", Definitions.redshift),
@@ -1004,7 +1062,12 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
         query_type=query_type,
     )
 
-    if query_type in {Definitions.bigquery, Definitions.druid, Definitions.sql_server}:
+    if query_type in {
+        Definitions.bigquery,
+        Definitions.databricks,
+        Definitions.druid,
+        Definitions.sql_server,
+    }:
         order_by = ""
     else:
         order_by = " ORDER BY simple_total_revenue DESC"
@@ -1017,8 +1080,9 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
         Definitions.redshift,
         Definitions.druid,
         Definitions.duck_db,
+        Definitions.databricks,
     }
-    if query_type not in {Definitions.druid, Definitions.duck_db}:
+    if query_type not in {Definitions.druid, Definitions.duck_db, Definitions.databricks}:
         field_id = f"simple.{field}"
     else:
         field_id = f"CAST(simple.{field} AS TIMESTAMP)"
@@ -1104,9 +1168,11 @@ def test_simple_query_convert_tz_alias_no(connections):
         ("channel", "contains", "Email", Definitions.snowflake),
         ("channel", "does_not_contain", "Email", Definitions.snowflake),
         ("channel", "contains_case_insensitive", "Email", Definitions.snowflake),
+        ("channel", "contains_case_insensitive", "Email", Definitions.databricks),
         ("channel", "contains_case_insensitive", "Email", Definitions.druid),
         ("channel", "contains_case_insensitive", "Email", Definitions.sql_server),
         ("channel", "does_not_contain_case_insensitive", "Email", Definitions.snowflake),
+        ("channel", "does_not_contain_case_insensitive", "Email", Definitions.databricks),
         ("channel", "does_not_contain_case_insensitive", "Email", Definitions.druid),
         ("channel", "does_not_contain_case_insensitive", "Email", Definitions.sql_server),
         ("channel", "starts_with", "Email", Definitions.snowflake),
@@ -1119,6 +1185,7 @@ def test_simple_query_convert_tz_alias_no(connections):
         ("channel", "does_not_end_with_case_insensitive", "Email", Definitions.snowflake),
         ("is_valid_order", "is_null", None, Definitions.snowflake),
         ("is_valid_order", "is_not_null", None, Definitions.snowflake),
+        ("is_valid_order", "is_not_null", None, Definitions.databricks),
         ("is_valid_order", "is_not_null", None, Definitions.druid),
         ("is_valid_order", "is_not_null", None, Definitions.sql_server),
         ("is_valid_order", "boolean_true", None, Definitions.snowflake),

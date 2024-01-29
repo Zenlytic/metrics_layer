@@ -18,6 +18,7 @@ class ConnectionType:
     druid = Definitions.druid
     sql_server = Definitions.sql_server
     duck_db = Definitions.duck_db
+    databricks = Definitions.databricks
 
 
 class BaseConnection:
@@ -83,6 +84,59 @@ class SnowflakeConnection(BaseConnection):
         attributes.pop("password")
         attributes["name"] = self.name
         sort_order = ["name", "type", "account", "user", "database", "schema", "warehouse", "role"]
+        return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
+
+
+class DatabricksConnection(BaseConnection):
+    def __init__(
+        self,
+        name: str,
+        host: str,
+        http_path: str,
+        username: str = None,
+        password: str = None,
+        personal_access_token: str = None,
+        client_id: str = None,
+        client_secret: str = None,
+        database: str = None,
+        schema: str = None,
+        **kwargs,
+    ) -> None:
+        self.type = ConnectionType.databricks
+        self.name = name
+        self.host = host
+        self.http_path = http_path
+        self.username = username
+        self.password = password
+        self.personal_access_token = personal_access_token
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.database = database
+        self.schema = schema
+
+    def to_dict(self):
+        base = {
+            "name": self.name,
+            "host": self.host,
+            "http_path": self.http_path,
+            "username": self.username,
+            "password": self.password,
+            "personal_access_token": self.personal_access_token,
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            "type": self.type,
+        }
+        if self.database:
+            base["database"] = self.database
+        if self.schema:
+            base["schema"] = self.schema
+        return base
+
+    def printable_attributes(self):
+        attributes = deepcopy(self.to_dict())
+        attributes.pop("password")
+        attributes["name"] = self.name
+        sort_order = ["name", "type", "host", "http_path", "username", "database", "schema"]
         return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
 
 
@@ -339,4 +393,5 @@ connection_class_lookup = {
     ConnectionType.druid: DruidConnection,
     ConnectionType.sql_server: SQLServerConnection,
     ConnectionType.duck_db: DuckDBConnection,
+    ConnectionType.databricks: DatabricksConnection,
 }
