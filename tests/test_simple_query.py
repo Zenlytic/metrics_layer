@@ -232,6 +232,7 @@ def test_simple_query_min_max(connections, metric, query_type):
     "query_type",
     [
         (Definitions.snowflake),
+        (Definitions.databricks),
         (Definitions.druid),
         (Definitions.sql_server),
         (Definitions.redshift),
@@ -400,6 +401,20 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
             f"CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS {ttype}) AS TIMESTAMP))<='{end}'"  # noqa
         )
         order_by = " ORDER BY simple_total_revenue DESC"
+    elif query_type == Definitions.databricks:
+        if field == "previous_order":
+            result_lookup = {"date": "DATE_TRUNC('DAY', CAST(simple.previous_order_date AS TIMESTAMP))"}
+        else:
+            result_lookup = {
+                "date": f"DATE_TRUNC('DAY', CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS TIMESTAMP) AS TIMESTAMP))",  # noqa
+                "week": f"DATE_TRUNC('WEEK', CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS TIMESTAMP) AS TIMESTAMP) + INTERVAL '1' DAY) - INTERVAL '1' DAY",  # noqa
+            }
+        where = (
+            "WHERE DATE_TRUNC('DAY', CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) "
+            f"AS TIMESTAMP_NTZ) AS TIMESTAMP) AS TIMESTAMP))>='{start}' AND DATE_TRUNC('DAY', "
+            f"CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS TIMESTAMP) AS TIMESTAMP))<='{end}'"  # noqa
+        )
+        order_by = ""
     elif query_type in {Definitions.postgres, Definitions.duck_db}:
         if field == "previous_order":
             if query_type == Definitions.duck_db:
@@ -683,7 +698,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         }
         order_by = ""
 
-    elif query_type in {Definitions.postgres, Definitions.druid, Definitions.duck_db}:
+    elif query_type in {Definitions.postgres, Definitions.databricks, Definitions.druid, Definitions.duck_db}:
         result_lookup = {
             "time": "CAST(simple.order_date AS TIMESTAMP)",
             "second": "DATE_TRUNC('SECOND', CAST(simple.order_date AS TIMESTAMP))",
@@ -708,6 +723,13 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             order_by = " ORDER BY simple_total_revenue DESC"
         else:
             order_by = ""
+
+        if query_type == Definitions.databricks:
+            result_lookup["month_of_year"] = "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'MMM')"
+            result_lookup["hour_of_day"] = "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))"
+            result_lookup["day_of_week"] = "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'E')"
+            result_lookup["day_of_month"] = "EXTRACT(DAY FROM CAST(simple.order_date AS TIMESTAMP))"
+            result_lookup["day_of_year"] = "EXTRACT(DOY FROM CAST(simple.order_date AS TIMESTAMP))"
         if query_type == Definitions.druid:
             result_lookup[
                 "month_of_year"
@@ -874,7 +896,7 @@ def test_simple_query_dimension_group_interval(connections, interval: str, query
         }
         order_by = ""
         semi = ""
-    elif query_type == Definitions.sql_server:
+    elif query_type in {Definitions.sql_server, Definitions.databricks}:
         result_lookup = {
             "second": "DATEDIFF(SECOND, simple.view_date, simple.order_date)",
             "minute": "DATEDIFF(MINUTE, simple.view_date, simple.order_date)",
@@ -1040,7 +1062,12 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
         query_type=query_type,
     )
 
-    if query_type in {Definitions.bigquery, Definitions.druid, Definitions.sql_server}:
+    if query_type in {
+        Definitions.bigquery,
+        Definitions.databricks,
+        Definitions.druid,
+        Definitions.sql_server,
+    }:
         order_by = ""
     else:
         order_by = " ORDER BY simple_total_revenue DESC"
@@ -1053,8 +1080,9 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
         Definitions.redshift,
         Definitions.druid,
         Definitions.duck_db,
+        Definitions.databricks,
     }
-    if query_type not in {Definitions.druid, Definitions.duck_db}:
+    if query_type not in {Definitions.druid, Definitions.duck_db, Definitions.databricks}:
         field_id = f"simple.{field}"
     else:
         field_id = f"CAST(simple.{field} AS TIMESTAMP)"
