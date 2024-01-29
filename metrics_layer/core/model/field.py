@@ -148,7 +148,11 @@ class Field(MetricsLayerBase, SQLReplacement):
             elif self.type == "duration" and self.dimension_group:
                 return f"{self.dimension_group.replace('_', ' ').title()} {label}"
             return label
-        return self.alias().replace("_", " ").title()
+        # Default
+        label_text = self.alias().replace("_", " ")
+        if len(str(label_text)) <= 4:
+            return label_text.upper()
+        return label_text.title()
 
     @property
     def measure(self):
