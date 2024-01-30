@@ -77,6 +77,22 @@ class SeedMetricsLayer:
             "DECIMAL": "number",
             "BIGINT": "number",
         }
+        self._databricks_type_lookup = {
+            "TIME": "timestamp",
+            "TIMESTAMP": "timestamp",
+            "TIMESTAMP_NTZ": "timestamp",
+            "DATE": "date",
+            "STRING": "string",
+            "BOOLEAN": "yesno",
+            "DOUBLE": "number",
+            "FLOAT": "number",
+            "DECIMAL": "number",
+            "LONG": "number",
+            "INT": "number",
+            "SMALLINT": "number",
+            "BIGINT": "number",
+            "TINYINT": "number",
+        }
         self._druid_type_lookup = {
             "CHAR": "string",
             "VARCHAR": "string",
@@ -262,6 +278,7 @@ class SeedMetricsLayer:
             Definitions.postgres,
             Definitions.sql_server,
             Definitions.duck_db,
+            Definitions.databricks,
         }:
             sql_table_name = f"{schema_name}.{table_name}"
             if self._database_is_not_default:
@@ -314,6 +331,8 @@ class SeedMetricsLayer:
                 metrics_layer_type = self._druid_type_lookup.get(row["DATA_TYPE"], "string")
             elif self.connection.type == Definitions.sql_server:
                 metrics_layer_type = self._sql_server_type_lookup.get(row["DATA_TYPE"], "string")
+            elif self.connection.type == Definitions.databricks:
+                metrics_layer_type = self._databricks_type_lookup.get(row["DATA_TYPE"], "string")
             else:
                 raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
             sql = "${TABLE}." + row["COLUMN_NAME"]
@@ -380,7 +399,7 @@ class SeedMetricsLayer:
                 query = (
                     f'APPROX_COUNT_DISTINCT( "{column_name}" ) as "{column_name}_cardinality"'  # noqa: E501
                 )
-            elif self.connection.type == Definitions.bigquery:
+            elif self.connection.type in {Definitions.bigquery, Definitions.databricks}:
                 query = f"APPROX_COUNT_DISTINCT( `{column_name}` ) as `{column_name}_cardinality`"
             else:
                 raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
@@ -395,6 +414,7 @@ class SeedMetricsLayer:
             Definitions.redshift,
             Definitions.postgres,
             Definitions.sql_server,
+            Definitions.databricks,
         }:
             query += f" FROM {self.database}.{schema_name}.{table_name}"
         elif self.connection.type == Definitions.bigquery:
@@ -403,7 +423,10 @@ class SeedMetricsLayer:
         return query + ";" if self.connection.type != Definitions.druid else query
 
     def columns_query(self):
-        comment_statement = ", comment as comment" if self.connection.type == Definitions.snowflake else ""
+        if self.connection.type in {Definitions.snowflake, Definitions.databricks}:
+            comment_statement = ", comment as comment"
+        else:
+            comment_statement = ""
         query = (
             f"SELECT table_catalog, table_schema, table_name, column_name, data_type{comment_statement} FROM "
         )
@@ -413,8 +436,12 @@ class SeedMetricsLayer:
             Definitions.postgres,
             Definitions.sql_server,
             Definitions.duck_db,
+            Definitions.databricks,
         }:
-            query += f"{self.database}.INFORMATION_SCHEMA.COLUMNS"
+            if self.connection.type == Definitions.databricks and self.database is None:
+                query += f"INFORMATION_SCHEMA.COLUMNS"
+            else:
+                query += f"{self.database}.INFORMATION_SCHEMA.COLUMNS"
         elif self.connection.type == Definitions.druid:
             query = (
                 "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE "
@@ -457,6 +484,13 @@ class SeedMetricsLayer:
                 "table_name as table_name, table_type as table_type "
                 f"FROM {self.database}.INFORMATION_SCHEMA.TABLES "
                 "WHERE table_schema not in ('pg_catalog', 'information_schema')"
+            )
+        elif self.connection.type == Definitions.databricks:
+            database_str = f"{self.database}." if self.database else ""
+            query = (
+                "SELECT table_catalog as table_database, table_schema as table_schema, "
+                "table_name as table_name, table_type as table_type, "
+                f"comment as comment FROM {database_str}INFORMATION_SCHEMA.TABLES"
             )
         elif self.database and self.schema and self.connection.type == Definitions.bigquery:
             query = (

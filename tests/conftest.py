@@ -115,6 +115,47 @@ def seed_snowflake_tables_data():
 
 
 @pytest.fixture(scope="function")
+def seed_databricks_tables_data():
+    order_records = [
+        {"COMMENT": "I am an order id", "COLUMN_NAME": "order_id", "DATA_TYPE": "BIGINT"},
+        {"COMMENT": None, "COLUMN_NAME": "order_created_at", "DATA_TYPE": "TIMESTAMP"},
+        {"COMMENT": None, "COLUMN_NAME": "revenue", "DATA_TYPE": "FLOAT"},
+        {"COMMENT": None, "COLUMN_NAME": "acquisition_date", "DATA_TYPE": "TIMESTAMP_NTZ"},
+        {"COMMENT": None, "COLUMN_NAME": "on_social_network", "DATA_TYPE": "BOOLEAN"},
+        {"COMMENT": None, "COLUMN_NAME": "campaign", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "new_vs_repeat", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "product", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "day_of_week", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "twitter", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "emails_from_us_in_the_last_week", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "last_viewed_page", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "customer_id", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "top_customers", "DATA_TYPE": "TEXT"},
+    ]
+    order_records = [{"TABLE_NAME": "orders", **o} for o in order_records]
+    session_records = [
+        {"COMMENT": None, "COLUMN_NAME": "session_id", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "session_date", "DATA_TYPE": "DATE"},
+        {"COMMENT": None, "COLUMN_NAME": "add_to_cart", "DATA_TYPE": "INT"},
+        {"COMMENT": None, "COLUMN_NAME": "conversion", "DATA_TYPE": "LONG"},
+        {"COMMENT": None, "COLUMN_NAME": "@CRoSSell P-roduct:", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "acquisition_channel", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "social_network", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "campaign", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "new_vs_repeat", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "product", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "day_of_week", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "twitter", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "emails_from_us_in_the_last_week", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "last_viewed_page", "DATA_TYPE": "STRING"},
+    ]
+    session_records = [{"TABLE_NAME": "sessions", **o} for o in session_records]
+    all_records = order_records + session_records
+    records = [{"TABLE_CATALOG": "demo", "TABLE_SCHEMA": "analytics", **r} for r in all_records]
+    return pd.DataFrame(records)
+
+
+@pytest.fixture(scope="function")
 def seed_postgres_tables_data():
     order_records = [
         {"COLUMN_NAME": "ORDER_ID", "DATA_TYPE": "numeric"},
@@ -422,9 +463,23 @@ def connections():
                 "role": "reporting",
             }
 
+    class db_mock(BaseConnection):
+        name = "testing_databricks"
+        type = "DATABRICKS"
+        database = None
+        schema = None
+
+        def printable_attributes(self):
+            return {
+                "name": "testing_databricks",
+                "host": "blah.cloud.databricks.com",
+                "http_path": "paul/testing/now",
+            }
+
     sf = sf_mock()
     bq = bq_mock()
-    return [sf, bq]
+    db = db_mock()
+    return [sf, bq, db]
 
 
 @pytest.fixture(scope="module")

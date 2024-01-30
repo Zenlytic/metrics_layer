@@ -41,6 +41,8 @@ def test_cli_init(mocker, monkeypatch):
     "query_type,profile,target,database_override",
     [
         (Definitions.snowflake, None, None, None),
+        (Definitions.databricks, None, None, None),
+        (Definitions.databricks, None, None, "segment_events"),
         (Definitions.bigquery, None, None, None),
         (Definitions.postgres, None, None, None),
         (Definitions.postgres, None, None, "segment_events"),
@@ -64,6 +66,7 @@ def test_cli_seed_metrics_layer(
     seed_postgres_tables_data,
     seed_druid_tables_data,
     seed_sql_server_tables_data,
+    seed_databricks_tables_data,
 ):
     mocker.patch("os.mkdir")
     yaml_dump_called = 0
@@ -79,6 +82,13 @@ def test_cli_seed_metrics_layer(
                     {"TABLE_SCHEMA": "ANALYTICS", "TABLE_NAME": "SESSIONS", "COMMENT": None},
                 ]
             )
+        elif query_type == Definitions.databricks and ".TABLES" in query:
+            return pd.DataFrame(
+                [
+                    {"TABLE_SCHEMA": "analytics", "TABLE_NAME": "orders", "COMMENT": "orders table, bro"},
+                    {"TABLE_SCHEMA": "analytics", "TABLE_NAME": "sessions", "COMMENT": None},
+                ]
+            )
         elif query_type == Definitions.redshift:
             return seed_redshift_tables_data
         elif query_type == Definitions.postgres:
@@ -89,6 +99,8 @@ def test_cli_seed_metrics_layer(
             return seed_druid_tables_data
         elif query_type == Definitions.sql_server:
             return seed_sql_server_tables_data
+        elif query_type == Definitions.databricks:
+            return seed_databricks_tables_data
         raise ValueError("Query error, does not match expected")
 
     def yaml_dump_assert(slf, data, file):
@@ -111,9 +123,15 @@ def test_cli_seed_metrics_layer(
                 assert data["sql_table_name"] == "druid.orders"
             elif query_type == Definitions.bigquery:
                 assert data["sql_table_name"] == "`analytics.analytics.orders`"
-            elif query_type in {Definitions.postgres, Definitions.sql_server} and database_override is None:
+            elif (
+                query_type in {Definitions.postgres, Definitions.sql_server, Definitions.databricks}
+                and database_override is None
+            ):
                 assert data["sql_table_name"] == "analytics.orders"
-            elif query_type in {Definitions.postgres, Definitions.sql_server} and database_override:
+            elif (
+                query_type in {Definitions.postgres, Definitions.sql_server, Definitions.databricks}
+                and database_override
+            ):
                 assert data["sql_table_name"] == "segment_events.analytics.orders"
             assert "row_label" not in data
 
@@ -124,14 +142,20 @@ def test_cli_seed_metrics_layer(
             acq_date = next((f for f in data["fields"] if f["name"] == "acquisition_date"))
 
             assert social["type"] == "yesno"
-            assert social["sql"] == "${TABLE}.ON_SOCIAL_NETWORK"
+            if query_type == Definitions.databricks:
+                assert social["sql"] == "${TABLE}.on_social_network"
+            else:
+                assert social["sql"] == "${TABLE}.ON_SOCIAL_NETWORK"
 
             assert acq_date["type"] == "time"
             if query_type == Definitions.sql_server:
                 assert acq_date["datatype"] == "datetime"
             else:
                 assert acq_date["datatype"] == "timestamp"
-            assert acq_date["sql"] == "${TABLE}.ACQUISITION_DATE"
+            if query_type == Definitions.databricks:
+                assert acq_date["sql"] == "${TABLE}.acquisition_date"
+            else:
+                assert acq_date["sql"] == "${TABLE}.ACQUISITION_DATE"
 
             assert date["type"] == "time"
             if query_type in {
@@ -154,13 +178,13 @@ def test_cli_seed_metrics_layer(
                 "quarter",
                 "year",
             ]
-            assert date["sql"] == "${TABLE}.ORDER_CREATED_AT"
+            assert date["sql"].upper() == "${TABLE}.ORDER_CREATED_AT"
 
             assert new["type"] == "string"
-            assert new["sql"] == "${TABLE}.NEW_VS_REPEAT"
+            assert new["sql"].upper() == "${TABLE}.NEW_VS_REPEAT"
 
             assert num["type"] == "number"
-            assert num["sql"] == "${TABLE}.REVENUE"
+            assert num["sql"].upper() == "${TABLE}.REVENUE"
 
             assert len(data["fields"]) == 14
             assert all(f["field_type"] != "measure" for f in data["fields"])
@@ -169,9 +193,15 @@ def test_cli_seed_metrics_layer(
                 assert data["sql_table_name"] == "ANALYTICS.SESSIONS"
             elif query_type == Definitions.bigquery:
                 assert data["sql_table_name"] == "`analytics.analytics.sessions`"
-            elif query_type in {Definitions.postgres, Definitions.sql_server} and database_override is None:
+            elif (
+                query_type in {Definitions.postgres, Definitions.sql_server, Definitions.databricks}
+                and database_override is None
+            ):
                 assert data["sql_table_name"] == "analytics.sessions"
-            elif query_type in {Definitions.postgres, Definitions.sql_server} and database_override:
+            elif (
+                query_type in {Definitions.postgres, Definitions.sql_server, Definitions.databricks}
+                and database_override
+            ):
                 assert data["sql_table_name"] == "segment_events.analytics.sessions"
             assert "row_label" not in data
 
@@ -190,6 +220,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.postgres,
                 Definitions.druid,
                 Definitions.sql_server,
+                Definitions.databricks,
             }:
                 assert date["datatype"] == "date"
             else:
@@ -204,13 +235,13 @@ def test_cli_seed_metrics_layer(
                 "quarter",
                 "year",
             ]
-            assert date["sql"] == "${TABLE}.SESSION_DATE"
+            assert date["sql"].upper() == "${TABLE}.SESSION_DATE"
 
             assert pk["type"] == "string"
-            assert pk["sql"] == "${TABLE}.SESSION_ID"
+            assert pk["sql"].upper() == "${TABLE}.SESSION_ID"
 
             assert num["type"] == "number"
-            assert num["sql"] == "${TABLE}.CONVERSION"
+            assert num["sql"].upper() == "${TABLE}.CONVERSION"
 
             assert len(data["fields"]) == 14
             assert all(f["field_type"] != "measure" for f in data["fields"])
@@ -695,7 +726,7 @@ def test_cli_duplicate_view_names(connection, fresh_project, mocker):
 def test_cli_debug(connection, mocker):
     def query_runner_mock(query, connection, run_pre_queries=True):
         assert query == "select 1 as id;"
-        assert connection.name in {"testing_snowflake", "testing_bigquery"}
+        assert connection.name in {"testing_snowflake", "testing_bigquery", "testing_databricks"}
         assert not run_pre_queries
         return True
 
@@ -727,8 +758,12 @@ def test_cli_debug(connection, mocker):
         "  name: testing_bigquery\n"
         "  type: BIGQUERY\n"
         "  project_id: fake-proj-id\n"
+        "  name: testing_databricks\n"
+        "  host: blah.cloud.databricks.com\n"
+        "  http_path: paul/testing/now\n"
         "\nConnection testing_snowflake test: OK connection ok\n"
         "\nConnection testing_bigquery test: OK connection ok\n"
+        "\nConnection testing_databricks test: OK connection ok\n"
     )
 
     non_workstation_dependent_output = "\n".join(result.output.split("\n")[3:])
@@ -759,7 +794,7 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
 
     result_lookup = {
         "models": "Found 2 models:\n\ntest_model\nnew_model\n",
-        "connections": "Found 2 connections:\n\ntesting_snowflake\ntesting_bigquery\n",
+        "connections": "Found 3 connections:\n\ntesting_snowflake\ntesting_bigquery\ntesting_databricks\n",
         "views": "Found 18 views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nmrr\n",  # noqa
         "fields": "Found 2 fields:\n\ndiscount_promo_name\ndiscount_usd\n",
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
