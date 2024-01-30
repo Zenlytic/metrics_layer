@@ -117,6 +117,8 @@ def test_cli_seed_metrics_layer(
 
         elif data["type"] == "view" and data["name"] == "orders":
             assert data["model_name"] == "base_model"
+            if query_type in {Definitions.snowflake, Definitions.databricks}:
+                assert data["description"] == "orders table, bro"
             if query_type in {Definitions.snowflake, Definitions.redshift}:
                 assert data["sql_table_name"] == "ANALYTICS.ORDERS"
             if query_type in {Definitions.druid}:
@@ -135,11 +137,15 @@ def test_cli_seed_metrics_layer(
                 assert data["sql_table_name"] == "segment_events.analytics.orders"
             assert "row_label" not in data
 
+            order_id = next((f for f in data["fields"] if f["name"] == "order_id"))
             date = next((f for f in data["fields"] if f["name"] == "order_created_at"))
             new = next((f for f in data["fields"] if f["name"] == "new_vs_repeat"))
             num = next((f for f in data["fields"] if f["name"] == "revenue"))
             social = next((f for f in data["fields"] if f["name"] == "on_social_network"))
             acq_date = next((f for f in data["fields"] if f["name"] == "acquisition_date"))
+
+            if query_type in {Definitions.snowflake, Definitions.databricks}:
+                assert order_id["description"] == "I am an order id"
 
             assert social["type"] == "yesno"
             if query_type == Definitions.databricks:

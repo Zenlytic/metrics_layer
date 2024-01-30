@@ -167,7 +167,7 @@ class SeedMetricsLayer:
         data = self.run_query(columns_query)
         data.columns = [c.upper() for c in data.columns]
 
-        if self.connection.type == Definitions.snowflake:
+        if self.connection.type in {Definitions.snowflake, Definitions.databricks}:
             table_query = self.table_query()
             table_data = self.run_query(table_query)
             table_data.columns = [c.upper() for c in table_data.columns]
@@ -313,7 +313,7 @@ class SeedMetricsLayer:
 
         fields = []
         searchable_field_candidates = []
-        if self.connection.type == Definitions.snowflake:
+        if self.connection.type in {Definitions.snowflake, Definitions.databricks}:
             data_to_iterate = column_data[["COLUMN_NAME", "DATA_TYPE", "COMMENT"]]
         else:
             data_to_iterate = column_data[["COLUMN_NAME", "DATA_TYPE"]]
