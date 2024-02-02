@@ -1,6 +1,7 @@
 import functools
 import json
 from collections import Counter
+from copy import deepcopy
 
 from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
 from .dashboard import Dashboard
@@ -25,7 +26,7 @@ class Project:
         manifest=None,
     ):
         self._models = models
-        self._views = views
+        self._views = self._handle_join_as_duplication(views)
         self._dashboards = dashboards
         self.looker_env = looker_env
         self.connection_lookup = connection_lookup
@@ -90,6 +91,39 @@ class Project:
             graph.build()
             self._join_graph = graph
         return self._join_graph
+
+    def _handle_join_as_duplication(self, views: list):
+        join_as_to_create = {}
+        copied_views = deepcopy(views)
+        for v in copied_views:
+            for identifier in v.get("identifiers", []):
+                if "join_as" in identifier and identifier["type"] == "primary":
+                    # To assign the join ONLY to the new view, we need to
+                    # remove the identifier from the original view
+                    v["identifiers"] = [i for i in v["identifiers"] if i["name"] != identifier["name"]]
+
+                    # And we need to remove the join_as statement from the
+                    # identifier when we add it to the new view
+                    identifier_to_add = {**identifier}
+                    identifier_to_add.pop("join_as")
+                    if identifier["join_as"] not in join_as_to_create:
+                        view_args = {"identifiers": [identifier_to_add]}
+                        if "join_as_label" in identifier:
+                            view_args["label"] = identifier["join_as_label"]
+
+                        join_as_to_create[identifier["join_as"]] = {**v, **view_args}
+
+                    else:
+                        if join_as_to_create[identifier["join_as"]]["name"] != v["name"]:
+                            raise QueryError(
+                                "You cannot have join_as with identical names on different views. "
+                                "Please rename your join_as statement on one of your views."
+                            )
+
+        for view_name, view in join_as_to_create.items():
+            copied_views.append({**view, "name": view_name})
+
+        return copied_views
 
     def validate(self):
         all_errors = []

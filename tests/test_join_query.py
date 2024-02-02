@@ -692,7 +692,7 @@ def test_join_graph_working_as_expected(connection):
 
 @pytest.mark.query
 def test_join_graph_many_to_many_use_bridge_table(connection):
-    query = connection.get_sql_query(metrics=["number_of_customers"], dimensions=["account_name"])
+    query = connection.get_sql_query(metrics=["number_of_customers"], dimensions=["accounts.account_name"])
 
     correct = (
         "SELECT accounts.name as accounts_account_name,COUNT(DISTINCT(customers.customer_id)) as "
@@ -709,7 +709,7 @@ def test_join_graph_many_to_many_use_bridge_table(connection):
 def test_join_graph_many_to_many_skip_bridge_table(connection):
     query = connection.get_sql_query(
         metrics=["number_of_customers", "number_of_orders"],
-        dimensions=["account_name"],
+        dimensions=["accounts.account_name"],
     )
 
     correct = (
@@ -791,3 +791,137 @@ def test_always_filter_with_and_without_join(connection):
         "ORDER BY created_workspace_number_of_workspace_creations DESC;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_join_as_ability_single_join_non_as(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_billed_accounts"],
+        dimensions=["accounts.account_name"],
+    )
+
+    correct = (
+        "SELECT accounts.name as accounts_account_name,"
+        "COUNT(mrr.parent_account_id) as mrr_number_of_billed_accounts "
+        "FROM analytics.mrr_by_customer mrr LEFT JOIN analytics.accounts accounts "
+        "ON mrr.account_id=accounts.account_id "
+        "GROUP BY accounts.name ORDER BY mrr_number_of_billed_accounts DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_join_as_ability_single_join(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_billed_accounts"],
+        dimensions=["parent_account.account_name"],
+    )
+
+    correct = (
+        "SELECT parent_account.name as parent_account_account_name,"
+        "COUNT(mrr.parent_account_id) as mrr_number_of_billed_accounts "
+        "FROM analytics.mrr_by_customer mrr LEFT JOIN analytics.accounts parent_account "
+        "ON mrr.parent_account_id=parent_account.account_id "
+        "GROUP BY parent_account.name ORDER BY mrr_number_of_billed_accounts DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_join_as_ability_single_join_as_and_non_as(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_billed_accounts"],
+        dimensions=["parent_account.account_name", "accounts.account_name"],
+    )
+
+    correct = (
+        "SELECT parent_account.name as parent_account_account_name,"
+        "accounts.name as accounts_account_name,"
+        "COUNT(mrr.parent_account_id) as mrr_number_of_billed_accounts "
+        "FROM analytics.mrr_by_customer mrr "
+        "LEFT JOIN analytics.accounts accounts ON mrr.account_id=accounts.account_id "
+        "LEFT JOIN analytics.accounts parent_account "
+        "ON mrr.parent_account_id=parent_account.account_id "
+        "GROUP BY parent_account.name,accounts.name ORDER BY mrr_number_of_billed_accounts DESC;"
+    )
+
+    assert query == correct
+
+
+@pytest.mark.query
+def test_join_as_ability_single_join_only_where(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_billed_accounts"],
+        dimensions=[],
+        where=[
+            {"field": "parent_account.account_name", "expression": "not_equal_to", "value": "Amazon"},
+            {"field": "mrr.plan_name", "expression": "equal_to", "value": "Enterprise"},
+        ],
+    )
+
+    correct = (
+        "SELECT COUNT(mrr.parent_account_id) as mrr_number_of_billed_accounts "
+        "FROM analytics.mrr_by_customer mrr "
+        "LEFT JOIN analytics.accounts parent_account "
+        "ON mrr.parent_account_id=parent_account.account_id "
+        "WHERE parent_account.name<>'Amazon' AND mrr.plan_name='Enterprise' "
+        "ORDER BY mrr_number_of_billed_accounts DESC;"
+    )
+
+    assert query == correct
+
+
+@pytest.mark.query
+def test_join_as_ability_single_join_as_and_non_as_extra_dims(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_billed_accounts"],
+        dimensions=["parent_account.account_name", "accounts.account_name", "date", "mrr.plan_name"],
+        where=[
+            {"field": "parent_account.account_name", "expression": "not_equal_to", "value": "Amazon"},
+            {"field": "mrr.plan_name", "expression": "equal_to", "value": "Enterprise"},
+        ],
+    )
+
+    correct = (
+        "SELECT parent_account.name as parent_account_account_name,"
+        "accounts.name as accounts_account_name,"
+        "DATE_TRUNC('DAY', mrr.record_date) as mrr_record_date,"
+        "mrr.plan_name as mrr_plan_name,"
+        "COUNT(mrr.parent_account_id) as mrr_number_of_billed_accounts "
+        "FROM analytics.mrr_by_customer mrr "
+        "LEFT JOIN analytics.accounts accounts ON mrr.account_id=accounts.account_id "
+        "LEFT JOIN analytics.accounts parent_account "
+        "ON mrr.parent_account_id=parent_account.account_id "
+        "WHERE parent_account.name<>'Amazon' AND mrr.plan_name='Enterprise' "
+        "GROUP BY parent_account.name,accounts.name,DATE_TRUNC('DAY', mrr.record_date),"
+        "mrr.plan_name ORDER BY mrr_number_of_billed_accounts DESC;"
+    )
+
+    assert query == correct
+
+
+@pytest.mark.query
+def test_join_as_ability_double_join(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_billed_accounts"],
+        dimensions=["parent_account.account_name", "child_account.account_name"],
+    )
+
+    correct = (
+        "SELECT parent_account.name as parent_account_account_name,"
+        "child_account.name as child_account_account_name,"
+        "COUNT(mrr.parent_account_id) as mrr_number_of_billed_accounts "
+        "FROM analytics.mrr_by_customer mrr LEFT JOIN analytics.accounts parent_account "
+        "ON mrr.parent_account_id=parent_account.account_id "
+        "LEFT JOIN analytics.accounts child_account "
+        "ON mrr.child_account_id=child_account.account_id "
+        "GROUP BY parent_account.name,child_account.name ORDER BY mrr_number_of_billed_accounts DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_join_as_label(connection):
+    view = connection.project.get_view("child_account")
+    assert view.name == "child_account"
+    assert view.label == "Sub Account"

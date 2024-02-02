@@ -11,6 +11,17 @@ identifiers:
   type: primary
   sql: ${account_id}
 
+- name: parent_account_id
+  type: primary
+  sql: ${account_id}
+  join_as: parent_account
+
+- name: child_account_id
+  type: primary
+  sql: ${account_id}
+  join_as: child_account
+  join_as_label: "Sub Account"
+
 fields:
   - name: account_id
     field_type: "dimension"

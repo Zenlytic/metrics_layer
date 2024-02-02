@@ -11,6 +11,14 @@ identifiers:
   type: foreign
   sql: ${account_id}
 
+- name: parent_account_id
+  type: foreign
+  sql: ${parent_account_id}
+
+- name: child_account_id
+  type: foreign
+  sql: ${child_account_id}
+
 fields:
   - name: unique_key
     field_type: "dimension"
@@ -18,6 +26,18 @@ fields:
     primary_key: yes
     hidden: yes
     sql: ${TABLE}.account_id || record_date
+
+  - name: parent_account_id
+    field_type: "dimension"
+    type: string
+    hidden: yes
+    sql: "${TABLE}.parent_account_id"
+
+  - name: child_account_id
+    field_type: "dimension"
+    type: string
+    hidden: yes
+    sql: "${TABLE}.child_account_id"
 
   - name: account_id
     field_type: "dimension"
@@ -49,6 +69,11 @@ fields:
     field_type: dimension
     type: string
     sql: ${TABLE}.plan_name
+
+  - name: number_of_billed_accounts
+    field_type: measure
+    type: count
+    sql: ${parent_account_id}
 
   - name: mrr_end_of_month
     field_type: measure
