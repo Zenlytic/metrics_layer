@@ -722,10 +722,36 @@ def test_cli_duplicate_view_names(connection, fresh_project, mocker):
 
     assert result.exit_code == 1
     assert "QueryError" in str(result)
-    assert (
-        "Duplicate view names found in your project for the name orders. Please make sure all view names are unique."  # noqa
-        in str(result)
+    error_message = (
+        "Duplicate view names found in your project for the name orders. "
+        "Please make sure all view names are unique (note: join_as on identifiers "
+        "will create a view under its that name and the name must be unique)."
     )
+    assert error_message in str(result)
+
+
+@pytest.mark.cli
+def test_cli_duplicate_join_as_names(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    fresh_project._views[0]["identifiers"][0]["join_as"] = "parent_account"
+    fresh_project = fresh_project.__init__(fresh_project._models, fresh_project._views)
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 1
+    assert "QueryError" in str(result)
+    error_message = (
+        "Duplicate view names found in your project for the name parent_account. "
+        "Please make sure all view names are unique (note: join_as on identifiers "
+        "will create a view under its that name and the name must be unique)."
+    )
+    assert error_message in str(result)
 
 
 @pytest.mark.cli
@@ -801,7 +827,7 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
     result_lookup = {
         "models": "Found 2 models:\n\ntest_model\nnew_model\n",
         "connections": "Found 3 connections:\n\ntesting_snowflake\ntesting_bigquery\ntesting_databricks\n",
-        "views": "Found 18 views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nmrr\n",  # noqa
+        "views": "Found 20 views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nmrr\nparent_account\nchild_account\n",  # noqa
         "fields": "Found 2 fields:\n\ndiscount_promo_name\ndiscount_usd\n",
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
         "metrics": "Found 2 metrics:\n\ntotal_discount_amt\ndiscount_per_order\n",  # noqa

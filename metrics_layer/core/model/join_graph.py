@@ -120,7 +120,8 @@ class JoinGraph(SQLReplacement):
             if view.name in views_seen:
                 raise QueryError(
                     f"Duplicate view names found in your project for the name {view.name}."
-                    " Please make sure all view names are unique."
+                    " Please make sure all view names are unique (note: join_as on identifiers "
+                    "will create a view under its that name and the name must be unique)."
                 )
             views_seen.add(view.name)
             graph.add_node(view.name)
