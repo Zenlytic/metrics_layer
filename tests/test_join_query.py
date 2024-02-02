@@ -925,3 +925,8 @@ def test_join_as_label(connection):
     view = connection.project.get_view("child_account")
     assert view.name == "child_account"
     assert view.label == "Sub Account"
+    assert view.fields()[0].label == "Sub Account Account Id"
+
+    view = connection.project.get_view("parent_account")
+    assert view.name == "parent_account"
+    assert view.fields()[0].label == "Parent Account Id"

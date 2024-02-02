@@ -111,6 +111,13 @@ class Project:
                         if "join_as_label" in identifier:
                             view_args["label"] = identifier["join_as_label"]
 
+                        if "join_as_field_prefix" in identifier:
+                            view_args["field_prefix"] = identifier["join_as_field_prefix"]
+                        elif "join_as_label" in identifier:
+                            view_args["field_prefix"] = identifier["join_as_label"]
+                        else:
+                            view_args["field_prefix"] = identifier["join_as"].replace("_", " ").title()
+
                         join_as_to_create[identifier["join_as"]] = {**v, **view_args}
 
                     else:
