@@ -15,6 +15,7 @@ identifiers:
   type: primary
   sql: ${account_id}
   join_as: parent_account
+  join_as_field_prefix: "Parent"
 
 - name: child_account_id
   type: primary

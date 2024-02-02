@@ -144,15 +144,22 @@ class Field(MetricsLayerBase, SQLReplacement):
         if "label" in self._definition:
             label = self._definition["label"]
             if self.type == "time" and self.dimension_group:
-                return f"{label} {self.dimension_group.replace('_', ' ').title()}"
+                formatted_label = f"{label} {self.dimension_group.replace('_', ' ').title()}"
             elif self.type == "duration" and self.dimension_group:
-                return f"{self.dimension_group.replace('_', ' ').title()} {label}"
-            return label
-        # Default
-        label_text = self.alias().replace("_", " ")
-        if len(str(label_text)) <= 4:
-            return label_text.upper()
-        return label_text.title()
+                formatted_label = f"{self.dimension_group.replace('_', ' ').title()} {label}"
+            else:
+                formatted_label = label
+        else:
+            # Default
+            label_text = self.alias().replace("_", " ")
+            if len(str(label_text)) <= 4:
+                formatted_label = label_text.upper()
+            else:
+                formatted_label = label_text.title()
+
+        if self.label_prefix:
+            return f"{self.label_prefix} {formatted_label}"
+        return formatted_label
 
     @property
     def measure(self):
