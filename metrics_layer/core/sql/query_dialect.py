@@ -83,6 +83,7 @@ query_lookup = {
     Definitions.duck_db: PostgresQuery,  # duck db core query logic is postgres compatible
     Definitions.databricks: PostgresQuery,  # duck db core query logic is postgres compatible
     Definitions.sql_server: MSSSQLQuery,
+    Definitions.azure_synapse: MSSSQLQuery,  # Azure Synapse is a T-SQL flavor
 }
 
 if_null_lookup = {
@@ -94,4 +95,5 @@ if_null_lookup = {
     Definitions.druid: "nvl",
     Definitions.duck_db: "ifnull",
     Definitions.sql_server: "isnull",
+    Definitions.azure_synapse: "isnull",
 }

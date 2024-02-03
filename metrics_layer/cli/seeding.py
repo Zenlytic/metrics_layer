@@ -277,6 +277,7 @@ class SeedMetricsLayer:
             Definitions.redshift,
             Definitions.postgres,
             Definitions.sql_server,
+            Definitions.azure_synapse,
             Definitions.duck_db,
             Definitions.databricks,
         }:
@@ -329,7 +330,7 @@ class SeedMetricsLayer:
                 metrics_layer_type = self._bigquery_type_lookup.get(row["DATA_TYPE"], "string")
             elif self.connection.type == Definitions.druid:
                 metrics_layer_type = self._druid_type_lookup.get(row["DATA_TYPE"], "string")
-            elif self.connection.type == Definitions.sql_server:
+            elif self.connection.type in {Definitions.sql_server, Definitions.azure_synapse}:
                 metrics_layer_type = self._sql_server_type_lookup.get(row["DATA_TYPE"], "string")
             elif self.connection.type == Definitions.databricks:
                 metrics_layer_type = self._databricks_type_lookup.get(row["DATA_TYPE"], "string")
@@ -395,7 +396,7 @@ class SeedMetricsLayer:
                 query = f'APPROXIMATE COUNT(DISTINCT "{column_name}" ) as "{column_name}_cardinality"'  # noqa: E501
             elif self.connection.type == Definitions.postgres:
                 query = f'COUNT(DISTINCT "{column_name}" ) as "{column_name}_cardinality"'  # noqa: E501
-            elif self.connection.type == Definitions.sql_server:
+            elif self.connection.type in {Definitions.sql_server, Definitions.azure_synapse}:
                 query = (
                     f'APPROX_COUNT_DISTINCT( "{column_name}" ) as "{column_name}_cardinality"'  # noqa: E501
                 )
@@ -414,6 +415,7 @@ class SeedMetricsLayer:
             Definitions.redshift,
             Definitions.postgres,
             Definitions.sql_server,
+            Definitions.azure_synapse,
             Definitions.databricks,
         }:
             query += f" FROM {self.database}.{schema_name}.{table_name}"
@@ -435,6 +437,7 @@ class SeedMetricsLayer:
             Definitions.redshift,
             Definitions.postgres,
             Definitions.sql_server,
+            Definitions.azure_synapse,
             Definitions.duck_db,
             Definitions.databricks,
         }:
@@ -477,6 +480,7 @@ class SeedMetricsLayer:
             Definitions.redshift,
             Definitions.postgres,
             Definitions.sql_server,
+            Definitions.azure_synapse,
             Definitions.duck_db,
         }:
             query = (

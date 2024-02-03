@@ -335,7 +335,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def _sum_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
         # Druid doesn't support symmetric aggregates, so we have to ignore this check
-        no_symmetric_aggregates = {Definitions.druid, Definitions.sql_server}
+        no_symmetric_aggregates = {Definitions.druid, Definitions.sql_server, Definitions.azure_synapse}
         if self._needs_symmetric_aggregate(functional_pk) and query_type not in no_symmetric_aggregates:
             return self._sum_symmetric_aggregate(sql, query_type, alias_only=alias_only)
         return f"SUM({sql})"
@@ -356,7 +356,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         alias_only: bool = False,
         factor: int = 1_000_000,
     ):
-        if query_type in {Definitions.druid, Definitions.sql_server}:
+        if query_type in {Definitions.druid, Definitions.sql_server, Definitions.azure_synapse}:
             raise QueryError(
                 f"Symmetric aggregates are not supported in {query_type}. "
                 "Use the 'sum' type instead of 'sum_distinct'."
@@ -409,7 +409,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         return result
 
     def _count_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
-        no_symmetric_aggregates = {Definitions.druid, Definitions.sql_server}
+        no_symmetric_aggregates = {Definitions.druid, Definitions.sql_server, Definitions.azure_synapse}
         if self._needs_symmetric_aggregate(functional_pk) and query_type not in no_symmetric_aggregates:
             if self.primary_key_count:
                 return self._count_distinct_aggregate_sql(
@@ -442,7 +442,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         return result
 
     def _average_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
-        no_symmetric_aggregates = {Definitions.druid, Definitions.sql_server}
+        no_symmetric_aggregates = {Definitions.druid, Definitions.sql_server, Definitions.azure_synapse}
         if self._needs_symmetric_aggregate(functional_pk) and query_type not in no_symmetric_aggregates:
             return self._average_symmetric_aggregate(sql, query_type, alias_only=alias_only)
         return f"AVG({sql})"
@@ -450,7 +450,7 @@ class Field(MetricsLayerBase, SQLReplacement):
     def _average_distinct_aggregate_sql(
         self, sql: str, query_type: str, functional_pk: str, alias_only: bool
     ):
-        if query_type in {Definitions.druid, Definitions.sql_server}:
+        if query_type in {Definitions.druid, Definitions.sql_server, Definitions.azure_synapse}:
             raise QueryError(
                 f"Symmetric aggregates are not supported in {query_type}. "
                 "Use the 'average' type instead of 'average_distinct'."
@@ -478,6 +478,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.postgres,
             Definitions.bigquery,
             Definitions.sql_server,
+            Definitions.azure_synapse,
         }:
             raise QueryError(
                 f"Median is not supported in {query_type}. Please choose another "
@@ -660,6 +661,8 @@ class Field(MetricsLayerBase, SQLReplacement):
         meta_lookup[Definitions.redshift] = meta_lookup[Definitions.snowflake]
         # Snowflake and duck db have identical syntax in this case
         meta_lookup[Definitions.duck_db] = meta_lookup[Definitions.snowflake]
+        # Azure Synapse and SQL Server have identical syntax
+        meta_lookup[Definitions.azure_synapse] = meta_lookup[Definitions.sql_server]
         try:
             return meta_lookup[query_type][dimension_group](sql_start, sql_end)
         except KeyError:
@@ -801,7 +804,8 @@ class Field(MetricsLayerBase, SQLReplacement):
         meta_lookup[Definitions.redshift] = meta_lookup[Definitions.snowflake]
         # Snowflake and duck db have identical syntax in this case
         meta_lookup[Definitions.duck_db] = meta_lookup[Definitions.postgres]
-
+        # Azure Synapse and SQL Server have identical syntax
+        meta_lookup[Definitions.azure_synapse] = meta_lookup[Definitions.sql_server]
         # We alias month_name as the same thing as month_of_year to aid with looker migration
         for _, lookup in meta_lookup.items():
             lookup["month_name"] = lookup["month_of_year"]
@@ -823,7 +827,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"CAST(CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP) AS {self.datatype.upper()})"  # noqa
         elif query_type in {Definitions.postgres, Definitions.duck_db}:
             return f"CAST(CAST({sql} AS TIMESTAMP) at time zone 'utc' at time zone '{timezone}' AS {self.datatype.upper()})"  # noqa
-        elif query_type in {Definitions.druid, Definitions.sql_server}:
+        elif query_type in {Definitions.druid, Definitions.sql_server, Definitions.azure_synapse}:
             print(
                 f"Warning: {query_type.title()} does not support timezone conversion. "
                 "Timezone will be ignored."
@@ -867,11 +871,11 @@ class Field(MetricsLayerBase, SQLReplacement):
             if offset is None:
                 return f"DATE_TRUNC('WEEK', CAST({sql} AS TIMESTAMP))"
             return f"DATE_TRUNC('WEEK', CAST({sql} AS TIMESTAMP) + INTERVAL '{offset}' DAY) - INTERVAL '{offset}' DAY"  # noqa
-        elif Definitions.bigquery == query_type:
+        elif query_type == Definitions.bigquery:
             if offset is None:
                 return f"DATE_TRUNC({casted}, WEEK)"
             return f"DATE_TRUNC({casted} + {offset}, WEEK) - {offset}"
-        elif Definitions.sql_server == query_type:
+        elif query_type in {Definitions.sql_server, Definitions.azure_synapse}:
             if offset is None:
                 return f"DATEADD(WEEK, DATEDIFF(WEEK, 0, {casted}), 0)"
             return f"DATEADD(DAY, -{offset}, DATEADD(WEEK, DATEDIFF(WEEK, 0, DATEADD(DAY, {offset}, {casted})), 0))"  # noqa
