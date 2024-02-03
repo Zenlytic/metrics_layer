@@ -50,6 +50,7 @@ def test_cli_init(mocker, monkeypatch):
         (Definitions.redshift, None, None, None),
         (Definitions.druid, None, None, None),
         (Definitions.sql_server, None, None, None),
+        (Definitions.azure_synapse, None, None, None),
     ],
 )
 def test_cli_seed_metrics_layer(
@@ -97,7 +98,7 @@ def test_cli_seed_metrics_layer(
             return seed_bigquery_tables_data
         elif query_type == Definitions.druid:
             return seed_druid_tables_data
-        elif query_type == Definitions.sql_server:
+        elif query_type in {Definitions.sql_server, Definitions.azure_synapse}:
             return seed_sql_server_tables_data
         elif query_type == Definitions.databricks:
             return seed_databricks_tables_data
@@ -126,12 +127,24 @@ def test_cli_seed_metrics_layer(
             elif query_type == Definitions.bigquery:
                 assert data["sql_table_name"] == "`analytics.analytics.orders`"
             elif (
-                query_type in {Definitions.postgres, Definitions.sql_server, Definitions.databricks}
+                query_type
+                in {
+                    Definitions.postgres,
+                    Definitions.azure_synapse,
+                    Definitions.sql_server,
+                    Definitions.databricks,
+                }
                 and database_override is None
             ):
                 assert data["sql_table_name"] == "analytics.orders"
             elif (
-                query_type in {Definitions.postgres, Definitions.sql_server, Definitions.databricks}
+                query_type
+                in {
+                    Definitions.postgres,
+                    Definitions.azure_synapse,
+                    Definitions.sql_server,
+                    Definitions.databricks,
+                }
                 and database_override
             ):
                 assert data["sql_table_name"] == "segment_events.analytics.orders"
@@ -154,7 +167,7 @@ def test_cli_seed_metrics_layer(
                 assert social["sql"] == "${TABLE}.ON_SOCIAL_NETWORK"
 
             assert acq_date["type"] == "time"
-            if query_type == Definitions.sql_server:
+            if query_type in {Definitions.sql_server, Definitions.azure_synapse}:
                 assert acq_date["datatype"] == "datetime"
             else:
                 assert acq_date["datatype"] == "timestamp"
@@ -170,6 +183,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.postgres,
                 Definitions.druid,
                 Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert date["datatype"] == "date"
             else:
@@ -200,12 +214,24 @@ def test_cli_seed_metrics_layer(
             elif query_type == Definitions.bigquery:
                 assert data["sql_table_name"] == "`analytics.analytics.sessions`"
             elif (
-                query_type in {Definitions.postgres, Definitions.sql_server, Definitions.databricks}
+                query_type
+                in {
+                    Definitions.postgres,
+                    Definitions.sql_server,
+                    Definitions.azure_synapse,
+                    Definitions.databricks,
+                }
                 and database_override is None
             ):
                 assert data["sql_table_name"] == "analytics.sessions"
             elif (
-                query_type in {Definitions.postgres, Definitions.sql_server, Definitions.databricks}
+                query_type
+                in {
+                    Definitions.postgres,
+                    Definitions.sql_server,
+                    Definitions.azure_synapse,
+                    Definitions.databricks,
+                }
                 and database_override
             ):
                 assert data["sql_table_name"] == "segment_events.analytics.sessions"
@@ -226,6 +252,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.postgres,
                 Definitions.druid,
                 Definitions.sql_server,
+                Definitions.azure_synapse,
                 Definitions.databricks,
             }:
                 assert date["datatype"] == "date"

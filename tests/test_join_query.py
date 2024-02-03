@@ -747,6 +747,7 @@ def test_join_graph_raise_unjoinable_error(connection):
         Definitions.redshift,
         Definitions.bigquery,
         Definitions.sql_server,
+        Definitions.azure_synapse,
         Definitions.duck_db,
     ],
 )

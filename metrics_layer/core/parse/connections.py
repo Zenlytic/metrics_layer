@@ -19,6 +19,7 @@ class ConnectionType:
     sql_server = Definitions.sql_server
     duck_db = Definitions.duck_db
     databricks = Definitions.databricks
+    azure_synapse = Definitions.azure_synapse
 
 
 class BaseConnection:
@@ -337,6 +338,11 @@ class SQLServerConnection(BaseConnection):
         return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
 
 
+# The Synapse connection is the same as SQL Server
+class AzureSynapseConnection(SQLServerConnection):
+    pass
+
+
 class BigQueryConnection(BaseConnection):
     def __init__(
         self, name: str, schema: str = None, credentials: str = None, keyfile: str = None, **kwargs
@@ -392,6 +398,7 @@ connection_class_lookup = {
     ConnectionType.postgres: PostgresConnection,
     ConnectionType.druid: DruidConnection,
     ConnectionType.sql_server: SQLServerConnection,
+    ConnectionType.azure_synapse: AzureSynapseConnection,
     ConnectionType.duck_db: DuckDBConnection,
     ConnectionType.databricks: DatabricksConnection,
 }

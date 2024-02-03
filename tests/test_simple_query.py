@@ -190,6 +190,8 @@ def test_simple_query(connections):
         ("min_revenue", Definitions.databricks),
         ("max_revenue", Definitions.druid),
         ("min_revenue", Definitions.druid),
+        ("max_revenue", Definitions.azure_synapse),
+        ("min_revenue", Definitions.azure_synapse),
         ("max_revenue", Definitions.sql_server),
         ("min_revenue", Definitions.sql_server),
         ("max_revenue", Definitions.redshift),
@@ -235,6 +237,7 @@ def test_simple_query_min_max(connections, metric, query_type):
         (Definitions.databricks),
         (Definitions.druid),
         (Definitions.sql_server),
+        (Definitions.azure_synapse),
         (Definitions.redshift),
         (Definitions.postgres),
         (Definitions.bigquery),
@@ -293,7 +296,9 @@ def test_simple_query_single_dimension(connections):
 
 
 @pytest.mark.query
-@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.sql_server])
+@pytest.mark.parametrize(
+    "query_type", [Definitions.snowflake, Definitions.sql_server, Definitions.azure_synapse]
+)
 def test_simple_query_limit(connections, query_type):
     project = Project(models=[simple_model], views=[simple_view])
     conn = MetricsLayerConnection(project=project, connections=connections)
@@ -304,7 +309,7 @@ def test_simple_query_limit(connections, query_type):
             "SELECT simple.sales_channel as simple_channel FROM analytics.orders simple "
             "GROUP BY simple.sales_channel ORDER BY simple_channel ASC LIMIT 10;"
         )
-    elif Definitions.sql_server == query_type:
+    elif query_type in {Definitions.sql_server, Definitions.azure_synapse}:
         correct = (
             "SELECT TOP (10) simple.sales_channel as simple_channel FROM analytics.orders simple "
             "GROUP BY simple.sales_channel;"
@@ -354,6 +359,9 @@ def test_simple_query_alias_keyword(connections):
         ("order", "date", Definitions.sql_server),
         ("order", "week", Definitions.sql_server),
         ("previous_order", "date", Definitions.sql_server),
+        ("order", "date", Definitions.azure_synapse),
+        ("order", "week", Definitions.azure_synapse),
+        ("previous_order", "date", Definitions.azure_synapse),
         ("order", "date", Definitions.redshift),
         ("order", "week", Definitions.redshift),
         ("order", "date", Definitions.postgres),
@@ -462,7 +470,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         order_by = ""
         semi = ""
 
-    elif query_type == Definitions.sql_server:
+    elif query_type in {Definitions.sql_server, Definitions.azure_synapse}:
         if field == "previous_order":
             result_lookup = {"date": "CAST(CAST(simple.previous_order_date AS DATE) AS DATETIME)"}
         else:
@@ -565,6 +573,24 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("day_of_week", Definitions.sql_server),
         ("day_of_month", Definitions.sql_server),
         ("day_of_year", Definitions.sql_server),
+        ("time", Definitions.azure_synapse),
+        ("second", Definitions.azure_synapse),
+        ("minute", Definitions.azure_synapse),
+        ("hour", Definitions.azure_synapse),
+        ("date", Definitions.azure_synapse),
+        ("week", Definitions.azure_synapse),
+        ("month", Definitions.azure_synapse),
+        ("quarter", Definitions.azure_synapse),
+        ("year", Definitions.azure_synapse),
+        ("week_index", Definitions.azure_synapse),
+        ("week_of_month", Definitions.azure_synapse),
+        ("month_of_year_index", Definitions.azure_synapse),
+        ("month_of_year", Definitions.azure_synapse),
+        ("quarter_of_year", Definitions.azure_synapse),
+        ("hour_of_day", Definitions.azure_synapse),
+        ("day_of_week", Definitions.azure_synapse),
+        ("day_of_month", Definitions.azure_synapse),
+        ("day_of_year", Definitions.azure_synapse),
         ("time", Definitions.redshift),
         ("second", Definitions.redshift),
         ("minute", Definitions.redshift),
@@ -675,7 +701,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         }
         order_by = " ORDER BY simple_total_revenue DESC"
 
-    elif query_type == Definitions.sql_server:
+    elif query_type in {Definitions.sql_server, Definitions.azure_synapse}:
         result_lookup = {
             "time": "CAST(simple.order_date AS DATETIME)",
             "second": "DATEADD(SECOND, DATEDIFF(SECOND, 0, CAST(simple.order_date AS DATETIME)), 0)",
@@ -815,6 +841,14 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         ("month", Definitions.sql_server),
         ("quarter", Definitions.sql_server),
         ("year", Definitions.sql_server),
+        ("second", Definitions.azure_synapse),
+        ("minute", Definitions.azure_synapse),
+        ("hour", Definitions.azure_synapse),
+        ("day", Definitions.azure_synapse),
+        ("week", Definitions.azure_synapse),
+        ("month", Definitions.azure_synapse),
+        ("quarter", Definitions.azure_synapse),
+        ("year", Definitions.azure_synapse),
         ("second", Definitions.redshift),
         ("minute", Definitions.redshift),
         ("hour", Definitions.redshift),
@@ -896,7 +930,7 @@ def test_simple_query_dimension_group_interval(connections, interval: str, query
         }
         order_by = ""
         semi = ""
-    elif query_type in {Definitions.sql_server, Definitions.databricks}:
+    elif query_type in {Definitions.sql_server, Definitions.azure_synapse, Definitions.databricks}:
         result_lookup = {
             "second": "DATEDIFF(SECOND, simple.view_date, simple.order_date)",
             "minute": "DATEDIFF(MINUTE, simple.view_date, simple.order_date)",

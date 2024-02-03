@@ -7,7 +7,18 @@ class Definitions:
     sql_server = "SQL_SERVER"
     duck_db = "DUCK_DB"
     databricks = "DATABRICKS"
-    supported_warehouses = [snowflake, bigquery, redshift, postgres, druid, sql_server, duck_db, databricks]
+    azure_synapse = "AZURE_SYNAPSE"
+    supported_warehouses = [
+        snowflake,
+        bigquery,
+        redshift,
+        postgres,
+        druid,
+        sql_server,
+        duck_db,
+        databricks,
+        azure_synapse,
+    ]
     supported_warehouses_text = ", ".join(supported_warehouses)
 
     does_not_exist = "__DOES_NOT_EXIST__"
