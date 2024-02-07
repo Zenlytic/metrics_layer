@@ -65,6 +65,7 @@ fields:
       raw,
       time,
       date,
+      day_of_year,
       week,
       week_of_year,
       month,

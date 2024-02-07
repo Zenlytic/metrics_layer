@@ -349,6 +349,7 @@ class SeedMetricsLayer:
                 field["timeframes"] = [
                     "raw",
                     "date",
+                    "day_of_year",
                     "week",
                     "week_of_year",
                     "month",

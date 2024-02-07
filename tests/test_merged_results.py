@@ -116,6 +116,7 @@ def test_merged_result_join_graph(connection):
     tf = [
         "date",
         "day_of_week",
+        "day_of_year",
         "hour_of_day",
         "month",
         "month_of_year",

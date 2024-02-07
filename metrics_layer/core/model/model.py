@@ -4,7 +4,16 @@ from collections import Counter
 from .base import MetricsLayerBase
 from metrics_layer.core.exceptions import QueryError, AccessDeniedOrDoesNotExistException
 
-SPECIAL_MAPPING_VALUES = {"date", "week_of_year", "week", "month_of_year", "month", "quarter", "year"}
+SPECIAL_MAPPING_VALUES = {
+    "date",
+    "day_of_year",
+    "week_of_year",
+    "week",
+    "month_of_year",
+    "month",
+    "quarter",
+    "year",
+}
 
 
 class AccessGrant(MetricsLayerBase):

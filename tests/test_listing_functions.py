@@ -59,6 +59,7 @@ def test_project_expand_fields(connection):
     assert dim_groups_alias == [
         "order_time",
         "order_date",
+        "order_day_of_year",
         "order_week",
         "order_week_of_year",
         "order_month",
