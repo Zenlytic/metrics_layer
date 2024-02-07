@@ -19,6 +19,7 @@ class Definitions:
         databricks,
         azure_synapse,
     ]
+    symmetric_aggregates_supported_warehouses = [snowflake, redshift, bigquery, postgres, duck_db]
     supported_warehouses_text = ", ".join(supported_warehouses)
 
     does_not_exist = "__DOES_NOT_EXIST__"

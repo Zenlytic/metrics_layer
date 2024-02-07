@@ -353,7 +353,15 @@ class Field(MetricsLayerBase, SQLReplacement):
         if functional_pk:
             if functional_pk == Definitions.does_not_exist:
                 return True
-            field_pk_id = self.view.primary_key.id()
+            try:
+                field_pk_id = self.view.primary_key.id()
+            except AttributeError:
+                raise QueryError(
+                    f"The primary key for the view {self.view.name} is not defined. "
+                    "To use symmetric aggregates, you need to define the primary key. "
+                    "Define the primary key by adding primary_key: yes to the field "
+                    "that is the primary key of the table."
+                )
             different_functional_pk = field_pk_id != functional_pk.id()
         else:
             different_functional_pk = False
@@ -372,9 +380,10 @@ class Field(MetricsLayerBase, SQLReplacement):
         return f"COUNT(DISTINCT({sql}))"
 
     def _sum_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
-        # Druid doesn't support symmetric aggregates, so we have to ignore this check
-        no_symmetric_aggregates = {Definitions.druid, Definitions.sql_server, Definitions.azure_synapse}
-        if self._needs_symmetric_aggregate(functional_pk) and query_type not in no_symmetric_aggregates:
+        if (
+            query_type in Definitions.symmetric_aggregates_supported_warehouses
+            and self._needs_symmetric_aggregate(functional_pk)
+        ):
             return self._sum_symmetric_aggregate(sql, query_type, alias_only=alias_only)
         return f"SUM({sql})"
 
@@ -394,12 +403,17 @@ class Field(MetricsLayerBase, SQLReplacement):
         alias_only: bool = False,
         factor: int = 1_000_000,
     ):
-        if query_type in {Definitions.druid, Definitions.sql_server, Definitions.azure_synapse}:
+        if query_type not in Definitions.symmetric_aggregates_supported_warehouses:
             raise QueryError(
                 f"Symmetric aggregates are not supported in {query_type}. "
                 "Use the 'sum' type instead of 'sum_distinct'."
             )
-        elif query_type in {Definitions.snowflake, Definitions.redshift}:
+        elif query_type in {
+            Definitions.snowflake,
+            Definitions.postgres,
+            Definitions.duck_db,
+            Definitions.redshift,
+        }:
             return self._sum_symmetric_aggregate_snowflake(sql, primary_key_sql, alias_only, factor)
         elif query_type == Definitions.bigquery:
             return self._sum_symmetric_aggregate_bigquery(sql, primary_key_sql, alias_only, factor)
@@ -447,8 +461,10 @@ class Field(MetricsLayerBase, SQLReplacement):
         return result
 
     def _count_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
-        no_symmetric_aggregates = {Definitions.druid, Definitions.sql_server, Definitions.azure_synapse}
-        if self._needs_symmetric_aggregate(functional_pk) and query_type not in no_symmetric_aggregates:
+        if (
+            query_type in Definitions.symmetric_aggregates_supported_warehouses
+            and self._needs_symmetric_aggregate(functional_pk)
+        ):
             if self.primary_key_count:
                 return self._count_distinct_aggregate_sql(
                     sql, query_type, functional_pk, alias_only=alias_only
@@ -480,15 +496,17 @@ class Field(MetricsLayerBase, SQLReplacement):
         return result
 
     def _average_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
-        no_symmetric_aggregates = {Definitions.druid, Definitions.sql_server, Definitions.azure_synapse}
-        if self._needs_symmetric_aggregate(functional_pk) and query_type not in no_symmetric_aggregates:
+        if (
+            query_type in Definitions.symmetric_aggregates_supported_warehouses
+            and self._needs_symmetric_aggregate(functional_pk)
+        ):
             return self._average_symmetric_aggregate(sql, query_type, alias_only=alias_only)
         return f"AVG({sql})"
 
     def _average_distinct_aggregate_sql(
         self, sql: str, query_type: str, functional_pk: str, alias_only: bool
     ):
-        if query_type in {Definitions.druid, Definitions.sql_server, Definitions.azure_synapse}:
+        if query_type not in Definitions.symmetric_aggregates_supported_warehouses:
             raise QueryError(
                 f"Symmetric aggregates are not supported in {query_type}. "
                 "Use the 'average' type instead of 'average_distinct'."

@@ -1339,7 +1339,7 @@ def test_query_number_metric_with_non_matching_canon_dates(connection):
 
 
 @pytest.mark.query
-def test_query_merge_results_invalid_join_attempt(connection):
+def test_query_merge_results_no_metric_date(connection):
     query = connection.get_sql_query(
         metrics=[],
         dimensions=["date", "customers.customer_id", "orders.order_id"],
