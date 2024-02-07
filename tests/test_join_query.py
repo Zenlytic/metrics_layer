@@ -210,12 +210,23 @@ def test_query_single_join_metric_with_sub_field(connection):
     )
 
     correct = (
-        "SELECT order_lines.sales_channel as order_lines_channel,(SUM(order_lines.revenue)) "
-        "/ (NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL "
-        "THEN  orders.id  ELSE NULL END), 0)) as order_lines_line_item_aov "
-        "FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
-        "ON order_lines.order_unique_id=orders.id GROUP BY order_lines.sales_channel "
-        "ORDER BY order_lines_line_item_aov DESC;"
+        "WITH order_lines_order__cte_subquery_0 AS (SELECT order_lines.sales_channel as "
+        "order_lines_channel,SUM(order_lines.revenue) as order_lines_total_item_revenue "
+        "FROM analytics.order_line_items order_lines GROUP BY order_lines.sales_channel "
+        "ORDER BY order_lines_total_item_revenue DESC) ,"
+        "orders_order__cte_subquery_1 AS (SELECT order_lines.sales_channel as order_lines_channel,"
+        "NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL THEN  orders.id  "
+        "ELSE NULL END), 0) as orders_number_of_orders FROM analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id GROUP BY "
+        "order_lines.sales_channel ORDER BY orders_number_of_orders DESC) "
+        "SELECT order_lines_order__cte_subquery_0.order_lines_total_item_revenue as "
+        "order_lines_total_item_revenue,orders_order__cte_subquery_1.orders_number_of_orders "
+        "as orders_number_of_orders,ifnull(order_lines_order__cte_subquery_0.order_lines_channel, "
+        "orders_order__cte_subquery_1.order_lines_channel) as order_lines_channel,"
+        "order_lines_total_item_revenue / orders_number_of_orders as order_lines_line_item_aov "
+        "FROM order_lines_order__cte_subquery_0 FULL OUTER JOIN orders_order__cte_subquery_1 "
+        "ON order_lines_order__cte_subquery_0.order_lines_channel"
+        "=orders_order__cte_subquery_1.order_lines_channel;"
     )
     assert query == correct
 
@@ -280,12 +291,12 @@ def test_query_single_join_with_case_raw_sql(connection):
     )
 
     correct = (
-        "SELECT CASE WHEN order_lines.product_name ilike '%sale%' then TRUE else FALSE end "
+        "SELECT (CASE WHEN order_lines.product_name ilike '%sale%' then TRUE else FALSE end) "
         "as order_lines_is_on_sale_sql,orders.new_vs_repeat as orders_new_vs_repeat,"
         "SUM(order_lines.revenue) as order_lines_total_item_revenue FROM "
         "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
-        "ON order_lines.order_unique_id=orders.id GROUP BY CASE WHEN order_lines.product_name "
-        "ilike '%sale%' then TRUE else FALSE end,orders.new_vs_repeat "
+        "ON order_lines.order_unique_id=orders.id GROUP BY (CASE WHEN order_lines.product_name "
+        "ilike '%sale%' then TRUE else FALSE end),orders.new_vs_repeat "
         "ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
@@ -405,10 +416,10 @@ def test_query_multiple_join_with_duration(connection):
 
     correct = (
         "SELECT DATEDIFF('MONTH', orders.previous_order_date, orders.order_date) as orders_months_between_orders,"  # noqa
-        "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when customers.is_churned=false then "
+        "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when (customers.is_churned)=false then "
         "customers.total_sessions end, 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) "
-        "+ (TO_NUMBER(MD5(case when customers.is_churned=false then customers.customer_id end), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) "  # noqa
-        "- SUM(DISTINCT (TO_NUMBER(MD5(case when customers.is_churned=false then customers.customer_id end), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "  # noqa
+        "+ (TO_NUMBER(MD5(case when (customers.is_churned)=false then customers.customer_id end), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) "  # noqa
+        "- SUM(DISTINCT (TO_NUMBER(MD5(case when (customers.is_churned)=false then customers.customer_id end), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "  # noqa
         "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) / CAST((1000000*1.0) AS DOUBLE PRECISION), 0) "
         "as customers_total_sessions "
         "FROM analytics.orders orders "
@@ -617,7 +628,7 @@ def test_query_bool_and_date_filter(connection, bool_value):
         "SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) "
         "as order_lines_total_item_revenue FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
-        f"WHERE {negation}customers.is_churned AND DATE_TRUNC('DAY', order_lines.order_date)>'2022-04-03' "
+        f"WHERE {negation}(customers.is_churned) AND DATE_TRUNC('DAY', order_lines.order_date)>'2022-04-03' "
         "GROUP BY order_lines.sales_channel ORDER BY order_lines_total_item_revenue DESC;"
     )
     assert query == correct
@@ -786,7 +797,7 @@ def test_always_filter_with_and_without_join(connection):
         "FROM analytics.created_workspace created_workspace "
         "LEFT JOIN analytics.customers customers "
         "ON created_workspace.customer_id=customers.customer_id "
-        "WHERE NOT customers.is_churned AND NOT created_workspace.context_os IS NULL "
+        "WHERE NOT (customers.is_churned) AND NOT created_workspace.context_os IS NULL "
         "AND created_workspace.context_os IN ('1','Google','os:iOS') "
         "GROUP BY DATE_TRUNC('DAY', created_workspace.session_date) "
         "ORDER BY created_workspace_number_of_workspace_creations DESC;"

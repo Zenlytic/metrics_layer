@@ -152,13 +152,34 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                             self.mapping_forces_merged_result = True
                             break
                 elif is_date_mapping and len(self.dimensions) >= 1:
-                    canon_dates = {self._get_field_from_lookup(d).canon_date for d in self.dimensions}
-                    canon_dates = {c for c in canon_dates if c}
+                    canon_dates = set()
+                    for d in self.dimensions:
+                        field = self._get_field_from_lookup(d, only_search_lookup=True)
+                        if field and field.canon_date:
+                            canon_dates.add(field.canon_date)
+
                     if len(canon_dates) >= 1:
-                        canon_date_id = f'{list(canon_dates)[0]}_{mapped_field["name"]}'
-                        replace_with = self.project.get_field(canon_date_id)
+                        # When there is no measure present, we will chose the canon date
+                        # from the dimension that has the most measures
                         if len(canon_dates) > 1:
-                            self.mapping_forces_merged_result = True
+                            views_by_n_measures = {}
+                            for canon_date in canon_dates:
+                                view_name = canon_date.split(".")[0]
+                                measures = [
+                                    f
+                                    for f in self.project.get_view(view_name).fields()
+                                    if f.field_type == "measure"
+                                ]
+                                views_by_n_measures[canon_date] = len(measures)
+                            sorted_canon_dates = list(
+                                sorted(canon_dates, key=lambda x: views_by_n_measures[x], reverse=True)
+                            )
+                        else:
+                            # Sort is not needed if there is only one canon_date
+                            sorted_canon_dates = list(canon_dates)
+
+                        canon_date_id = f'{sorted_canon_dates[0]}_{mapped_field["name"]}'
+                        replace_with = self.project.get_field(canon_date_id)
                     else:
                         replace_with = self.determine_field_to_replace_with(
                             mapped_field, joinable_graphs, mergeable_graphs
@@ -181,9 +202,11 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                     )
                 self._replace_mapped_field(name, replace_with)
 
-    def _get_field_from_lookup(self, field_name: str):
+    def _get_field_from_lookup(self, field_name: str, only_search_lookup: bool = False):
         if field_name in self.field_object_lookup:
             metric_field = self.field_object_lookup[field_name]
+        elif only_search_lookup:
+            return None
         else:
             metric_field = self.project.get_field(field_name, model=self.model)
         return metric_field

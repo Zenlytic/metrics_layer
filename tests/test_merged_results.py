@@ -116,6 +116,7 @@ def test_merged_result_join_graph(connection):
     tf = [
         "date",
         "day_of_week",
+        "day_of_year",
         "hour_of_day",
         "month",
         "month_of_year",
@@ -1287,5 +1288,76 @@ def test_query_subquery_with_substring_in_name(connection):
         f"FROM {cte_2} FULL OUTER JOIN {cte_1} ON {cte_2}.aa_acquired_accounts_created_month"
         f"={cte_1}.z_customer_accounts_created_month and {cte_2}.aa_acquired_accounts_account_type"
         f"={cte_1}.z_customer_accounts_type_of_account;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_number_metric_with_non_matching_canon_dates(connection):
+    query = connection.get_sql_query(
+        metrics=["unique_users_per_form_submission"],
+        dimensions=["date"],
+        where=[
+            {
+                "field": "date",
+                "expression": "less_or_equal_than",
+                "value": datetime.datetime(2023, 6, 26, 23, 59, 59),
+            },
+        ],
+    )
+
+    cte_1 = "submitted_form_sent_at__cte_subquery_0"
+    cte_2 = "submitted_form_session__cte_subquery_1"
+    correct = (
+        f"WITH {cte_1} AS (SELECT DATE_TRUNC('DAY', "
+        f"submitted_form.sent_at) as submitted_form_sent_at_date,"
+        f"COUNT(DISTINCT(submitted_form.customer_id)) as submitted_form_unique_users_form_submissions "
+        f"FROM analytics.submitted_form submitted_form WHERE DATE_TRUNC('DAY', "
+        f"submitted_form.sent_at)<='2023-06-26T23:59:59' "
+        f"GROUP BY DATE_TRUNC('DAY', submitted_form.sent_at) "
+        f"ORDER BY submitted_form_unique_users_form_submissions DESC) ,"
+        f"{cte_2} AS (SELECT DATE_TRUNC('DAY', "
+        f"submitted_form.session_date) as submitted_form_session_date,"
+        f"COUNT(submitted_form.id) as submitted_form_number_of_form_submissions "
+        f"FROM analytics.submitted_form submitted_form WHERE DATE_TRUNC('DAY', "
+        f"submitted_form.session_date)<='2023-06-26T23:59:59' GROUP BY DATE_TRUNC('DAY', "
+        f"submitted_form.session_date) ORDER BY submitted_form_number_of_form_submissions DESC) "
+        f"SELECT {cte_1}.submitted_form_unique_users_form_submissions "
+        f"as submitted_form_unique_users_form_submissions,{cte_2}."
+        f"submitted_form_number_of_form_submissions as submitted_form_number_of_form_submissions,"
+        f"ifnull({cte_1}.submitted_form_sent_at_date, "
+        f"{cte_2}.submitted_form_session_date) as "
+        f"submitted_form_sent_at_date,ifnull({cte_2}."
+        f"submitted_form_session_date, {cte_1}."
+        f"submitted_form_sent_at_date) as submitted_form_session_date,"
+        f"submitted_form_unique_users_form_submissions / submitted_form_number_of_form_submissions "
+        f"as submitted_form_unique_users_per_form_submission FROM {cte_1} "
+        f"FULL OUTER JOIN {cte_2} ON {cte_1}"
+        f".submitted_form_sent_at_date={cte_2}.submitted_form_session_date;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_merge_results_invalid_join_attempt(connection):
+    query = connection.get_sql_query(
+        metrics=[],
+        dimensions=["date", "customers.customer_id", "orders.order_id"],
+        where=[
+            {
+                "field": "date",
+                "expression": "greater_than",
+                "value": "2023-02-01",
+            },
+        ],
+    )
+
+    correct = (
+        "SELECT DATE_TRUNC('DAY', orders.order_date) as orders_order_date,"
+        "customers.customer_id as customers_customer_id,orders.id as orders_order_id "
+        "FROM analytics.orders orders LEFT JOIN analytics.customers customers "
+        "ON orders.customer_id=customers.customer_id WHERE DATE_TRUNC('DAY', orders.order_date)>'2023-02-01' "
+        "GROUP BY DATE_TRUNC('DAY', orders.order_date),customers.customer_id,orders.id "
+        "ORDER BY orders_order_date ASC;"
     )
     assert query == correct

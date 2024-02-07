@@ -40,6 +40,7 @@ def test_sets(connection):
         "orders.do_not_use",
         "orders.order_raw",
         "orders.order_date",
+        "orders.order_day_of_year",
         "orders.order_week",
         "orders.order_week_of_year",
         "orders.order_month",

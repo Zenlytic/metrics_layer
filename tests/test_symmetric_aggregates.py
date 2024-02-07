@@ -131,20 +131,20 @@ def test_query_number_with_sql(connection, query_type):
 
     if query_type in {Definitions.snowflake, Definitions.redshift}:
         sa_sum = (
-            "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when customers.is_churned=false then customers.total_sessions end, 0) "  # noqa
-            "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(case when customers.is_churned=false then customers.customer_id end), "  # noqa
+            "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when (customers.is_churned)=false then customers.total_sessions end, 0) "  # noqa
+            "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(case when (customers.is_churned)=false then customers.customer_id end), "  # noqa
             "'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) "
-            "- SUM(DISTINCT (TO_NUMBER(MD5(case when customers.is_churned=false then customers.customer_id end), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "  # noqa
+            "- SUM(DISTINCT (TO_NUMBER(MD5(case when (customers.is_churned)=false then customers.customer_id end), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "  # noqa
             "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
             "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
         )
         order_by = " ORDER BY customers_total_sessions_divide DESC"
     elif query_type == Definitions.bigquery:
         sa_sum = (
-            "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when customers.is_churned=false then customers.total_sessions end, 0) "  # noqa
+            "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when (customers.is_churned)=false then customers.total_sessions end, 0) "  # noqa
             "* (1000000 * 1.0)) AS FLOAT64)) + "
-            "CAST(FARM_FINGERPRINT(CAST(case when customers.is_churned=false then customers.customer_id end AS STRING)) AS BIGNUMERIC)) "  # noqa
-            "- SUM(DISTINCT CAST(FARM_FINGERPRINT(CAST(case when customers.is_churned=false then customers.customer_id end AS STRING)) AS BIGNUMERIC))) AS FLOAT64) "  # noqa
+            "CAST(FARM_FINGERPRINT(CAST(case when (customers.is_churned)=false then customers.customer_id end AS STRING)) AS BIGNUMERIC)) "  # noqa
+            "- SUM(DISTINCT CAST(FARM_FINGERPRINT(CAST(case when (customers.is_churned)=false then customers.customer_id end AS STRING)) AS BIGNUMERIC))) AS FLOAT64) "  # noqa
             "/ CAST((1000000*1.0) AS FLOAT64), 0)"
         )
         order_by = ""

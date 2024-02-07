@@ -1,6 +1,24 @@
 import pytest
 
+from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.model.definitions import Definitions
+
+
+@pytest.mark.query
+def test_cumulative_query_field_object(connection):
+    field = connection.project.get_field("total_lifetime_revenue")
+
+    with pytest.raises(QueryError) as exc_info:
+        field.sql_query(query_type="SNOWFLAKE")
+
+    error_message = (
+        "You cannot call sql_query() on cumulative type field orders.total_lifetime_revenue "
+        "because cumulative queries are dependent on the 'FROM' clause to be correct and "
+        "the sql_query() method only returns the aggregation of the individual metric, not "
+        "the whole SQL query. To see the query, use get_sql_query() with the cumulative metric."
+    )
+    assert isinstance(exc_info.value, QueryError)
+    assert str(exc_info.value) == error_message
 
 
 @pytest.mark.query

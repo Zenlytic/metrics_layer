@@ -4,7 +4,7 @@ import pytest
 @pytest.mark.project
 def test_list_metrics(connection):
     metrics = connection.list_metrics()
-    assert len(metrics) == 47
+    assert len(metrics) == 48
 
     metrics = connection.list_metrics(view_name="order_lines", names_only=True)
     assert len(metrics) == 11
@@ -59,6 +59,7 @@ def test_project_expand_fields(connection):
     assert dim_groups_alias == [
         "order_time",
         "order_date",
+        "order_day_of_year",
         "order_week",
         "order_week_of_year",
         "order_month",

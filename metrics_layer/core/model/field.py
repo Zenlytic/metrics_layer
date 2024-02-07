@@ -45,6 +45,31 @@ VALID_INTERVALS = [
     "quarter",
     "year",
 ]
+VALID_VALUE_FORMAT_NAMES = [
+    "decimal_0",
+    "decimal_1",
+    "decimal_2",
+    "decimal_pct_0",
+    "decimal_pct_1",
+    "decimal_pct_2",
+    "percent_0",
+    "percent_1",
+    "percent_2",
+    "eur",
+    "eur_0",
+    "eur_1",
+    "eur_2",
+    "usd",
+    "usd_0",
+    "usd_1",
+    "usd_2",
+    "string",
+    "date",
+    "week",
+    "month",
+    "quarter",
+    "year",
+]
 
 
 class Field(MetricsLayerBase, SQLReplacement):
@@ -135,6 +160,10 @@ class Field(MetricsLayerBase, SQLReplacement):
         if "sql" in definition and definition.get("type") == "tier":
             definition["sql"] = self._translate_looker_tier_to_sql(definition["sql"], definition["tiers"])
 
+        # We need to put parenthesis around yesno types
+        if "sql" in definition and definition.get("type") == "yesno":
+            definition["sql"] = f'({definition["sql"]})'
+
         if "sql" in definition:
             definition["sql"] = self._clean_sql_for_case(definition["sql"])
         return definition.get("sql")
@@ -192,6 +221,15 @@ class Field(MetricsLayerBase, SQLReplacement):
     def is_merged_result(self):
         if "is_merged_result" in self._definition:
             return self._definition["is_merged_result"]
+        elif self.type == "number" and self.field_type == "measure":
+            # For number types, if the references have different canon_date values
+            # then we need to make it a merged result.
+            referenced_canon_dates = set()
+            for reference in self.referenced_fields(self.sql):
+                if reference.field_type == "measure" and reference.type != "cumulative":
+                    referenced_canon_dates.add(reference.canon_date)
+
+            return len(referenced_canon_dates) > 1
         return False
 
     @property
@@ -978,6 +1016,13 @@ class Field(MetricsLayerBase, SQLReplacement):
                     )
             except (AccessDeniedOrDoesNotExistException, QueryError):
                 errors.append(f"Canon date {self.canon_date} is unreachable in field {self.name}.")
+
+        if self.value_format_name:
+            if self.value_format_name not in VALID_VALUE_FORMAT_NAMES:
+                errors.append(
+                    f"Warning: Field {self.name} has an invalid value_format_name {self.value_format_name}. "
+                    f"Valid value_format_name's are: {VALID_VALUE_FORMAT_NAMES}"
+                )
         return errors
 
     def get_referenced_sql_query(self, strings_only=True):
@@ -1035,6 +1080,14 @@ class Field(MetricsLayerBase, SQLReplacement):
             clean_sql_start = self._replace_sql_query(self.sql_start, query_type, alias_only=alias_only)
             clean_sql_end = self._replace_sql_query(self.sql_end, query_type, alias_only=alias_only)
             return self.apply_dimension_group_duration_sql(clean_sql_start, clean_sql_end, query_type)
+
+        if self.type == "cumulative":
+            raise QueryError(
+                f"You cannot call sql_query() on cumulative type field {self.id()} because cumulative "
+                "queries are dependent on the 'FROM' clause to be correct and the sql_query() method "
+                "only returns the aggregation of the individual metric, not the whole SQL query. "
+                "To see the query, use get_sql_query() with the cumulative metric."
+            )
 
         raise QueryError(f"Unknown type of SQL query for field {self.name}")
 

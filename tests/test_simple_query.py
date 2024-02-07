@@ -1022,10 +1022,10 @@ def test_simple_query_custom_dimension(connections):
     query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["is_valid_order"])
 
     correct = (
-        "SELECT CASE WHEN simple.sales_channel != 'fraud' THEN TRUE ELSE FALSE END as simple_is_valid_order,"
-        "SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple"
-        " GROUP BY CASE WHEN simple.sales_channel != 'fraud' THEN TRUE ELSE FALSE END "
-        "ORDER BY simple_total_revenue DESC;"
+        "SELECT (CASE WHEN simple.sales_channel != 'fraud' THEN TRUE ELSE FALSE END) as "
+        "simple_is_valid_order,SUM(simple.revenue) as simple_total_revenue "
+        "FROM analytics.orders simple GROUP BY (CASE WHEN simple.sales_channel "
+        "!= 'fraud' THEN TRUE ELSE FALSE END) ORDER BY simple_total_revenue DESC;"
     )
     assert query == correct
 
@@ -1275,7 +1275,7 @@ def test_simple_query_with_where_dict(connections, field_name, filter_type, valu
     }
     dim_lookup = {
         "channel": "simple.sales_channel",
-        "is_valid_order": "CASE WHEN simple.sales_channel != 'fraud' THEN TRUE ELSE FALSE END",
+        "is_valid_order": "(CASE WHEN simple.sales_channel != 'fraud' THEN TRUE ELSE FALSE END)",
     }
     dim_func = {
         "contains_case_insensitive": lambda d: f"LOWER({d})",

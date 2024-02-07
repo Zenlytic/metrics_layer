@@ -30,7 +30,7 @@ def test_mapping_dimension_only(connection):
 
 @pytest.mark.query
 @pytest.mark.parametrize(
-    "time_grain", ["date", "week", "week_of_year", "month", "month_of_year", "quarter", "year"]
+    "time_grain", ["date", "day_of_year", "week", "week_of_year", "month", "month_of_year", "quarter", "year"]
 )
 def test_mapping_metric_mapped_date_and_filter(connection, time_grain):
     query = connection.get_sql_query(
@@ -48,6 +48,8 @@ def test_mapping_metric_mapped_date_and_filter(connection, time_grain):
 
     if time_grain == "date":
         date_part = "DATE_TRUNC('DAY', orders.order_date)"
+    elif time_grain == "day_of_year":
+        date_part = "EXTRACT(DOY FROM orders.order_date)"
     elif time_grain == "week":
         date_part = "DATE_TRUNC('WEEK', CAST(orders.order_date AS DATE))"
     elif time_grain == "week_of_year":
@@ -73,7 +75,7 @@ def test_mapping_metric_mapped_date_and_filter(connection, time_grain):
 @pytest.mark.query
 def test_mapping_multiple_metric_same_canon_date_mapped_date_and_filter(connection):
     query = connection.get_sql_query(
-        metrics=["line_item_aov", "gross_revenue"],
+        metrics=["number_of_email_purchased_items", "gross_revenue"],
         dimensions=["date"],
         where=[
             {
@@ -86,13 +88,12 @@ def test_mapping_multiple_metric_same_canon_date_mapped_date_and_filter(connecti
     )
     correct = (
         "SELECT DATE_TRUNC('DAY', order_lines.order_date) as order_lines_order_date,"
-        "(SUM(order_lines.revenue)) / (NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  "
-        "IS NOT NULL THEN  orders.id  ELSE NULL END), 0)) as order_lines_line_item_aov,"
+        "COUNT(case when order_lines.sales_channel='Email' then order_lines.order_id end) "
+        "as order_lines_number_of_email_purchased_items,"
         "SUM(order_lines.revenue) as order_lines_total_item_revenue FROM analytics.order_line_items "
-        "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id"
-        "=orders.id WHERE DATE_TRUNC('DAY', order_lines.order_date)>='2022-01-05T00:00:00' "
+        "order_lines WHERE DATE_TRUNC('DAY', order_lines.order_date)>='2022-01-05T00:00:00' "
         "GROUP BY DATE_TRUNC('DAY', order_lines.order_date) "
-        "ORDER BY order_lines_line_item_aov DESC;"
+        "ORDER BY order_lines_number_of_email_purchased_items DESC;"
     )
     assert query == correct
 
@@ -476,12 +477,12 @@ def test_mapping_defer_to_metric_canon_date_not_dim_only(connection):
         "clicked_on_page.session_date),clicked_on_page.context_os ORDER BY "
         "clicked_on_page_number_of_clicks DESC) ,"
         "submitted_form_sent_at__cte_subquery_1 AS (SELECT DATE_TRUNC('DAY', "
-        "submitted_form.session_date) as submitted_form_sent_at_date,"
+        "submitted_form.sent_at) as submitted_form_sent_at_date,"
         "submitted_form.context_os as submitted_form_context_os,"
         "COUNT(DISTINCT(submitted_form.customer_id)) as submitted_form_unique_users_form_submissions "
         "FROM analytics.submitted_form submitted_form WHERE DATE_TRUNC('DAY', "
-        "submitted_form.session_date)>='2023-05-05' GROUP BY DATE_TRUNC('DAY', "
-        "submitted_form.session_date),submitted_form.context_os ORDER BY "
+        "submitted_form.sent_at)>='2023-05-05' GROUP BY DATE_TRUNC('DAY', "
+        "submitted_form.sent_at),submitted_form.context_os ORDER BY "
         "submitted_form_unique_users_form_submissions DESC) SELECT "
         f"{cte_1}.clicked_on_page_number_of_clicks "
         f"as clicked_on_page_number_of_clicks,{cte_2}"
