@@ -45,6 +45,31 @@ VALID_INTERVALS = [
     "quarter",
     "year",
 ]
+VALID_VALUE_FORMAT_NAMES = [
+    "decimal_0",
+    "decimal_1",
+    "decimal_2",
+    "decimal_pct_0",
+    "decimal_pct_1",
+    "decimal_pct_2",
+    "percent_0",
+    "percent_1",
+    "percent_2",
+    "eur",
+    "eur_0",
+    "eur_1",
+    "eur_2",
+    "usd",
+    "usd_0",
+    "usd_1",
+    "usd_2",
+    "string",
+    "date",
+    "week",
+    "month",
+    "quarter",
+    "year",
+]
 
 
 class Field(MetricsLayerBase, SQLReplacement):
@@ -991,6 +1016,13 @@ class Field(MetricsLayerBase, SQLReplacement):
                     )
             except (AccessDeniedOrDoesNotExistException, QueryError):
                 errors.append(f"Canon date {self.canon_date} is unreachable in field {self.name}.")
+
+        if self.value_format_name:
+            if self.value_format_name not in VALID_VALUE_FORMAT_NAMES:
+                errors.append(
+                    f"Warning: Field {self.name} has an invalid value_format_name {self.value_format_name}. "
+                    f"Valid value_format_name's are: {VALID_VALUE_FORMAT_NAMES}"
+                )
         return errors
 
     def get_referenced_sql_query(self, strings_only=True):

@@ -1336,3 +1336,28 @@ def test_query_number_metric_with_non_matching_canon_dates(connection):
         f".submitted_form_sent_at_date={cte_2}.submitted_form_session_date;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_query_merge_results_invalid_join_attempt(connection):
+    query = connection.get_sql_query(
+        metrics=[],
+        dimensions=["date", "customers.customer_id", "orders.order_id"],
+        where=[
+            {
+                "field": "date",
+                "expression": "greater_than",
+                "value": "2023-02-01",
+            },
+        ],
+    )
+
+    correct = (
+        "SELECT DATE_TRUNC('DAY', orders.order_date) as orders_order_date,"
+        "customers.customer_id as customers_customer_id,orders.id as orders_order_id "
+        "FROM analytics.orders orders LEFT JOIN analytics.customers customers "
+        "ON orders.customer_id=customers.customer_id WHERE DATE_TRUNC('DAY', orders.order_date)>'2023-02-01' "
+        "GROUP BY DATE_TRUNC('DAY', orders.order_date),customers.customer_id,orders.id "
+        "ORDER BY orders_order_date ASC;"
+    )
+    assert query == correct
