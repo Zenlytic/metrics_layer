@@ -192,6 +192,15 @@ class Field(MetricsLayerBase, SQLReplacement):
     def is_merged_result(self):
         if "is_merged_result" in self._definition:
             return self._definition["is_merged_result"]
+        elif self.type == "number" and self.field_type == "measure":
+            # For number types, if the references have different canon_date values
+            # then we need to make it a merged result.
+            referenced_canon_dates = set()
+            for reference in self.referenced_fields(self.sql):
+                if reference.field_type == "measure" and reference.type != "cumulative":
+                    referenced_canon_dates.add(reference.canon_date)
+
+            return len(referenced_canon_dates) > 1
         return False
 
     @property

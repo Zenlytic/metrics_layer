@@ -60,7 +60,7 @@ fields:
       quarter,
       year
     ]
-    sql: "${TABLE}.session_date"
+    sql: "${TABLE}.sent_at"
 
   - name: number_of_form_submissions
     field_type: measure
@@ -72,3 +72,8 @@ fields:
     type: count_distinct
     canon_date: sent_at
     sql: ${customer_id}
+
+  - name: unique_users_per_form_submission
+    field_type: measure
+    type: number
+    sql: ${unique_users_form_submissions} / ${number_of_form_submissions}

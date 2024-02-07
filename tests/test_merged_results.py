@@ -1289,3 +1289,49 @@ def test_query_subquery_with_substring_in_name(connection):
         f"={cte_1}.z_customer_accounts_type_of_account;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_query_number_metric_with_non_matching_canon_dates(connection):
+    query = connection.get_sql_query(
+        metrics=["unique_users_per_form_submission"],
+        dimensions=["date"],
+        where=[
+            {
+                "field": "date",
+                "expression": "less_or_equal_than",
+                "value": datetime.datetime(2023, 6, 26, 23, 59, 59),
+            },
+        ],
+    )
+
+    cte_1 = "submitted_form_sent_at__cte_subquery_0"
+    cte_2 = "submitted_form_session__cte_subquery_1"
+    correct = (
+        f"WITH {cte_1} AS (SELECT DATE_TRUNC('DAY', "
+        f"submitted_form.sent_at) as submitted_form_sent_at_date,"
+        f"COUNT(DISTINCT(submitted_form.customer_id)) as submitted_form_unique_users_form_submissions "
+        f"FROM analytics.submitted_form submitted_form WHERE DATE_TRUNC('DAY', "
+        f"submitted_form.sent_at)<='2023-06-26T23:59:59' "
+        f"GROUP BY DATE_TRUNC('DAY', submitted_form.sent_at) "
+        f"ORDER BY submitted_form_unique_users_form_submissions DESC) ,"
+        f"{cte_2} AS (SELECT DATE_TRUNC('DAY', "
+        f"submitted_form.session_date) as submitted_form_session_date,"
+        f"COUNT(submitted_form.id) as submitted_form_number_of_form_submissions "
+        f"FROM analytics.submitted_form submitted_form WHERE DATE_TRUNC('DAY', "
+        f"submitted_form.session_date)<='2023-06-26T23:59:59' GROUP BY DATE_TRUNC('DAY', "
+        f"submitted_form.session_date) ORDER BY submitted_form_number_of_form_submissions DESC) "
+        f"SELECT {cte_1}.submitted_form_unique_users_form_submissions "
+        f"as submitted_form_unique_users_form_submissions,{cte_2}."
+        f"submitted_form_number_of_form_submissions as submitted_form_number_of_form_submissions,"
+        f"ifnull({cte_1}.submitted_form_sent_at_date, "
+        f"{cte_2}.submitted_form_session_date) as "
+        f"submitted_form_sent_at_date,ifnull({cte_2}."
+        f"submitted_form_session_date, {cte_1}."
+        f"submitted_form_sent_at_date) as submitted_form_session_date,"
+        f"submitted_form_unique_users_form_submissions / submitted_form_number_of_form_submissions "
+        f"as submitted_form_unique_users_per_form_submission FROM {cte_1} "
+        f"FULL OUTER JOIN {cte_2} ON {cte_1}"
+        f".submitted_form_sent_at_date={cte_2}.submitted_form_session_date;"
+    )
+    assert query == correct

@@ -210,12 +210,23 @@ def test_query_single_join_metric_with_sub_field(connection):
     )
 
     correct = (
-        "SELECT order_lines.sales_channel as order_lines_channel,(SUM(order_lines.revenue)) "
-        "/ (NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL "
-        "THEN  orders.id  ELSE NULL END), 0)) as order_lines_line_item_aov "
-        "FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
-        "ON order_lines.order_unique_id=orders.id GROUP BY order_lines.sales_channel "
-        "ORDER BY order_lines_line_item_aov DESC;"
+        "WITH order_lines_order__cte_subquery_0 AS (SELECT order_lines.sales_channel as "
+        "order_lines_channel,SUM(order_lines.revenue) as order_lines_total_item_revenue "
+        "FROM analytics.order_line_items order_lines GROUP BY order_lines.sales_channel "
+        "ORDER BY order_lines_total_item_revenue DESC) ,"
+        "orders_order__cte_subquery_1 AS (SELECT order_lines.sales_channel as order_lines_channel,"
+        "NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL THEN  orders.id  "
+        "ELSE NULL END), 0) as orders_number_of_orders FROM analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id GROUP BY "
+        "order_lines.sales_channel ORDER BY orders_number_of_orders DESC) "
+        "SELECT order_lines_order__cte_subquery_0.order_lines_total_item_revenue as "
+        "order_lines_total_item_revenue,orders_order__cte_subquery_1.orders_number_of_orders "
+        "as orders_number_of_orders,ifnull(order_lines_order__cte_subquery_0.order_lines_channel, "
+        "orders_order__cte_subquery_1.order_lines_channel) as order_lines_channel,"
+        "order_lines_total_item_revenue / orders_number_of_orders as order_lines_line_item_aov "
+        "FROM order_lines_order__cte_subquery_0 FULL OUTER JOIN orders_order__cte_subquery_1 "
+        "ON order_lines_order__cte_subquery_0.order_lines_channel"
+        "=orders_order__cte_subquery_1.order_lines_channel;"
     )
     assert query == correct
 
