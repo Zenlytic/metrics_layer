@@ -1081,6 +1081,14 @@ class Field(MetricsLayerBase, SQLReplacement):
             clean_sql_end = self._replace_sql_query(self.sql_end, query_type, alias_only=alias_only)
             return self.apply_dimension_group_duration_sql(clean_sql_start, clean_sql_end, query_type)
 
+        if self.type == "cumulative":
+            raise QueryError(
+                f"You cannot call sql_query() on cumulative type field {self.id()} because cumulative "
+                "queries are dependent on the 'FROM' clause to be correct and the sql_query() method "
+                "only returns the aggregation of the individual metric, not the whole SQL query. "
+                "To see the query, use get_sql_query() with the cumulative metric."
+            )
+
         raise QueryError(f"Unknown type of SQL query for field {self.name}")
 
     def _replace_sql_query(self, sql_query: str, query_type: str, alias_only: bool = False):
