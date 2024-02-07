@@ -135,6 +135,10 @@ class Field(MetricsLayerBase, SQLReplacement):
         if "sql" in definition and definition.get("type") == "tier":
             definition["sql"] = self._translate_looker_tier_to_sql(definition["sql"], definition["tiers"])
 
+        # We need to put parenthesis around yesno types
+        if "sql" in definition and definition.get("type") == "yesno":
+            definition["sql"] = f'({definition["sql"]})'
+
         if "sql" in definition:
             definition["sql"] = self._clean_sql_for_case(definition["sql"])
         return definition.get("sql")
