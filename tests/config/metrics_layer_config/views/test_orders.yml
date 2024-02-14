@@ -134,6 +134,8 @@ fields:
     drill_fields: [test_set*, new_vs_repeat]
     type: count
     sql: "${order_id}"
+    canon_date: null
+    filters: []
 
   - name: average_days_between_orders
     field_type: measure
