@@ -837,7 +837,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "hour_of_day": lambda s, qt: f"DATEPART(HOUR, CAST({s} AS DATETIME))",
                 "day_of_week": lambda s, qt: f"LEFT(DATENAME(WEEKDAY, CAST({s} AS DATE)), 3)",
                 "day_of_month": lambda s, qt: f"DATEPART(DAY, CAST({s} AS DATE))",
-                "day_of_year": lambda s, qt: f"DATEPART(DOY, CAST({s} AS DATE))",
+                "day_of_year": lambda s, qt: f"DATEPART(Y, CAST({s} AS DATE))",
             },
             Definitions.bigquery: {
                 "raw": lambda s, qt: s,
