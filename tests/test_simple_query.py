@@ -720,7 +720,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "hour_of_day": "DATEPART(HOUR, CAST(simple.order_date AS DATETIME))",
             "day_of_week": "LEFT(DATENAME(WEEKDAY, CAST(simple.order_date AS DATE)), 3)",
             "day_of_month": "DATEPART(DAY, CAST(simple.order_date AS DATE))",
-            "day_of_year": "DATEPART(DOY, CAST(simple.order_date AS DATE))",
+            "day_of_year": "DATEPART(Y, CAST(simple.order_date AS DATE))",
         }
         order_by = ""
 
@@ -757,13 +757,13 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             result_lookup["day_of_month"] = "EXTRACT(DAY FROM CAST(simple.order_date AS TIMESTAMP))"
             result_lookup["day_of_year"] = "EXTRACT(DOY FROM CAST(simple.order_date AS TIMESTAMP))"
         if query_type == Definitions.druid:
-            result_lookup[
-                "month_of_year"
-            ] = "CASE EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'Jan' WHEN 2 THEN 'Feb' WHEN 3 THEN 'Mar' WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun' WHEN 7 THEN 'Jul' WHEN 8 THEN 'Aug' WHEN 9 THEN 'Sep' WHEN 10 THEN 'Oct' WHEN 11 THEN 'Nov' WHEN 12 THEN 'Dec' ELSE 'Invalid Month' END"  # noqa
+            result_lookup["month_of_year"] = (
+                "CASE EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'Jan' WHEN 2 THEN 'Feb' WHEN 3 THEN 'Mar' WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun' WHEN 7 THEN 'Jul' WHEN 8 THEN 'Aug' WHEN 9 THEN 'Sep' WHEN 10 THEN 'Oct' WHEN 11 THEN 'Nov' WHEN 12 THEN 'Dec' ELSE 'Invalid Month' END"  # noqa
+            )
             result_lookup["hour_of_day"] = "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))"
-            result_lookup[
-                "day_of_week"
-            ] = "CASE EXTRACT(DOW FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'Mon' WHEN 2 THEN 'Tue' WHEN 3 THEN 'Wed' WHEN 4 THEN 'Thu' WHEN 5 THEN 'Fri' WHEN 6 THEN 'Sat' WHEN 7 THEN 'Sun' ELSE 'Invalid Day' END"  # noqa
+            result_lookup["day_of_week"] = (
+                "CASE EXTRACT(DOW FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'Mon' WHEN 2 THEN 'Tue' WHEN 3 THEN 'Wed' WHEN 4 THEN 'Thu' WHEN 5 THEN 'Fri' WHEN 6 THEN 'Sat' WHEN 7 THEN 'Sun' ELSE 'Invalid Day' END"  # noqa
+            )
             result_lookup["day_of_month"] = "EXTRACT(DAY FROM CAST(simple.order_date AS TIMESTAMP))"
             result_lookup["day_of_year"] = "EXTRACT(DOY FROM CAST(simple.order_date AS TIMESTAMP))"
             semi = ""
