@@ -131,7 +131,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             else:
                 definition["sql"] = "*"
 
-        if "sql" in definition and ("filters" in definition or self.non_additive_dimension):
+        if "sql" in definition and (self.filters or self.non_additive_dimension):
             if definition["sql"] == "*":
                 raise QueryError(
                     "To apply filters to a count measure you must have the primary_key specified "
@@ -198,6 +198,13 @@ class Field(MetricsLayerBase, SQLReplacement):
         return
 
     @property
+    def filters(self):
+        filters = self._definition.get("filters")
+        if filters:
+            return filters
+        return
+
+    @property
     def convert_timezone(self):
         default_value = True
         if self.view.model.default_convert_tz is False or self.view.model.default_convert_timezone is False:
@@ -234,7 +241,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     @property
     def canon_date(self):
-        if "canon_date" in self._definition:
+        if self._definition.get("canon_date"):
             canon_date = self._definition["canon_date"].replace("${", "").replace("}", "")
             return self._add_view_name_if_needed(canon_date)
         if self.view.default_date:
@@ -368,10 +375,8 @@ class Field(MetricsLayerBase, SQLReplacement):
         return different_functional_pk
 
     def _get_sql_distinct_key(self, sql_distinct_key: str, query_type: str, alias_only: bool):
-        if "filters" in self._definition:
-            clean_sql_distinct_key = Filter.translate_looker_filters_to_sql(
-                sql_distinct_key, self._definition["filters"]
-            )
+        if self.filters:
+            clean_sql_distinct_key = Filter.translate_looker_filters_to_sql(sql_distinct_key, self.filters)
         else:
             clean_sql_distinct_key = sql_distinct_key
         return self._replace_sql_query(clean_sql_distinct_key, query_type, alias_only=alias_only)
