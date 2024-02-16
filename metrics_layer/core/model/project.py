@@ -68,7 +68,7 @@ class Project:
         if view is None:
             raise AccessDeniedOrDoesNotExistException(f"Could not find a view matching the name {view_name}")
         # If the field already exists, then do not add it
-        if not any(f["name"] == field["name"] for f in view["fields"]):
+        if not any(f["name"].lower() == field["name"].lower() for f in view["fields"]):
             view["fields"].append(field)
 
     def remove_field(self, field_name: str, view_name: str):
