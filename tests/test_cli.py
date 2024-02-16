@@ -382,6 +382,27 @@ def test_cli_validate(connection, fresh_project, mocker):
 
 
 @pytest.mark.cli
+def test_cli_validate_personal_field(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    project._views[2]["fields"][2]["is_personal_field"] = True
+    project._views[2]["fields"][2].pop("type")
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nWarning: Field cancelled is a dimension_group, but does not have a type associated with it. You must set a type for this dimension_group.\n\n"  # noqa
+    )
+
+
+@pytest.mark.cli
 def test_cli_validate_joins(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project

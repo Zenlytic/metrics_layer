@@ -944,6 +944,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             raise QueryError(f"Unable to find a valid method for running week with query type {query_type}")
 
     def collect_errors(self):
+        warning_prefix = "Warning:"
         errors = []
         if not self.valid_name(self.name):
             errors.append(self.name_error("field", self.name))
@@ -990,11 +991,11 @@ class Field(MetricsLayerBase, SQLReplacement):
                 )
             else:
                 error_text = (
-                    f"Warning: Field {self.name} is a metric (measure), but does not have a date associated "
-                    "with it. Associate a date with the metric (measure) by setting either the canon_date "
-                    "property on the measure itself or the default_date property on the view the measure "
-                    "is in. Time periods and merged results will not be possible to use until you define "
-                    "the date association"
+                    f"{warning_prefix} Field {self.name} is a metric (measure), but does not have a date "
+                    "associated with it. Associate a date with the metric (measure) by setting either the "
+                    "canon_date property on the measure itself or the default_date property on the view the "
+                    "measure is in. Time periods and merged results will not be possible to use until you "
+                    "define the date association"
                 )
             errors.append(error_text)
 
@@ -1043,9 +1044,13 @@ class Field(MetricsLayerBase, SQLReplacement):
         if self.value_format_name:
             if self.value_format_name not in VALID_VALUE_FORMAT_NAMES:
                 errors.append(
-                    f"Warning: Field {self.name} has an invalid value_format_name {self.value_format_name}. "
-                    f"Valid value_format_name's are: {VALID_VALUE_FORMAT_NAMES}"
+                    f"{warning_prefix} Field {self.name} has an invalid value_format_name "
+                    f"{self.value_format_name}. Valid value_format_name's are: {VALID_VALUE_FORMAT_NAMES}"
                 )
+
+        # For personal fields everything is a warning
+        if self.is_personal_field:
+            errors = [f"{warning_prefix} {e}" for e in errors if warning_prefix not in e]
         return errors
 
     def get_referenced_sql_query(self, strings_only=True):
