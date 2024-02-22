@@ -159,14 +159,17 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         self.mapping_lookup = deepcopy(dimension_mapping)
 
         mappings = self.model.get_mappings(dimensions_only=True)
-        for key, map_to in mappings.items():
-            for other_join_hash in used_join_hashes:
-                if self._join_hash_contains_join_graph(other_join_hash, [map_to["to_join_hash"]]):
-                    self.mapping_lookup[key].append(
-                        {"field": map_to["field"], "from_join_hash": other_join_hash}
+        for key, mapping_data in mappings.items():
+            for map_to in mapping_data["references"]:
+                for other_join_hash in used_join_hashes:
+                    if self._join_hash_contains_join_graph(other_join_hash, [map_to["to_join_hash"]]):
+                        self.mapping_lookup[key].append(
+                            {"field": map_to["field"], "from_join_hash": other_join_hash}
+                        )
+                        map_to["from_join_hash"] = other_join_hash
+                    dimension_mapping[key].append(
+                        {"from_join_hash": mapping_data["from_join_hash"], **map_to}
                     )
-                    map_to["from_join_hash"] = other_join_hash
-                dimension_mapping[key].append(deepcopy(map_to))
 
         self.query_dimensions = defaultdict(list)
         for dimension in self.dimensions:
@@ -196,21 +199,25 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                                 "Please add a mapping to your model definition to allow the mapping "
                                 "if you'd like to use this field in a merged result query."
                             )
+                        # If a dimension is NOT available in the same join subgraph as the metric,
+                        # we need to map it to the correct subgraph, and it has to exist in the mapping
                         for mapping_info in dimension_mapping[field_key]:
                             ref_field = self.project.get_field(mapping_info["field"])
-                            if mapping_info["from_join_hash"] in self.query_metrics:
+                            # If the field is in the same subgraph as the metric, attach it if we're in
+                            # the correct loop that matches the join hash in the loop matches the one
+                            # on the dimension
+                            if (
+                                mapping_info["from_join_hash"] in self.query_metrics
+                                and mapping_info["from_join_hash"] == join_hash
+                            ):
                                 self.query_dimensions[mapping_info["from_join_hash"]].append(ref_field)
+                            # If the field is in a different subgraph, attach it to the correct subgraph
+                            # using the mapping that exists going "to" the join hash we're in the loop for
                             else:
                                 canon_date = ref_field.canon_date.replace(".", "_")
-                                existing_join_hashes = (
-                                    join_hash
-                                    for join_hash in used_join_hashes
-                                    if mapping_info["to_join_hash"] in join_hash
-                                )
-                                join_hash = next(existing_join_hashes, None)
-                                default_join_hash = f"{canon_date}__{mapping_info['to_join_hash']}"
-                                key = join_hash if join_hash else default_join_hash
-                                self.query_dimensions[key].append(ref_field)
+                                if mapping_info["to_join_hash"] in join_hash:
+                                    self.query_dimensions[join_hash].append(ref_field)
+                                    break
 
                 if not_in_metrics:
                     field_key = f"{field.view.name}.{field.name}"
@@ -262,6 +269,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                             mapped_where["field"] = ref_field.id()
                             self.query_where[join_hash].append(mapped_where)
                             added_filter[join_hash] = True
+
             # This handles the case where the where field is joined in and not in a mapping
             for join_hash in self.query_metrics.keys():
                 if not added_filter[join_hash]:

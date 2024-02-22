@@ -1164,18 +1164,18 @@ def test_query_mapping_with_a_join(connection):
         "WITH sessions_session__cte_subquery_1 AS (SELECT sessions.session_device as sessions_session_device,"
         "COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions sessions "
         "GROUP BY sessions.session_device ORDER BY sessions_number_of_sessions DESC) ,"
-        "events_event__cte_subquery_0 AS (SELECT events.device as login_events_device,"
+        "events_event__cte_subquery_0 AS (SELECT events.device as events_device,"
         "COUNT(DISTINCT(login_events.id)) as login_events_number_of_login_events "
         "FROM analytics.login_events login_events LEFT JOIN analytics.events events "
         "ON login_events.id=events.id GROUP BY events.device ORDER BY login_events_number_of_login_events "
         "DESC) SELECT events_event__cte_subquery_0.login_events_number_of_login_events as "
         "login_events_number_of_login_events,sessions_session__cte_subquery_1.sessions_number_of_sessions "
-        "as sessions_number_of_sessions,ifnull(events_event__cte_subquery_0.login_events_device, "
+        "as sessions_number_of_sessions,ifnull(events_event__cte_subquery_0.events_device, "
         "sessions_session__cte_subquery_1.sessions_session_device) "
-        "as login_events_device,ifnull(sessions_session__cte_subquery_1.sessions_session_device, "
-        "events_event__cte_subquery_0.login_events_device) as sessions_session_device "
+        "as events_device,ifnull(sessions_session__cte_subquery_1.sessions_session_device, "
+        "events_event__cte_subquery_0.events_device) as sessions_session_device "
         "FROM events_event__cte_subquery_0 FULL OUTER JOIN "
-        "sessions_session__cte_subquery_1 ON events_event__cte_subquery_0.login_events_device"
+        "sessions_session__cte_subquery_1 ON events_event__cte_subquery_0.events_device"
         "=sessions_session__cte_subquery_1.sessions_session_device;"
     )
     assert query == correct
@@ -1226,17 +1226,17 @@ def test_query_mapping_with_a_join_and_date(connection):
         "COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions sessions "
         "WHERE DATE_TRUNC('DAY', sessions.session_date)<='2023-06-26T23:59:59' "
         "GROUP BY sessions.session_device ORDER BY sessions_number_of_sessions DESC) ,"
-        "events_event__cte_subquery_0 AS (SELECT events.device as login_events_device,"
+        "events_event__cte_subquery_0 AS (SELECT events.device as events_device,"
         "COUNT(DISTINCT(login_events.id)) as login_events_number_of_login_events FROM analytics.login_events "
         "login_events LEFT JOIN analytics.events events ON login_events.id=events.id "
         "WHERE DATE_TRUNC('DAY', events.event_date)<='2023-06-26T23:59:59' GROUP BY events.device "
         "ORDER BY login_events_number_of_login_events DESC) SELECT events_event__cte_subquery_0"
         ".login_events_number_of_login_events as login_events_number_of_login_events,"
         "sessions_session__cte_subquery_1.sessions_number_of_sessions as sessions_number_of_sessions,"
-        "ifnull(events_event__cte_subquery_0.login_events_device, sessions_session__cte_subquery_1.sessions_session_device) as login_events_device,"  # noqa
-        "ifnull(sessions_session__cte_subquery_1.sessions_session_device, events_event__cte_subquery_0.login_events_device) as sessions_session_device "  # noqa
+        "ifnull(events_event__cte_subquery_0.events_device, sessions_session__cte_subquery_1.sessions_session_device) as events_device,"  # noqa
+        "ifnull(sessions_session__cte_subquery_1.sessions_session_device, events_event__cte_subquery_0.events_device) as sessions_session_device "  # noqa
         "FROM events_event__cte_subquery_0 FULL OUTER JOIN sessions_session__cte_subquery_1 "
-        "ON events_event__cte_subquery_0.login_events_device=sessions_session__cte_subquery_1"
+        "ON events_event__cte_subquery_0.events_device=sessions_session__cte_subquery_1"
         ".sessions_session_device;"
     )
     assert query == correct
@@ -1359,5 +1359,32 @@ def test_query_merge_results_no_metric_date(connection):
         "ON orders.customer_id=customers.customer_id WHERE DATE_TRUNC('DAY', orders.order_date)>'2023-02-01' "
         "GROUP BY DATE_TRUNC('DAY', orders.order_date),customers.customer_id,orders.id "
         "ORDER BY orders_order_date ASC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_mapping_triple(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_sessions", "number_of_events"], dimensions=["device"]
+    )
+
+    correct = (
+        "WITH sessions_session__cte_subquery_1 AS (SELECT sessions.session_device as "
+        "sessions_session_device,COUNT(sessions.id) as sessions_number_of_sessions "
+        "FROM analytics.sessions sessions GROUP BY sessions.session_device ORDER BY "
+        "sessions_number_of_sessions DESC) ,events_event__cte_subquery_0 AS ("
+        "SELECT events.device as events_device,COUNT(DISTINCT(events.id)) as "
+        "events_number_of_events FROM analytics.events events GROUP BY events.device "
+        "ORDER BY events_number_of_events DESC) SELECT events_event__cte_subquery_0."
+        "events_number_of_events as events_number_of_events,sessions_session__cte_subquery_1"
+        ".sessions_number_of_sessions as sessions_number_of_sessions,ifnull("
+        "events_event__cte_subquery_0.events_device, sessions_session__cte_subquery_1."
+        "sessions_session_device) as "
+        "events_device,ifnull(sessions_session__cte_subquery_1.sessions_session_device, "
+        "events_event__cte_subquery_0.events_device) "
+        "as sessions_session_device FROM events_event__cte_subquery_0 "
+        "FULL OUTER JOIN sessions_session__cte_subquery_1 ON events_event__cte_subquery_0."
+        "events_device=sessions_session__cte_subquery_1.sessions_session_device;"
     )
     assert query == correct

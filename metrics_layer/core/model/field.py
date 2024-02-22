@@ -109,6 +109,9 @@ class Field(MetricsLayerBase, SQLReplacement):
             return False
         return self.id() == other.id()
 
+    def __repr__(self):
+        return f"<{self.__class__.__name__} name={self.id()}>"
+
     def id(self, capitalize_alias=False):
         alias = self.alias()
         if capitalize_alias:
