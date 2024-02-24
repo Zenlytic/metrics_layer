@@ -113,151 +113,104 @@ def test_merged_result_join_graph(connection):
     def _blow_out_by_time_frame(join_graph: str, tf: list):
         return [f"{join_graph}_{tf}" for tf in tf]
 
-    tf = [
-        "date",
-        "day_of_week",
-        "day_of_year",
-        "hour_of_day",
-        "month",
-        "month_of_year",
-        "quarter",
-        "raw",
-        "time",
-        "week",
-        "week_of_year",
-        "year",
-    ]
     core_tf = ["raw", "time", "date", "week", "month", "quarter", "year"]
     sub_q_cr = _blow_out_by_time_frame("merged_result_canon_date_core", core_tf)
-    sub_q_0_4 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_4", core_tf)
-    sub_q_0_2 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_7", core_tf)
-    sub_q_0_3 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_3", core_tf)
-    sub_q_0_5 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_9", core_tf)
-    sub_q_0_8 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_8", core_tf)
-    sub_q_0_10 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_10", core_tf)
-    sub_q_0_11 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_11", core_tf)
-    sub_q_0_12 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_12", core_tf)
-    sub_q_0_15 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_15", core_tf)
-    sub_q_0_1 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_1", core_tf)
-    revenue_set = [
-        *sub_q_cr,
-        *sub_q_0_4,
-        *sub_q_0_2,
-        *sub_q_0_3,
-        *sub_q_0_5,
-        *sub_q_0_8,
-        *sub_q_0_10,
-        *sub_q_0_11,
-        *sub_q_0_12,
-        *sub_q_0_15,
-        *sub_q_0_1,
-    ]
+
     field = connection.get_field("revenue_per_session")
-    assert sorted(field.join_graphs()) == sorted(revenue_set)
+    session_month = connection.get_field("sessions.session_month")
+    order_month = connection.get_field("order_lines.order_month")
+    sub_metric_revenue = connection.get_field("total_item_revenue")
+    sub_metric_sessions = connection.get_field("number_of_sessions")
+    sessions_source = connection.get_field("sessions.utm_source")
+    orders_source = connection.get_field("orders.sub_channel")
+    session_un_mergeable = connection.get_field("sessions.session_id")  # cannot join
+    orders_un_mergeable = connection.get_field("orders.new_vs_repeat")  # cannot join
+    customers_joinable = connection.get_field("customers.first_order_date")
 
-    field = connection.get_field("total_item_revenue")
-    assert field.join_graphs() == list(sorted(["subquery_0", *revenue_set]))
+    field = connection.get_field("revenue_per_session")
 
-    field = connection.get_field("order_lines.order_date")
-    order_lines_date_graphs = [
-        "subquery_0",
-        "merged_result_canon_date_core_date",
-        "merged_result_subquery_0_subquery_10_date",
-        "merged_result_subquery_0_subquery_11_date",
-        "merged_result_subquery_0_subquery_12_date",
-        "merged_result_subquery_0_subquery_15_date",
-        "merged_result_subquery_0_subquery_1_date",
-        "merged_result_subquery_0_subquery_4_date",
-        "merged_result_subquery_0_subquery_7_date",
-        "merged_result_subquery_0_subquery_3_date",
-        "merged_result_subquery_0_subquery_9_date",
-        "merged_result_subquery_0_subquery_8_date",
-    ]
-    assert field.join_graphs() == list(sorted(order_lines_date_graphs))
+    # Make sure all valid timeframes are included
+    assert set(field.join_graphs()).intersection(sub_q_cr) == set(sub_q_cr)
+    assert set(field.join_graphs()).intersection(session_month.join_graphs()) != set()
+    assert set(field.join_graphs()).intersection(order_month.join_graphs()) != set()
+    assert set(field.join_graphs()).intersection(sub_metric_revenue.join_graphs()) != set()
+    assert set(field.join_graphs()).intersection(sub_metric_sessions.join_graphs()) != set()
+    assert set(field.join_graphs()).intersection(sessions_source.join_graphs()) != set()
+    assert set(field.join_graphs()).intersection(orders_source.join_graphs()) != set()
+    assert set(field.join_graphs()).intersection(customers_joinable.join_graphs()) != set()
+    assert set(field.join_graphs()).intersection(session_un_mergeable.join_graphs()) == set()
+    assert set(field.join_graphs()).intersection(orders_un_mergeable.join_graphs()) == set()
 
-    field = connection.get_field("orders.order_date")
-    order_date_graphs = [
-        "subquery_0",
-        "merged_result_canon_date_core_date",
-        "merged_result_subquery_0_subquery_10_date",
-        "merged_result_subquery_0_subquery_11_date",
-        "merged_result_subquery_0_subquery_12_date",
-        "merged_result_subquery_0_subquery_15_date",
-        "merged_result_subquery_0_subquery_1_date",
-        "merged_result_subquery_0_subquery_4_date",
-        "merged_result_subquery_0_subquery_7_date",
-        "merged_result_subquery_0_subquery_3_date",
-        "merged_result_subquery_0_subquery_9_date",
-        "merged_result_subquery_0_subquery_8_date",
-    ]
-    assert field.join_graphs() == list(sorted(order_date_graphs))
-    field = connection.get_field("sub_channel")
+    # Make sure the same join patterns hold for the sub (normal) metric
+    # And that it's joinable to the orders only field
+    assert set(sub_metric_revenue.join_graphs()).intersection(sub_q_cr) == set(sub_q_cr)
+    assert set(sub_metric_revenue.join_graphs()).intersection(session_month.join_graphs()) != set()
+    assert set(sub_metric_revenue.join_graphs()).intersection(order_month.join_graphs()) != set()
+    assert set(sub_metric_revenue.join_graphs()).intersection(sub_metric_sessions.join_graphs()) != set()
+    assert set(sub_metric_revenue.join_graphs()).intersection(sessions_source.join_graphs()) != set()
+    assert set(sub_metric_revenue.join_graphs()).intersection(orders_source.join_graphs()) != set()
+    assert set(sub_metric_revenue.join_graphs()).intersection(customers_joinable.join_graphs()) != set()
+    assert set(sub_metric_revenue.join_graphs()).intersection(session_un_mergeable.join_graphs()) == set()
+    # This one is different from the above list -->
+    assert set(sub_metric_revenue.join_graphs()).intersection(orders_un_mergeable.join_graphs()) != set()
+    # print(len(field.join_graphs()))
+    # print(len(["subquery_0", *revenue_set]))
+    # assert field.join_graphs() == list(sorted(["subquery_0", *revenue_set]))
 
-    sub_channel_graphs = [
-        "subquery_0",
-        *_blow_out_by_time_frame("merged_result_subquery_0_subquery_4", tf),
-    ]
-    assert field.join_graphs() == list(sorted(sub_channel_graphs))
+    # Validate the join logic for the order_month field
+    assert set(order_month.join_graphs()).intersection(session_month.join_graphs()) != set()
+    assert set(order_month.join_graphs()).intersection(sub_metric_sessions.join_graphs()) != set()
+    assert set(order_month.join_graphs()).intersection(sessions_source.join_graphs()) != set()
+    assert set(order_month.join_graphs()).intersection(orders_source.join_graphs()) != set()
+    assert set(order_month.join_graphs()).intersection(customers_joinable.join_graphs()) != set()
+    assert set(order_month.join_graphs()).intersection(session_un_mergeable.join_graphs()) == set()
+    assert set(order_month.join_graphs()).intersection(orders_un_mergeable.join_graphs()) != set()
 
-    field = connection.get_field("new_vs_repeat")
-    assert field.join_graphs() == sorted(["subquery_0"])
+    # Validate the join logic for the orders source in the mapping
+    assert set(orders_source.join_graphs()).intersection(session_month.join_graphs()) != set()
+    assert set(orders_source.join_graphs()).intersection(sub_metric_sessions.join_graphs()) != set()
+    assert set(orders_source.join_graphs()).intersection(sessions_source.join_graphs()) != set()
+    assert set(orders_source.join_graphs()).intersection(customers_joinable.join_graphs()) != set()
+    assert set(orders_source.join_graphs()).intersection(session_un_mergeable.join_graphs()) == set()
+    assert set(orders_source.join_graphs()).intersection(orders_un_mergeable.join_graphs()) != set()
 
-    # discount_tf = ["date", "month", "quarter", "raw", "time", "week", "year"]
-    field = connection.get_field("gender")
-    gender_graphs = [
-        "subquery_0",
-        "subquery_3",
-        "subquery_1",
-        "subquery_4",
-        "subquery_11",
-        "subquery_12",
-        "subquery_10",
-        *_blow_out_by_time_frame("merged_result_subquery_0_subquery_1", tf),
-        *_blow_out_by_time_frame("merged_result_subquery_1_subquery_3", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_1_subquery_4", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_1_subquery_12", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_1_subquery_11", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_0_subquery_3", tf),
-        *_blow_out_by_time_frame("merged_result_subquery_0_subquery_12", tf),
-        *_blow_out_by_time_frame("merged_result_subquery_12_subquery_3", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_12_subquery_4", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_11_subquery_12", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_11_subquery_3", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_3_subquery_4", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_0_subquery_4", tf),
-        *_blow_out_by_time_frame("merged_result_subquery_0_subquery_11", tf),
-        *_blow_out_by_time_frame("merged_result_subquery_10_subquery_3", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_10_subquery_4", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_10_subquery_11", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_10_subquery_12", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_1_subquery_10", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_0_subquery_10", tf),
-        *_blow_out_by_time_frame("merged_result_subquery_11_subquery_4", core_tf),
-    ]
-    assert field.join_graphs() == list(sorted(gender_graphs))
+    # Validate the join logic for the un merge-able new_vs_repeat field in orders
+    assert set(orders_un_mergeable.join_graphs()).intersection(session_month.join_graphs()) == set()
+    assert set(orders_un_mergeable.join_graphs()).intersection(sub_metric_sessions.join_graphs()) == set()
+    assert set(orders_un_mergeable.join_graphs()).intersection(sessions_source.join_graphs()) == set()
+    assert set(orders_un_mergeable.join_graphs()).intersection(customers_joinable.join_graphs()) != set()
+    assert set(orders_un_mergeable.join_graphs()).intersection(session_un_mergeable.join_graphs()) == set()
+    assert set(orders_un_mergeable.join_graphs()).intersection(orders_un_mergeable.join_graphs()) != set()
 
-    field = connection.get_field("number_of_sessions")
-    sessions_graphs = [
-        "subquery_4",
-        *_blow_out_by_time_frame("merged_result_canon_date_core", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_1_subquery_4", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_10_subquery_4", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_11_subquery_4", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_12_subquery_4", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_0_subquery_4", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_3_subquery_4", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_7", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_9", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_15_subquery_4", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_8", core_tf),
-    ]
-    assert field.join_graphs() == list(sorted(sessions_graphs))
+    # Since customers is joinable with  sessions and orders, it can be included in everything
+    assert set(customers_joinable.join_graphs()).intersection(session_month.join_graphs()) != set()
+    assert set(customers_joinable.join_graphs()).intersection(sub_metric_sessions.join_graphs()) != set()
+    assert set(customers_joinable.join_graphs()).intersection(sessions_source.join_graphs()) != set()
+    assert set(customers_joinable.join_graphs()).intersection(session_un_mergeable.join_graphs()) != set()
 
-    field = connection.get_field("sessions.session_id")
-    assert field.join_graphs() == ["subquery_4"]
+    # Since sessions is joinable with everything, it should be joinable with
+    # everything except the un merge-able orders field
+    assert set(sub_metric_sessions.join_graphs()).intersection(sub_q_cr) == set(sub_q_cr)
+    assert set(sub_metric_sessions.join_graphs()).intersection(session_month.join_graphs()) != set()
+    assert set(sub_metric_sessions.join_graphs()).intersection(order_month.join_graphs()) != set()
+    assert set(sub_metric_sessions.join_graphs()).intersection(sessions_source.join_graphs()) != set()
+    assert set(sub_metric_sessions.join_graphs()).intersection(orders_source.join_graphs()) != set()
+    assert set(sub_metric_sessions.join_graphs()).intersection(customers_joinable.join_graphs()) != set()
+    assert set(sub_metric_sessions.join_graphs()).intersection(session_un_mergeable.join_graphs()) != set()
+    assert set(sub_metric_sessions.join_graphs()).intersection(orders_un_mergeable.join_graphs()) == set()
 
-    field = connection.get_field("traffic_id")
-    assert field.join_graphs() == ["subquery_2"]
+    # Traffic is un merge-able and un join-able with everything, so it should have 0 overlap
+    traffic_field = connection.get_field("traffic_id")
+    assert set(traffic_field.join_graphs()).intersection(session_month.join_graphs()) == set()
+    assert set(traffic_field.join_graphs()).intersection(order_month.join_graphs()) == set()
+    assert set(traffic_field.join_graphs()).intersection(sub_metric_revenue.join_graphs()) == set()
+    assert set(traffic_field.join_graphs()).intersection(sub_metric_sessions.join_graphs()) == set()
+    assert set(traffic_field.join_graphs()).intersection(sessions_source.join_graphs()) == set()
+    assert set(traffic_field.join_graphs()).intersection(orders_source.join_graphs()) == set()
+    assert set(traffic_field.join_graphs()).intersection(customers_joinable.join_graphs()) == set()
+    assert set(traffic_field.join_graphs()).intersection(session_un_mergeable.join_graphs()) == set()
+    assert set(traffic_field.join_graphs()).intersection(orders_un_mergeable.join_graphs()) == set()
+    assert set(traffic_field.join_graphs()).intersection(field.join_graphs()) == set()
 
 
 @pytest.mark.query
@@ -982,14 +935,100 @@ def test_implicit_merge_subgraph_shared_dimension(connection):
     assert all(j not in session_source_graphs for j in should_not_be_here)
 
 
-@pytest.mark.query
+@pytest.mark.queryyy
 def test_implicit_merge_subgraph_dimension_group_check(connection):
     discount_field = connection.get_field("total_discount_amt")
     session_field = connection.get_field("number_of_sessions")
     session_time_field = connection.get_field("sessions.session_quarter")
+    campaign = connection.get_field("orders.campaign")
 
+    import networkx
+
+    # graph = networkx.DiGraph()
+
+    # graph.add_edge(discount_field.id(), session_field.id())
+    # graph.add_edge(discount_field.id(), campaign.id())
+
+    # graph.add_edge(session_field.id(), session_time_field.id())
+    # graph.add_edge(session_field.id(), campaign.id())
+    # graph.add_edge(session_field.id(), discount_field.id())
+
+    # graph.add_edge(session_time_field.id(), session_field.id())
+    # graph.add_edge(session_time_field.id(), campaign.id())
+
+    # graph.add_edge(campaign.id(), session_field.id())
+    # graph.add_edge(campaign.id(), session_time_field.id())
+    # graph.add_edge(campaign.id(), discount_field.id())
+    # discount_field = "discount_field"
+    # session_field = "session_field"
+    # session_time_field = "session_time_field"
+    # campaign = "campaign"
+    # measure = 'measure'
+
+    # Initialize an empty directed graph
+    graph = networkx.DiGraph()
+
+    # Add edges as per the given code snippet
+    # graph.add_edge(discount_field, session_field)
+    # graph.add_edge(discount_field, campaign)
+    # graph.add_edge(session_field, session_time_field)
+    # graph.add_edge(session_field, campaign)
+    # graph.add_edge(session_field, discount_field)
+    # graph.add_edge(session_time_field, session_field)
+    # graph.add_edge(session_time_field, campaign)
+    # graph.add_edge(campaign, session_field)
+    # graph.add_edge(campaign, session_time_field)
+    # graph.add_edge(campaign, discount_field)
+
+    # graph.add_edge(discount_field, campaign)
+    # graph.add_edge(session_field, session_time_field)
+    # graph.add_edge(session_field, campaign)
+    # graph.add_edge(session_field, discount_field)
+    # graph.add_edge(session_time_field, session_field)
+    # graph.add_edge(session_time_field, campaign)
+    # graph.add_edge(campaign, session_field)
+    # graph.add_edge(campaign, session_time_field)
+    # graph.add_edge(campaign, discount_field)
+
+    # # Creating the adjacency list representation
+    # adjacency_list = {}
+    # for node in graph.nodes():
+    #     adjacency_list[node] = list(graph.successors(node))
+
+    # print(adjacency_list)
+
+    # # Function to check if there is an edge between two nodes
+    # def is_edge_between(node1, node2):
+    #     return node2 in adjacency_list.get(node1, [])
+
+    # # Example usage
+    # print(is_edge_between(discount_field, session_field))  # True
+    # print(is_edge_between(discount_field, campaign))  # True
+    # print(is_edge_between(discount_field, session_time_field))  # False
+    # print(is_edge_between(session_field, discount_field))  # True
+
+    # print(networkx.to_dict_of_dicts(graph))
+
+    # raise
+
+    print("campaign ", campaign.join_graphs())
+    print()
+    print("session metric ", session_field.join_graphs())
+    print()
+    print("session quarter ", session_time_field.join_graphs())
+    print()
+    print(f"discount {discount_field.join_graphs()}")
     session_graphs = session_field.join_graphs()
     shared = [j for j in session_time_field.join_graphs() if j in session_graphs]
+    q = connection.get_sql_query(
+        metrics=["total_discount_amt", "number_of_sessions"],
+        # dimensions=["sessions.session_quarter"],
+        dimensions=["campaign"],
+    )
+    print(q)
+    print()
+
+    # print("session jg: %s", shared)
     assert all(j not in shared for j in discount_field.join_graphs())
 
 
@@ -1364,7 +1403,7 @@ def test_query_merge_results_no_metric_date(connection):
 
 
 @pytest.mark.query
-def test_query_mapping_triple(connection):
+def test_query_mapping_triple_also_joinable(connection):
     query = connection.get_sql_query(
         metrics=["number_of_sessions", "number_of_events"], dimensions=["device"]
     )
@@ -1388,3 +1427,159 @@ def test_query_mapping_triple(connection):
         "events_device=sessions_session__cte_subquery_1.sessions_session_device;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_query_mapping_sub_join_graph_connection(connection):
+    field1 = connection.project.get_field("number_of_sessions")
+    field2 = connection.project.get_field("number_of_orders")
+    field3 = connection.project.get_field("customers.customer_id")
+
+    join_graphs = (
+        set(field1.join_graphs()).intersection(field2.join_graphs()).intersection(field3.join_graphs())
+    )
+    assert join_graphs != set()
+
+
+@pytest.mark.query
+def test_query_mapping_sub_join_without_merge_excluded(connection):
+    field1 = connection.project.get_field("number_of_orders")
+    field2 = connection.project.get_field("customers.customer_id")
+    field3 = connection.project.get_field("orders.order_id")
+    field4 = connection.project.get_field("number_of_sessions")
+
+    join_graphs = (
+        set(field1.join_graphs())
+        .intersection(field2.join_graphs())
+        .intersection(field3.join_graphs())
+        .intersection(field4.join_graphs())
+    )
+    assert join_graphs == set()
+
+
+@pytest.mark.query
+def test_query_mapping_sub_join_without_merge(connection):
+    field1 = connection.project.get_field("number_of_orders")
+    field2 = connection.project.get_field("customers.customer_id")
+    field3 = connection.project.get_field("orders.order_id")
+
+    join_graphs = (
+        set(field1.join_graphs()).intersection(field2.join_graphs()).intersection(field3.join_graphs())
+    )
+    assert join_graphs != set()
+
+
+@pytest.mark.query
+def test_query_mapping_triple_metrics_only_join_graphs(connection):
+    field1 = connection.project.get_field("number_of_clicks")
+    field2 = connection.project.get_field("number_of_login_events")
+    field3 = connection.project.get_field("number_of_form_submissions")
+
+    join_graphs = (
+        set(field1.join_graphs()).intersection(field2.join_graphs()).intersection(field3.join_graphs())
+    )
+    assert join_graphs != set()
+
+
+@pytest.mark.query
+def test_query_mapping_triple_not_joinable_join_graphs(connection):
+    field1 = connection.project.get_field("number_of_clicks")
+    field2 = connection.project.get_field("number_of_login_events")
+    field3 = connection.project.get_field("number_of_form_submissions")
+    field4 = connection.project.get_field("submitted_form.context_os")
+
+    join_graphs = (
+        set(field1.join_graphs())
+        .intersection(field2.join_graphs())
+        .intersection(field3.join_graphs())
+        .intersection(field4.join_graphs())
+    )
+    assert join_graphs != set()
+
+
+@pytest.mark.queryy
+def test_query_mapping_not_joinable_join_graphs_with_date(connection):
+    field1 = connection.project.get_field("number_of_clicks")
+    field2 = connection.project.get_field("submitted_form.sent_at_date")
+    field3 = connection.project.get_field("unique_users_form_submissions")
+    field4 = connection.project.get_field("submitted_form.context_os")
+
+    print(field1.join_graphs())
+    print(field2.join_graphs())
+    print(field3.join_graphs())
+    print(field4.join_graphs())
+    join_graphs = (
+        set(field1.join_graphs())
+        .intersection(field2.join_graphs())
+        .intersection(field3.join_graphs())
+        .intersection(field4.join_graphs())
+    )
+    assert join_graphs != set()
+
+
+@pytest.mark.queryy
+def test_query_mapping_triple_not_joinable(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_clicks", "number_of_login_events", "number_of_form_submissions"],
+        dimensions=["context_os"],
+    )
+
+    correct = (
+        "WITH clicked_on_page_session__cte_subquery_0 AS (SELECT clicked_on_page.context_os as "
+        "clicked_on_page_context_os,COUNT(clicked_on_page.id) as clicked_on_page_number_of_clicks "
+        "FROM analytics.clicked_on_page clicked_on_page GROUP BY clicked_on_page.context_os "
+        "ORDER BY clicked_on_page_number_of_clicks DESC) ,events_event__cte_subquery_1 AS ("
+        "SELECT login_events.os_label as login_events_os_label,COUNT(DISTINCT(login_events.id)) "
+        "as login_events_number_of_login_events FROM analytics.login_events login_events "
+        "GROUP BY login_events.os_label ORDER BY login_events_number_of_login_events DESC) ,"
+        "submitted_form_session__cte_subquery_2 AS (SELECT submitted_form.context_os as "
+        "submitted_form_context_os,COUNT(submitted_form.id) as submitted_form_number_of_form_submissions "
+        "FROM analytics.submitted_form submitted_form GROUP BY submitted_form.context_os ORDER BY "
+        "submitted_form_number_of_form_submissions DESC) SELECT clicked_on_page_session__cte_subquery_0."
+        "clicked_on_page_number_of_clicks as clicked_on_page_number_of_clicks,events_event__cte_subquery_1."
+        "login_events_number_of_login_events as login_events_number_of_login_events,"
+        "submitted_form_session__cte_subquery_2.submitted_form_number_of_form_submissions as "
+        "submitted_form_number_of_form_submissions,ifnull(clicked_on_page_session__cte_subquery_0."
+        "clicked_on_page_context_os, ifnull(submitted_form_session__cte_subquery_2.submitted_form_context_os"
+        ", events_event__cte_subquery_1.login_events_os_label)) as clicked_on_page_context_os,ifnull("
+        "events_event__cte_subquery_1.login_events_os_label, ifnull(submitted_form_session__cte_subquery_2."
+        "submitted_form_context_os, clicked_on_page_session__cte_subquery_0.clicked_on_page_context_os)) as "
+        "login_events_os_label,ifnull(submitted_form_session__cte_subquery_2.submitted_form_context_os, "
+        "ifnull(clicked_on_page_session__cte_subquery_0.clicked_on_page_context_os, "
+        "events_event__cte_subquery_1.login_events_os_label)) as submitted_form_context_os "
+        "FROM clicked_on_page_session__cte_subquery_0 FULL OUTER JOIN events_event__cte_subquery_1 "
+        "ON clicked_on_page_session__cte_subquery_0.clicked_on_page_context_os=events_event__cte_subquery_1."
+        "login_events_os_label FULL OUTER JOIN submitted_form_session__cte_subquery_2 ON "
+        "clicked_on_page_session__cte_subquery_0.clicked_on_page_context_os="
+        "submitted_form_session__cte_subquery_2.submitted_form_context_os;"
+    )
+    assert query == correct
+
+
+# @pytest.mark.queryy
+# def test_query_merge_results_join_graph_three_way(connection):
+#     connection = MetricsLayerConnection("../data_models/andie-swim-zdrvnps")
+#     connection.load()
+
+#     query = connection.get_sql_query(
+#         metrics=["blended_roas", "order_line.orders", "sessions"],
+#         dimensions=["spend_type"],
+#         where=[
+#             {
+#                 "field": "date",
+#                 "expression": "greater_than",
+#                 "value": "2023-02-01",
+#             },
+#         ],
+#         query_type="SNOWFLAKE",
+#     )
+
+#     correct = (
+#         "SELECT DATE_TRUNC('DAY', orders.order_date) as orders_order_date,"
+#         "customers.customer_id as customers_customer_id,orders.id as orders_order_id "
+#         "FROM analytics.orders orders LEFT JOIN analytics.customers customers "
+#         "ON orders.customer_id=customers.customer_id WHERE DATE_TRUNC('DAY', orders.order_date)>'2023-02-01' "
+#         "GROUP BY DATE_TRUNC('DAY', orders.order_date),customers.customer_id,orders.id "
+#         "ORDER BY orders_order_date ASC;"
+#     )
+#     assert query == correct

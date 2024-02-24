@@ -69,6 +69,14 @@ class JoinGraph(SQLReplacement):
             self._weak_graph_memo[view_name] = join_graph_hashes
         return self._weak_graph_memo[view_name]
 
+    def view_names_from_join_hash(self, join_hash: str) -> list:
+        graph = self.project.join_graph.graph
+        sorted_components = self._strongly_connected_components(graph)
+        for i, components in enumerate(sorted_components):
+            if f"subquery_{i}" == join_hash:
+                return components
+        return []
+
     def _strongly_connected_components(self, graph):
         components = networkx.strongly_connected_components(graph)
         # Sort the sub-components graphs alphabetically
@@ -182,7 +190,7 @@ class JoinGraph(SQLReplacement):
         graph = networkx.DiGraph()
 
         existing_root_nodes, join_group_hashes = self._add_canon_dates_to_merged_result(
-            graph, with_dates, join_root=Definitions.canon_date_join_graph_root
+            graph, with_dates, join_root=Definitions.canon_date_join_graph_root, mappings=mappings
         )
         self._add_mappings_to_merged_result(
             graph,
@@ -192,34 +200,162 @@ class JoinGraph(SQLReplacement):
             measures_only=True,
         )
 
+        # Add measure join_graph because all measures can be merged together
+        for field in with_dates:
+            graph.add_edge(Definitions.measure_join_graph_root, field.id())
+
+        # Handle the situation where sessions and orders can't join but
+        # both join to a third table, customers for example
+        # e.g. customers.gender is merge-able with any measure in the a subquery it can be joined to
+        print(join_group_hashes)
         ordered_hashes = sorted(list(join_group_hashes))
-        for join_group_hash_1, join_group_hash_2 in combinations(ordered_hashes, 2):
-            join_root = join_group_hash_1 + "_" + join_group_hash_2
-
-            pair = [join_group_hash_1, join_group_hash_2]
-            existing_sub_root_nodes, _ = self._add_canon_dates_to_merged_result(
-                graph, with_dates, join_root, use_condition=True, must_be_in=pair
-            )
-
+        for join_group_hash in ordered_hashes:
+            print(join_group_hash)
             # Add any fields that accessible via a join to both join_group_hash_1 and join_group_hash_2
             for view in self.project.views(model=model):
                 join_hashes = self.project.join_graph.weak_join_graph_hashes(view.name)
-                if all(join_hash in join_hashes for join_hash in pair):
+
+                # This means that the view in the loop is joinable with the current join_group_hash
+                # And we should add all fields from that view to the merged result join graph for
+                # that subquery. It also means that we need to add this joinable view's hash to all
+                # the measures in the subquery (join hash) that we're looping through.
+                if join_group_hash in join_hashes:
                     view_fields = self.project.fields(
                         view_name=view.name, model=model, expand_dimension_groups=True
                     )
+                    # We use the view name to get the joinable view's hash because it is the
+                    # node that connects to the join_group_hash
+                    joinable_view_hash = self.project.join_graph.join_graph_hash(view.name)
                     for field in view_fields:
-                        for node in existing_sub_root_nodes:
-                            graph.add_edge(node, field.id())
+                        # Merged results cannot be added by default because they do not share all
+                        # join properties of other fields in the view
+                        if not field.is_merged_result:
+                            graph.add_edge(joinable_view_hash, field.id())
 
-            self._add_mappings_to_merged_result(
-                graph, mappings, must_exist_in=pair, root_nodes=existing_sub_root_nodes
-            )
+                    # Add the joinable view's hash to all the measures in the subquery
+                    for view_name in self.project.join_graph.view_names_from_join_hash(join_group_hash):
+                        if view_name != view.name:
+                            subquery_view_fields = self.project.fields(
+                                view_name=view_name, model=model, expand_dimension_groups=True
+                            )
+                            for field in subquery_view_fields:
+                                if field.field_type == "measure" and not field.is_merged_result:
+                                    graph.add_edge(joinable_view_hash, field.id())
+                                elif field.field_type == "measure" and field.is_merged_result:
+                                    # To be able to add this join hash to the merged result, it must be
+                                    # a valid join with ALL the views referenced in the merged result
+                                    field_in_join = []
+                                    for ref in field.referenced_fields(field.sql):
+                                        ref_hashes = self.project.join_graph.weak_join_graph_hashes(
+                                            ref.view.name
+                                        )
+                                        field_in_join.append(join_group_hash in ref_hashes)
+                                    if all(field_in_join):
+                                        graph.add_edge(joinable_view_hash, field.id())
+
+        # For the given mapping, add the fields to the merged result graph
+        # then find all the measures that are in the same subquery as the mapped fields
+        # and add those measures to the merged result graph for that mapped field
+        for from_field, mapped_values in mappings.items():
+            if mapped_values.get("is_canon_date_mapping"):
+                continue
+
+            join_root_node = mapped_values["name"]
+            from_ = self._get_field_with_memo(from_field)
+            from_view_hash = self.project.join_graph.join_graph_hash(from_.view.name)
+            for view_name in self.project.join_graph.view_names_from_join_hash(from_view_hash):
+                subquery_view_fields = self.project.fields(
+                    view_name=view_name, model=model, expand_dimension_groups=True
+                )
+                for field in subquery_view_fields:
+                    if field.field_type == "measure":
+                        graph.add_edge(join_root_node, field.id())
+
+            for reference in mapped_values.get("references", []):
+                # self._add_mappings_to_merged_result(
+                #     graph, mappings, must_exist_in=pair, root_nodes=existing_sub_root_nodes
+                # )
+                to_field = reference["field"]
+                # if mapping["from_join_hash"] in must_exist_in and reference["to_join_hash"] in must_exist_in:
+                to_ = self._get_field_with_memo(to_field)
+                # for node in root_nodes:
+                # if must_exist_in == ["subquery_12", "subquery_8"]:
+                #     print("ADDING")
+                #     print([(node, from_), (node, to_)])
+                graph.add_edges_from([(join_root_node, from_.id()), (join_root_node, to_.id())])
+
+        # for from_field, mapped_values in mappings.items():
+        #     if mapped_values.get("is_canon_date_mapping"):
+        #         continue
+
+        #     # join_root_node = mapped_values["name"]
+        #     from_ = self._get_field_with_memo(from_field)
+        #     from_view_hash = self.project.join_graph.join_graph_hash(from_.view.name)
+        #     for view_name in self.project.join_graph.view_names_from_join_hash(from_view_hash):
+        #         subquery_view_fields = self.project.fields(
+        #             view_name=view_name, model=model, expand_dimension_groups=True
+        #         )
+        #         for field in subquery_view_fields:
+        #             if field.field_type == "measure":
+        #                 graph.add_edge(from_view_hash, field.id())
+
+        #     for reference in mapped_values.get("references", []):
+        #         # self._add_mappings_to_merged_result(
+        #         #     graph, mappings, must_exist_in=pair, root_nodes=existing_sub_root_nodes
+        #         # )
+        #         to_field = reference["field"]
+        #         # if mapping["from_join_hash"] in must_exist_in and reference["to_join_hash"] in must_exist_in:
+        #         to_ = self._get_field_with_memo(to_field)
+        #         to_view_hash = self.project.join_graph.join_graph_hash(to_.view.name)
+        #         # for node in root_nodes:
+        #         # if must_exist_in == ["subquery_12", "subquery_8"]:
+        #         #     print("ADDING")
+        #         #     print([(node, from_), (node, to_)])
+        #         graph.add_edge(to_view_hash, from_.id())
+
+        # pair = [join_group_hash_1, join_group_hash_2]
+        # existing_sub_root_nodes, _ = self._add_canon_dates_to_merged_result(
+        #     graph, with_dates, join_root, use_condition=True, must_be_in=pair
+        # )
+
+        # self._add_mappings_to_merged_result(
+        #     graph, mappings, must_exist_in=pair, root_nodes=existing_sub_root_nodes
+        # )
+
+        # ordered_hashes = sorted(list(join_group_hashes))
+        # for join_group_hash_1, join_group_hash_2 in combinations(ordered_hashes, 2):
+        #     join_root = join_group_hash_1 + "_" + join_group_hash_2
+
+        #     pair = [join_group_hash_1, join_group_hash_2]
+        #     existing_sub_root_nodes, _ = self._add_canon_dates_to_merged_result(
+        #         graph, with_dates, join_root, use_condition=True, must_be_in=pair
+        #     )
+
+        #     # Add any fields that accessible via a join to both join_group_hash_1 and join_group_hash_2
+        #     for view in self.project.views(model=model):
+        #         join_hashes = self.project.join_graph.weak_join_graph_hashes(view.name)
+        #         if all(join_hash in join_hashes for join_hash in pair):
+        #             view_fields = self.project.fields(
+        #                 view_name=view.name, model=model, expand_dimension_groups=True
+        #             )
+        #             for field in view_fields:
+        #                 for node in existing_sub_root_nodes:
+        #                     graph.add_edge(node, field.id())
+
+        #     self._add_mappings_to_merged_result(
+        #         graph, mappings, must_exist_in=pair, root_nodes=existing_sub_root_nodes
+        #     )
 
         return graph
 
     def _add_canon_dates_to_merged_result(
-        self, graph, measures: list, join_root: str, use_condition: bool = False, must_be_in: list = []
+        self,
+        graph,
+        measures: list,
+        join_root: str,
+        mappings={},
+        use_condition: bool = False,
+        must_be_in: list = [],
     ):
         self._field_memo = {}
         existing_root_nodes, join_group_hashes = set(), set()
@@ -234,22 +370,41 @@ class JoinGraph(SQLReplacement):
                     root_node_name = join_root + "_" + timeframe
                     graph.add_edges_from([(root_node_name, canon_date.id()), (root_node_name, measure_id)])
                     existing_root_nodes.add(root_node_name)
+                    # Now, since all these canon dates are valid with all merged results, we need to add
+                    # all the mapped fields to the merged result graph for each canon date
+                    for mapping in mappings.values():
+                        mapping_root_node = mapping["name"]
+                        graph.add_edge(mapping_root_node, canon_date.id())
         return sorted(list(existing_root_nodes)), join_group_hashes
 
     def _add_mappings_to_merged_result(
         self, graph, mappings: dict, must_exist_in: list, root_nodes: list, measures_only: bool = False
     ):
+        # print()
+
+        # print(must_exist_in)
+        # print(root_nodes)
         for from_field, mapping in mappings.items():
             if mapping.get("is_canon_date_mapping"):
                 continue
             if measures_only and mapping["field_type"] != "measure":
                 continue
+            # print("MAPPING LOGIC")
+            # print(from_field)
+            # print(mapping)
             for reference in mapping["references"]:
+                # print(reference)
+                # print(
+                #     mapping["from_join_hash"] in must_exist_in and reference["to_join_hash"] in must_exist_in
+                # )
                 to_field = reference["field"]
                 if mapping["from_join_hash"] in must_exist_in and reference["to_join_hash"] in must_exist_in:
                     from_ = self._get_field_with_memo(from_field).id()
                     to_ = self._get_field_with_memo(to_field).id()
                     for node in root_nodes:
+                        # if must_exist_in == ["subquery_12", "subquery_8"]:
+                        #     print("ADDING")
+                        #     print([(node, from_), (node, to_)])
                         graph.add_edges_from([(node, from_), (node, to_)])
 
     def _get_field_with_memo(self, field_name: str, by_name: bool = False):

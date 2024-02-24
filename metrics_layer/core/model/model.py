@@ -129,6 +129,7 @@ class Model(MetricsLayerBase):
                             dimension_mapping[mapped_from_field]["references"].append(reference)
                         else:
                             map_data = {
+                                "name": mapping_name,
                                 "references": [reference],
                                 "field_type": from_field.field_type,
                                 "from_join_hash": from_join_hash,
