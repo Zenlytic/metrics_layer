@@ -45,6 +45,16 @@ class Project:
         user_str = "" if not self._user else json.dumps(self._user, sort_keys=True)
         return self._content_hash + hash(user_str)
 
+    def refresh_cache(self):
+        # Clear LRU Caches
+        self.fields.cache_clear()
+        self.get_field.cache_clear()
+        self.get_field_by_name.cache_clear()
+        self.get_field_by_tag.cache_clear()
+
+        # Clear physical caches
+        self._join_graph = None
+
     @functools.cached_property
     def _content_hash(self):
         model_str = json.dumps(self._models, sort_keys=True)
@@ -63,19 +73,27 @@ class Project:
     def set_timezone(self, timezone: str):
         self._timezone = timezone
 
-    def add_field(self, field: dict, view_name: str):
+    def add_field(self, field: dict, view_name: str, refresh_cache: bool = True):
         view = next((v for v in self._views if v["name"] == view_name), None)
         if view is None:
-            raise AccessDeniedOrDoesNotExistException(f"Could not find a view matching the name {view_name}")
+            raise AccessDeniedOrDoesNotExistException(
+                f"Could not find a view matching the name {view_name}",
+                object_name=view_name,
+                object_type="view",
+            )
         # If the field already exists, then do not add it
         if not any(f["name"].lower() == field["name"].lower() for f in view["fields"]):
             view["fields"].append(field)
+        if refresh_cache:
+            self.refresh_cache()
 
-    def remove_field(self, field_name: str, view_name: str):
+    def remove_field(self, field_name: str, view_name: str, refresh_cache: bool = True):
         view = next((v for v in self._views if v["name"] == view_name), None)
         if view is None:
             raise AccessDeniedOrDoesNotExistException(f"Could not find a view matching the name {view_name}")
         view["fields"] = [f for f in view["fields"] if f["name"] != field_name]
+        if refresh_cache:
+            self.refresh_cache()
 
     @property
     def timezone(self):

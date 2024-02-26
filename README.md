@@ -63,6 +63,4 @@ conn = MetricsLayerConnection(**config)
 df = conn.query(metrics=["total_revenue"], dimensions=["channel", "region"])
 ```
 
-That's it.
-
 For more advanced methods of connection and more information about the project check out [the docs](https://docs.zenlytic.com).

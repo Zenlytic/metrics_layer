@@ -351,6 +351,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                 "sql": "${" + f'{non_additive_dimension.view.name}.{definition["name"].split(".")[-1]}' + "}",
             },
             view_name=non_additive_dimension.view.name,
+            refresh_cache=False,
         )
         design = MetricsLayerDesign(
             no_group_by=False,
@@ -369,7 +370,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         }
         generator = MetricsLayerQuery(config, design=design)
         cte_query = generator.get_query()
-        project.remove_field(temp_field_name, view_name=non_additive_dimension.view.name)
+        project.remove_field(temp_field_name, view_name=non_additive_dimension.view.name, refresh_cache=False)
         return cte_query
 
     # Code for the GROUP BY part of the query
