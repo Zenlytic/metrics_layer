@@ -82,6 +82,10 @@ class Field(MetricsLayerBase, SQLReplacement):
         if definition["name"] is not None:
             definition["name"] = definition["name"].lower()
 
+        # Remove the label prefix if it's null
+        if "label_prefix" in definition and definition["label_prefix"] is None:
+            definition.pop("label_prefix")
+
         if "primary_key" in definition and isinstance(definition["primary_key"], bool):
             definition["primary_key"] = "yes" if definition["primary_key"] else "no"
 
