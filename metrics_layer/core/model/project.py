@@ -25,7 +25,6 @@ class Project:
         connection_lookup: dict = {},
         manifest=None,
     ):
-        print("running init")
         self._models = models
         self._views = self._handle_join_as_duplication(views)
         self._dashboards = dashboards
