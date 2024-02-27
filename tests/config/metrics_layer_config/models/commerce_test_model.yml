@@ -19,7 +19,7 @@ mappings:
     fields: [order_lines.total_item_revenue, orders.total_revenue]
     description: "Gross revenue (product revenue + shipping - taxes)"
   context_os: 
-    fields: [submitted_form.context_os, clicked_on_page.context_os]
+    fields: [submitted_form.context_os, clicked_on_page.context_os, login_events.os_label]
     description: "Context OS (from the web tracker)"
   device: 
     fields: [events.device, sessions.session_device, login_events.device]

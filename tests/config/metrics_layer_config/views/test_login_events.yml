@@ -21,6 +21,11 @@ fields:
     hidden: yes
     sql: "${TABLE}.id"
 
+  - name: os_label
+    field_type: dimension
+    type: string
+    sql: ${TABLE}.os_label
+
   - name: device
     field_type: "dimension"
     type: string
