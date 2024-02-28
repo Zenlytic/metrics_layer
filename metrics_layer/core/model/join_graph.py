@@ -2,7 +2,7 @@ import networkx
 from itertools import combinations, product
 
 from metrics_layer.core.model.definitions import Definitions
-from metrics_layer.core.exceptions import QueryError
+from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
 from collections import defaultdict
 from copy import deepcopy
 from .base import SQLReplacement
@@ -228,12 +228,18 @@ class JoinGraph(SQLReplacement):
             join_group_hashes.add(join_hash)
             if not use_condition or (use_condition and join_hash in must_be_in):
                 measure_id = measure.id()
-                canon_date = self._get_field_with_memo(measure.canon_date, by_name=True)
-                for timeframe in canon_date.timeframes:
-                    canon_date.dimension_group = timeframe
-                    root_node_name = join_root + "_" + timeframe
-                    graph.add_edges_from([(root_node_name, canon_date.id()), (root_node_name, measure_id)])
-                    existing_root_nodes.add(root_node_name)
+                try:
+                    canon_date = self._get_field_with_memo(measure.canon_date, by_name=True)
+                    for timeframe in canon_date.timeframes:
+                        canon_date.dimension_group = timeframe
+                        root_node_name = join_root + "_" + timeframe
+                        graph.add_edges_from(
+                            [(root_node_name, canon_date.id()), (root_node_name, measure_id)]
+                        )
+                        existing_root_nodes.add(root_node_name)
+                except AccessDeniedOrDoesNotExistException:
+                    # In the event that the canon_date doesn't exist anymore, don't break everything
+                    pass
         return sorted(list(existing_root_nodes)), join_group_hashes
 
     def _add_mappings_to_merged_result(

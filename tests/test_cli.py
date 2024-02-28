@@ -382,6 +382,28 @@ def test_cli_validate(connection, fresh_project, mocker):
 
 
 @pytest.mark.cli
+def test_cli_validate_broken_canon_date(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    project._views[2]["fields"][-2]["canon_date"] = "does_not_exist"
+    project.refresh_cache()
+    project.join_graph
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nCanon date customers.does_not_exist is unreachable in field total_sessions.\n\n"
+    )
+
+
+@pytest.mark.cli
 def test_cli_validate_personal_field(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
