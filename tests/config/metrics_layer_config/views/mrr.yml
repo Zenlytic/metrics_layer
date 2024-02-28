@@ -100,3 +100,23 @@ fields:
       window_choice: max
       window_groupings: 
       - account_id
+
+  - name: mrr_beginning_of_month_no_group_by
+    field_type: measure
+    type: sum
+    sql: ${mrr_value}
+    non_additive_dimension:
+      name: record_raw
+      window_choice: min
+      window_aware_of_query_dimensions: no
+
+  - name: mrr_end_of_month_by_account_no_group_by
+    field_type: measure
+    type: sum
+    sql: ${mrr_value}
+    non_additive_dimension:
+      name: record_date
+      window_choice: max
+      window_aware_of_query_dimensions: no
+      window_groupings: 
+      - account_id

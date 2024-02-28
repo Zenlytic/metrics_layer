@@ -48,6 +48,7 @@ all = ["snowflake-connector-python", "google-cloud-bigquery", "pyarrow", "redshi
 
 [tool.black]
 line-length = 110
+preview = true
 
 [tool.isort]
 profile = "black"
