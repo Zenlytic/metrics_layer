@@ -178,7 +178,16 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
 
         if self.non_additive_ctes:
             for definition in sorted(self.non_additive_ctes):
-                group_by_dimensions = definition.get("window_groupings", []) + self.dimensions
+                group_by_dimensions = definition.get("window_groupings", [])
+                if definition.get("window_aware_of_query_dimensions", True):
+                    group_by_dimensions.extend(self.dimensions)
+                else:
+                    non_additive_dim = self.design.get_field(definition["name"])
+                    # Only add a dimension if it's a variation of the non additive dimension
+                    dimensions_to_add = [
+                        d for d in self.dimensions if non_additive_dim.name == self.design.get_field(d).name
+                    ]
+                    group_by_dimensions.extend(dimensions_to_add)
                 group_by_dimensions = list(
                     sorted(set(group_by_dimensions), key=lambda x: group_by_dimensions.index(x))
                 )

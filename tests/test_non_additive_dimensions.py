@@ -332,3 +332,115 @@ def test_mrr_non_additive_dimension_merged_results_time_group_by(connection):
         "ON mrr_record__cte_subquery_0.mrr_record_week=order_lines_order__cte_subquery_1.order_lines_order_week;"  # noqa
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_mrr_non_additive_dimension_time_group_by_ignore_dimensions(connection):
+    query = connection.get_sql_query(
+        metrics=["mrr_beginning_of_month_no_group_by"], dimensions=["mrr.record_week"]
+    )
+
+    correct = (
+        "WITH cte_mrr_beginning_of_month_no_group_by_record_raw AS (SELECT DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE)) "  # noqa
+        "as mrr_record_week,MIN(mrr.record_date) as mrr_min_record_raw "
+        "FROM analytics.mrr_by_customer mrr GROUP BY DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE)) "
+        "ORDER BY mrr_min_record_raw DESC) "
+        "SELECT DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE)) as mrr_record_week,"
+        "SUM(case when mrr.record_date=cte_mrr_beginning_of_month_no_group_by_record_raw.mrr_min_record_raw "
+        "then mrr.mrr end) as mrr_mrr_beginning_of_month_no_group_by FROM analytics.mrr_by_customer mrr "
+        "JOIN cte_mrr_beginning_of_month_no_group_by_record_raw ON DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE))"  # noqa
+        "=cte_mrr_beginning_of_month_no_group_by_record_raw.mrr_record_week GROUP BY DATE_TRUNC('WEEK', "
+        "CAST(mrr.record_date AS DATE)) ORDER BY mrr_mrr_beginning_of_month_no_group_by DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_mrr_non_additive_dimension_time_group_by_with_window_grouping_ignore_dimensions(connection):
+    query = connection.get_sql_query(
+        metrics=[f"mrr_end_of_month_by_account_no_group_by"], dimensions=["mrr.record_week"]
+    )
+
+    correct = (
+        f"WITH cte_mrr_end_of_month_by_account_no_group_by_record_date AS (SELECT mrr.account_id as mrr_account_id,"  # noqa
+        "DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE)) as mrr_record_week,"
+        "MAX(DATE_TRUNC('DAY', mrr.record_date)) as mrr_max_record_date "
+        f"FROM analytics.mrr_by_customer mrr GROUP BY mrr.account_id,DATE_TRUNC('WEEK', CAST(mrr.record_date "
+        "AS DATE)) ORDER BY mrr_max_record_date DESC) "
+        f"SELECT DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE)) as mrr_record_week,"
+        "SUM(case when DATE_TRUNC('DAY', mrr.record_date)=cte_mrr_end_of_month_by_account_no_group_by_record_date"  # noqa
+        ".mrr_max_record_date "
+        "and mrr.account_id=cte_mrr_end_of_month_by_account_no_group_by_record_date.mrr_account_id "
+        f"then mrr.mrr end) as mrr_mrr_end_of_month_by_account_no_group_by FROM analytics.mrr_by_customer mrr "  # noqa
+        f"JOIN cte_mrr_end_of_month_by_account_no_group_by_record_date ON mrr.account_id"
+        "=cte_mrr_end_of_month_by_account_no_group_by_record_date.mrr_account_id "
+        "and DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE))"
+        "=cte_mrr_end_of_month_by_account_no_group_by_record_date.mrr_record_week "
+        "GROUP BY DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE)) "
+        "ORDER BY mrr_mrr_end_of_month_by_account_no_group_by DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_mrr_non_additive_dimension_alt_group_by_ignore_dimensions(connection):
+    query = connection.get_sql_query(
+        metrics=["mrr_beginning_of_month_no_group_by"], dimensions=["mrr.plan_name"]
+    )
+
+    correct = (
+        "WITH cte_mrr_beginning_of_month_no_group_by_record_raw AS (SELECT "
+        "MIN(mrr.record_date) as mrr_min_record_raw "
+        "FROM analytics.mrr_by_customer mrr ORDER BY mrr_min_record_raw DESC) "
+        "SELECT mrr.plan_name as mrr_plan_name,"
+        "SUM(case when mrr.record_date=cte_mrr_beginning_of_month_no_group_by_record_raw.mrr_min_record_raw "
+        "then mrr.mrr end) as mrr_mrr_beginning_of_month_no_group_by FROM analytics.mrr_by_customer mrr "
+        "JOIN cte_mrr_beginning_of_month_no_group_by_record_raw ON 1=1 "
+        "GROUP BY mrr.plan_name ORDER BY mrr_mrr_beginning_of_month_no_group_by DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_mrr_non_additive_dimension_alt_group_by_with_window_grouping_ignore_dimensions(connection):
+    query = connection.get_sql_query(
+        metrics=[f"mrr_end_of_month_by_account_no_group_by"], dimensions=["mrr.plan_name"]
+    )
+
+    correct = (
+        f"WITH cte_mrr_end_of_month_by_account_no_group_by_record_date AS (SELECT mrr.account_id as mrr_account_id,"  # noqa
+        "MAX(DATE_TRUNC('DAY', mrr.record_date)) as mrr_max_record_date "
+        f"FROM analytics.mrr_by_customer mrr GROUP BY mrr.account_id ORDER BY mrr_max_record_date DESC) "  # noqa
+        f"SELECT mrr.plan_name as mrr_plan_name,"
+        "SUM(case when DATE_TRUNC('DAY', mrr.record_date)=cte_mrr_end_of_month_by_account_no_group_by_record_date"  # noqa
+        ".mrr_max_record_date "
+        "and mrr.account_id=cte_mrr_end_of_month_by_account_no_group_by_record_date.mrr_account_id "
+        f"then mrr.mrr end) as mrr_mrr_end_of_month_by_account_no_group_by FROM analytics.mrr_by_customer mrr "  # noqa
+        f"JOIN cte_mrr_end_of_month_by_account_no_group_by_record_date ON mrr.account_id"
+        "=cte_mrr_end_of_month_by_account_no_group_by_record_date.mrr_account_id "
+        "GROUP BY mrr.plan_name ORDER BY mrr_mrr_end_of_month_by_account_no_group_by DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_mrr_non_additive_dimension_group_by_equal_to_window_grouping_ignore_dimensions(connection):
+    query = connection.get_sql_query(
+        metrics=[f"mrr_end_of_month_by_account_no_group_by"], dimensions=["mrr.account_id"]
+    )
+
+    correct = (
+        f"WITH cte_mrr_end_of_month_by_account_no_group_by_record_date AS (SELECT mrr.account_id as mrr_account_id,"  # noqa
+        "MAX(DATE_TRUNC('DAY', mrr.record_date)) as mrr_max_record_date "
+        f"FROM analytics.mrr_by_customer mrr GROUP BY mrr.account_id ORDER BY mrr_max_record_date DESC) "
+        f"SELECT mrr.account_id as mrr_account_id,"
+        "SUM(case when DATE_TRUNC('DAY', mrr.record_date)=cte_mrr_end_of_month_by_account_no_group_by_record_date"  # noqa
+        ".mrr_max_record_date "
+        "and mrr.account_id=cte_mrr_end_of_month_by_account_no_group_by_record_date.mrr_account_id "
+        f"then mrr.mrr end) as mrr_mrr_end_of_month_by_account_no_group_by FROM analytics.mrr_by_customer mrr "  # noqa
+        f"JOIN cte_mrr_end_of_month_by_account_no_group_by_record_date ON mrr.account_id"
+        "=cte_mrr_end_of_month_by_account_no_group_by_record_date.mrr_account_id "
+        "GROUP BY mrr.account_id "
+        "ORDER BY mrr_mrr_end_of_month_by_account_no_group_by DESC;"
+    )
+    assert query == correct

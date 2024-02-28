@@ -75,3 +75,25 @@ def test_add_with_join_graphs_field_cache(connection):
 
     assert field.name == "rps"
     assert connections != set()
+
+    connection.project.remove_field("rps", view_name="order_lines")
+
+
+@pytest.mark.project
+def test_add_field_personal_fields_are_warnings(connection):
+    connection.project.add_field(
+        {
+            "name": "total_new_revenue!",
+            "type": "sum",
+            "field_type": "measure",
+            "sql": "${TABLE}.revenue",
+            "is_personal_field": True,
+        },
+        view_name="orders",
+    )
+    field = connection.project.get_field("total_new_revenue!")
+    errors = field.collect_errors()
+    assert errors != []
+    assert all("Warning:" in e for e in errors)
+
+    connection.project.remove_field("total_new_revenue", view_name="orders")
