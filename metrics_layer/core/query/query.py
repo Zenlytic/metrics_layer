@@ -1,11 +1,11 @@
 import sqlparse
 
 from metrics_layer.core.convert import MQLConverter
+from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.parse import ProjectLoader
 from metrics_layer.core.parse.connections import BaseConnection
 from metrics_layer.core.sql import QueryRunner, SQLQueryResolver
 from metrics_layer.core.sql.query_errors import ParseError
-from metrics_layer.core.exceptions import QueryError
 
 
 class DBConnectionError(Exception):
