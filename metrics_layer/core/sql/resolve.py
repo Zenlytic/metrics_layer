@@ -1,10 +1,10 @@
 from copy import deepcopy
 
-from metrics_layer.core.exceptions import QueryError, JoinError
-from metrics_layer.core.sql.single_query_resolve import SingleSQLQueryResolver
+from metrics_layer.core.exceptions import JoinError, QueryError
+from metrics_layer.core.model.filter import Filter
 from metrics_layer.core.sql.merged_query_resolve import MergedSQLQueryResolver
 from metrics_layer.core.sql.query_base import QueryKindTypes
-from metrics_layer.core.model.filter import Filter
+from metrics_layer.core.sql.single_query_resolve import SingleSQLQueryResolver
 
 
 class SQLQueryResolver(SingleSQLQueryResolver):
@@ -77,7 +77,12 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                 "function call.\n\nIf you're seeing this and you expected the views to join on a "
                 "primary or foreign key, make sure you have the right identifiers set on the views."
             )
-            e.message = f"{err_msg}\n\n{appended} \n\n" + deepcopy(e.message)
+            error_message = (
+                f"{err_msg}\n\n{appended}\n\n{deepcopy(e.message)}"
+                if self.verbose
+                else f"{deepcopy(e.message)}"
+            )
+            e.message = error_message
             raise e
 
     def _get_single_query(self, semicolon: bool):
@@ -242,20 +247,34 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                 with_one_removed = {k: v for k, v in self.field_lookup.items() if k != key}
                 merged, joined = self._join_graphs_by_type(with_one_removed)
                 if len(merged) != 0 or len(joined) != 0:
-                    raise QueryError(
+                    error_message = (
                         f"The field {key} could not be either joined into the query "
                         "or mapped and merged into the query as a merged result. \n\n"
                         "Check that you specify joins to join it in, or specify a mapping "
                         "for a query with two tables that cannot be merged"
+                        if self.verbose
+                        else (
+                            f"Error: The field {key} could not be joined or mapped and merged into the query."
+                            " Please try to reformat the query. If the error persists, consult the user for"
+                            " further guidance."
+                        )
                     )
+                    raise QueryError(error_message)
             # Otherwise, we have to show this, worse, error message
             all_fields = list(self.field_lookup.keys()) + list(self.mapping_lookup.keys())
-            raise QueryError(
-                f"The query could not be either joined or mapped and merged into a valid query"
+            error_message = (
+                "The query could not be either joined or mapped and merged into a valid query"
                 f" with the fields:\n\n{', '.join(all_fields)}\n\n"
                 "Check that those fields can be joined together or are mapped so they can "
                 "be merged across tables"
+                if self.verbose
+                else (
+                    "Error: The query could not be either joined or mapped and merged into a valid query"
+                    f" with the fields:\n\n{', '.join(all_fields)}\n\n Please try to reformat the query. If"
+                    " the error persists, consult the user for further guidance."
+                )
             )
+            raise QueryError(error_message)
 
     def _replace_mapped_field(self, to_replace: str, field):
         if to_replace in self.metrics:

@@ -1,9 +1,9 @@
-import json
 import hashlib
-from metrics_layer.core.exceptions import QueryError
+import json
 from collections import defaultdict
 from copy import deepcopy
 
+from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.sql.query_merged_results import MetricsLayerMergedResultsQuery
 from metrics_layer.core.sql.single_query_resolve import SingleSQLQueryResolver
@@ -191,11 +191,18 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                         not_in_metrics = False
                     else:
                         if field_key not in dimension_mapping:
-                            raise QueryError(
+                            error_message = (
                                 f"Could not find mapping from field {field_key} to other views. "
                                 "Please add a mapping to your model definition to allow the mapping "
                                 "if you'd like to use this field in a merged result query."
+                                if self.verbose
+                                else (
+                                    f"Error: Could not find mapping from field {field_key} to other views."
+                                    " Please try to reformat the query. If the error persists, please"
+                                    " consult the user for further guidance."
+                                )
                             )
+                            raise QueryError(error_message)
                         for mapping_info in dimension_mapping[field_key]:
                             ref_field = self.project.get_field(mapping_info["field"])
                             if mapping_info["from_join_hash"] in self.query_metrics:
