@@ -1,8 +1,10 @@
 import os
 import re
-import pandas as pd
-from metrics_layer.core.model.definitions import Definitions
 from typing import List
+
+import pandas as pd
+
+from metrics_layer.core.model.definitions import Definitions
 
 
 class SeedMetricsLayer:
@@ -421,6 +423,8 @@ class SeedMetricsLayer:
             Definitions.databricks,
         }:
             query += f" FROM {self.database}.{schema_name}.{table_name}"
+        elif self.connection.type == Definitions.druid:
+            query += f"FROM {schema_name}.{table_name}"
         elif self.connection.type == Definitions.bigquery:
             query += f" FROM `{self.database}`.`{schema_name}`.`{table_name}`"
 
@@ -531,7 +535,7 @@ class SeedMetricsLayer:
             else:
                 raise ValueError(
                     f"Could not determine the connection to use, "
-                    "please pass the connection name with the --connection arg"
+                    f"please pass the connection name with the --connection arg"
                 )
         return connection
 
