@@ -5,9 +5,9 @@ import pytest
 
 from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.model.project import Project
+from metrics_layer.core.parse.connections import BaseConnection
 from metrics_layer.core.parse.manifest import Manifest
 from metrics_layer.core.parse.project_reader_base import ProjectReaderBase
-from metrics_layer.core.parse.connections import BaseConnection
 
 BASE_PATH = os.path.dirname(__file__)
 
@@ -484,4 +484,4 @@ def connections():
 
 @pytest.fixture(scope="module")
 def connection(project, connections):
-    return MetricsLayerConnection(project=project, connections=connections)
+    return MetricsLayerConnection(project=project, connections=connections, verbose=True)
