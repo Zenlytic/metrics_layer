@@ -13,19 +13,31 @@ class ProjectDumper(ProjectReaderBase):
 
     def dump(self, path: str):
         for model in self.models_to_dump:
-            file_name = model["name"] + "_model.yml"
-            models_folder = os.path.join(path, self._model_folder)
-            if not os.path.exists(models_folder):
-                os.mkdir(models_folder)
-            file_path = os.path.join(models_folder, file_name)
+            if "_file_path" in model:
+                file_path = os.path.join(path, model["_file_path"])
+                directory = os.path.dirname(file_path)
+                if not os.path.exists(directory):
+                    os.makedirs(directory)
+            else:
+                file_name = model["name"] + "_model.yml"
+                models_folder = os.path.join(path, self._model_folder)
+                if not os.path.exists(models_folder):
+                    os.mkdir(models_folder)
+                file_path = os.path.join(models_folder, file_name)
             self.dump_yaml_file(self._sort_model(model), file_path)
 
         for view in self.views_to_dump:
-            file_name = view["name"] + "_view.yml"
-            views_folder = os.path.join(path, self._view_folder)
-            if not os.path.exists(views_folder):
-                os.mkdir(views_folder)
-            file_path = os.path.join(views_folder, file_name)
+            if "_file_path" in view:
+                file_path = os.path.join(path, view["_file_path"])
+                directory = os.path.dirname(file_path)
+                if not os.path.exists(directory):
+                    os.makedirs(directory)
+            else:
+                file_name = view["name"] + "_view.yml"
+                views_folder = os.path.join(path, self._view_folder)
+                if not os.path.exists(views_folder):
+                    os.mkdir(views_folder)
+                file_path = os.path.join(views_folder, file_name)
             self.dump_yaml_file(self._sort_view(view), file_path)
 
     def _sort_view(self, view: dict):

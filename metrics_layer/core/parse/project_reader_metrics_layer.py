@@ -16,6 +16,7 @@ class MetricsLayerProjectReader(ProjectReaderBase):
 
         for fn in file_names:
             yaml_dict = self.read_yaml_file(fn)
+            yaml_dict["_file_path"] = os.path.relpath(fn, start=self.repo.folder)
 
             # Handle keyerror
             if "type" not in yaml_dict and "zenlytic_project" not in fn:

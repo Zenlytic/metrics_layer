@@ -70,8 +70,9 @@ class ProjectReaderBase:
 
     @staticmethod
     def dump_yaml_file(data: dict, path: str):
+        filtered_data = {k: v for k, v in data.items() if not k.startswith("_")}
         with open(path, "w") as f:
-            ruamel.yaml.dump(data, f, Dumper=ruamel.yaml.RoundTripDumper)
+            ruamel.yaml.dump(filtered_data, f, Dumper=ruamel.yaml.RoundTripDumper)
 
     def load(self) -> None:
         raise NotImplementedError()
