@@ -1,7 +1,10 @@
 import re
 
+from metrics_layer.core.exceptions import (
+    AccessDeniedOrDoesNotExistException,
+    QueryError,
+)
 
-from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
 from .base import MetricsLayerBase
 from .field import Field
 from .set import Set
@@ -127,7 +130,11 @@ class View(MetricsLayerBase):
             if not field.is_merged_result:
                 referenced_sql = field.get_referenced_sql_query(strings_only=False)
                 if referenced_sql is not None:
-                    all_fields += referenced_sql
+                    for reference in referenced_sql:
+                        if isinstance(reference, str) and field.is_personal_field:
+                            all_fields.append(f"Warning: {reference}")
+                        else:
+                            all_fields.append(reference)
             result.extend(all_fields)
         return result
 
@@ -205,7 +212,9 @@ class View(MetricsLayerBase):
             return result.group().replace(end_cond, "").strip()
 
         result = re.search(everything_after, searchable_sql_table_name)
-        return result.group().strip()
+        if result:
+            return result.group().strip()
+        return sql_table_name
 
     def list_sets(self):
         return [Set({**s, "view_name": self.name}, project=self.project) for s in self.sets]

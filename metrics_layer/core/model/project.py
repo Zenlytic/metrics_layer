@@ -2,11 +2,16 @@ import functools
 import json
 from collections import Counter
 from copy import deepcopy
+from typing import Union
 
-from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
+from metrics_layer.core.exceptions import (
+    AccessDeniedOrDoesNotExistException,
+    QueryError,
+)
+
 from .dashboard import Dashboard
-from .join_graph import JoinGraph
 from .field import Field
+from .join_graph import JoinGraph
 from .model import AccessGrant, Model
 from .view import View
 
@@ -21,7 +26,7 @@ class Project:
         models: list,
         views: list,
         dashboards: list = [],
-        looker_env: str = None,
+        looker_env: Union[None, str] = None,
         connection_lookup: dict = {},
         manifest=None,
     ):
@@ -90,7 +95,11 @@ class Project:
     def remove_field(self, field_name: str, view_name: str, refresh_cache: bool = True):
         view = next((v for v in self._views if v["name"] == view_name), None)
         if view is None:
-            raise AccessDeniedOrDoesNotExistException(f"Could not find a view matching the name {view_name}")
+            raise AccessDeniedOrDoesNotExistException(
+                f"Could not find a view matching the name {view_name}",
+                object_name=view_name,
+                object_type="view",
+            )
         view["fields"] = [f for f in view["fields"] if f["name"] != field_name]
         if refresh_cache:
             self.refresh_cache()
@@ -176,13 +185,15 @@ class Project:
 
             referenced_fields = view.referenced_fields()
             view_errors = view.collect_errors()
-            all_errors.extend(
-                [
-                    f"Could not locate reference {field} in view {view.name}"
-                    for field in referenced_fields
-                    if isinstance(field, str)
-                ]
-            )
+
+            for field in referenced_fields:
+                if isinstance(field, str):
+                    if "Warning: " in field:
+                        field = field.replace("Warning: ", "")
+                        prepend = "Warning: "
+                    else:
+                        prepend = ""
+                    all_errors.append(f"{prepend}Could not locate reference {field} in view {view.name}")
             all_errors.extend(view_errors)
 
         for dashboard in self.dashboards():

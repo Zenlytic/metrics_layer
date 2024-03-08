@@ -1,5 +1,6 @@
 import os
 from copy import copy
+
 import pandas as pd
 import pytest
 from click.testing import CliRunner
@@ -373,8 +374,9 @@ def test_cli_validate(connection, fresh_project, mocker):
     result = runner.invoke(validate)
 
     # assert result.exit_code == 0
-    assert result.output == (
-        "Found 3 errors in the project:\n\n"
+    assert (
+        result.output
+        == "Found 3 errors in the project:\n\n"
         "\nCould not locate reference revenue_dimension in view order_lines\n\n"
         "\nCould not locate reference revenue_dimension in view orders\n\n"
         "\nDefault date sessions.session_date is unreachable in view orders\n\n"
@@ -397,8 +399,9 @@ def test_cli_validate_broken_canon_date(connection, fresh_project, mocker):
     result = runner.invoke(validate)
 
     assert result.exit_code == 0
-    assert result.output == (
-        "Found 1 error in the project:\n\n"
+    assert (
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nCanon date customers.does_not_exist is unreachable in field total_sessions.\n\n"
     )
 
@@ -421,6 +424,27 @@ def test_cli_validate_personal_field(connection, fresh_project, mocker):
     assert result.output == (
         "Found 1 error in the project:\n\n"
         "\nWarning: Field cancelled is a dimension_group, but does not have a type associated with it. You must set a type for this dimension_group.\n\n"  # noqa
+    )
+
+
+@pytest.mark.cli
+def test_cli_validate_personal_field_view_level_error(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    project._views[2]["fields"][2]["is_personal_field"] = True
+    project._views[2]["fields"][2]["sql"] = "${some_crazy_ref}"
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        "\nWarning: Could not locate reference some_crazy_ref in view customers\n\n"  # noqa
     )
 
 
@@ -648,8 +672,9 @@ def test_cli_validate_model_name_in_view(connection, fresh_project, mocker):
     result = runner.invoke(validate)
 
     assert result.exit_code == 0
-    assert result.output == (
-        "Found 1 error in the project:\n\n"
+    assert (
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nCould not find a model in view orders. Use the model_name property to specify the model.\n\n"
     )
 
@@ -667,8 +692,9 @@ def test_cli_validate_two_customer_tags(connection, fresh_project, mocker):
     result = runner.invoke(validate)
 
     assert result.exit_code == 0
-    assert result.output == (
-        "Found 1 error in the project:\n\n"
+    assert (
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nMultiple fields found for the tag customer - those fields were ['orders.cumulative_aov',"
         " 'customers.customer_id']. Only one field can have the tag \"customer\" per joinable graph.\n\n"
     )
@@ -689,8 +715,9 @@ def test_cli_dashboard_model_does_not_exist(connection, fresh_project, mocker):
     result = runner.invoke(validate)
 
     assert result.exit_code == 0
-    assert result.output == (
-        "Found 1 error in the project:\n\n"
+    assert (
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nCould not find model missing_model referenced in dashboard sales_dashboard.\n\n"
     )
 
@@ -710,8 +737,9 @@ def test_cli_canon_date_inaccessible(connection, fresh_project, mocker):
     result = runner.invoke(validate)
 
     assert result.exit_code == 0
-    assert result.output == (
-        "Found 1 error in the project:\n\n"
+    assert (
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nCanon date orders.missing_field is unreachable in field total_revenue.\n\n"
     )
 
@@ -899,7 +927,10 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
     result_lookup = {
         "models": "Found 2 models:\n\ntest_model\nnew_model\n",
         "connections": "Found 3 connections:\n\ntesting_snowflake\ntesting_bigquery\ntesting_databricks\n",
-        "views": "Found 20 views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nmrr\nparent_account\nchild_account\n",  # noqa
+        "views": (  # noqa
+            "Found 20"
+            " views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nmrr\nparent_account\nchild_account\n"
+        ),
         "fields": "Found 2 fields:\n\ndiscount_promo_name\ndiscount_usd\n",
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
         "metrics": "Found 2 metrics:\n\ntotal_discount_amt\ndiscount_per_order\n",  # noqa
