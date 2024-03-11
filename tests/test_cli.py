@@ -808,6 +808,27 @@ def test_cli_invalid_join_sql_syntax(connection, fresh_project, mocker):
 
 
 @pytest.mark.cli
+def test_cli_duplicate_field_names(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    project._views[2]["fields"][2]["name"] = "number_of_customers"
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert (
+        result.output
+        == "Found 1 error in the project:\n\n"
+        "\nDuplicate field names in view customers: number_of_customers\n\n"
+    )
+
+
+@pytest.mark.cli
 def test_cli_duplicate_view_names(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
@@ -929,7 +950,7 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
         "connections": "Found 3 connections:\n\ntesting_snowflake\ntesting_bigquery\ntesting_databricks\n",
         "views": (  # noqa
             "Found 20"
-            " views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nmrr\nparent_account\nchild_account\n"
+            " views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nmrr\nparent_account\nchild_account\n"  # noqa
         ),
         "fields": "Found 2 fields:\n\ndiscount_promo_name\ndiscount_usd\n",
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
