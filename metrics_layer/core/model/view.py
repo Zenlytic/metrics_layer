@@ -120,6 +120,14 @@ class View(MetricsLayerBase):
                     f'Warning: Identifier {i["name"]} in view {self.name} is missing'
                     ' "${", are you sure you are using the reference syntax correctly?'
                 )
+
+        # Check for duplicate fields
+        field_names = [f.name for f in fields]
+        if len(field_names) != len(set(field_names)):
+            field_errors.append(
+                f"Duplicate field names in view {self.name}:"
+                f" {', '.join(set(f for f in field_names if field_names.count(f) > 1))}"
+            )
         return field_errors
 
     def referenced_fields(self):

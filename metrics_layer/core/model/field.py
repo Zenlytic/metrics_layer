@@ -2,9 +2,14 @@ import functools
 import hashlib
 import re
 from copy import deepcopy
+
 from pypika.terms import LiteralValue
 
-from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
+from metrics_layer.core.exceptions import (
+    AccessDeniedOrDoesNotExistException,
+    QueryError,
+)
+
 from .base import MetricsLayerBase, SQLReplacement
 from .definitions import Definitions
 from .filter import Filter
@@ -680,13 +685,28 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "years": lambda start, end: f"DATEDIFF('YEAR', {start}, {end})",
             },
             Definitions.postgres: {
-                "seconds": lambda start, end: f"{meta_lookup[Definitions.postgres]['minutes'](start, end)} * 60 + DATE_PART('SECOND', AGE({end}, {start}))",  # noqa
-                "minutes": lambda start, end: f"{meta_lookup[Definitions.postgres]['hours'](start, end)} * 60 + DATE_PART('MINUTE', AGE({end}, {start}))",  # noqa
-                "hours": lambda start, end: f"{meta_lookup[Definitions.postgres]['days'](start, end)} * 24 + DATE_PART('HOUR', AGE({end}, {start}))",  # noqa
+                "seconds": lambda start, end: (  # noqa
+                    f"{meta_lookup[Definitions.postgres]['minutes'](start, end)} * 60 + DATE_PART('SECOND',"
+                    f" AGE({end}, {start}))"
+                ),
+                "minutes": lambda start, end: (  # noqa
+                    f"{meta_lookup[Definitions.postgres]['hours'](start, end)} * 60 + DATE_PART('MINUTE',"
+                    f" AGE({end}, {start}))"
+                ),
+                "hours": lambda start, end: (  # noqa
+                    f"{meta_lookup[Definitions.postgres]['days'](start, end)} * 24 + DATE_PART('HOUR',"
+                    f" AGE({end}, {start}))"
+                ),
                 "days": lambda start, end: f"DATE_PART('DAY', AGE({end}, {start}))",
                 "weeks": lambda start, end: f"TRUNC(DATE_PART('DAY', AGE({end}, {start}))/7)",
-                "months": lambda start, end: f"{meta_lookup[Definitions.postgres]['years'](start, end)} * 12 + (DATE_PART('month', AGE({end}, {start})))",  # noqa
-                "quarters": lambda start, end: f"{meta_lookup[Definitions.postgres]['years'](start, end)} * 4 + TRUNC(DATE_PART('month', AGE({end}, {start}))/3)",  # noqa
+                "months": lambda start, end: (  # noqa
+                    f"{meta_lookup[Definitions.postgres]['years'](start, end)} * 12 + (DATE_PART('month',"
+                    f" AGE({end}, {start})))"
+                ),
+                "quarters": lambda start, end: (  # noqa
+                    f"{meta_lookup[Definitions.postgres]['years'](start, end)} * 4 + TRUNC(DATE_PART('month',"
+                    f" AGE({end}, {start}))/3)"
+                ),
                 "years": lambda start, end: f"DATE_PART('YEAR', AGE({end}, {start}))",
             },
             Definitions.druid: {
@@ -710,13 +730,21 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "years": lambda start, end: f"DATEDIFF(YEAR, {start}, {end})",
             },
             Definitions.bigquery: {
-                "seconds": lambda start, end: f"TIMESTAMP_DIFF(CAST({end} as TIMESTAMP), CAST({start} as TIMESTAMP), SECOND)",  # noqa
-                "minutes": lambda start, end: f"TIMESTAMP_DIFF(CAST({end} as TIMESTAMP), CAST({start} as TIMESTAMP), MINUTE)",  # noqa
-                "hours": lambda start, end: f"TIMESTAMP_DIFF(CAST({end} as TIMESTAMP), CAST({start} as TIMESTAMP), HOUR)",  # noqa
+                "seconds": lambda start, end: (  # noqa
+                    f"TIMESTAMP_DIFF(CAST({end} as TIMESTAMP), CAST({start} as TIMESTAMP), SECOND)"
+                ),
+                "minutes": lambda start, end: (  # noqa
+                    f"TIMESTAMP_DIFF(CAST({end} as TIMESTAMP), CAST({start} as TIMESTAMP), MINUTE)"
+                ),
+                "hours": lambda start, end: (  # noqa
+                    f"TIMESTAMP_DIFF(CAST({end} as TIMESTAMP), CAST({start} as TIMESTAMP), HOUR)"
+                ),
                 "days": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), DAY)",
                 "weeks": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), ISOWEEK)",
                 "months": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), MONTH)",
-                "quarters": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), QUARTER)",  # noqa
+                "quarters": lambda start, end: (  # noqa
+                    f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), QUARTER)"
+                ),
                 "years": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), ISOYEAR)",
             },
         }
@@ -732,8 +760,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             return meta_lookup[query_type][dimension_group](sql_start, sql_end)
         except KeyError:
             raise QueryError(
-                f"Unable to find a valid method for running "
-                f"{dimension_group} with query type {query_type}"
+                f"Unable to find a valid method for running {dimension_group} with query type {query_type}"
             )
 
     def apply_dimension_group_time_sql(self, sql: str, query_type: str):
@@ -750,9 +777,11 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', {s})",
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', {s})",
                 "week_index": lambda s, qt: f"EXTRACT(WEEK FROM {s})",
-                "week_of_month": lambda s, qt: f"EXTRACT(WEEK FROM {s}) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH', {s})) + 1",  # noqa
+                "week_of_month": lambda s, qt: (  # noqa
+                    f"EXTRACT(WEEK FROM {s}) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH', {s})) + 1"
+                ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM {s})",
-                "month_of_year": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'MON')",
+                "month_of_year": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Mon')",
                 "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM {s})",
                 "hour_of_day": lambda s, qt: f"HOUR(CAST({s} AS TIMESTAMP))",
                 "day_of_week": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Dy')",
@@ -771,7 +800,10 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', CAST({s} AS TIMESTAMP))",
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
                 "week_index": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP))",
-                "week_of_month": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))) + 1",  # noqa
+                "week_of_month": lambda s, qt: (  # noqa
+                    f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
+                    f" CAST({s} AS TIMESTAMP))) + 1"
+                ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP))",
                 "month_of_year": lambda s, qt: f"DATE_FORMAT(CAST({s} AS TIMESTAMP), 'MMM')",
                 "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP))",
@@ -792,9 +824,12 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', CAST({s} AS TIMESTAMP))",
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
                 "week_index": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP))",
-                "week_of_month": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))) + 1",  # noqa
+                "week_of_month": lambda s, qt: (  # noqa
+                    f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
+                    f" CAST({s} AS TIMESTAMP))) + 1"
+                ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP))",
-                "month_of_year": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'MON')",
+                "month_of_year": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Mon')",
                 "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP))",
                 "hour_of_day": lambda s, qt: f"EXTRACT('HOUR' FROM CAST({s} AS TIMESTAMP))",
                 "day_of_week": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Dy')",
@@ -813,12 +848,24 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', CAST({s} AS TIMESTAMP))",
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
                 "week_index": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP))",
-                "week_of_month": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))) + 1",  # noqa
+                "week_of_month": lambda s, qt: (  # noqa
+                    f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
+                    f" CAST({s} AS TIMESTAMP))) + 1"
+                ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP))",
-                "month_of_year": lambda s, qt: f"CASE EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP)) WHEN 1 THEN 'Jan' WHEN 2 THEN 'Feb' WHEN 3 THEN 'Mar' WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun' WHEN 7 THEN 'Jul' WHEN 8 THEN 'Aug' WHEN 9 THEN 'Sep' WHEN 10 THEN 'Oct' WHEN 11 THEN 'Nov' WHEN 12 THEN 'Dec' ELSE 'Invalid Month' END",  # noqa
+                "month_of_year": lambda s, qt: (  # noqa
+                    f"CASE EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP)) WHEN 1 THEN 'Jan' WHEN 2 THEN 'Feb'"
+                    " WHEN 3 THEN 'Mar' WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun' WHEN 7 THEN"
+                    " 'Jul' WHEN 8 THEN 'Aug' WHEN 9 THEN 'Sep' WHEN 10 THEN 'Oct' WHEN 11 THEN 'Nov' WHEN"
+                    " 12 THEN 'Dec' ELSE 'Invalid Month' END"
+                ),
                 "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP))",
                 "hour_of_day": lambda s, qt: f"EXTRACT(HOUR FROM CAST({s} AS TIMESTAMP))",
-                "day_of_week": lambda s, qt: f"CASE EXTRACT(DOW FROM CAST({s} AS TIMESTAMP)) WHEN 1 THEN 'Mon' WHEN 2 THEN 'Tue' WHEN 3 THEN 'Wed' WHEN 4 THEN 'Thu' WHEN 5 THEN 'Fri' WHEN 6 THEN 'Sat' WHEN 7 THEN 'Sun' ELSE 'Invalid Day' END",  # noqa
+                "day_of_week": lambda s, qt: (  # noqa
+                    f"CASE EXTRACT(DOW FROM CAST({s} AS TIMESTAMP)) WHEN 1 THEN 'Mon' WHEN 2 THEN 'Tue' WHEN"
+                    " 3 THEN 'Wed' WHEN 4 THEN 'Thu' WHEN 5 THEN 'Fri' WHEN 6 THEN 'Sat' WHEN 7 THEN 'Sun'"
+                    " ELSE 'Invalid Day' END"
+                ),
                 "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM CAST({s} AS TIMESTAMP))",
                 "day_of_year": lambda s, qt: f"EXTRACT(DOY FROM CAST({s} AS TIMESTAMP))",
             },
@@ -834,7 +881,10 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "quarter": lambda s, qt: f"DATEADD(QUARTER, DATEDIFF(QUARTER, 0, CAST({s} AS DATE)), 0)",
                 "year": lambda s, qt: f"DATEADD(YEAR, DATEDIFF(YEAR, 0, CAST({s} AS DATE)), 0)",
                 "week_index": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS DATE))",
-                "week_of_month": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS DATE)) - EXTRACT(WEEK FROM DATEADD(MONTH, DATEDIFF(MONTH, 0, CAST({s} AS DATE)), 0)) + 1",  # noqa
+                "week_of_month": lambda s, qt: (  # noqa
+                    f"EXTRACT(WEEK FROM CAST({s} AS DATE)) - EXTRACT(WEEK FROM DATEADD(MONTH, DATEDIFF(MONTH,"
+                    f" 0, CAST({s} AS DATE)), 0)) + 1"
+                ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS DATE))",
                 "month_of_year": lambda s, qt: f"LEFT(DATENAME(MONTH, CAST({s} AS DATE)), 3)",
                 "quarter_of_year": lambda s, qt: f"DATEPART(QUARTER, CAST({s} AS DATE))",
@@ -846,16 +896,28 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.bigquery: {
                 "raw": lambda s, qt: s,
                 "time": lambda s, qt: f"CAST({s} AS TIMESTAMP)",
-                "second": lambda s, qt: f"CAST(DATETIME_TRUNC(CAST({s} AS DATETIME), SECOND) AS {self.datatype.upper()})",  # noqa
-                "minute": lambda s, qt: f"CAST(DATETIME_TRUNC(CAST({s} AS DATETIME), MINUTE) AS {self.datatype.upper()})",  # noqa
-                "hour": lambda s, qt: f"CAST(DATETIME_TRUNC(CAST({s} AS DATETIME), HOUR) AS {self.datatype.upper()})",  # noqa
+                "second": lambda s, qt: (  # noqa
+                    f"CAST(DATETIME_TRUNC(CAST({s} AS DATETIME), SECOND) AS {self.datatype.upper()})"
+                ),
+                "minute": lambda s, qt: (  # noqa
+                    f"CAST(DATETIME_TRUNC(CAST({s} AS DATETIME), MINUTE) AS {self.datatype.upper()})"
+                ),
+                "hour": lambda s, qt: (  # noqa
+                    f"CAST(DATETIME_TRUNC(CAST({s} AS DATETIME), HOUR) AS {self.datatype.upper()})"
+                ),
                 "date": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} AS DATE), DAY) AS {self.datatype.upper()})",
                 "week": self._week_dimension_group_time_sql,
-                "month": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} AS DATE), MONTH) AS {self.datatype.upper()})",  # noqa
-                "quarter": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} AS DATE), QUARTER) AS {self.datatype.upper()})",  # noqa
+                "month": lambda s, qt: (  # noqa
+                    f"CAST(DATE_TRUNC(CAST({s} AS DATE), MONTH) AS {self.datatype.upper()})"
+                ),
+                "quarter": lambda s, qt: (  # noqa
+                    f"CAST(DATE_TRUNC(CAST({s} AS DATE), QUARTER) AS {self.datatype.upper()})"
+                ),
                 "year": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} AS DATE), YEAR) AS {self.datatype.upper()})",
                 "week_index": lambda s, qt: f"EXTRACT(WEEK FROM {s})",
-                "week_of_month": lambda s, qt: f"EXTRACT(WEEK FROM {s}) - EXTRACT(WEEK FROM DATE_TRUNC(CAST({s} AS DATE), MONTH)) + 1",  # noqa
+                "week_of_month": lambda s, qt: (  # noqa
+                    f"EXTRACT(WEEK FROM {s}) - EXTRACT(WEEK FROM DATE_TRUNC(CAST({s} AS DATE), MONTH)) + 1"
+                ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM {s})",
                 "month_of_year": lambda s, qt: f"FORMAT_DATETIME('%B', CAST({s} as DATETIME))",
                 "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM {s})",

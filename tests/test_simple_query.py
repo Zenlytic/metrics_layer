@@ -3,11 +3,11 @@ from datetime import datetime
 
 import pendulum
 import pytest
-from metrics_layer.core.parse.connections import BaseConnection
 
-from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException
 from metrics_layer.core import MetricsLayerConnection
+from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException
 from metrics_layer.core.model import Definitions, Project
+from metrics_layer.core.parse.connections import BaseConnection
 
 simple_model = {
     "type": "model",
@@ -26,7 +26,10 @@ simple_view = {
         {
             "field_type": "measure",
             "type": "number",
-            "sql": "CASE WHEN ${average_order_value} = 0 THEN 0 ELSE ${total_revenue} / ${average_order_value} END",  # noqa
+            "sql": (  # noqa
+                "CASE WHEN ${average_order_value} = 0 THEN 0 ELSE ${total_revenue} /"
+                " ${average_order_value} END"
+            ),
             "name": "revenue_per_aov",
         },
         {"field_type": "measure", "type": "sum", "sql": "${TABLE}.revenue", "name": "total_revenue"},
@@ -400,8 +403,14 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
             result_lookup = {"date": "DATE_TRUNC('DAY', simple.previous_order_date)"}
         else:
             result_lookup = {
-                "date": f"DATE_TRUNC('DAY', CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS {ttype}) AS TIMESTAMP))",  # noqa
-                "week": f"DATE_TRUNC('WEEK', CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS {ttype}) AS TIMESTAMP) AS DATE) + 1) - 1",  # noqa
+                "date": (  # noqa
+                    "DATE_TRUNC('DAY', CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS"
+                    f" {ttype}) AS TIMESTAMP))"
+                ),
+                "week": (  # noqa
+                    "DATE_TRUNC('WEEK', CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York',"
+                    f" simple.order_date) AS {ttype}) AS TIMESTAMP) AS DATE) + 1) - 1"
+                ),
             }
         where = (
             "WHERE DATE_TRUNC('DAY', CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) "
@@ -414,8 +423,15 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
             result_lookup = {"date": "DATE_TRUNC('DAY', CAST(simple.previous_order_date AS TIMESTAMP))"}
         else:
             result_lookup = {
-                "date": f"DATE_TRUNC('DAY', CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS TIMESTAMP) AS TIMESTAMP))",  # noqa
-                "week": f"DATE_TRUNC('WEEK', CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS TIMESTAMP) AS TIMESTAMP) + INTERVAL '1' DAY) - INTERVAL '1' DAY",  # noqa
+                "date": (  # noqa
+                    f"DATE_TRUNC('DAY', CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York',"
+                    f" simple.order_date) AS TIMESTAMP_NTZ) AS TIMESTAMP) AS TIMESTAMP))"
+                ),
+                "week": (  # noqa
+                    f"DATE_TRUNC('WEEK', CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York',"
+                    f" simple.order_date) AS TIMESTAMP_NTZ) AS TIMESTAMP) AS TIMESTAMP) + INTERVAL '1' DAY) -"
+                    f" INTERVAL '1' DAY"
+                ),
             }
         where = (
             "WHERE DATE_TRUNC('DAY', CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) "
@@ -432,8 +448,15 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
 
         else:
             result_lookup = {
-                "date": "DATE_TRUNC('DAY', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP))",  # noqa
-                "week": "DATE_TRUNC('WEEK', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP) + INTERVAL '1' DAY) - INTERVAL '1' DAY",  # noqa
+                "date": (  # noqa
+                    "DATE_TRUNC('DAY', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at"
+                    " time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP))"
+                ),
+                "week": (  # noqa
+                    "DATE_TRUNC('WEEK', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at"
+                    " time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP) + INTERVAL '1' DAY) - INTERVAL"
+                    " '1' DAY"
+                ),
             }
         where = (
             "WHERE DATE_TRUNC('DAY', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) "  # noqa
@@ -446,8 +469,14 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
             order_by = ""
     elif query_type == Definitions.bigquery:
         result_lookup = {
-            "date": "CAST(DATE_TRUNC(CAST(CAST(DATETIME(CAST(simple.order_date AS TIMESTAMP), 'America/New_York') AS TIMESTAMP) AS DATE), DAY) AS TIMESTAMP)",  # noqa
-            "week": "CAST(DATE_TRUNC(CAST(CAST(DATETIME(CAST(simple.order_date AS TIMESTAMP), 'America/New_York') AS TIMESTAMP) AS DATE) + 1, WEEK) - 1 AS TIMESTAMP)",  # noqa
+            "date": (  # noqa
+                "CAST(DATE_TRUNC(CAST(CAST(DATETIME(CAST(simple.order_date AS TIMESTAMP), 'America/New_York')"
+                " AS TIMESTAMP) AS DATE), DAY) AS TIMESTAMP)"
+            ),
+            "week": (  # noqa
+                "CAST(DATE_TRUNC(CAST(CAST(DATETIME(CAST(simple.order_date AS TIMESTAMP), 'America/New_York')"
+                " AS TIMESTAMP) AS DATE) + 1, WEEK) - 1 AS TIMESTAMP)"
+            ),
         }
         where = (
             "WHERE CAST(DATETIME(CAST(simple.order_date AS TIMESTAMP), 'America/New_York')"
@@ -461,7 +490,10 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         else:
             result_lookup = {
                 "date": "DATE_TRUNC('DAY', CAST(simple.order_date AS TIMESTAMP))",  # noqa
-                "week": "DATE_TRUNC('WEEK', CAST(simple.order_date AS TIMESTAMP) + INTERVAL '1' DAY) - INTERVAL '1' DAY",  # noqa
+                "week": (  # noqa
+                    "DATE_TRUNC('WEEK', CAST(simple.order_date AS TIMESTAMP) + INTERVAL '1' DAY) - INTERVAL"
+                    " '1' DAY"
+                ),
             }
         where = (
             f"WHERE DATE_TRUNC('DAY', CAST(simple.order_date AS TIMESTAMP))>='{start}' "
@@ -476,7 +508,10 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         else:
             result_lookup = {
                 "date": "CAST(CAST(simple.order_date AS DATE) AS DATETIME)",  # noqa
-                "week": "DATEADD(DAY, -1, DATEADD(WEEK, DATEDIFF(WEEK, 0, DATEADD(DAY, 1, CAST(simple.order_date AS DATE))), 0))",  # noqa
+                "week": (  # noqa
+                    "DATEADD(DAY, -1, DATEADD(WEEK, DATEDIFF(WEEK, 0, DATEADD(DAY, 1, CAST(simple.order_date"
+                    " AS DATE))), 0))"
+                ),
             }
         where = (
             f"WHERE CAST(CAST(simple.order_date AS DATE) AS DATETIME)>='{start}' "
@@ -688,17 +723,23 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "year": "DATE_TRUNC('YEAR', simple.order_date)",
             "week_index": f"EXTRACT(WEEK FROM simple.order_date)",
             "week_of_year": f"EXTRACT(WEEK FROM simple.order_date)",
-            "week_of_month": f"EXTRACT(WEEK FROM simple.order_date) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH', simple.order_date)) + 1",  # noqa
+            "week_of_month": (  # noqa
+                f"EXTRACT(WEEK FROM simple.order_date) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
+                f" simple.order_date)) + 1"
+            ),
             "month_of_year_index": f"EXTRACT(MONTH FROM simple.order_date)",
             "month_index": f"EXTRACT(MONTH FROM simple.order_date)",
-            "month_of_year": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'MON')",
-            "month_name": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'MON')",
+            "month_of_year": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')",
+            "month_name": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')",
             "quarter_of_year": "EXTRACT(QUARTER FROM simple.order_date)",
             "hour_of_day": "HOUR(CAST(simple.order_date AS TIMESTAMP))",
             "day_of_week": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Dy')",
             "day_of_month": "EXTRACT(DAY FROM simple.order_date)",
             "day_of_year": "EXTRACT(DOY FROM simple.order_date)",
         }
+        if query_type == Definitions.redshift:
+            result_lookup["month_of_year"] = "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')"
+            result_lookup["month_name"] = "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')"
         order_by = " ORDER BY simple_total_revenue DESC"
 
     elif query_type in {Definitions.sql_server, Definitions.azure_synapse}:
@@ -708,12 +749,18 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "minute": "DATEADD(MINUTE, DATEDIFF(MINUTE, 0, CAST(simple.order_date AS DATETIME)), 0)",
             "hour": "DATEADD(HOUR, DATEDIFF(HOUR, 0, CAST(simple.order_date AS DATETIME)), 0)",
             "date": "CAST(CAST(simple.order_date AS DATE) AS DATETIME)",
-            "week": "DATEADD(DAY, -1, DATEADD(WEEK, DATEDIFF(WEEK, 0, DATEADD(DAY, 1, CAST(simple.order_date AS DATE))), 0))",  # noqa
+            "week": (  # noqa
+                "DATEADD(DAY, -1, DATEADD(WEEK, DATEDIFF(WEEK, 0, DATEADD(DAY, 1, CAST(simple.order_date AS"
+                " DATE))), 0))"
+            ),
             "month": "DATEADD(MONTH, DATEDIFF(MONTH, 0, CAST(simple.order_date AS DATE)), 0)",
             "quarter": "DATEADD(QUARTER, DATEDIFF(QUARTER, 0, CAST(simple.order_date AS DATE)), 0)",
             "year": "DATEADD(YEAR, DATEDIFF(YEAR, 0, CAST(simple.order_date AS DATE)), 0)",
             "week_index": f"EXTRACT(WEEK FROM CAST(simple.order_date AS DATE))",
-            "week_of_month": f"EXTRACT(WEEK FROM CAST(simple.order_date AS DATE)) - EXTRACT(WEEK FROM DATEADD(MONTH, DATEDIFF(MONTH, 0, CAST(simple.order_date AS DATE)), 0)) + 1",  # noqa
+            "week_of_month": (  # noqa
+                f"EXTRACT(WEEK FROM CAST(simple.order_date AS DATE)) - EXTRACT(WEEK FROM DATEADD(MONTH,"
+                f" DATEDIFF(MONTH, 0, CAST(simple.order_date AS DATE)), 0)) + 1"
+            ),
             "month_of_year_index": f"EXTRACT(MONTH FROM CAST(simple.order_date AS DATE))",
             "month_of_year": "LEFT(DATENAME(MONTH, CAST(simple.order_date AS DATE)), 3)",
             "quarter_of_year": "DATEPART(QUARTER, CAST(simple.order_date AS DATE))",
@@ -731,14 +778,20 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "minute": "DATE_TRUNC('MINUTE', CAST(simple.order_date AS TIMESTAMP))",
             "hour": "DATE_TRUNC('HOUR', CAST(simple.order_date AS TIMESTAMP))",
             "date": "DATE_TRUNC('DAY', CAST(simple.order_date AS TIMESTAMP))",
-            "week": "DATE_TRUNC('WEEK', CAST(simple.order_date AS TIMESTAMP) + INTERVAL '1' DAY) - INTERVAL '1' DAY",  # noqa
+            "week": (  # noqa
+                "DATE_TRUNC('WEEK', CAST(simple.order_date AS TIMESTAMP) + INTERVAL '1' DAY) - INTERVAL"
+                " '1' DAY"
+            ),
             "month": "DATE_TRUNC('MONTH', CAST(simple.order_date AS TIMESTAMP))",
             "quarter": "DATE_TRUNC('QUARTER', CAST(simple.order_date AS TIMESTAMP))",
             "year": "DATE_TRUNC('YEAR', CAST(simple.order_date AS TIMESTAMP))",
             "week_index": f"EXTRACT(WEEK FROM CAST(simple.order_date AS TIMESTAMP))",
-            "week_of_month": f"EXTRACT(WEEK FROM CAST(simple.order_date AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH', CAST(simple.order_date AS TIMESTAMP))) + 1",  # noqa
+            "week_of_month": (  # noqa
+                f"EXTRACT(WEEK FROM CAST(simple.order_date AS TIMESTAMP)) - EXTRACT(WEEK FROM"
+                f" DATE_TRUNC('MONTH', CAST(simple.order_date AS TIMESTAMP))) + 1"
+            ),
             "month_of_year_index": f"EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP))",
-            "month_of_year": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'MON')",
+            "month_of_year": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')",
             "quarter_of_year": "EXTRACT(QUARTER FROM CAST(simple.order_date AS TIMESTAMP))",
             "hour_of_day": "EXTRACT('HOUR' FROM CAST(simple.order_date AS TIMESTAMP))",
             "day_of_week": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Dy')",
@@ -757,13 +810,13 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             result_lookup["day_of_month"] = "EXTRACT(DAY FROM CAST(simple.order_date AS TIMESTAMP))"
             result_lookup["day_of_year"] = "EXTRACT(DOY FROM CAST(simple.order_date AS TIMESTAMP))"
         if query_type == Definitions.druid:
-            result_lookup["month_of_year"] = (
-                "CASE EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'Jan' WHEN 2 THEN 'Feb' WHEN 3 THEN 'Mar' WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun' WHEN 7 THEN 'Jul' WHEN 8 THEN 'Aug' WHEN 9 THEN 'Sep' WHEN 10 THEN 'Oct' WHEN 11 THEN 'Nov' WHEN 12 THEN 'Dec' ELSE 'Invalid Month' END"  # noqa
-            )
+            result_lookup[
+                "month_of_year"
+            ] = "CASE EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'Jan' WHEN 2 THEN 'Feb' WHEN 3 THEN 'Mar' WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun' WHEN 7 THEN 'Jul' WHEN 8 THEN 'Aug' WHEN 9 THEN 'Sep' WHEN 10 THEN 'Oct' WHEN 11 THEN 'Nov' WHEN 12 THEN 'Dec' ELSE 'Invalid Month' END"  # noqa
             result_lookup["hour_of_day"] = "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))"
-            result_lookup["day_of_week"] = (
-                "CASE EXTRACT(DOW FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'Mon' WHEN 2 THEN 'Tue' WHEN 3 THEN 'Wed' WHEN 4 THEN 'Thu' WHEN 5 THEN 'Fri' WHEN 6 THEN 'Sat' WHEN 7 THEN 'Sun' ELSE 'Invalid Day' END"  # noqa
-            )
+            result_lookup[
+                "day_of_week"
+            ] = "CASE EXTRACT(DOW FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'Mon' WHEN 2 THEN 'Tue' WHEN 3 THEN 'Wed' WHEN 4 THEN 'Thu' WHEN 5 THEN 'Fri' WHEN 6 THEN 'Sat' WHEN 7 THEN 'Sun' ELSE 'Invalid Day' END"  # noqa
             result_lookup["day_of_month"] = "EXTRACT(DAY FROM CAST(simple.order_date AS TIMESTAMP))"
             result_lookup["day_of_year"] = "EXTRACT(DOY FROM CAST(simple.order_date AS TIMESTAMP))"
             semi = ""
@@ -779,7 +832,10 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "quarter": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), QUARTER) AS TIMESTAMP)",
             "year": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), YEAR) AS TIMESTAMP)",
             "week_index": f"EXTRACT(WEEK FROM simple.order_date)",
-            "week_of_month": f"EXTRACT(WEEK FROM simple.order_date) - EXTRACT(WEEK FROM DATE_TRUNC(CAST(simple.order_date AS DATE), MONTH)) + 1",  # noqa
+            "week_of_month": (  # noqa
+                f"EXTRACT(WEEK FROM simple.order_date) - EXTRACT(WEEK FROM DATE_TRUNC(CAST(simple.order_date"
+                f" AS DATE), MONTH)) + 1"
+            ),
             "month_of_year_index": f"EXTRACT(MONTH FROM simple.order_date)",
             "month_of_year": "FORMAT_DATETIME('%B', CAST(simple.order_date as DATETIME))",
             "quarter_of_year": "EXTRACT(QUARTER FROM simple.order_date)",
@@ -796,7 +852,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
 
     correct = (
         f"SELECT {date_result} as simple_order_{group},SUM(simple.revenue) as "
-        f"simple_total_revenue FROM analytics.orders simple "
+        "simple_total_revenue FROM analytics.orders simple "
         f"GROUP BY {date_result if query_type != Definitions.bigquery else f'simple_order_{group}'}"
         f"{order_by}{semi}"
     )
@@ -944,21 +1000,47 @@ def test_simple_query_dimension_group_interval(connections, interval: str, query
         order_by = ""
     elif query_type == Definitions.postgres:
         result_lookup = {
-            "second": "DATE_PART('DAY', AGE(simple.order_date, simple.view_date)) * 24 + DATE_PART('HOUR', AGE(simple.order_date, simple.view_date)) * 60 + DATE_PART('MINUTE', AGE(simple.order_date, simple.view_date)) * 60 + DATE_PART('SECOND', AGE(simple.order_date, simple.view_date))",  # noqa
-            "minute": "DATE_PART('DAY', AGE(simple.order_date, simple.view_date)) * 24 + DATE_PART('HOUR', AGE(simple.order_date, simple.view_date)) * 60 + DATE_PART('MINUTE', AGE(simple.order_date, simple.view_date))",  # noqa
-            "hour": "DATE_PART('DAY', AGE(simple.order_date, simple.view_date)) * 24 + DATE_PART('HOUR', AGE(simple.order_date, simple.view_date))",  # noqa
+            "second": (  # noqa
+                "DATE_PART('DAY', AGE(simple.order_date, simple.view_date)) * 24 + DATE_PART('HOUR',"
+                " AGE(simple.order_date, simple.view_date)) * 60 + DATE_PART('MINUTE', AGE(simple.order_date,"
+                " simple.view_date)) * 60 + DATE_PART('SECOND', AGE(simple.order_date, simple.view_date))"
+            ),
+            "minute": (  # noqa
+                "DATE_PART('DAY', AGE(simple.order_date, simple.view_date)) * 24 + DATE_PART('HOUR',"
+                " AGE(simple.order_date, simple.view_date)) * 60 + DATE_PART('MINUTE', AGE(simple.order_date,"
+                " simple.view_date))"
+            ),
+            "hour": (  # noqa
+                "DATE_PART('DAY', AGE(simple.order_date, simple.view_date)) * 24 + DATE_PART('HOUR',"
+                " AGE(simple.order_date, simple.view_date))"
+            ),
             "day": "DATE_PART('DAY', AGE(simple.order_date, simple.view_date))",
             "week": "TRUNC(DATE_PART('DAY', AGE(simple.order_date, simple.view_date))/7)",
-            "month": "DATE_PART('YEAR', AGE(simple.order_date, simple.view_date)) * 12 + (DATE_PART('month', AGE(simple.order_date, simple.view_date)))",  # noqa
-            "quarter": "DATE_PART('YEAR', AGE(simple.order_date, simple.view_date)) * 4 + TRUNC(DATE_PART('month', AGE(simple.order_date, simple.view_date))/3)",  # noqa
+            "month": (  # noqa
+                "DATE_PART('YEAR', AGE(simple.order_date, simple.view_date)) * 12 + (DATE_PART('month',"
+                " AGE(simple.order_date, simple.view_date)))"
+            ),
+            "quarter": (  # noqa
+                "DATE_PART('YEAR', AGE(simple.order_date, simple.view_date)) * 4 + TRUNC(DATE_PART('month',"
+                " AGE(simple.order_date, simple.view_date))/3)"
+            ),
             "year": "DATE_PART('YEAR', AGE(simple.order_date, simple.view_date))",
         }
         order_by = ""
     else:
         result_lookup = {
-            "second": "TIMESTAMP_DIFF(CAST(simple.order_date as TIMESTAMP), CAST(simple.view_date as TIMESTAMP), SECOND)",  # noqa
-            "minute": "TIMESTAMP_DIFF(CAST(simple.order_date as TIMESTAMP), CAST(simple.view_date as TIMESTAMP), MINUTE)",  # noqa
-            "hour": "TIMESTAMP_DIFF(CAST(simple.order_date as TIMESTAMP), CAST(simple.view_date as TIMESTAMP), HOUR)",  # noqa
+            "second": (  # noqa
+                "TIMESTAMP_DIFF(CAST(simple.order_date as TIMESTAMP), CAST(simple.view_date as TIMESTAMP),"
+                " SECOND)"
+            ),
+            "minute": (  # noqa
+                "TIMESTAMP_DIFF(CAST(simple.order_date as TIMESTAMP), CAST(simple.view_date as TIMESTAMP),"
+                " MINUTE)"
+            ),
+            "hour": (  # noqa
+                "TIMESTAMP_DIFF(CAST(simple.order_date as TIMESTAMP), CAST(simple.view_date as TIMESTAMP),"
+                " HOUR)"
+            ),
             "day": "DATE_DIFF(CAST(simple.order_date as DATE), CAST(simple.view_date as DATE), DAY)",
             "week": "DATE_DIFF(CAST(simple.order_date as DATE), CAST(simple.view_date as DATE), ISOWEEK)",
             "month": "DATE_DIFF(CAST(simple.order_date as DATE), CAST(simple.view_date as DATE), MONTH)",
