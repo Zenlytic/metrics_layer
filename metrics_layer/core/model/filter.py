@@ -4,9 +4,9 @@ from enum import Enum
 
 import pandas as pd
 import pendulum
-from pypika.terms import LiteralValue
-from pypika.functions import Lower
 from pypika import Criterion
+from pypika.functions import Lower
+from pypika.terms import LiteralValue
 
 from metrics_layer.core.exceptions import QueryError
 
@@ -175,6 +175,7 @@ class Filter(MetricsLayerBase):
             return date
         return Filter._date_to_string(date)
 
+    @staticmethod
     def _add_to_end_date(date, lag: int, date_part: str):
         plural_date_part = FilterInterval.plural(date_part)
         singular_date_part = FilterInterval.singular(date_part)
@@ -340,7 +341,7 @@ class Filter(MetricsLayerBase):
             cleaned_value = value
 
         # Handle null conditional
-        elif value == "NULL":
+        elif value == "NULL" or value is None:
             expression = MetricsLayerFilterExpressionType.IsNull
             cleaned_value = None
 
