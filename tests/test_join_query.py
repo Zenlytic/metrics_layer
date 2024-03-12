@@ -1,6 +1,6 @@
 import pytest
 
-from metrics_layer.core.exceptions import QueryError, JoinError
+from metrics_layer.core.exceptions import JoinError, QueryError
 from metrics_layer.core.model import Definitions
 
 
@@ -928,6 +928,19 @@ def test_join_as_ability_double_join(connection):
         "LEFT JOIN analytics.accounts child_account "
         "ON mrr.child_account_id=child_account.account_id "
         "GROUP BY parent_account.name,child_account.name ORDER BY mrr_number_of_billed_accounts DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_null_filter_handling_metric_filter(connection):
+    query = connection.get_sql_query(metrics=["number_of_acquired_accounts_missing"], dimensions=[])
+
+    correct = (
+        "SELECT COUNT(case when aa_acquired_accounts.account_id IS NULL then "
+        "aa_acquired_accounts.account_id end) as aa_acquired_accounts_number_of_acquired_accounts_missing "
+        "FROM analytics.accounts aa_acquired_accounts "
+        "ORDER BY aa_acquired_accounts_number_of_acquired_accounts_missing DESC;"
     )
     assert query == correct
 

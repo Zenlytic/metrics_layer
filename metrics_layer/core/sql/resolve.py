@@ -1,7 +1,9 @@
 from copy import deepcopy
+from typing import List, Union
 
 from metrics_layer.core.exceptions import JoinError, QueryError
 from metrics_layer.core.model.filter import Filter
+from metrics_layer.core.model.project import Project
 from metrics_layer.core.sql.merged_query_resolve import MergedSQLQueryResolver
 from metrics_layer.core.sql.query_base import QueryKindTypes
 from metrics_layer.core.sql.single_query_resolve import SingleSQLQueryResolver
@@ -13,11 +15,11 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         metrics: list,
         dimensions: list = [],
         funnel: dict = {},  # A dict with steps (list) and within (dict)
-        where: str = None,  # Either a list of json or a string
-        having: str = None,  # Either a list of json or a string
-        order_by: str = None,  # Either a list of json or a string
-        project=None,
-        connections=[],
+        where: Union[str, None, List] = None,  # Either a list of json or a string
+        having: Union[str, None, List] = None,  # Either a list of json or a string
+        order_by: Union[str, None, List] = None,  # Either a list of json or a string
+        project: Union[Project, None] = None,
+        connections: List = [],
         **kwargs,
     ):
         self.field_lookup = {}
@@ -46,6 +48,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self.kwargs["query_type"] = self._get_query_type(self.connection, self.kwargs)
         connection_schema = self._get_connection_schema(self.connection)
         self.project.set_connection_schema(connection_schema)
+        self.field_id_mapping = {}
         self._resolve_mapped_fields()
 
     @property
@@ -277,6 +280,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             raise QueryError(error_message)
 
     def _replace_mapped_field(self, to_replace: str, field):
+        self.field_id_mapping[to_replace] = field.id()
         if to_replace in self.metrics:
             idx = self.metrics.index(to_replace)
             self.metrics[idx] = field.id()
