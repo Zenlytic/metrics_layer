@@ -8,25 +8,25 @@ model_name: test_model
 default_date: created
 
 identifiers:
-- name: customer_id
-  type: foreign
-  sql: ${customer_id}
+  - name: customer_id
+    type: foreign
+    sql: ${TABLE}.customer_id
 
 always_filter:
-- field: customers.is_churned
-  value: FALSE
-- field: context_os
-  value: -NULL
-- field: context_os
-  value: 1, Google, os:iOS
+  - field: customers.is_churned
+    value: FALSE
+  - field: context_os
+    value: -NULL
+  - field: context_os
+    value: 1, Google, os:iOS
 
 fields:
   - name: session_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     primary_key: yes
     hidden: yes
-    sql: "${TABLE}.id"
+    sql: '${TABLE}.id'
 
   - name: customer_id
     field_type: dimension
@@ -39,21 +39,12 @@ fields:
     sql: ${TABLE}.context_os
 
   - name: created
-    field_type: "dimension_group"
+    field_type: 'dimension_group'
     type: time
-    timeframes: [
-      raw,
-      time,
-      date,
-      week,
-      month,
-      quarter,
-      year
-    ]
-    sql: "${TABLE}.session_date"
+    timeframes: [raw, time, date, week, month, quarter, year]
+    sql: '${TABLE}.session_date'
 
   - name: number_of_workspace_creations
     field_type: measure
     type: count
     sql: ${session_id}
-

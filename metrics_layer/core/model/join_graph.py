@@ -1,10 +1,15 @@
-import networkx
-from itertools import combinations, product
-
-from metrics_layer.core.model.definitions import Definitions
-from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
 from collections import defaultdict
 from copy import deepcopy
+from itertools import combinations, product
+
+import networkx
+
+from metrics_layer.core.exceptions import (
+    AccessDeniedOrDoesNotExistException,
+    QueryError,
+)
+from metrics_layer.core.model.definitions import Definitions
+
 from .base import SQLReplacement
 from .join import Join
 
@@ -334,6 +339,8 @@ class JoinGraph(SQLReplacement):
                 if field_name != "TABLE" and "." not in field_name:
                     cleaned_reference = "${" + f"{view_name}.{field_name}" + "}"
                     cleaned_sql = cleaned_sql.replace(to_replace, cleaned_reference)
+                if field_name == "TABLE":
+                    cleaned_sql = cleaned_sql.replace(to_replace, view_name)
             clause = cleaned_sql
         else:
             clause = "${" + f"{view_name}.{identifier['name']}" + "}"
