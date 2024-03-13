@@ -1,8 +1,12 @@
-from copy import deepcopy
 from collections import Counter
+from copy import deepcopy
+
+from metrics_layer.core.exceptions import (
+    AccessDeniedOrDoesNotExistException,
+    QueryError,
+)
 
 from .base import MetricsLayerBase
-from metrics_layer.core.exceptions import QueryError, AccessDeniedOrDoesNotExistException
 
 SPECIAL_MAPPING_VALUES = {
     "date",
@@ -122,13 +126,18 @@ class Model(MetricsLayerBase):
                                 f"This mapping is invalid because the mapped fields {mapped_from_field} "
                                 f"and {mapped_to_field} are not the same type"
                             )
-                        map_data = {
-                            "field": mapped_to_field,
-                            "field_type": to_field.field_type,
-                            "from_join_hash": from_join_hash,
-                            "to_join_hash": to_join_hash,
-                            "is_canon_date_mapping": special_mapping,
-                        }
-                        dimension_mapping[mapped_from_field] = map_data
+                        reference = {"field": mapped_to_field, "to_join_hash": to_join_hash}
+                        # Create an object that contains the mapping from the field to the fields it
+                        # maps to with all their metadata under the references array
+                        if mapped_from_field in dimension_mapping:
+                            dimension_mapping[mapped_from_field]["references"].append(reference)
+                        else:
+                            map_data = {
+                                "references": [reference],
+                                "field_type": from_field.field_type,
+                                "from_join_hash": from_join_hash,
+                                "is_canon_date_mapping": special_mapping,
+                            }
+                            dimension_mapping[mapped_from_field] = map_data
 
         return dimension_mapping
