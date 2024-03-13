@@ -1,10 +1,11 @@
 from collections import defaultdict
+
 from pypika import AliasedQuery, Criterion
 
-from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
-from metrics_layer.core.model.filter import LiteralValueCriterion
-from metrics_layer.core.sql.query_dialect import query_lookup, if_null_lookup
 from metrics_layer.core.model.definitions import Definitions
+from metrics_layer.core.model.filter import LiteralValueCriterion
+from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
+from metrics_layer.core.sql.query_dialect import if_null_lookup, query_lookup
 
 
 class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
@@ -97,6 +98,7 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
                     )
 
         dimension_sql = {}
+        all_dimension_ids = [field.id() for fields in self.query_dimensions.values() for field in fields]
         for join_hash, field_set in sorted(self.query_dimensions.items()):
             for field in field_set:
                 alias = field.alias(with_view=True)
@@ -107,8 +109,11 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
                     dimension_sql[alias] = f"{if_null_func}({dimension_sql[alias]}, {join_hash}.{alias})"
 
                 if field.id() in mapping_lookup:
+                    present_fields = [
+                        f for f in mapping_lookup[field.id()] if f["field"] in all_dimension_ids
+                    ]
                     if_null_func = if_null_lookup[self.query_type]
-                    nested_sql = self.nested_if_null(mapping_lookup[field.id()], if_null_func)
+                    nested_sql = self.nested_if_null(present_fields, if_null_func)
                     dimension_sql[alias] = f"{if_null_func}({join_hash}.{alias}, {nested_sql})"
 
         for alias, sql in dimension_sql.items():

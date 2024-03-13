@@ -255,12 +255,13 @@ class JoinGraph(SQLReplacement):
                 continue
             if measures_only and mapping["field_type"] != "measure":
                 continue
-            to_field = mapping["field"]
-            if mapping["from_join_hash"] in must_exist_in and mapping["to_join_hash"] in must_exist_in:
-                from_ = self._get_field_with_memo(from_field).id()
-                to_ = self._get_field_with_memo(to_field).id()
-                for node in root_nodes:
-                    graph.add_edges_from([(node, from_), (node, to_)])
+            for reference in mapping["references"]:
+                to_field = reference["field"]
+                if mapping["from_join_hash"] in must_exist_in and reference["to_join_hash"] in must_exist_in:
+                    from_ = self._get_field_with_memo(from_field).id()
+                    to_ = self._get_field_with_memo(to_field).id()
+                    for node in root_nodes:
+                        graph.add_edges_from([(node, from_), (node, to_)])
 
     def _get_field_with_memo(self, field_name: str, by_name: bool = False):
         if field_name not in self._field_memo:
