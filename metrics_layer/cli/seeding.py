@@ -464,6 +464,17 @@ class SeedMetricsLayer:
             )
         else:
             raise ValueError("You must specify at least a database for seeding")
+
+        # Apply where clause if we are seeding a single table
+        if self.table and self.schema:
+            query += f" WHERE TABLE_SCHEMA = '{self.schema}' AND TABLE_NAME = '{self.table}'"
+        elif not self.table and self.schema:
+            query += f" WHERE TABLE_SCHEMA = '{self.schema}'"
+
+        # Snowflake had a metadata error when not using the limit statement, so we add this
+        if self.connection.type == Definitions.snowflake:
+            # 10k columns is a reasonable max for a single table
+            return query + " LIMIT 10000;"
         return query + ";" if self.connection.type != Definitions.druid else query
 
     def table_query(self):
