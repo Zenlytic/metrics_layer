@@ -1340,6 +1340,14 @@ def test_query_number_metric_with_non_matching_canon_dates(connection):
 
 
 @pytest.mark.query
+def test_query_number_metric_with_non_matching_canon_dates_join_graphs(connection):
+    field = connection.project.get_field("unique_users_per_form_submission")
+    join_hash = connection.project.join_graph.join_graph_hash(field.view.name)
+    join_graphs = field.join_graphs()
+    assert join_hash in join_graphs
+
+
+@pytest.mark.query
 def test_query_merge_results_no_metric_date(connection):
     query = connection.get_sql_query(
         metrics=[],

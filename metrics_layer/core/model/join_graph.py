@@ -192,7 +192,7 @@ class JoinGraph(SQLReplacement):
         self._add_mappings_to_merged_result(
             graph,
             mappings,
-            must_exist_in=join_group_hashes,
+            must_exist_in=list(join_group_hashes),
             root_nodes=existing_root_nodes,
             measures_only=True,
         )

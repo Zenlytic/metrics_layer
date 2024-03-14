@@ -251,6 +251,28 @@ class Field(MetricsLayerBase, SQLReplacement):
             return len(referenced_canon_dates) > 1
         return False
 
+    def loses_join_ability_with_other_views(self):
+        if "is_merged_result" in self._definition:
+            return self._definition["is_merged_result"]
+        elif self.type == "number" and self.field_type == "measure":
+            # For number types, if the references have different canon_date views
+            # then we need to make it not joinable
+            referenced_canon_date_views = list()
+            for reference in self.referenced_fields(self.sql):
+                if reference.field_type == "measure" and reference.type != "cumulative":
+                    if reference.canon_date:
+                        canon_date_view_name, _ = reference.canon_date.split(".")
+                        weak_hashes = self.view.project.join_graph.weak_join_graph_hashes(
+                            canon_date_view_name
+                        )
+                        referenced_canon_date_views.append(set(weak_hashes))
+
+            # Check that all the referenced view sets are the same
+            if referenced_canon_date_views:
+                return any(s != referenced_canon_date_views[0] for s in referenced_canon_date_views)
+
+        return False
+
     @property
     def canon_date(self):
         if self._definition.get("canon_date"):
@@ -1337,6 +1359,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
         edges = self.view.project.join_graph.merged_results_graph(self.view.model).in_edges(self.id())
         extended = [f"merged_result_{mr}" for mr, _ in edges]
-        if self.is_merged_result:
+
+        if self.loses_join_ability_with_other_views():
             return extended
         return list(sorted(base + extended))
