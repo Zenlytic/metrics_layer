@@ -1,8 +1,6 @@
 import os
 
 import ruamel.yaml
-import yaml
-
 
 from .github_repo import BaseRepo
 
@@ -64,8 +62,10 @@ class ProjectReaderBase:
 
     @staticmethod
     def read_yaml_file(path: str):
+        import yaml
+
         with open(path, "r") as f:
-            yaml_dict = yaml.safe_load(f)
+            yaml_dict = ruamel.yaml.safe_load(f)
         return yaml_dict
 
     @staticmethod
