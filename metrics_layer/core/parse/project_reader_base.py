@@ -62,8 +62,10 @@ class ProjectReaderBase:
 
     @staticmethod
     def read_yaml_file(path: str):
+        yaml = ruamel.yaml.YAML(typ="rt")
+        yaml.version = (1, 1)
         with open(path, "r") as f:
-            yaml_dict = ruamel.yaml.safe_load(f)
+            yaml_dict = yaml.load(f)
         return yaml_dict
 
     @staticmethod
