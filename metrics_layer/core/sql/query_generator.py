@@ -83,13 +83,15 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
             metric_field = self.design.get_field(metric)
             for ref_field in [metric_field] + metric_field.referenced_fields(metric_field.sql):
                 if non_additive_dimension := ref_field.non_additive_dimension:
-                    self.non_additive_ctes.append(
-                        {
-                            **non_additive_dimension,
-                            "alias": ref_field.non_additive_alias(),
-                            "cte_alias": ref_field.non_additive_cte_alias(),
-                        }
-                    )
+                    cte_alias = ref_field.non_additive_cte_alias()
+                    if cte_alias not in [cte["cte_alias"] for cte in self.non_additive_ctes]:
+                        self.non_additive_ctes.append(
+                            {
+                                **non_additive_dimension,
+                                "alias": ref_field.non_additive_alias(),
+                                "cte_alias": cte_alias,
+                            }
+                        )
 
     def _parse_filter_object(self, filter_object, filter_type: str, access_filter: str = None):
         results = []
