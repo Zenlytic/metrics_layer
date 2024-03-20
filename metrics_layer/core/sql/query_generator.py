@@ -91,7 +91,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                         }
                     )
 
-    def _parse_filter_object(self, filter_object, filter_type: str, access_filter: str | None = None):
+    def _parse_filter_object(self, filter_object, filter_type: str, access_filter: str = None):
         results = []
         extra_kwargs = dict(filter_type=filter_type, design=self.design)
 
