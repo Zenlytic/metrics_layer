@@ -6,58 +6,50 @@ sql_table_name: analytics.mrr_by_customer
 default_date: record
 model_name: test_model
 
-identifiers: 
-- name: account_id
-  type: foreign
-  sql: ${account_id}
+identifiers:
+  - name: account_id
+    type: foreign
+    sql: ${account_id}
 
-- name: parent_account_id
-  type: foreign
-  sql: ${parent_account_id}
+  - name: parent_account_id
+    type: foreign
+    sql: ${parent_account_id}
 
-- name: child_account_id
-  type: foreign
-  sql: ${child_account_id}
+  - name: child_account_id
+    type: foreign
+    sql: ${child_account_id}
 
 fields:
   - name: unique_key
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     primary_key: yes
     hidden: yes
     sql: ${TABLE}.account_id || record_date
 
   - name: parent_account_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     hidden: yes
-    sql: "${TABLE}.parent_account_id"
+    sql: '${TABLE}.parent_account_id'
 
   - name: child_account_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     hidden: yes
-    sql: "${TABLE}.child_account_id"
+    sql: '${TABLE}.child_account_id'
 
   - name: account_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     hidden: yes
-    sql: "${TABLE}.account_id"
+    sql: '${TABLE}.account_id'
 
   - name: record
-    field_type: "dimension_group"
+    field_type: 'dimension_group'
     type: time
-    timeframes: [
-      raw,
-      time,
-      date,
-      week,
-      month,
-      quarter,
-      year
-    ]
-    sql: "${TABLE}.record_date"
+    timeframes: [raw, time, date, week, month, quarter, year]
+    sql: '${TABLE}.record_date'
 
   - name: mrr_value
     field_type: dimension
@@ -98,8 +90,8 @@ fields:
     non_additive_dimension:
       name: record_date
       window_choice: max
-      window_groupings: 
-      - account_id
+      window_groupings:
+        - account_id
 
   - name: mrr_beginning_of_month_no_group_by
     field_type: measure
@@ -110,6 +102,11 @@ fields:
       window_choice: min
       window_aware_of_query_dimensions: no
 
+  - name: mrr_change_per_billed_account
+    field_type: measure
+    type: number
+    sql: (${mrr_end_of_month} - ${mrr_beginning_of_month}) / ${number_of_billed_accounts}
+
   - name: mrr_end_of_month_by_account_no_group_by
     field_type: measure
     type: sum
@@ -118,5 +115,5 @@ fields:
       name: record_date
       window_choice: max
       window_aware_of_query_dimensions: no
-      window_groupings: 
-      - account_id
+      window_groupings:
+        - account_id
