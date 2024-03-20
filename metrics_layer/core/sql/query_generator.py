@@ -5,11 +5,11 @@ from pypika import Criterion, Order, Table
 from pypika.terms import LiteralValue
 
 from metrics_layer.core.exceptions import QueryError
-from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.field import Field
-from metrics_layer.core.model.view import View
 from metrics_layer.core.model.filter import LiteralValueCriterion
+from metrics_layer.core.model.view import View
+from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_dialect import query_lookup
 from metrics_layer.core.sql.query_errors import ArgumentError
@@ -81,14 +81,15 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         self.non_additive_ctes = []
         for metric in definition.get("metrics", []):
             metric_field = self.design.get_field(metric)
-            if non_additive_dimension := metric_field.non_additive_dimension:
-                self.non_additive_ctes.append(
-                    {
-                        **non_additive_dimension,
-                        "alias": metric_field.non_additive_alias(),
-                        "cte_alias": metric_field.non_additive_cte_alias(),
-                    }
-                )
+            for ref_field in [metric_field] + metric_field.referenced_fields(metric_field.sql):
+                if non_additive_dimension := ref_field.non_additive_dimension:
+                    self.non_additive_ctes.append(
+                        {
+                            **non_additive_dimension,
+                            "alias": ref_field.non_additive_alias(),
+                            "cte_alias": ref_field.non_additive_cte_alias(),
+                        }
+                    )
 
     def _parse_filter_object(self, filter_object, filter_type: str, access_filter: str = None):
         results = []
@@ -177,7 +178,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
             base_query = base_query.where(Criterion.all(group_by_where))
 
         if self.non_additive_ctes:
-            for definition in sorted(self.non_additive_ctes):
+            for definition in sorted(self.non_additive_ctes, key=lambda x: x["alias"]):
                 group_by_dimensions = definition.get("window_groupings", [])
                 if definition.get("window_aware_of_query_dimensions", True):
                     group_by_dimensions.extend(self.dimensions)

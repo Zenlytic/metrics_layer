@@ -4,7 +4,7 @@ import pytest
 @pytest.mark.project
 def test_list_metrics(connection):
     metrics = connection.list_metrics()
-    assert len(metrics) == 51
+    assert len(metrics) == 52
 
     metrics = connection.list_metrics(view_name="order_lines", names_only=True)
     assert len(metrics) == 11
