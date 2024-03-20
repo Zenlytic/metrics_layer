@@ -46,9 +46,9 @@ def test_mrr_non_additive_dimension_no_group_by_multi_cte(connection):
     assert query == correct
 
 
-@pytest.mark.queryyy
-def test_mrr_non_additive_dimension_no_group_by_composed(connection):
-    query = connection.get_sql_query(metrics=[f"mrr_change_per_billed_account"])
+@pytest.mark.query
+def test_mrr_non_additive_dimension_no_group_by_composed_with_duplicate_cte(connection):
+    query = connection.get_sql_query(metrics=[f"mrr_change_per_billed_account", "mrr_end_of_month"])
 
     correct = (
         "WITH cte_mrr_end_of_month_record_raw AS (SELECT MAX(mrr.record_date) as mrr_max_record_raw FROM"
@@ -57,9 +57,10 @@ def test_mrr_non_additive_dimension_no_group_by_composed(connection):
         " analytics.mrr_by_customer mrr ORDER BY mrr_min_record_raw DESC) SELECT ((SUM(case when"
         " mrr.record_date=cte_mrr_end_of_month_record_raw.mrr_max_record_raw then mrr.mrr end)) - (SUM(case"
         " when mrr.record_date=cte_mrr_beginning_of_month_record_raw.mrr_min_record_raw then mrr.mrr end))) /"
-        " (COUNT(mrr.parent_account_id)) as mrr_mrr_change_per_billed_account FROM analytics.mrr_by_customer"
-        " mrr JOIN cte_mrr_end_of_month_record_raw ON 1=1 JOIN cte_mrr_beginning_of_month_record_raw ON 1=1"
-        " ORDER BY mrr_mrr_change_per_billed_account DESC;"
+        " (COUNT(mrr.parent_account_id)) as mrr_mrr_change_per_billed_account,SUM(case when"
+        " mrr.record_date=cte_mrr_end_of_month_record_raw.mrr_max_record_raw then mrr.mrr end) as"
+        " mrr_mrr_end_of_month FROM analytics.mrr_by_customer mrr JOIN cte_mrr_end_of_month_record_raw ON 1=1"
+        " JOIN cte_mrr_beginning_of_month_record_raw ON 1=1 ORDER BY mrr_mrr_change_per_billed_account DESC;"
     )
     assert query == correct
 
