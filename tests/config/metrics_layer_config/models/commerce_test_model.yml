@@ -1,40 +1,45 @@
 version: 1
 type: model
 name: test_model
-label: "Test commerce data"
+label: 'Test commerce data'
 connection: testing_snowflake
 
-mappings: 
-  account_type: 
-    fields: [z_customer_accounts.type_of_account, aa_acquired_accounts.account_type]
-    group_label: "Accounts"
-    description: "The account type of the customer"
-  source: 
+mappings:
+  account_type:
+    fields:
+      [
+        z_customer_accounts.type_of_account,
+        aa_acquired_accounts.account_type,
+        mrr.customer_account_type,
+      ]
+    group_label: 'Accounts'
+    description: 'The account type of the customer'
+  source:
     fields: [sessions.utm_source, orders.sub_channel]
-    group_label: "Marketing"
-    description: "The source the customer came to our site from"
-  campaign: 
+    group_label: 'Marketing'
+    description: 'The source the customer came to our site from'
+  campaign:
     fields: [sessions.utm_campaign, orders.campaign]
-  gross_revenue: 
+  gross_revenue:
     fields: [order_lines.total_item_revenue, orders.total_revenue]
-    description: "Gross revenue (product revenue + shipping - taxes)"
-  context_os: 
+    description: 'Gross revenue (product revenue + shipping - taxes)'
+  context_os:
     fields: [submitted_form.context_os, clicked_on_page.context_os]
-    description: "Context OS (from the web tracker)"
-  device: 
+    description: 'Context OS (from the web tracker)'
+  device:
     fields: [events.device, sessions.session_device, login_events.device]
-    description: "Device that made the request"
+    description: 'Device that made the request'
 
 access_grants:
   - name: test_access_grant_department_view
     user_attribute: department
-    allowed_values: ["finance", "executive", "sales"]
+    allowed_values: ['finance', 'executive', 'sales']
   - name: test_access_grant_department_customers
     user_attribute: department
-    allowed_values: ["executive", "marketing", "sales"]
+    allowed_values: ['executive', 'marketing', 'sales']
   - name: test_access_grant_department_field
     user_attribute: department
-    allowed_values: ["executive", "engineering", 'sales']
+    allowed_values: ['executive', 'engineering', 'sales']
   - name: test_access_grant_department_dashboard
     user_attribute: department
-    allowed_values: ["executive", 'sales']
+    allowed_values: ['executive', 'sales']

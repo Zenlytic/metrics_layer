@@ -353,6 +353,11 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         # This line is to make the non-additive dimension's view available to the query
         field_lookup[non_additive_dimension.id()] = non_additive_dimension
 
+        # We also need to make all fields in the where clause available to the query
+        for f in self.where:
+            field = self.design.get_field(f["field"])
+            field_lookup[field.id()] = field
+
         temp_field_name = definition["window_choice"] + "_" + definition["name"].split(".")[-1]
         project = copy(self.design.project)
         project.add_field(

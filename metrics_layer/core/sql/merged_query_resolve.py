@@ -301,7 +301,8 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                 canon_dates.append(ref_field.canon_date)
 
         joinable_sets = []
-        for field in self.secondary_metrics + self.dimension_fields:
+        metrics = [f for field_list in self.query_metrics.values() for f in field_list]
+        for field in metrics + self.dimension_fields:
             joinable_graphs = [j for j in field.join_graphs() if "merged_result" not in j]
             all_joinable = all(any(j in join_set for j in joinable_graphs) for join_set in joinable_sets)
             any_joinable = any(any(j in join_set for j in joinable_graphs) for join_set in joinable_sets)
