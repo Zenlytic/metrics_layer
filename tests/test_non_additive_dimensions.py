@@ -492,3 +492,98 @@ def test_mrr_non_additive_dimension_group_by_equal_to_window_grouping_ignore_dim
         "ORDER BY mrr_mrr_end_of_month_by_account_no_group_by DESC;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_mrr_non_additive_dimension_merged_result_sub_join(connection):
+    query = connection.get_sql_query(
+        metrics=[f"mrr_end_of_month_by_account_per_customer_connection"],
+        dimensions=["accounts.account_name", "customer_account_type"],
+    )
+
+    correct = (
+        "WITH mrr_record__cte_subquery_0 AS (WITH cte_mrr_end_of_month_by_account_record_date AS (SELECT"
+        " mrr.account_id as mrr_account_id,accounts.name as accounts_account_name,mrr.customer_account_type"
+        " as mrr_customer_account_type,MAX(DATE_TRUNC('DAY', mrr.record_date)) as mrr_max_record_date FROM"
+        " analytics.mrr_by_customer mrr LEFT JOIN analytics.accounts accounts ON"
+        " mrr.account_id=accounts.account_id GROUP BY mrr.account_id,accounts.name,mrr.customer_account_type"
+        " ORDER BY mrr_max_record_date DESC) SELECT accounts.name as"
+        " accounts_account_name,mrr.customer_account_type as mrr_customer_account_type,SUM(case when"
+        " DATE_TRUNC('DAY', mrr.record_date)=cte_mrr_end_of_month_by_account_record_date.mrr_max_record_date"
+        " and mrr.account_id=cte_mrr_end_of_month_by_account_record_date.mrr_account_id then mrr.mrr end) as"
+        " mrr_mrr_end_of_month_by_account FROM analytics.mrr_by_customer mrr LEFT JOIN analytics.accounts"
+        " accounts ON mrr.account_id=accounts.account_id JOIN cte_mrr_end_of_month_by_account_record_date ON"
+        " mrr.account_id=cte_mrr_end_of_month_by_account_record_date.mrr_account_id and"
+        " accounts.name=cte_mrr_end_of_month_by_account_record_date.accounts_account_name and"
+        " mrr.customer_account_type=cte_mrr_end_of_month_by_account_record_date.mrr_customer_account_type"
+        " GROUP BY accounts.name,mrr.customer_account_type ORDER BY mrr_mrr_end_of_month_by_account DESC)"
+        " ,z_customer_accounts_created__cte_subquery_1 AS (SELECT accounts.name as"
+        " accounts_account_name,z_customer_accounts.account_type as"
+        " z_customer_accounts_type_of_account,COUNT(z_customer_accounts.account_id ||"
+        " z_customer_accounts.customer_id) as z_customer_accounts_number_of_account_customer_connections FROM"
+        " analytics.customer_accounts z_customer_accounts LEFT JOIN analytics.accounts accounts ON"
+        " z_customer_accounts.account_id=accounts.account_id GROUP BY"
+        " accounts.name,z_customer_accounts.account_type ORDER BY"
+        " z_customer_accounts_number_of_account_customer_connections DESC) SELECT"
+        " mrr_record__cte_subquery_0.mrr_mrr_end_of_month_by_account as"
+        " mrr_mrr_end_of_month_by_account,z_customer_accounts_created__cte_subquery_1.z_customer_accounts_number_of_account_customer_connections"  # noqa
+        " as z_customer_accounts_number_of_account_customer_connections,ifnull(mrr_record__cte_subquery_0.accounts_account_name,"  # noqa
+        " z_customer_accounts_created__cte_subquery_1.accounts_account_name) as"
+        " accounts_account_name,ifnull(mrr_record__cte_subquery_0.mrr_customer_account_type,"
+        " z_customer_accounts_created__cte_subquery_1.z_customer_accounts_type_of_account) as"
+        " mrr_customer_account_type,ifnull(z_customer_accounts_created__cte_subquery_1.z_customer_accounts_type_of_account,"  # noqa
+        " mrr_record__cte_subquery_0.mrr_customer_account_type) as"
+        " z_customer_accounts_type_of_account,mrr_mrr_end_of_month_by_account /"
+        " z_customer_accounts_number_of_account_customer_connections as"
+        " mrr_mrr_end_of_month_by_account_per_customer_connection FROM mrr_record__cte_subquery_0 FULL OUTER"
+        " JOIN z_customer_accounts_created__cte_subquery_1 ON"
+        " mrr_record__cte_subquery_0.accounts_account_name=z_customer_accounts_created__cte_subquery_1.accounts_account_name"  # noqa
+        " and mrr_record__cte_subquery_0.mrr_customer_account_type=z_customer_accounts_created__cte_subquery_1.z_customer_accounts_type_of_account;"  # noqa
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_mrr_non_additive_dimension_merged_result_sub_join_where(connection):
+    query = connection.get_sql_query(
+        metrics=[f"mrr_end_of_month_by_account_per_customer_connection"],
+        dimensions=["date"],
+        where=[{"field": "accounts.account_name", "expression": "equal_to", "value": "Apple"}],
+    )
+
+    correct = (
+        "WITH mrr_record__cte_subquery_0 AS (WITH cte_mrr_end_of_month_by_account_record_date AS (SELECT"
+        " mrr.account_id as mrr_account_id,DATE_TRUNC('DAY', mrr.record_date) as"
+        " mrr_record_date,MAX(DATE_TRUNC('DAY', mrr.record_date)) as mrr_max_record_date FROM"
+        " analytics.mrr_by_customer mrr LEFT JOIN analytics.accounts accounts ON"
+        " mrr.account_id=accounts.account_id WHERE accounts.name='Apple' GROUP BY"
+        " mrr.account_id,DATE_TRUNC('DAY', mrr.record_date) ORDER BY mrr_max_record_date DESC) SELECT"
+        " DATE_TRUNC('DAY', mrr.record_date) as mrr_record_date,SUM(case when DATE_TRUNC('DAY',"
+        " mrr.record_date)=cte_mrr_end_of_month_by_account_record_date.mrr_max_record_date and"
+        " mrr.account_id=cte_mrr_end_of_month_by_account_record_date.mrr_account_id then mrr.mrr end) as"
+        " mrr_mrr_end_of_month_by_account FROM analytics.mrr_by_customer mrr LEFT JOIN analytics.accounts"
+        " accounts ON mrr.account_id=accounts.account_id JOIN cte_mrr_end_of_month_by_account_record_date ON"
+        " mrr.account_id=cte_mrr_end_of_month_by_account_record_date.mrr_account_id and DATE_TRUNC('DAY',"
+        " mrr.record_date)=cte_mrr_end_of_month_by_account_record_date.mrr_record_date WHERE"
+        " accounts.name='Apple' GROUP BY DATE_TRUNC('DAY', mrr.record_date) ORDER BY"
+        " mrr_mrr_end_of_month_by_account DESC) ,z_customer_accounts_created__cte_subquery_1 AS (SELECT"
+        " DATE_TRUNC('DAY', z_customer_accounts.created_at) as"
+        " z_customer_accounts_created_date,COUNT(z_customer_accounts.account_id ||"
+        " z_customer_accounts.customer_id) as z_customer_accounts_number_of_account_customer_connections FROM"
+        " analytics.customer_accounts z_customer_accounts LEFT JOIN analytics.accounts accounts ON"
+        " z_customer_accounts.account_id=accounts.account_id WHERE accounts.name='Apple' GROUP BY"
+        " DATE_TRUNC('DAY', z_customer_accounts.created_at) ORDER BY"
+        " z_customer_accounts_number_of_account_customer_connections DESC) SELECT"
+        " mrr_record__cte_subquery_0.mrr_mrr_end_of_month_by_account as"
+        " mrr_mrr_end_of_month_by_account,z_customer_accounts_created__cte_subquery_1.z_customer_accounts_number_of_account_customer_connections"  # noqa
+        " as z_customer_accounts_number_of_account_customer_connections,ifnull(mrr_record__cte_subquery_0.mrr_record_date,"  # noqa
+        " z_customer_accounts_created__cte_subquery_1.z_customer_accounts_created_date) as"
+        " mrr_record_date,ifnull(z_customer_accounts_created__cte_subquery_1.z_customer_accounts_created_date,"
+        " mrr_record__cte_subquery_0.mrr_record_date) as"
+        " z_customer_accounts_created_date,mrr_mrr_end_of_month_by_account /"
+        " z_customer_accounts_number_of_account_customer_connections as"
+        " mrr_mrr_end_of_month_by_account_per_customer_connection FROM mrr_record__cte_subquery_0 FULL OUTER"
+        " JOIN z_customer_accounts_created__cte_subquery_1 ON"
+        " mrr_record__cte_subquery_0.mrr_record_date=z_customer_accounts_created__cte_subquery_1.z_customer_accounts_created_date;"  # noqa
+    )
+    assert query == correct
