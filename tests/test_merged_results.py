@@ -41,6 +41,12 @@ def test_merged_result_query_additional_metric(connection, query_type):
         on_statement = f"CAST({cte_1}.order_lines_order_month AS TIMESTAMP)=CAST({cte_2}.sessions_session_month AS TIMESTAMP)"  # noqa
     else:
         on_statement = f"{cte_1}.order_lines_order_month={cte_2}.sessions_session_month"
+
+    if query_type != Definitions.redshift:
+        ifnull = "ifnull"
+    else:
+        ifnull = "nvl"
+
     correct = (
         f"WITH {cte_1} AS ("
         f"SELECT {order_date} as order_lines_order_month,"
@@ -56,8 +62,8 @@ def test_merged_result_query_additional_metric(connection, query_type):
         f"{session_by}) "
         f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,"
-        f"ifnull({cte_1}.order_lines_order_month, {cte_2}.sessions_session_month) as order_lines_order_month,"
-        f"ifnull({cte_2}.sessions_session_month, {cte_1}.order_lines_order_month) as sessions_session_month,"
+        f"{ifnull}({cte_1}.order_lines_order_month, {cte_2}.sessions_session_month) as order_lines_order_month,"  # noqa
+        f"{ifnull}({cte_2}.sessions_session_month, {cte_1}.order_lines_order_month) as sessions_session_month,"  # noqa
         f"order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
         f"FROM {cte_1} FULL OUTER JOIN {cte_2} "
         f"ON {on_statement};"
