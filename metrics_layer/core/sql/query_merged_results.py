@@ -41,13 +41,18 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
             if i == 0:
                 base_cte_query = base_cte_query.from_(AliasedQuery(join_hash))
             else:
-                criteria = self._build_join_criteria(self.join_hashes[0], join_hash)
-                base_cte_query = base_cte_query.outer_join(AliasedQuery(join_hash)).on(criteria)
+                no_dimensions = all(len(v) == 0 for v in self.query_dimensions.values())
+                # We have to do this because Redshift doesn't support a full outer join
+                # of two CTE's without dimensions using 1=1
+                if self.query_type == Definitions.redshift and no_dimensions:
+                    base_cte_query = base_cte_query.join(AliasedQuery(join_hash)).cross()
+                else:
+                    criteria = self._build_join_criteria(self.join_hashes[0], join_hash, no_dimensions)
+                    base_cte_query = base_cte_query.outer_join(AliasedQuery(join_hash)).on(criteria)
 
         return base_cte_query
 
-    def _build_join_criteria(self, first_query_alias, second_query_alias):
-        no_dimensions = all(len(v) == 0 for v in self.query_dimensions.values())
+    def _build_join_criteria(self, first_query_alias, second_query_alias, no_dimensions: bool):
         # No dimensions to join on, the query results must be just one number each
         if no_dimensions:
             return LiteralValueCriterion("1=1")

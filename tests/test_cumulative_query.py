@@ -42,10 +42,12 @@ def test_cumulative_query_metric_only_one(connection):
 
 
 @pytest.mark.query
-def test_cumulative_query_metric_with_number(connection):
+@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.redshift])
+def test_cumulative_query_metric_with_number(connection, query_type):
     query = connection.get_sql_query(
         metrics=["average_order_value_custom", "cumulative_aov"],
         where=[{"field": "orders.order_raw", "expression": "greater_than", "value": "2018-01-02"}],
+        query_type=query_type,
     )
 
     date_spine = "select dateadd(day, seq4(), '2000-01-01') as date from table(generator(rowcount => 365*40))"

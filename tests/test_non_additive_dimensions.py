@@ -1,5 +1,7 @@
 import pytest
 
+from metrics_layer.core.model import Definitions
+
 
 @pytest.mark.query
 @pytest.mark.parametrize("metric_suffix", ["end_of_month", "beginning_of_month"])
@@ -47,8 +49,11 @@ def test_mrr_non_additive_dimension_no_group_by_multi_cte(connection):
 
 
 @pytest.mark.query
-def test_mrr_non_additive_dimension_no_group_by_composed_with_duplicate_cte(connection):
-    query = connection.get_sql_query(metrics=[f"mrr_change_per_billed_account", "mrr_end_of_month"])
+@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.redshift])
+def test_mrr_non_additive_dimension_no_group_by_composed_with_duplicate_cte(connection, query_type):
+    query = connection.get_sql_query(
+        metrics=[f"mrr_change_per_billed_account", "mrr_end_of_month"], query_type=query_type
+    )
 
     correct = (
         "WITH cte_mrr_end_of_month_record_raw AS (SELECT MAX(mrr.record_date) as mrr_max_record_raw FROM"
@@ -578,7 +583,7 @@ def test_mrr_non_additive_dimension_merged_result_sub_join_where(connection):
         " mrr_mrr_end_of_month_by_account,z_customer_accounts_created__cte_subquery_1.z_customer_accounts_number_of_account_customer_connections"  # noqa
         " as z_customer_accounts_number_of_account_customer_connections,ifnull(mrr_record__cte_subquery_0.mrr_record_date,"  # noqa
         " z_customer_accounts_created__cte_subquery_1.z_customer_accounts_created_date) as"
-        " mrr_record_date,ifnull(z_customer_accounts_created__cte_subquery_1.z_customer_accounts_created_date,"
+        " mrr_record_date,ifnull(z_customer_accounts_created__cte_subquery_1.z_customer_accounts_created_date,"  # noqa
         " mrr_record__cte_subquery_0.mrr_record_date) as"
         " z_customer_accounts_created_date,mrr_mrr_end_of_month_by_account /"
         " z_customer_accounts_number_of_account_customer_connections as"

@@ -1,9 +1,9 @@
 from pypika import Query
 from pypika.dialects import (
+    MSSQLQueryBuilder,
     PostgreSQLQueryBuilder,
     RedShiftQueryBuilder,
     SnowflakeQueryBuilder,
-    MSSQLQueryBuilder,
 )
 from pypika.enums import Dialects
 from pypika.utils import builder
@@ -89,7 +89,7 @@ query_lookup = {
 if_null_lookup = {
     Definitions.snowflake: "ifnull",
     Definitions.bigquery: "ifnull",
-    Definitions.redshift: "ifnull",
+    Definitions.redshift: "nvl",
     Definitions.postgres: "ifnull",
     Definitions.databricks: "ifnull",
     Definitions.druid: "nvl",
