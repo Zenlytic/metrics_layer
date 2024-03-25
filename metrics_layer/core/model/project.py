@@ -147,6 +147,10 @@ class Project:
                         else:
                             view_args["field_prefix"] = identifier["join_as"].replace("_", " ").title()
 
+                        include_metrics = identifier.get("include_metrics", False)
+                        if not include_metrics:
+                            v["fields"] = [f for f in v["fields"] if f.get("field_type") != "measure"]
+
                         join_as_to_create[identifier["join_as"]] = {**v, **view_args}
 
                     else:
