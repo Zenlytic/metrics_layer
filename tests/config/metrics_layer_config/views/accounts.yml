@@ -6,46 +6,44 @@ sql_table_name: analytics.accounts
 default_date: created
 model_name: test_model
 
-identifiers: 
-- name: account_id
-  type: primary
-  sql: ${account_id}
+identifiers:
+  - name: account_id
+    type: primary
+    sql: ${account_id}
 
-- name: parent_account_id
-  type: primary
-  sql: ${account_id}
-  join_as: parent_account
-  join_as_field_prefix: "Parent"
+  - name: parent_account_id
+    type: primary
+    sql: ${account_id}
+    join_as: parent_account
+    join_as_field_prefix: 'Parent'
+    include_metrics: yes
 
-- name: child_account_id
-  type: primary
-  sql: ${account_id}
-  join_as: child_account
-  join_as_label: "Sub Account"
+  - name: child_account_id
+    type: primary
+    sql: ${account_id}
+    join_as: child_account
+    join_as_label: 'Sub Account'
 
 fields:
   - name: account_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     primary_key: yes
     hidden: yes
-    sql: "${TABLE}.account_id"
+    sql: '${TABLE}.account_id'
 
   - name: created
-    field_type: "dimension_group"
+    field_type: 'dimension_group'
     type: time
-    timeframes: [
-      raw,
-      time,
-      date,
-      week,
-      month,
-      quarter,
-      year
-    ]
-    sql: "${TABLE}.created_at"
+    timeframes: [raw, time, date, week, month, quarter, year]
+    sql: '${TABLE}.created_at'
 
   - name: account_name
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
-    sql: "${TABLE}.name"
+    sql: '${TABLE}.name'
+
+  - name: n_created_accounts
+    field_type: 'measure'
+    type: count
+    sql: ${account_id}

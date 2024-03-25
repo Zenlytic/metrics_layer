@@ -139,8 +139,9 @@ def test_merged_result_join_graph(connection):
     sub_q_0_4 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_4", core_tf)
     sub_q_0_2 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_7", core_tf)
     sub_q_0_3 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_3", core_tf)
-    sub_q_0_5 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_9", core_tf)
+    sub_q_0_5 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_5", core_tf)
     sub_q_0_8 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_8", core_tf)
+    sub_q_0_9 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_9", core_tf)
     sub_q_0_10 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_10", core_tf)
     sub_q_0_11 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_11", core_tf)
     sub_q_0_12 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_12", core_tf)
@@ -153,6 +154,7 @@ def test_merged_result_join_graph(connection):
         *sub_q_0_3,
         *sub_q_0_5,
         *sub_q_0_8,
+        *sub_q_0_9,
         *sub_q_0_10,
         *sub_q_0_11,
         *sub_q_0_12,
@@ -177,8 +179,9 @@ def test_merged_result_join_graph(connection):
         "merged_result_subquery_0_subquery_4_date",
         "merged_result_subquery_0_subquery_7_date",
         "merged_result_subquery_0_subquery_3_date",
-        "merged_result_subquery_0_subquery_9_date",
+        "merged_result_subquery_0_subquery_5_date",
         "merged_result_subquery_0_subquery_8_date",
+        "merged_result_subquery_0_subquery_9_date",
     ]
     assert field.join_graphs() == list(sorted(order_lines_date_graphs))
 
@@ -194,8 +197,9 @@ def test_merged_result_join_graph(connection):
         "merged_result_subquery_0_subquery_4_date",
         "merged_result_subquery_0_subquery_7_date",
         "merged_result_subquery_0_subquery_3_date",
-        "merged_result_subquery_0_subquery_9_date",
+        "merged_result_subquery_0_subquery_5_date",
         "merged_result_subquery_0_subquery_8_date",
+        "merged_result_subquery_0_subquery_9_date",
     ]
     assert field.join_graphs() == list(sorted(order_date_graphs))
     field = connection.get_field("sub_channel")
@@ -254,9 +258,10 @@ def test_merged_result_join_graph(connection):
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_3_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_4_subquery_7", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_9", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_5", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_15_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_4_subquery_8", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_9", core_tf),
     ]
     assert field.join_graphs() == list(sorted(sessions_graphs))
 

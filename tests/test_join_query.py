@@ -840,6 +840,17 @@ def test_join_as_ability_single_join(connection):
 
 
 @pytest.mark.query
+def test_join_as_ability_exclude_metrics(connection):
+    # This one should have metrics because of the include_metrics flag
+    assert any(f.name == "n_created_accounts" for f in connection.project.fields(view_name="parent_account"))
+
+    # This one should NOT have metrics because the include_metrics flag defaults to false
+    assert not any(
+        f.name == "n_created_accounts" for f in connection.project.fields(view_name="child_account")
+    )
+
+
+@pytest.mark.query
 def test_join_as_ability_single_join_as_and_non_as(connection):
     query = connection.get_sql_query(
         metrics=["number_of_billed_accounts"],
