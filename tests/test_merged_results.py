@@ -268,14 +268,21 @@ def test_merged_result_join_graph(connection):
 
 
 @pytest.mark.query
-def test_merged_result_query_only_metric_no_dim(connection):
+@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.redshift])
+def test_merged_result_query_only_metric_no_dim(connection, query_type):
     query = connection.get_sql_query(
         metrics=["revenue_per_session"],
         dimensions=[],
         merged_result=True,
         verbose=True,
+        query_type=query_type,
     )
     cte_1, cte_2 = "order_lines_order__cte_subquery_0", "sessions_session__cte_subquery_1"
+
+    if query_type == Definitions.redshift:
+        join_statement = f"{cte_1} CROSS JOIN {cte_2}"
+    else:
+        join_statement = f"{cte_1} FULL OUTER JOIN {cte_2} ON 1=1"
     correct = (
         f"WITH {cte_1} AS ("
         "SELECT SUM(order_lines.revenue) as order_lines_total_item_revenue "
@@ -288,7 +295,7 @@ def test_merged_result_query_only_metric_no_dim(connection):
         f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
-        f"FROM {cte_1} FULL OUTER JOIN {cte_2} ON 1=1;"
+        f"FROM {join_statement};"
     )
     assert query == correct
 
