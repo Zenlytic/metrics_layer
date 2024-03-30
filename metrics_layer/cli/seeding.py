@@ -339,7 +339,12 @@ class SeedMetricsLayer:
                 metrics_layer_type = self._databricks_type_lookup.get(row["DATA_TYPE"], "string")
             else:
                 raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
-            sql = "${TABLE}." + row["COLUMN_NAME"]
+            # Add quotes for certain db only because we've seen issues with column names with special chars
+            if self.connection.type in {Definitions.druid, Definitions.snowflake}:
+                column_name = '"' + row["COLUMN_NAME"] + '"'
+            else:
+                column_name = row["COLUMN_NAME"]
+            sql = "${TABLE}." + column_name
 
             field = {"name": name, "sql": sql}
 
