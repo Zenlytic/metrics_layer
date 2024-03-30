@@ -164,6 +164,8 @@ def test_cli_seed_metrics_layer(
             assert social["type"] == "yesno"
             if query_type == Definitions.databricks:
                 assert social["sql"] == "${TABLE}.on_social_network"
+            elif query_type in {Definitions.snowflake, Definitions.druid}:
+                assert social["sql"] == '${TABLE}."ON_SOCIAL_NETWORK"'
             else:
                 assert social["sql"] == "${TABLE}.ON_SOCIAL_NETWORK"
 
@@ -174,6 +176,8 @@ def test_cli_seed_metrics_layer(
                 assert acq_date["datatype"] == "timestamp"
             if query_type == Definitions.databricks:
                 assert acq_date["sql"] == "${TABLE}.acquisition_date"
+            elif query_type in {Definitions.snowflake, Definitions.druid}:
+                assert acq_date["sql"] == '${TABLE}."ACQUISITION_DATE"'
             else:
                 assert acq_date["sql"] == "${TABLE}.ACQUISITION_DATE"
 
@@ -200,13 +204,22 @@ def test_cli_seed_metrics_layer(
                 "quarter",
                 "year",
             ]
-            assert date["sql"].upper() == "${TABLE}.ORDER_CREATED_AT"
+            if query_type in {Definitions.snowflake, Definitions.druid}:
+                assert date["sql"] == '${TABLE}."ORDER_CREATED_AT"'
+            else:
+                assert date["sql"].upper() == "${TABLE}.ORDER_CREATED_AT"
 
             assert new["type"] == "string"
-            assert new["sql"].upper() == "${TABLE}.NEW_VS_REPEAT"
+            if query_type in {Definitions.snowflake, Definitions.druid}:
+                assert new["sql"] == '${TABLE}."NEW_VS_REPEAT"'
+            else:
+                assert new["sql"].upper() == "${TABLE}.NEW_VS_REPEAT"
 
             assert num["type"] == "number"
-            assert num["sql"].upper() == "${TABLE}.REVENUE"
+            if query_type in {Definitions.snowflake, Definitions.druid}:
+                assert num["sql"] == '${TABLE}."REVENUE"'
+            else:
+                assert num["sql"].upper() == "${TABLE}.REVENUE"
 
             assert len(data["fields"]) == 14
             assert all(f["field_type"] != "measure" for f in data["fields"])
@@ -245,7 +258,10 @@ def test_cli_seed_metrics_layer(
             cross_sell = next((f for f in data["fields"] if f["name"] == "crossell_product"))
 
             assert cross_sell["name"] == "crossell_product"
-            assert cross_sell["sql"] == "${TABLE}.@CRoSSell P-roduct:"
+            if query_type in {Definitions.snowflake, Definitions.druid}:
+                assert cross_sell["sql"] == '${TABLE}."@CRoSSell P-roduct:"'
+            else:
+                assert cross_sell["sql"] == "${TABLE}.@CRoSSell P-roduct:"
 
             assert date["type"] == "time"
             if query_type in {
@@ -271,13 +287,22 @@ def test_cli_seed_metrics_layer(
                 "quarter",
                 "year",
             ]
-            assert date["sql"].upper() == "${TABLE}.SESSION_DATE"
+            if query_type in {Definitions.snowflake, Definitions.druid}:
+                assert date["sql"] == '${TABLE}."SESSION_DATE"'
+            else:
+                assert date["sql"].upper() == "${TABLE}.SESSION_DATE"
 
             assert pk["type"] == "string"
-            assert pk["sql"].upper() == "${TABLE}.SESSION_ID"
+            if query_type in {Definitions.snowflake, Definitions.druid}:
+                assert pk["sql"] == '${TABLE}."SESSION_ID"'
+            else:
+                assert pk["sql"].upper() == "${TABLE}.SESSION_ID"
 
             assert num["type"] == "number"
-            assert num["sql"].upper() == "${TABLE}.CONVERSION"
+            if query_type in {Definitions.snowflake, Definitions.druid}:
+                assert num["sql"] == '${TABLE}."CONVERSION"'
+            else:
+                assert num["sql"].upper() == "${TABLE}.CONVERSION"
 
             assert len(data["fields"]) == 14
             assert all(f["field_type"] != "measure" for f in data["fields"])
@@ -873,6 +898,51 @@ def test_cli_duplicate_join_as_names(connection, fresh_project, mocker):
         "will create a view under its that name and the name must be unique)."
     )
     assert error_message in str(result)
+
+
+@pytest.mark.cli
+def test_cli_validate_required_access_filters(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    project.set_required_access_filter_user_attributes(["products"])
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    print(result)
+    assert result.exit_code == 0
+    assert (
+        result.output
+        == "Found 19 errors in the project:\n\n\nView order_lines does not have any access filters, but an"
+        " access filter with user attribute products is required.\n\n\nView orders does not have an access"
+        " filter with the required user attribute products\n\n\nView customers does not have any access"
+        " filters, but an access filter with user attribute products is required.\n\n\nView discounts does"
+        " not have any access filters, but an access filter with user attribute products is"
+        " required.\n\n\nView discount_detail does not have any access filters, but an access filter with"
+        " user attribute products is required.\n\n\nView country_detail does not have any access filters,"
+        " but an access filter with user attribute products is required.\n\n\nView sessions does not have"
+        " any access filters, but an access filter with user attribute products is required.\n\n\nView"
+        " events does not have any access filters, but an access filter with user attribute products is"
+        " required.\n\n\nView login_events does not have any access filters, but an access filter with"
+        " user attribute products is required.\n\n\nView traffic does not have any access filters, but an"
+        " access filter with user attribute products is required.\n\n\nView clicked_on_page does not have"
+        " any access filters, but an access filter with user attribute products is required.\n\n\nView"
+        " accounts does not have any access filters, but an access filter with user attribute products is"
+        " required.\n\n\nView aa_acquired_accounts does not have any access filters, but an access filter"
+        " with user attribute products is required.\n\n\nView z_customer_accounts does not have any access"
+        " filters, but an access filter with user attribute products is required.\n\n\nView"
+        " other_db_traffic does not have any access filters, but an access filter with user attribute"
+        " products is required.\n\n\nView created_workspace does not have any access filters, but an"
+        " access filter with user attribute products is required.\n\n\nView mrr does not have any access"
+        " filters, but an access filter with user attribute products is required.\n\n\nView parent_account"
+        " does not have any access filters, but an access filter with user attribute products is"
+        " required.\n\n\nView child_account does not have any access filters, but an access filter with"
+        " user attribute products is required.\n\n"
+    )
 
 
 @pytest.mark.cli

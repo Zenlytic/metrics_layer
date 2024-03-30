@@ -2,7 +2,7 @@ import functools
 import json
 from collections import Counter
 from copy import deepcopy
-from typing import Union
+from typing import List, Union
 
 from metrics_layer.core.exceptions import (
     AccessDeniedOrDoesNotExistException,
@@ -40,6 +40,7 @@ class Project:
         self._user = None
         self._connection_schema = None
         self._timezone = None
+        self._required_access_filter_user_attributes = []
         self._join_graph = None
 
     def __repr__(self):
@@ -77,6 +78,11 @@ class Project:
 
     def set_timezone(self, timezone: str):
         self._timezone = timezone
+
+    def set_required_access_filter_user_attributes(self, user_attribute_names: List[str]):
+        if not isinstance(user_attribute_names, list):
+            raise QueryError("The required_access_filter_user_attributes must be a list of strings")
+        self._required_access_filter_user_attributes = user_attribute_names
 
     def add_field(self, field: dict, view_name: str, refresh_cache: bool = True):
         view = next((v for v in self._views if v["name"] == view_name), None)
@@ -182,6 +188,19 @@ class Project:
             except Exception:
                 pass
         for view in self.views():
+            if len(self._required_access_filter_user_attributes) > 0:
+                for user_attribute_name in self._required_access_filter_user_attributes:
+                    if not view.access_filters:
+                        all_errors.append(
+                            f"View {view.name} does not have any access filters, but an access filter with"
+                            f" user attribute {user_attribute_name} is required."
+                        )
+                    elif all(af["user_attribute"] != user_attribute_name for af in view.access_filters):
+                        all_errors.append(
+                            f"View {view.name} does not have an access filter with the required user"
+                            f" attribute {user_attribute_name}"
+                        )
+
             try:
                 view.sql_table_name
             except QueryError as e:
