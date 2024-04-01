@@ -142,7 +142,10 @@ class Project:
                     identifier_to_add = {**identifier}
                     identifier_to_add.pop("join_as")
                     if identifier["join_as"] not in join_as_to_create:
-                        view_args = {"identifiers": [identifier_to_add]}
+                        view_args = {
+                            "identifiers": [identifier_to_add],
+                            "fields": deepcopy(v.get("fields", [])),
+                        }
                         if "join_as_label" in identifier:
                             view_args["label"] = identifier["join_as_label"]
 
@@ -155,7 +158,9 @@ class Project:
 
                         include_metrics = identifier.get("include_metrics", False)
                         if not include_metrics:
-                            v["fields"] = [f for f in v["fields"] if f.get("field_type") != "measure"]
+                            view_args["fields"] = [
+                                f for f in view_args["fields"] if f.get("field_type") != "measure"
+                            ]
 
                         join_as_to_create[identifier["join_as"]] = {**v, **view_args}
 

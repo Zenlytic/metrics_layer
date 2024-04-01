@@ -157,7 +157,8 @@ class View(MetricsLayerBase):
     def _all_fields(self, expand_dimension_groups: bool):
         fields = []
         for f in self._definition.get("fields", []):
-            f["label_prefix"] = self.field_prefix
+            if self.field_prefix:
+                f["label_prefix"] = self.field_prefix
             field = Field(f, view=self)
             if self.project.can_access_field(field):
                 if expand_dimension_groups and field.field_type == "dimension_group":

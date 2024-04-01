@@ -145,6 +145,7 @@ def test_merged_result_join_graph(connection):
     sub_q_0_10 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_10", core_tf)
     sub_q_0_11 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_11", core_tf)
     sub_q_0_12 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_12", core_tf)
+    sub_q_0_14 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_14", core_tf)
     sub_q_0_15 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_15", core_tf)
     sub_q_0_1 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_1", core_tf)
     revenue_set = [
@@ -158,6 +159,7 @@ def test_merged_result_join_graph(connection):
         *sub_q_0_10,
         *sub_q_0_11,
         *sub_q_0_12,
+        *sub_q_0_14,
         *sub_q_0_15,
         *sub_q_0_1,
     ]
@@ -174,6 +176,7 @@ def test_merged_result_join_graph(connection):
         "merged_result_subquery_0_subquery_10_date",
         "merged_result_subquery_0_subquery_11_date",
         "merged_result_subquery_0_subquery_12_date",
+        "merged_result_subquery_0_subquery_14_date",
         "merged_result_subquery_0_subquery_15_date",
         "merged_result_subquery_0_subquery_1_date",
         "merged_result_subquery_0_subquery_4_date",
@@ -192,6 +195,7 @@ def test_merged_result_join_graph(connection):
         "merged_result_subquery_0_subquery_10_date",
         "merged_result_subquery_0_subquery_11_date",
         "merged_result_subquery_0_subquery_12_date",
+        "merged_result_subquery_0_subquery_14_date",
         "merged_result_subquery_0_subquery_15_date",
         "merged_result_subquery_0_subquery_1_date",
         "merged_result_subquery_0_subquery_4_date",
@@ -259,6 +263,7 @@ def test_merged_result_join_graph(connection):
         *_blow_out_by_time_frame("merged_result_subquery_3_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_4_subquery_7", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_4_subquery_5", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_14_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_15_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_4_subquery_8", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_4_subquery_9", core_tf),
