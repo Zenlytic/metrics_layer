@@ -11,18 +11,18 @@ identifiers:
     type: primary
     sql: ${account_id}
 
+  - name: child_account_id
+    type: primary
+    sql: ${account_id}
+    join_as: child_account
+    join_as_label: 'Sub Account'
+
   - name: parent_account_id
     type: primary
     sql: ${account_id}
     join_as: parent_account
     join_as_field_prefix: 'Parent'
     include_metrics: yes
-
-  - name: child_account_id
-    type: primary
-    sql: ${account_id}
-    join_as: child_account
-    join_as_label: 'Sub Account'
 
 fields:
   - name: account_id

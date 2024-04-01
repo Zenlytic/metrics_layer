@@ -938,9 +938,9 @@ def test_cli_validate_required_access_filters(connection, fresh_project, mocker)
         " other_db_traffic does not have any access filters, but an access filter with user attribute"
         " products is required.\n\n\nView created_workspace does not have any access filters, but an"
         " access filter with user attribute products is required.\n\n\nView mrr does not have any access"
-        " filters, but an access filter with user attribute products is required.\n\n\nView parent_account"
+        " filters, but an access filter with user attribute products is required.\n\n\nView child_account"
         " does not have any access filters, but an access filter with user attribute products is"
-        " required.\n\n\nView child_account does not have any access filters, but an access filter with"
+        " required.\n\n\nView parent_account does not have any access filters, but an access filter with"
         " user attribute products is required.\n\n"
     )
 
@@ -1020,7 +1020,7 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
         "connections": "Found 3 connections:\n\ntesting_snowflake\ntesting_bigquery\ntesting_databricks\n",
         "views": (  # noqa
             "Found 20"
-            " views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nmrr\nparent_account\nchild_account\n"  # noqa
+            " views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nmrr\nchild_account\nparent_account\n"  # noqa
         ),
         "fields": "Found 2 fields:\n\ndiscount_promo_name\ndiscount_usd\n",
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",

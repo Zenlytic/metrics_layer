@@ -966,3 +966,26 @@ def test_join_as_label(connection):
     view = connection.project.get_view("parent_account")
     assert view.name == "parent_account"
     assert view.fields()[0].label == "Parent Account Id"
+
+
+@pytest.mark.query
+def test_join_as_label_field_level(connection):
+    child_account_id = connection.project.get_field("child_account.account_id")
+    assert child_account_id.name == "account_id"
+    assert child_account_id.label_prefix == "Sub Account"
+    assert child_account_id.label == "Sub Account Account Id"
+
+    parent_account_id = connection.project.get_field("parent_account.account_id")
+    assert parent_account_id.name == "account_id"
+    assert parent_account_id.label_prefix == "Parent"
+    assert parent_account_id.label == "Parent Account Id"
+
+    child_account_name = connection.project.get_field("child_account.account_name")
+    assert child_account_name.name == "account_name"
+    assert child_account_name.label_prefix == "Sub Account"
+    assert child_account_name.label == "Sub Account Account Name"
+
+    parent_account_name = connection.project.get_field("parent_account.account_name")
+    assert parent_account_name.name == "account_name"
+    assert parent_account_name.label_prefix == "Parent"
+    assert parent_account_name.label == "Parent Account Name"
