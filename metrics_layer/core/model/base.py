@@ -1,4 +1,6 @@
+import difflib
 import re
+from typing import List
 
 NAME_REGEX = re.compile(r"([A-Za-z0-9\_]+)")
 
@@ -31,6 +33,19 @@ class MetricsLayerBase:
         )
 
     @staticmethod
+    def invalid_property_error(definition: dict, valid_properties: List[str], entity_name: str, name: str):
+        errors = []
+        for key in definition:
+            if key not in valid_properties:
+                proposed_property = MetricsLayerBase.propose_property(key, valid_properties)
+                proposed = f" Did you mean {proposed_property}?" if proposed_property else ""
+                errors.append(
+                    f"Property {key} is present on {entity_name.title()} {name}, but it is not a valid"
+                    f" property.{proposed}"
+                )
+        return errors
+
+    @staticmethod
     def field_name_parts(field_name: str):
         explore_name, view_name = None, None
         if field_name.count(".") == 2:
@@ -40,6 +55,14 @@ class MetricsLayerBase:
         else:
             name = field_name
         return explore_name, view_name, name
+
+    @staticmethod
+    def propose_property(invalid_property_name: str, valid_properties: List[str]) -> str:
+        closest_match = difflib.get_close_matches(invalid_property_name, valid_properties, n=1)
+        if closest_match:
+            return closest_match[0]
+        else:
+            return ""
 
 
 class SQLReplacement:

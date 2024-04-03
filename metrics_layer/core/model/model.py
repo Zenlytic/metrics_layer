@@ -1,5 +1,8 @@
 from collections import Counter
 from copy import deepcopy
+from typing import TYPE_CHECKING
+
+import pendulum
 
 from metrics_layer.core.exceptions import (
     AccessDeniedOrDoesNotExistException,
@@ -7,6 +10,10 @@ from metrics_layer.core.exceptions import (
 )
 
 from .base import MetricsLayerBase
+from .week_start_day_types import WeekStartDayTypes
+
+if TYPE_CHECKING:
+    from metrics_layer.core.model.project import Project
 
 SPECIAL_MAPPING_VALUES = {
     "date",
@@ -21,6 +28,8 @@ SPECIAL_MAPPING_VALUES = {
 
 
 class AccessGrant(MetricsLayerBase):
+    valid_properties = ["name", "user_attribute", "allowed_values"]
+
     def __init__(self, definition: dict = {}) -> None:
         self.validate(definition)
         super().__init__(definition)
@@ -29,13 +38,55 @@ class AccessGrant(MetricsLayerBase):
         required_keys = ["name", "user_attribute", "allowed_values"]
         for k in required_keys:
             if k not in definition:
-                raise QueryError(f"Access Grant missing required key {k}")
+                name_str = ""
+                if k != "name":
+                    name_str = f" {definition.get('name')}"
+                raise QueryError(f"Access Grant{name_str} missing required key {k}")
+
+    def collect_errors(self):
+        errors = []
+        if not self.valid_name(self.name):
+            errors.append(self.name_error("Access Grant", self.name))
+
+        if not isinstance(self.user_attribute, str):
+            errors.append(
+                f"The user_attribute property, {self.user_attribute} must be a string in the Access Grant"
+                f" {self.name}"
+            )
+
+        if not isinstance(self.allowed_values, list):
+            errors.append(
+                f"The allowed_values property, {self.allowed_values} must be a list in the Access Grant"
+                f" {self.name}"
+            )
+        elif all([not isinstance(value, str) for value in self.allowed_values]):
+            errors.append(
+                f"All values in the allowed_values property must be strings in the Access Grant {self.name}"
+            )
+
+        errors.extend(
+            self.invalid_property_error(self._definition, self.valid_properties, "access grant", self.name)
+        )
+        return errors
 
 
 class Model(MetricsLayerBase):
-    def __init__(self, definition: dict = {}, project=None) -> None:
+    valid_properties = [
+        "version",
+        "type",
+        "name",
+        "label",
+        "connection",
+        "week_start_day",
+        "timezone",
+        "default_convert_tz",
+        "access_grants",
+        "mappings",
+    ]
+
+    def __init__(self, definition: dict, project) -> None:
         self.special_mapping_values = SPECIAL_MAPPING_VALUES
-        self.project = project
+        self.project: Project = project
         self.validate(definition)
         super().__init__(definition)
 
@@ -43,7 +94,10 @@ class Model(MetricsLayerBase):
         required_keys = ["name", "connection"]
         for k in required_keys:
             if k not in definition:
-                raise QueryError(f"Model missing required key {k}")
+                name_str = ""
+                if k != "name":
+                    name_str = f" in the model {definition.get('name')}"
+                raise QueryError(f"Model missing required key {k}{name_str}")
 
     @property
     def access_grants(self):
@@ -52,6 +106,9 @@ class Model(MetricsLayerBase):
     @property
     def mappings(self):
         mappings = deepcopy(self._definition.get("mappings", {}))
+
+        if not isinstance(mappings, dict):
+            raise QueryError(f"The mappings property, {mappings} must be a dictionary")
 
         for date_mapping in self.special_mapping_values:
             if date_mapping in mappings:
@@ -70,21 +127,122 @@ class Model(MetricsLayerBase):
                 if d is not None and self.project.does_field_exist(canon_date_id):
                     fields_mapped.append(canon_date_id)
             # Includes all canon_dates in the project, sorted by number of occurrences in the project
-            map_data = {
-                "fields": fields_mapped,
-                "group_label": "Dates",
-                "description": description,
-            }
+            map_data = {"fields": fields_mapped, "group_label": "Dates", "description": description}
             mappings[date_mapping] = map_data
         return mappings
 
     def collect_errors(self):
+        errors = []
         if not self.valid_name(self.name):
-            return [self.name_error("model", self.name)]
-        return []
+            errors.append(self.name_error("model", self.name))
+
+        if not isinstance(self.connection, str):
+            errors.append(
+                f"The connection property, {self.connection} must be a string in the model {self.name}"
+            )
+
+        if "label" in self._definition and not isinstance(self.label, str):
+            errors.append(f"The label property, {self.label} must be a string in the model {self.name}")
+
+        if "week_start_day" in self._definition:
+            if str(self.week_start_day) not in WeekStartDayTypes.options:
+                errors.append(
+                    f"The week_start_day property, {self.week_start_day} must be one of"
+                    f" {WeekStartDayTypes.options} in the model {self.name}"
+                )
+
+        if "timezone" in self._definition:
+            try:
+                pendulum.timezone(str(self.timezone))
+            except Exception:
+                errors.append(
+                    f"The timezone property, {self.timezone} must be a valid timezone in the model"
+                    f" {self.name}. Valid timezones can be found at"
+                    " https://en.wikipedia.org/wiki/List_of_tz_database_time_zones"
+                )
+
+        if "default_convert_tz" in self._definition and not isinstance(self.default_convert_tz, bool):
+            errors.append(
+                f"The default_convert_tz property, {self.default_convert_tz} must be a boolean in the model"
+                f" {self.name}"
+            )
+
+        if "access_grants" in self._definition and not isinstance(self.access_grants, list):
+            errors.append(
+                f"The access_grants property, {self.access_grants} must be a list in the model {self.name}"
+            )
+        elif "access_grants" in self._definition and isinstance(self.access_grants, list):
+            for access_grant in self.access_grants:
+                if not isinstance(access_grant, dict):
+                    errors.append(
+                        "Each access_grant in the access_grants property must be a dictionary in the model"
+                        f" {self.name}"
+                    )
+                else:
+                    try:
+                        grant = AccessGrant(access_grant)
+                        errors.extend(grant.collect_errors())
+                    except QueryError as e:
+                        errors.append(str(e) + f" in the model {self.name}")
+
+        valid_mappings_properties = ["fields", "group_label", "description"]
+        try:
+            mappings = self.mappings
+            for mapping_name, mapped_values in mappings.items():
+                if not isinstance(mapping_name, str):
+                    errors.append(
+                        f"The mapping name, {mapping_name} must be a string in the model {self.name}"
+                    )
+                if not self.valid_name(mapping_name):
+                    errors.append(
+                        f"The mapping name, {mapping_name} is invalid. Please reference the naming"
+                        f" conventions (only letters, numbers, or underscores) in the model {self.name}"
+                    )
+
+                if not isinstance(mapped_values, dict):
+                    errors.append(
+                        f"The mapping value, {mapped_values} must be a dictionary in the model {self.name}"
+                    )
+                if isinstance(mapped_values, dict):
+                    if "group_label" in mapped_values and not isinstance(mapped_values["group_label"], str):
+                        errors.append(
+                            f"The group_label property, {mapped_values['group_label']} must be a string"
+                            f" in the mapping {mapping_name} in the model {self.name}"
+                        )
+                    if "description" in mapped_values and not isinstance(mapped_values["description"], str):
+                        errors.append(
+                            f"The description property, {mapped_values['description']} must be a string"
+                            f" in the mapping {mapping_name} in the model {self.name}"
+                        )
+                    if not isinstance(mapped_values.get("fields"), list):
+                        errors.append(
+                            f"The fields property, {mapped_values['fields']} must be a list"
+                            f" in the mapping {mapping_name} in the model {self.name}"
+                        )
+                    elif isinstance(mapped_values.get("fields"), list):
+                        for field_id in mapped_values["fields"]:
+                            try:
+                                self.project.get_field(field_id)
+                            except AccessDeniedOrDoesNotExistException as e:
+                                errors.append(
+                                    f"In the mapping {mapping_name} in the model {self.name}, the " + str(e)
+                                )
+
+                    errors.extend(
+                        self.invalid_property_error(
+                            mapped_values, valid_mappings_properties, "mapping", mapping_name
+                        )
+                    )
+        except QueryError as e:
+            errors.append(str(e) + f" in the model {self.name}")
+
+        errors.extend(
+            self.invalid_property_error(self._definition, self.valid_properties, "model", self.name)
+        )
+        return errors
 
     def printable_attributes(self):
-        to_print = ["name", "type", "label", "group_label", "connection"]
+        to_print = ["name", "type", "label", "connection"]
         attributes = self.to_dict()
         return {key: attributes.get(key) for key in to_print if attributes.get(key) is not None}
 

@@ -176,6 +176,43 @@ class Project:
 
         return copied_views
 
+    def validate_with_replaced_objects(self, replaced_objects: list):
+        replaced_views, replaced_models, replaced_dashboards = [], [], []
+        for dict_obj in replaced_objects:
+            if dict_obj.get("type") == "view":
+                replaced_views.append(dict_obj)
+            elif dict_obj.get("type") == "model":
+                replaced_models.append(dict_obj)
+            elif dict_obj.get("type") == "dashboard":
+                replaced_dashboards.append(dict_obj)
+            else:
+                # We cannot use the object if it is not a view, model or dashboard
+                pass
+
+        # Replace model files
+        replaced_model_names = set([m["name"] for m in replaced_models])
+        unchanged_models = [m for m in self._models if m["name"] not in replaced_model_names]
+        current_models = deepcopy(self._models)
+        self._models = unchanged_models + replaced_models
+
+        # Replace view files
+        replaced_view_names = set([v["name"] for v in replaced_views])
+        unchanged_views = [v for v in self._views if v["name"] not in replaced_view_names]
+        current_views = deepcopy(self._views)
+        self._views = unchanged_views + replaced_views
+
+        # Replace dashboard files
+        replaced_dashboard_names = set([d["name"] for d in replaced_dashboards])
+        unchanged_dashboards = [d for d in self._dashboards if d["name"] not in replaced_dashboard_names]
+        current_dashboards = deepcopy(self._dashboards)
+        self._dashboards = unchanged_dashboards + replaced_dashboards
+
+        errors = self.validate()
+        self._views = current_views
+        self._models = current_models
+        self._dashboards = current_dashboards
+        return errors
+
     def validate(self):
         all_errors = []
 
