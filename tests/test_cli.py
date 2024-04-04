@@ -404,7 +404,7 @@ def test_cli_validate(connection, fresh_project, mocker):
         == "Found 3 errors in the project:\n\n"
         "\nCould not locate reference revenue_dimension in view order_lines\n\n"
         "\nCould not locate reference revenue_dimension in view orders\n\n"
-        "\nDefault date sessions.session_date is unreachable in view orders\n\n"
+        "\nDefault date sessions.session_date in view orders is not joinable to the view orders\n\n"
     )
 
 
@@ -519,7 +519,7 @@ def test_cli_validate_access_grants_setup(connection, fresh_project, mocker):
     assert result.exit_code == 0
     assert result.output == (
         "Found 1 error in the project:\n\n"
-        "\nThe view orders has an access filter that is incorrectly specified as a dictionary instead of a list, to specify it correctly check the documentation for access filters at https://docs.zenlytic.com\n\n"  # noqa
+        "\nThe view orders has an access filter, {'user_attribute': 'department', 'allowed_values': ['finance']} that is incorrectly specified as a when it should be a list, to specify it correctly check the documentation for access filters at https://docs.zenlytic.com/docs/data_modeling/access_grants#access-filters\n\n"  # noqa
     )
 
 
@@ -700,7 +700,7 @@ def test_cli_validate_model_name_in_view(connection, fresh_project, mocker):
     assert (
         result.output
         == "Found 1 error in the project:\n\n"
-        "\nCould not find a model in view orders. Use the model_name property to specify the model.\n\n"
+        "\nCould not find a model in the view orders. Use the model_name property to specify the model.\n\n"
     )
 
 
@@ -786,7 +786,9 @@ def test_cli_dimension_group_timeframes(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 1 error in the project:\n\n"
+        "Found 3 errors in the project:\n\n"
+        "\nIn the Set test_set2 Field order_time not found in view orders, please check that this field exists AND that you have access to it. \n\nIf this is a dimension group specify the group parameter, if not already specified, for example, with a dimension group named 'order' with timeframes: [raw, date, month] specify 'order_raw' or 'order_date' or 'order_month'\n\n"  # noqa
+        "\nIn the Set test_set_composed Field order_time not found in view orders, please check that this field exists AND that you have access to it. \n\nIf this is a dimension group specify the group parameter, if not already specified, for example, with a dimension group named 'order' with timeframes: [raw, date, month] specify 'order_raw' or 'order_date' or 'order_month'\n\n"  # noqa
         "\nField order is of type time and has timeframe value of 'timestamp' which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second', 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'week_index', 'week_of_year', 'week_of_month', 'month_of_year', 'month_of_year_index', 'month_name', 'month_index', 'quarter_of_year', 'hour_of_day', 'day_of_week', 'day_of_month', 'day_of_year'])\n\n"  # noqa
     )
 
@@ -866,14 +868,13 @@ def test_cli_duplicate_view_names(connection, fresh_project, mocker):
     runner = CliRunner()
     result = runner.invoke(validate)
 
-    assert result.exit_code == 1
-    assert "QueryError" in str(result)
-    error_message = (
-        "Duplicate view names found in your project for the name orders. "
-        "Please make sure all view names are unique (note: join_as on identifiers "
-        "will create a view under its that name and the name must be unique)."
+    assert result.exit_code == 0
+    assert (
+        result.output
+        == "Found 1 error in the project:\n\n\nDuplicate view names found in your project for the name"
+        " orders. Please make sure all view names are unique (note: join_as on identifiers will create a"
+        " view under its that name and the name must be unique).\n\n"
     )
-    assert error_message in str(result)
 
 
 @pytest.mark.cli
@@ -890,14 +891,13 @@ def test_cli_duplicate_join_as_names(connection, fresh_project, mocker):
     runner = CliRunner()
     result = runner.invoke(validate)
 
-    assert result.exit_code == 1
-    assert "QueryError" in str(result)
-    error_message = (
-        "Duplicate view names found in your project for the name parent_account. "
-        "Please make sure all view names are unique (note: join_as on identifiers "
-        "will create a view under its that name and the name must be unique)."
+    assert result.exit_code == 0
+    assert (
+        result.output
+        == "Found 1 error in the project:\n\n\nDuplicate view names found in your project for the name"
+        " parent_account. Please make sure all view names are unique (note: join_as on identifiers will"
+        " create a view under its that name and the name must be unique).\n\n"
     )
-    assert error_message in str(result)
 
 
 @pytest.mark.cli

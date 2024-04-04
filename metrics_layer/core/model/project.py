@@ -206,11 +206,13 @@ class Project:
         unchanged_dashboards = [d for d in self._dashboards if d["name"] not in replaced_dashboard_names]
         current_dashboards = deepcopy(self._dashboards)
         self._dashboards = unchanged_dashboards + replaced_dashboards
+        self.refresh_cache()
 
         errors = self.validate()
         self._views = current_views
         self._models = current_models
         self._dashboards = current_dashboards
+        self.refresh_cache()
         return errors
 
     def validate(self):
@@ -219,7 +221,13 @@ class Project:
         for model in self.models():
             all_errors.extend(model.collect_errors())
 
-        all_errors.extend(self.join_graph.collect_errors())
+        try:
+            all_errors.extend(self.join_graph.collect_errors())
+        except QueryError as e:
+            # If we have an error building the graph, we cannot continue
+            # and no other errors will be relevant until this is fixed
+            return [str(e)]
+
         for join_graph in self.join_graph.list_join_graphs():
             try:
                 self.get_field_by_tag(tag_name="customer", join_graphs=(join_graph,))
@@ -307,7 +315,7 @@ class Project:
     def models(self) -> list:
         return [Model(m, project=self) for m in self._models]
 
-    def get_model(self, model_name: str) -> Model:
+    def get_model(self, model_name: str) -> Union[Model, None]:
         return next((m for m in self.models() if m.name == model_name), None)
 
     def access_grants(self):
@@ -355,10 +363,10 @@ class Project:
                 views.append(view)
         return views
 
-    def views(self, model: Model = None) -> list:
+    def views(self, model: Union[Model, None] = None) -> list:
         return self._all_views(model)
 
-    def get_view(self, view_name: str, model: Model = None) -> View:
+    def get_view(self, view_name: str, model: Union[Model, None] = None) -> View:
         try:
             return next((v for v in self.views(model=model) if v.name == view_name))
         except StopIteration:
@@ -368,7 +376,7 @@ class Project:
                 object_type="view",
             )
 
-    def sets(self, view_name: str = None):
+    def sets(self, view_name: Union[str, None] = None):
         if view_name:
             try:
                 views = [self.get_view(view_name)]
@@ -382,7 +390,7 @@ class Project:
             all_sets.extend(view.list_sets())
         return all_sets
 
-    def get_set(self, set_name: str, view_name: str = None):
+    def get_set(self, set_name: str, view_name: Union[str, None] = None):
         if view_name:
             sets = self.sets(view_name=view_name)
         else:
@@ -392,10 +400,10 @@ class Project:
     @functools.lru_cache(maxsize=None)
     def fields(
         self,
-        view_name: str = None,
+        view_name: Union[str, None] = None,
         show_hidden: bool = True,
         expand_dimension_groups: bool = False,
-        model: Model = None,
+        model: Union[Model, None] = None,
     ) -> list:
         if view_name is None:
             return self._all_fields(show_hidden, expand_dimension_groups, model)

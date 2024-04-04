@@ -1,15 +1,14 @@
-import sqlparse
-from sqlparse.tokens import Name, Punctuation
-
 import re
 from copy import deepcopy
 
+import sqlparse
 from pypika import JoinType
 from pypika.terms import LiteralValue
+from sqlparse.tokens import Name, Punctuation
 
 from metrics_layer.core.model.base import MetricsLayerBase
+from metrics_layer.core.model.join import Join, ZenlyticJoinType
 from metrics_layer.core.sql.query_filter import MetricsLayerFilter
-from metrics_layer.core.model.join import Join
 
 
 class MetricsLayerQueryBase(MetricsLayerBase):
@@ -44,13 +43,13 @@ class MetricsLayerQueryBase(MetricsLayerBase):
 
     @staticmethod
     def get_pypika_join_type(join: Join):
-        if join.type == "left_outer":
+        if join.type == ZenlyticJoinType.left_outer:
             return JoinType.left
-        elif join.type == "inner":
+        elif join.type == ZenlyticJoinType.inner:
             return JoinType.inner
-        elif join.type == "full_outer":
+        elif join.type == ZenlyticJoinType.full_outer:
             return JoinType.outer
-        elif join.type == "cross":
+        elif join.type == ZenlyticJoinType.cross:
             return JoinType.cross
         return JoinType.left
 

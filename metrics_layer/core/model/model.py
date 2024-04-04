@@ -101,7 +101,15 @@ class Model(MetricsLayerBase):
 
     @property
     def access_grants(self):
-        return self._definition.get("access_grants", [])
+        if "access_grants" in self._definition:
+            if not isinstance(self._definition["access_grants"], list):
+                raise QueryError(
+                    f"The access_grants property, {self._definition['access_grants']} must be a list"
+                )
+            elif all([not isinstance(grant, dict) for grant in self._definition["access_grants"]]):
+                raise QueryError(f"All access_grants in the access_grants property must be dictionaries")
+            return self._definition["access_grants"]
+        return []
 
     @property
     def mappings(self):
@@ -167,23 +175,16 @@ class Model(MetricsLayerBase):
                 f" {self.name}"
             )
 
-        if "access_grants" in self._definition and not isinstance(self.access_grants, list):
-            errors.append(
-                f"The access_grants property, {self.access_grants} must be a list in the model {self.name}"
-            )
-        elif "access_grants" in self._definition and isinstance(self.access_grants, list):
-            for access_grant in self.access_grants:
-                if not isinstance(access_grant, dict):
-                    errors.append(
-                        "Each access_grant in the access_grants property must be a dictionary in the model"
-                        f" {self.name}"
-                    )
-                else:
+        try:
+            if self.access_grants:
+                for access_grant in self.access_grants:
                     try:
                         grant = AccessGrant(access_grant)
                         errors.extend(grant.collect_errors())
                     except QueryError as e:
                         errors.append(str(e) + f" in the model {self.name}")
+        except QueryError as e:
+            errors.append(str(e) + f" in the model {self.name}")
 
         valid_mappings_properties = ["fields", "group_label", "description"]
         try:

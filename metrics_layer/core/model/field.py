@@ -1339,6 +1339,32 @@ class Field(MetricsLayerBase, SQLReplacement):
         return explicitly_cumulative or has_references
 
     @staticmethod
+    def collect_field_filter_errors(field_filter: dict, project, prefix: str, entity_name: str, name: str):
+        errors = []
+        location = f"{entity_name.title()} {name}"
+        if "field" not in field_filter:
+            errors.append(f"{prefix} in {location} is missing the required field property")
+        elif "field" in field_filter:
+            try:
+                project.get_field(field_filter["field"])
+            except AccessDeniedOrDoesNotExistException:
+                errors.append(
+                    f"{prefix} in {location} is referencing a field, {field_filter['field']} that"
+                    " does not exist"
+                )
+        if "value" not in field_filter:
+            errors.append(f"{prefix} in {location} is missing the required value property")
+        elif "value" in field_filter and not isinstance(field_filter["value"], str):
+            try:
+                Filter(field_filter).filter_dict()
+            except Exception:
+                errors.append(
+                    f"{prefix} in {location} has an invalid value property. Valid values can be found here in"
+                    " the docs: https://docs.zenlytic.com/docs/data_modeling/field_filter"
+                )
+        return errors
+
+    @staticmethod
     def _name_is_not_valid_sql(name: str):
         name_is_keyword = name is not None and name.lower() in SQL_KEYWORDS
         digit_first_char = name[0] in {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
