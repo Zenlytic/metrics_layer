@@ -43,6 +43,9 @@ class View(MetricsLayerBase, SQLReplacement):
         if "sets" not in definition:
             definition["sets"] = []
         self.__all_fields = None
+        if "name" in definition and isinstance(definition["name"], str):
+            definition["name"] = definition["name"].lower()
+
         self.project: Project = project
         self.validate(definition)
         super().__init__(definition)
