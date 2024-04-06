@@ -44,6 +44,13 @@ simple_view = {
         },
         {"field_type": "dimension", "type": "string", "sql": "${TABLE}.sales_channel", "name": "channel"},
         {
+            "name": "organic_channels",
+            "field_type": "dimension",
+            "type": "string",
+            "sql": "${TABLE}.sales_channel",
+            "filters": [{"field": "channel", "value": "%organic%"}],
+        },
+        {
             "field_type": "dimension",
             "type": "string",
             "sql": "${TABLE}.new_vs_repeat",
@@ -180,6 +187,21 @@ def test_simple_query(connections):
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
     )
     correct += "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC;"
+    assert query == correct
+
+
+@pytest.mark.query
+def test_simple_query_dimension_filter(connections):
+    project = Project(models=[simple_model], views=[simple_view])
+    conn = MetricsLayerConnection(project=project, connections=connections)
+    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["organic_channels"])
+
+    correct = (
+        "SELECT case when LOWER(simple.sales_channel) LIKE LOWER('%organic%') then simple.sales_channel end"
+        " as simple_organic_channels,SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple"
+        " GROUP BY case when LOWER(simple.sales_channel) LIKE LOWER('%organic%') then simple.sales_channel"
+        " end ORDER BY simple_total_revenue DESC;"
+    )
     assert query == correct
 
 

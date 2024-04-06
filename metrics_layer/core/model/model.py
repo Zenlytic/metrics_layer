@@ -235,6 +235,8 @@ class Model(MetricsLayerBase):
                         )
                     )
         except QueryError as e:
+            if "Field" in str(e) and "missing required key" in str(e):
+                raise QueryError(str(e) + f" in the model {self.name}")
             errors.append(str(e) + f" in the model {self.name}")
 
         errors.extend(

@@ -10,6 +10,13 @@ def _get_view_by_name(project, view_name):
     raise ValueError(f"View {view_name} not found in project views")
 
 
+def _get_field_by_name(view, field_name):
+    for field in view["fields"]:
+        if field["name"] == field_name:
+            return field
+    raise ValueError(f"Field {field_name} not found in view {view['name']}")
+
+
 @pytest.mark.validation
 def test_validation_with_no_replaced_objects(connection):
     project = connection.project
@@ -99,11 +106,15 @@ def test_validation_with_no_replaced_objects(connection):
                 "The access_grants property, None must be a list in the model test_model",
                 (
                     "The access grant test_access_grant_department_view in the "
-                    "required_access_grants property does not exist in the model test_model"
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
+                    "The access grant test_access_grant_department_field in the "
+                    "required_access_grants property does not exist in model test_model"
                 ),
                 (
                     "The access grant test_access_grant_department_customers in the "
-                    "required_access_grants property does not exist in the model test_model"
+                    "required_access_grants property does not exist in model test_model"
                 ),
             ],
         ),
@@ -117,11 +128,15 @@ def test_validation_with_no_replaced_objects(connection):
                 ),
                 (
                     "The access grant test_access_grant_department_view in the "
-                    "required_access_grants property does not exist in the model test_model"
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
+                    "The access grant test_access_grant_department_field in the "
+                    "required_access_grants property does not exist in model test_model"
                 ),
                 (
                     "The access grant test_access_grant_department_customers in the "
-                    "required_access_grants property does not exist in the model test_model"
+                    "required_access_grants property does not exist in model test_model"
                 ),
             ],
         ),
@@ -132,11 +147,15 @@ def test_validation_with_no_replaced_objects(connection):
                 "Access Grant test missing required key user_attribute in the model test_model",
                 (
                     "The access grant test_access_grant_department_view in the "
-                    "required_access_grants property does not exist in the model test_model"
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
+                    "The access grant test_access_grant_department_field in the "
+                    "required_access_grants property does not exist in model test_model"
                 ),
                 (
                     "The access grant test_access_grant_department_customers in the "
-                    "required_access_grants property does not exist in the model test_model"
+                    "required_access_grants property does not exist in model test_model"
                 ),
             ],
         ),
@@ -147,11 +166,15 @@ def test_validation_with_no_replaced_objects(connection):
                 "Access Grant missing required key name in the model test_model",
                 (
                     "The access grant test_access_grant_department_view in the "
-                    "required_access_grants property does not exist in the model test_model"
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
+                    "The access grant test_access_grant_department_field in the "
+                    "required_access_grants property does not exist in model test_model"
                 ),
                 (
                     "The access grant test_access_grant_department_customers in the "
-                    "required_access_grants property does not exist in the model test_model"
+                    "required_access_grants property does not exist in model test_model"
                 ),
             ],
         ),
@@ -162,11 +185,15 @@ def test_validation_with_no_replaced_objects(connection):
                 "The allowed_values property, test must be a list in the Access Grant test",
                 (
                     "The access grant test_access_grant_department_view in the "
-                    "required_access_grants property does not exist in the model test_model"
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
+                    "The access grant test_access_grant_department_field in the "
+                    "required_access_grants property does not exist in model test_model"
                 ),
                 (
                     "The access grant test_access_grant_department_customers in the "
-                    "required_access_grants property does not exist in the model test_model"
+                    "required_access_grants property does not exist in model test_model"
                 ),
             ],
         ),
@@ -177,11 +204,15 @@ def test_validation_with_no_replaced_objects(connection):
                 "All values in the allowed_values property must be strings in the Access Grant test",
                 (
                     "The access grant test_access_grant_department_view in the "
-                    "required_access_grants property does not exist in the model test_model"
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
+                    "The access grant test_access_grant_department_field in the "
+                    "required_access_grants property does not exist in model test_model"
                 ),
                 (
                     "The access grant test_access_grant_department_customers in the "
-                    "required_access_grants property does not exist in the model test_model"
+                    "required_access_grants property does not exist in model test_model"
                 ),
             ],
         ),
@@ -192,11 +223,15 @@ def test_validation_with_no_replaced_objects(connection):
                 "The user_attribute property, None must be a string in the Access Grant test",
                 (
                     "The access grant test_access_grant_department_view in the "
-                    "required_access_grants property does not exist in the model test_model"
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
+                    "The access grant test_access_grant_department_field in the "
+                    "required_access_grants property does not exist in model test_model"
                 ),
                 (
                     "The access grant test_access_grant_department_customers in the "
-                    "required_access_grants property does not exist in the model test_model"
+                    "required_access_grants property does not exist in model test_model"
                 ),
             ],
         ),
@@ -217,11 +252,15 @@ def test_validation_with_no_replaced_objects(connection):
                 ),
                 (
                     "The access grant test_access_grant_department_view in the "
-                    "required_access_grants property does not exist in the model test_model"
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
+                    "The access grant test_access_grant_department_field in the "
+                    "required_access_grants property does not exist in model test_model"
                 ),
                 (
                     "The access grant test_access_grant_department_customers in the "
-                    "required_access_grants property does not exist in the model test_model"
+                    "required_access_grants property does not exist in model test_model"
                 ),
             ],
         ),
@@ -231,11 +270,15 @@ def test_validation_with_no_replaced_objects(connection):
             [
                 (
                     "The access grant test_access_grant_department_view in the "
-                    "required_access_grants property does not exist in the model test_model"
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
+                    "The access grant test_access_grant_department_field in the "
+                    "required_access_grants property does not exist in model test_model"
                 ),
                 (
                     "The access grant test_access_grant_department_customers in the "
-                    "required_access_grants property does not exist in the model test_model"
+                    "required_access_grants property does not exist in model test_model"
                 ),
             ],
         ),
@@ -325,6 +368,14 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
         (
             "model_name",
             None,
+            [
+                "Could not find a model in the view order_lines. Use the model_name property to specify the"
+                " model."
+            ],
+        ),
+        (
+            "model_name",
+            "missing_model",
             [
                 "Could not find a model in the view order_lines. Use the model_name property to specify the"
                 " model."
@@ -494,14 +545,14 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
         (
             "required_access_grants",
             None,
-            ["The required_access_grants property, None must be a list in the view order_lines"],
+            ["The required_access_grants property, None must be a list in view order_lines"],
         ),
         (
             "required_access_grants",
             [1],
             [
                 "The access grant reference 1 in the required_access_grants property must be a"
-                " string in the view order_lines"
+                " string in view order_lines"
             ],
         ),
         (
@@ -509,7 +560,7 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
             [{"name": "test"}],
             [
                 "The access grant reference {'name': 'test'} in the "
-                "required_access_grants property must be a string in the view order_lines"
+                "required_access_grants property must be a string in view order_lines"
             ],
         ),
         (
@@ -517,7 +568,7 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
             ["test"],
             [
                 "The access grant test in the required_access_grants property does not exist "
-                "in the model test_model"
+                "in model test_model"
             ],
         ),
         ("required_access_grants", ["test_access_grant_department_customers"], []),
@@ -855,5 +906,880 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
     assert response == errors
 
 
-# Primary key
-# Duplicate fields
+@pytest.mark.validation
+@pytest.mark.parametrize(
+    "field_name,property_name,value,errors",
+    [
+        (
+            "order_line_id",
+            "primary_key",
+            "__POP__",
+            [
+                "Warning: The view order_lines does not have a primary key, specify one using the tag"
+                " primary_key: true"
+            ],
+        ),
+        (
+            None,
+            "__ADD__",
+            {
+                "name": "order_line_id",
+                "field_type": "dimension",
+                "type": "string",
+                "sql": "${TABLE}.order_line_id",
+            },
+            [
+                (
+                    "Multiple fields found for the name order_line_id, in view order_lines - "
+                    "those fields were ['order_lines.order_line_id', "
+                    "'order_lines.order_line_id']\n"
+                    "\n"
+                    "Please specify a view name like this: 'view_name.field_name' \n"
+                    "\n"
+                    "or change the names of the fields to ensure uniqueness"
+                ),
+                "Duplicate field names in view order_lines: order_line_id",
+            ],
+        ),
+        (
+            None,
+            "__ADD__",
+            {"name": "date", "field_type": "dimension", "type": "string", "sql": "${TABLE}.date"},
+            ["Field name: date in view order_lines is a reserved word and cannot be used as a field name."],
+        ),
+        (
+            "parent_channel",
+            "name",
+            "h@#ffw",
+            [
+                "Field name: h@#ffw is invalid. Please reference the naming conventions (only letters,"
+                " numbers, or underscores)"
+            ],
+        ),
+        (
+            "parent_channel",
+            "name",
+            "__POP__",
+            [
+                "Field missing required key 'name' The field passed was {'field_type': "
+                "'dimension', 'type': 'string', 'sql': \"CASE\\n--- parent "
+                "channel\\nWHEN ${channel} ilike '%social%' then 'Social'\\nELSE 'Not "
+                "Social'\\nEND\\n\"} in the view order_lines in the model test_model"
+            ],
+        ),
+        (
+            "parent_channel",
+            "field_type",
+            "__POP__",
+            [
+                "Field 'parent_channel' missing required key 'field_type' The field passed was {'name':"
+                " 'parent_channel', 'type': 'string', 'sql': \"CASE\\n--- parent channel\\nWHEN ${channel}"
+                " ilike '%social%' then 'Social'\\nELSE 'Not Social'\\nEND\\n\"} in the view order_lines in"
+                " the model test_model"
+            ],
+        ),
+        (
+            "parent_channel",
+            "field_type",
+            "metric",
+            [
+                "Field parent_channel in view order_lines has an invalid field_type metric. Valid field_types"
+                " are: ['dimension', 'dimension_group', 'measure']"
+            ],
+        ),
+        (
+            "parent_channel",
+            "type",
+            "__POP__",
+            [
+                "Field parent_channel in view order_lines is missing the required key 'type'.",
+                (
+                    "Field parent_channel in view order_lines has an invalid type None. Valid "
+                    "types for dimensions are: ['string', 'yesno', 'number', 'tier']"
+                ),
+            ],
+        ),
+        (
+            "parent_channel",
+            "type",
+            "count",
+            [
+                "Field parent_channel in view order_lines has an invalid type count. Valid "
+                "types for dimensions are: ['string', 'yesno', 'number', 'tier']"
+            ],
+        ),
+        (
+            "order",
+            "type",
+            "yesno",
+            [
+                (
+                    "Could not find field order_date in join between order_lines and "
+                    "country_detail referencing view order_lines"
+                ),
+                (
+                    "Could not find field order_date in join between country_detail and "
+                    "order_lines referencing view order_lines"
+                ),
+                (
+                    "Canon date order_lines.order is not of field_type: dimension_group and type: "
+                    "time in field avg_rainfall in view country_detail"
+                ),
+                "Could not locate reference order_date in field ending_on_hand_qty in view order_lines",
+                "Default date order is not of field_type: dimension_group and type: time in view order_lines",
+                (
+                    "Field order in view order_lines has an invalid type yesno. Valid types for "
+                    "dimension groups are: ['time', 'duration']"
+                ),
+            ],
+        ),
+        (
+            "total_item_costs",
+            "type",
+            "time",
+            [
+                (
+                    "Field total_item_costs in view order_lines has an invalid type time. Valid "
+                    "types for measures are: ['count', 'count_distinct', 'sum', 'sum_distinct', "
+                    "'average', 'average_distinct', 'median', 'max', 'min', 'number', "
+                    "'cumulative']"
+                ),
+            ],
+        ),
+        (
+            "parent_channel",
+            "label",
+            -1,
+            ["Field parent_channel in view order_lines has an invalid label -1. label must be a string."],
+        ),
+        (
+            "parent_channel",
+            "group_label",
+            None,
+            [
+                "Field parent_channel in view order_lines has an invalid group_label None. group_label"
+                " must be a string."
+            ],
+        ),
+        (
+            "parent_channel",
+            "hidden",
+            "yes",
+            [
+                "Field parent_channel in view order_lines has an invalid hidden value of yes. hidden must"
+                " be a boolean (true or false)."
+            ],
+        ),
+        (
+            "parent_channel",
+            "description",
+            1,
+            [
+                "Field parent_channel in view order_lines has an invalid description 1. description must"
+                " be a string."
+            ],
+        ),
+        (
+            "parent_channel",
+            "zoe_description",
+            None,
+            [
+                "Field parent_channel in view order_lines has an invalid zoe_description None. "
+                "zoe_description must be a string."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "value_format_name",
+            None,
+            [
+                "Field total_item_costs in view order_lines has an invalid value_format_name None. "
+                "Valid value_format_names are: ['decimal_0', 'decimal_1', 'decimal_2', "
+                "'decimal_pct_0', 'decimal_pct_1', 'decimal_pct_2', 'percent_0', 'percent_1', "
+                "'percent_2', 'eur', 'eur_0', 'eur_1', 'eur_2', 'usd', 'usd_0', 'usd_1', "
+                "'usd_2', 'string']"
+            ],
+        ),
+        (
+            "total_item_costs",
+            "value_format_name",
+            "aus",
+            [
+                "Field total_item_costs in view order_lines has an invalid value_format_name aus. "
+                "Valid value_format_names are: ['decimal_0', 'decimal_1', 'decimal_2', "
+                "'decimal_pct_0', 'decimal_pct_1', 'decimal_pct_2', 'percent_0', 'percent_1', "
+                "'percent_2', 'eur', 'eur_0', 'eur_1', 'eur_2', 'usd', 'usd_0', 'usd_1', "
+                "'usd_2', 'string']"
+            ],
+        ),
+        (
+            "total_item_costs",
+            "value_format_name",
+            "usd_0",
+            [],
+        ),
+        (
+            "total_item_costs",
+            "synonyms",
+            "cogs",
+            [
+                "Field total_item_costs in view order_lines has an invalid synonyms cogs. "
+                "synonyms must be a list of strings."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "synonyms",
+            [-3],
+            [
+                "Field total_item_costs in view order_lines has an invalid synonym -3. The "
+                "synonym must be a string."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "filters",
+            {"field": "order_id", "value": 1},
+            [
+                "Field total_item_costs in view order_lines has an invalid filters {'field': "
+                "'order_id', 'value': 1}. The filters must be a list of dictionaries."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "filters",
+            ["order_id"],
+            [
+                "Field total_item_costs in view order_lines has an invalid filter order_id. "
+                "filter must be a dictionary."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "filters",
+            [{"field": "order_id", "value": ">1", "random": "key"}],
+            [
+                "Property random is present on Field Filter in field total_item_costs in view "
+                "order_lines, but it is not a valid property."
+            ],
+        ),
+        ("total_item_costs", "filters", [{"field": "order_id", "value": 1}], []),
+        (
+            "total_item_costs",
+            "extra",
+            [],
+            [
+                "Field total_item_costs in view order_lines has an invalid extra []. The "
+                "extra must be a dictionary."
+            ],
+        ),
+        ("total_item_costs", "extra", {"random": "key"}, []),
+        (
+            "parent_channel",
+            "primary_key",
+            "yes",
+            [
+                (
+                    "Field parent_channel in view order_lines has an invalid primary_key yes. "
+                    "primary_key must be a boolean (true or false)."
+                ),
+                (
+                    "Multiple primary keys found in view order_lines: order_line_id, "
+                    "parent_channel. Only one primary key is allowed"
+                ),
+            ],
+        ),
+        (
+            "parent_channel",
+            "primary_key",
+            True,
+            [
+                "Multiple primary keys found in view order_lines: order_line_id, "
+                "parent_channel. Only one primary key is allowed"
+            ],
+        ),
+        (
+            "order",
+            "primary_key",
+            True,
+            [
+                "Multiple primary keys found in view order_lines: order, order_line_id"
+                ". Only one primary key is allowed"
+            ],
+        ),
+        (
+            "total_item_costs",
+            "primary_key",
+            True,
+            [
+                "Field total_item_costs in view order_lines has an invalid primary_key True. "
+                "primary_key is not a valid property for measures."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "type",
+            "string",
+            [
+                "Field total_item_costs in view order_lines has an invalid type string. Valid types for"
+                " measures are: ['count', 'count_distinct', 'sum', 'sum_distinct', 'average',"
+                " 'average_distinct', 'median', 'max', 'min', 'number', 'cumulative']"
+            ],
+        ),
+        (
+            "parent_channel",
+            "type",
+            "count",
+            [
+                "Field parent_channel in view order_lines has an invalid type count. Valid types for"
+                " dimensions are: ['string', 'yesno', 'number', 'tier']"
+            ],
+        ),
+        (
+            "order",
+            "type",
+            "number",
+            [
+                (
+                    "Could not find field order_date in join between order_lines and "
+                    "country_detail referencing view order_lines"
+                ),
+                (
+                    "Could not find field order_date in join between country_detail and "
+                    "order_lines referencing view order_lines"
+                ),
+                (
+                    "Canon date order_lines.order is not of field_type: dimension_group and type: "
+                    "time in field avg_rainfall in view country_detail"
+                ),
+                "Could not locate reference order_date in field ending_on_hand_qty in view order_lines",
+                "Default date order is not of field_type: dimension_group and type: time in view order_lines",
+                (
+                    "Field order in view order_lines has an invalid type number. Valid types for dimension"
+                    " groups are: ['time', 'duration']"
+                ),
+            ],
+        ),
+        (
+            "order",
+            "intervals",
+            ["seconds"],
+            [
+                (
+                    "Field order in view order_lines is of type time, but has property intervals when it"
+                    " should have property timeframes"
+                ),
+            ],
+        ),
+        (
+            "order",
+            "timeframes",
+            ["timestamp"],
+            [
+                (
+                    "Could not find field order_date in join between order_lines and "
+                    "country_detail referencing view order_lines"
+                ),
+                (
+                    "Could not find field order_date in join between country_detail and "
+                    "order_lines referencing view order_lines"
+                ),
+                "Could not locate reference order_date in field ending_on_hand_qty in view order_lines",
+                (
+                    "Field order in view order_lines is of type time and has timeframe value of 'timestamp'"
+                    " which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second',"
+                    " 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'week_index',"
+                    " 'week_of_year', 'week_of_month', 'month_of_year', 'month_of_year_index', 'month_name',"
+                    " 'month_index', 'quarter_of_year', 'hour_of_day', 'day_of_week', 'day_of_month',"
+                    " 'day_of_year'])"
+                ),
+            ],
+        ),
+        (
+            "waiting",
+            "sql",
+            "${TABLE}.mycol",
+            [
+                "Field waiting in view order_lines is a dimension group of type duration, but "
+                "has a sql property. Dimension groups of type duration must not have a sql "
+                "property (just sql_start and sql_end)."
+            ],
+        ),
+        (
+            "waiting",
+            "timeframes",
+            ["time"],
+            [
+                "Field waiting in view order_lines is of type duration, but has property timeframes when it "
+                "should have property intervals"
+            ],
+        ),
+        (
+            "waiting",
+            "intervals",
+            ["time"],
+            [
+                "Field waiting in view order_lines is of type duration and has interval value of 'time' which"
+                " is not a valid interval (valid intervals are ['second', 'minute', 'hour', 'day', 'week',"
+                " 'month', 'quarter', 'year'])"
+            ],
+        ),
+        (
+            "parent_channel",
+            "required_access_grants",
+            None,
+            [
+                "The required_access_grants property, None must be a list in field parent_channel in view"
+                " order_lines"
+            ],
+        ),
+        (
+            "parent_channel",
+            "required_access_grants",
+            [1],
+            [
+                "The access grant reference 1 in the required_access_grants property must be a"
+                " string in field parent_channel in view order_lines"
+            ],
+        ),
+        (
+            "parent_channel",
+            "required_access_grants",
+            [{"name": "test"}],
+            [
+                "The access grant reference {'name': 'test'} in the "
+                "required_access_grants property must be a string in field parent_channel in view order_lines"
+            ],
+        ),
+        (
+            "parent_channel",
+            "required_access_grants",
+            ["test"],
+            [
+                "The access grant test in the required_access_grants property does not exist "
+                "in model test_model"
+            ],
+        ),
+        ("parent_channel", "required_access_grants", ["test_access_grant_department_customers"], []),
+        (
+            "total_item_costs",
+            "canon_date",
+            True,
+            [
+                "Field total_item_costs in view order_lines has an invalid canon_date True. "
+                "canon_date must be a string."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "canon_date",
+            "parent_channel",
+            [
+                "Canon date order_lines.parent_channel is not of field_type: dimension_group "
+                "and type: time in field total_item_costs in view order_lines"
+            ],
+        ),
+        ("total_item_costs", "canon_date", "orders.order", []),
+        ("total_item_costs", "canon_date", "${order}", []),
+        (
+            "total_item_costs",
+            "sql",
+            None,
+            ["Field total_item_costs in view order_lines has an invalid sql None. sql must be a string."],
+        ),
+        (
+            "total_item_costs",
+            "sql",
+            1,
+            ["Field total_item_costs in view order_lines has an invalid sql 1. sql must be a string."],
+        ),
+        ("total_item_costs", "sql", "1", []),
+        (
+            "total_item_costs",
+            "sql",
+            "${TABL}.mycol",
+            ["Could not locate reference tabl in field total_item_costs in view order_lines"],
+        ),
+        ("total_item_costs", "sql", "${TABLE}.mycol", []),
+        ("total_item_costs", "sql", "${order_date}", []),
+        (
+            "parent_channel",
+            "sql",
+            None,
+            [
+                "Field parent_channel in view order_lines has an invalid sql None. sql must be a string. The"
+                " sql property must be present for dimensions."
+            ],
+        ),
+        (
+            "order",
+            "sql",
+            None,
+            [
+                "Field order in view order_lines is a dimension group of type time, but does "
+                "not have a sql valid property. Dimension groups of type time must have a sql "
+                "property and that property must be a string."
+            ],
+        ),
+        (
+            "waiting",
+            "sql_start",
+            None,
+            [
+                "Field waiting in view order_lines has an invalid sql_start None. sql_start must be a string."
+                " The sql_start property must be present for dimension groups of type duration."
+            ],
+        ),
+        (
+            "waiting",
+            "sql_end",
+            None,
+            [
+                "Field waiting in view order_lines has an invalid sql_end None. sql_end must be a string. The"
+                " sql_end property must be present for dimension groups of type duration."
+            ],
+        ),
+        (
+            "waiting",
+            "sql_end",
+            "${TABL}.mycol",
+            ["Could not locate reference tabl in field waiting in view order_lines"],
+        ),
+        ("waiting", "sql_end", "${TABLE}.mycol", []),
+        ("waiting", "sql_end", "${order_date}", []),
+        (
+            "order",
+            "convert_tz",
+            None,
+            [
+                "Field order in view order_lines has an invalid convert_tz None. "
+                "convert_tz must be a boolean (true or false)."
+            ],
+        ),
+        (
+            "order",
+            "convert_timezone",
+            -3,
+            [
+                "Field order in view order_lines has an invalid convert_timezone -3. "
+                "convert_timezone must be a boolean (true or false)."
+            ],
+        ),
+        (
+            "order",
+            "datatype",
+            "time",
+            [
+                "Field order in view order_lines has an invalid datatype time. Valid "
+                "datatypes for time dimension groups are: ['timestamp', 'date', 'datetime']"
+            ],
+        ),
+        (
+            "total_item_costs",
+            "type",
+            "cumulative",
+            [
+                (
+                    "Field total_item_costs in view order_lines is a cumulative metric (measure), "
+                    "but does not have a measure property."
+                ),
+                (
+                    "Field total_item_costs in view order_lines is a cumulative metric (measure), "
+                    "but the measure property None is unreachable."
+                ),
+            ],
+        ),
+        (
+            "total_item_costs",
+            ("type", "measure"),
+            ("cumulative", None),
+            [
+                (
+                    "Field total_item_costs in view order_lines has an invalid measure None. "
+                    "measure must be a string."
+                ),
+                (
+                    "Field total_item_costs in view order_lines is a cumulative metric (measure), "
+                    "but the measure property None is unreachable."
+                ),
+            ],
+        ),
+        (
+            "total_item_costs",
+            ("type", "measure"),
+            ("cumulative", "fake"),
+            [
+                (
+                    "Field fake not found in view order_lines, please check that this field "
+                    "exists AND that you have access to it. \n"
+                    "\n"
+                    "If this is a dimension group specify the group parameter, if not already "
+                    "specified, for example, with a dimension group named 'order' with "
+                    "timeframes: [raw, date, month] specify 'order_raw' or 'order_date' or "
+                    "'order_month' in the view order_lines"
+                ),
+                (
+                    "Field total_item_costs in view order_lines is a cumulative metric (measure), "
+                    "but the measure property fake is unreachable."
+                ),
+            ],
+        ),
+        (
+            "total_item_costs",
+            ("type", "measure"),
+            ("cumulative", "parent_channel"),
+            [
+                "Field total_item_costs in view order_lines is a cumulative metric (measure), "
+                "but the measure property parent_channel is not a "
+                "measure."
+            ],
+        ),
+        ("total_item_costs", ("type", "measure"), ("cumulative", "number_of_email_purchased_items"), []),
+        (
+            "total_item_costs",
+            "type",
+            "sum_distinct",
+            [
+                "Field total_item_costs in view order_lines is a measure of type "
+                "sum_distinct, but does not have a sql_distinct_key property."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "type",
+            "average_distinct",
+            [
+                "Field total_item_costs in view order_lines is a measure of type "
+                "average_distinct, but does not have a sql_distinct_key property."
+            ],
+        ),
+        (
+            "total_item_costs",
+            ("type", "sql_distinct_key"),
+            ("sum_distinct", None),
+            [
+                "Field total_item_costs in view order_lines is a measure of type "
+                "sum_distinct, but does not have a sql_distinct_key property."
+            ],
+        ),
+        (
+            "total_item_costs",
+            ("type", "sql_distinct_key"),
+            ("sum_distinct", "${fake}"),
+            [
+                "Field total_item_costs in view order_lines has an invalid sql_distinct_key ${fake}. The"
+                " field fake referenced in sql_distinct_key does not exist."
+            ],
+        ),
+        ("total_item_costs", ("type", "sql_distinct_key"), ("sum_distinct", "${order_id}"), []),
+        ("total_item_costs", ("type", "sql_distinct_key"), ("sum_distinct", "order_id"), []),
+        (
+            "total_item_costs",
+            "non_additive_dimension",
+            None,
+            [
+                "Field total_item_costs in view order_lines has an invalid "
+                "non_additive_dimension None. non_additive_dimension must be a dictionary."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "non_additive_dimension",
+            2,
+            [
+                "Field total_item_costs in view order_lines has an invalid "
+                "non_additive_dimension 2. non_additive_dimension must be a dictionary."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "non_additive_dimension",
+            {},
+            [
+                "Field total_item_costs in view order_lines has an invalid "
+                "non_additive_dimension {}. non_additive_dimension must have a 'name' "
+                "property that references a type time dimension group."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "non_additive_dimension",
+            {"name": "fake", "window_choice": "max"},
+            [
+                "Could not locate reference order_lines.fake in field total_item_costs in view order_lines",
+                (
+                    "Field total_item_costs in view order_lines has an invalid "
+                    "non_additive_dimension. The field order_lines.fake referenced in "
+                    "non_additive_dimension does not exist."
+                ),
+            ],
+        ),
+        (
+            "total_item_costs",
+            "non_additive_dimension",
+            {"name": "parent_channel", "window_choice": "max"},
+            [
+                "Field total_item_costs in view order_lines has an invalid "
+                "non_additive_dimension. The field order_lines.parent_channel referenced in "
+                "non_additive_dimension is not a valid dimension group with type time."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "non_additive_dimension",
+            {"name": "order_raw", "window_choice": "top"},
+            [
+                "Field total_item_costs in view order_lines has an invalid "
+                "non_additive_dimension. window_choice must be either 'max' or 'min'."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "non_additive_dimension",
+            {"name": "order_raw", "window_choice": "max", "window_aware_of_query_dimensions": 2},
+            [
+                "Field total_item_costs in view order_lines has an invalid "
+                "non_additive_dimension. window_aware_of_query_dimensions must be a boolean."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "non_additive_dimension",
+            {"name": "order_raw", "window_choice": "max", "window_groupings": "account"},
+            [
+                "Field total_item_costs in view order_lines has an invalid "
+                "non_additive_dimension. window_groupings must be a list."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "non_additive_dimension",
+            {"name": "order_raw", "window_choice": "max", "window_groupings": ["fake"]},
+            [
+                "Could not locate reference order_lines.fake in field total_item_costs in view order_lines",
+                (
+                    "Field total_item_costs in view order_lines has an invalid "
+                    "non_additive_dimension. The field order_lines.fake "
+                    "referenced in window_groupings does not exist."
+                ),
+            ],
+        ),
+        (
+            "total_item_costs",
+            "non_additive_dimension",
+            {"name": "order_raw", "window_choice": "max", "window_grouping": ["order_id"]},
+            [
+                "Property window_grouping is present on Non Additive Dimension in field "
+                "total_item_costs in view order_lines, but it is not a valid property. Did "
+                "you mean window_groupings?"
+            ],
+        ),
+        (
+            "total_item_costs",
+            "non_additive_dimension",
+            {"name": "order_raw", "window_choice": "max", "window_groupings": ["order_id"]},
+            [],
+        ),
+        (
+            "parent_channel",
+            "tags",
+            2,
+            [
+                "Field parent_channel in view order_lines has an invalid tags 2. tags must be "
+                "a list of strings."
+            ],
+        ),
+        (
+            "parent_channel",
+            "tags",
+            [-2],
+            [
+                "Field parent_channel in view order_lines has an invalid tag -2. tags must be "
+                "a list of strings."
+            ],
+        ),
+        (
+            "parent_channel",
+            "drill_fields",
+            2,
+            [
+                "Field parent_channel in view order_lines has an invalid drill_fields. "
+                "drill_fields must be a list of strings."
+            ],
+        ),
+        (
+            "parent_channel",
+            "drill_fields",
+            ["fake"],
+            [
+                "Field order_lines.fake in drill_fields is unreachable in field "
+                "parent_channel in view order_lines."
+            ],
+        ),
+        ("parent_channel", "drill_fields", ["order_id"], []),
+        (
+            "parent_channel",
+            "searchable",
+            -1,
+            [
+                "Field parent_channel in view order_lines has an invalid searchable -1. "
+                "searchable must be a boolean (true or false)."
+            ],
+        ),
+        (
+            "parent_channel",
+            "type",
+            "tier",
+            [
+                "Field parent_channel in view order_lines is of type tier, but does not have "
+                "a tiers property. The tiers property is required for dimensions of type: "
+                "tier."
+            ],
+        ),
+        (
+            "parent_channel",
+            ("type", "tiers"),
+            ("tier", ["top", "bottom"]),
+            [
+                (
+                    "Field parent_channel in view order_lines has an invalid tier top. tiers must "
+                    "be a list of integers."
+                ),
+                (
+                    "Field parent_channel in view order_lines has an invalid tier bottom. tiers "
+                    "must be a list of integers."
+                ),
+            ],
+        ),
+        ("parent_channel", ("type", "tiers"), ("tier", [0, 10, 20]), []),
+        (
+            "parent_channel",
+            "link",
+            -1,
+            ["Field parent_channel in view order_lines has an invalid link -1. link must be a string."],
+        ),
+        ("parent_channel", "link", "https://google.com", []),
+    ],
+)
+def test_validation_with_replaced_field_properties(connection, field_name, property_name, value, errors):
+    project = connection.project
+    view = _get_view_by_name(project, "order_lines")
+
+    if property_name == "__ADD__":
+        field = value
+    else:
+        field = _get_field_by_name(view, field_name)
+
+    if value == "__POP__":
+        field.pop(property_name)
+    elif property_name == "__ADD__":
+        view["fields"].append(value)
+    elif isinstance(property_name, tuple):
+        for p, v in zip(property_name, value):
+            field[p] = v
+    else:
+        field[property_name] = value
+    response = project.validate_with_replaced_objects(replaced_objects=[view])
+
+    print(response)
+    assert response == errors

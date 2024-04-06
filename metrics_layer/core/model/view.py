@@ -7,12 +7,13 @@ from metrics_layer.core.exceptions import (
 )
 
 from .base import MetricsLayerBase, SQLReplacement
-from .field import Field
+from .field import Field, ZenlyticFieldType
 from .join import ZenlyticJoinRelationship, ZenlyticJoinType
 from .join_graph import IdentifierTypes
 from .set import Set
 
 if TYPE_CHECKING:
+    from metrics_layer.core.model.model import Model
     from metrics_layer.core.model.project import Project
 
 
@@ -134,11 +135,15 @@ class View(MetricsLayerBase, SQLReplacement):
 
     @property
     def model(self):
-        if "model_name" in self._definition:
-            return self.project.get_model(self._definition["model_name"])
-        elif "model" in self._definition:
-            return self._definition["model"]
-        return
+        try:
+            if "model_name" in self._definition:
+                model: Model = self.project.get_model(self._definition["model_name"])
+                return model
+            elif "model" in self._definition:
+                model: Model = self._definition["model"]
+                return model
+        except AccessDeniedOrDoesNotExistException:
+            raise QueryError(f"View {self.name} is missing the required model_name property")
 
     @property
     def week_start_day(self):
@@ -169,17 +174,24 @@ class View(MetricsLayerBase, SQLReplacement):
 
     @property
     def primary_key(self):
-        return next((f for f in self.fields() if f.primary_key == "yes"), None)
+        return next((f for f in self.fields() if f.primary_key), None)
 
     def collect_errors(self):
-        fields = self.fields(show_hidden=True)
-        errors = []
+        try:
+            fields = self.fields(show_hidden=True)
+        except QueryError as e:
+            return [str(e)]
 
-        if self.model is None:
-            errors.append(
-                f"Could not find a model in the view {self.name}. "
-                "Use the model_name property to specify the model."
+        errors = []
+        try:
+            model_error = (
+                f"Could not find a model in the view {self.name}. Use the model_name property to specify the"
+                " model."
             )
+            if self.model is None:
+                return [model_error]
+        except QueryError:
+            return [model_error]
 
         if not self.valid_name(self.name):
             errors.append(self.name_error("view", self.name))
@@ -284,7 +296,7 @@ class View(MetricsLayerBase, SQLReplacement):
         if self.primary_key is None:
             primary_key_error = (
                 f"Warning: The view {self.name} does not have a primary key, "
-                "specify one using the tag primary_key: yes"
+                "specify one using the tag primary_key: true"
             )
             errors += [primary_key_error]
 
@@ -321,27 +333,11 @@ class View(MetricsLayerBase, SQLReplacement):
                         f" {f['user_attribute']} that must be a string, but is not"
                     )
 
-        if "required_access_grants" in self._definition and not isinstance(self.required_access_grants, list):
-            errors.append(
-                f"The required_access_grants property, {self.required_access_grants} must be a list in the"
-                f" view {self.name}"
+        errors.extend(
+            self.collect_required_access_grant_errors(
+                self._definition, self.project, f"in view {self.name}", f"in model {self.model_name}"
             )
-        elif "required_access_grants" in self._definition and isinstance(self.required_access_grants, list):
-            for f in self.required_access_grants:
-                if not isinstance(f, str):
-                    errors.append(
-                        f"The access grant reference {f} in the required_access_grants property must be a"
-                        f" string in the view {self.name}"
-                    )
-                else:
-                    try:
-                        self.project.get_access_grant(f)
-                    except QueryError:
-                        errors.append(
-                            f"The access grant {f} in the required_access_grants property does not exist in"
-                            f" the model {self.model_name}"
-                        )
-
+        )
         if "event_dimension" in self._definition and not isinstance(self._definition["event_dimension"], str):
             errors.append(
                 f"The event_dimension property, {self._definition['event_dimension']} must be a string in the"
@@ -381,8 +377,17 @@ class View(MetricsLayerBase, SQLReplacement):
         except QueryError as e:
             errors.append(str(e))
 
+        primary_keys = set()
         for field in fields:
+            if field.primary_key and field.field_type != ZenlyticFieldType.measure:
+                primary_keys.add(field.name)
             errors.extend(field.collect_errors())
+
+        if len(primary_keys) > 1:
+            errors.append(
+                f"Multiple primary keys found in view {self.name}: {', '.join(sorted(primary_keys))}."
+                " Only one primary key is allowed"
+            )
 
         # Check for duplicate fields
         field_names = [f.name for f in fields]
@@ -396,6 +401,37 @@ class View(MetricsLayerBase, SQLReplacement):
         errors.extend(
             self.invalid_property_error(definition_to_check, self.valid_properties, "view", self.name)
         )
+        return errors
+
+    @staticmethod
+    def collect_required_access_grant_errors(
+        definition: dict, project, application_location: str, grant_location: str
+    ):
+        errors = []
+        if "required_access_grants" in definition and not isinstance(
+            definition["required_access_grants"], list
+        ):
+            errors.append(
+                f"The required_access_grants property, {definition['required_access_grants']} must be a list"
+                f" {application_location}"
+            )
+        elif "required_access_grants" in definition and isinstance(
+            definition["required_access_grants"], list
+        ):
+            for f in definition["required_access_grants"]:
+                if not isinstance(f, str):
+                    errors.append(
+                        f"The access grant reference {f} in the required_access_grants property must be a"
+                        f" string {application_location}"
+                    )
+                else:
+                    try:
+                        project.get_access_grant(f)
+                    except QueryError:
+                        errors.append(
+                            f"The access grant {f} in the required_access_grants property does not exist"
+                            f" {grant_location}"
+                        )
         return errors
 
     def collect_identifier_errors(self, identifier: dict):
@@ -571,7 +607,9 @@ class View(MetricsLayerBase, SQLReplacement):
                 if referenced_sql is not None:
                     for reference in referenced_sql:
                         if isinstance(reference, str) and field.is_personal_field:
-                            all_fields.append(f"Warning: {reference}")
+                            all_fields.append((field, f"Warning: {reference}"))
+                        elif isinstance(reference, str):
+                            all_fields.append((field, reference))
                         else:
                             all_fields.append(reference)
             result.extend(all_fields)
@@ -583,7 +621,7 @@ class View(MetricsLayerBase, SQLReplacement):
         all_fields = self.__all_fields
         if show_hidden:
             return all_fields
-        return [field for field in all_fields if field.hidden == "no" or not field.hidden]
+        return [field for field in all_fields if not field.hidden]
 
     def _all_fields(self, expand_dimension_groups: bool):
         fields = []

@@ -219,7 +219,11 @@ class Project:
         all_errors = []
 
         for model in self.models():
-            all_errors.extend(model.collect_errors())
+            try:
+                all_errors.extend(model.collect_errors())
+            except QueryError as e:
+                # If we have an error building the model, we cannot continue
+                return [str(e)]
 
         try:
             all_errors.extend(self.join_graph.collect_errors())
@@ -254,19 +258,28 @@ class Project:
             try:
                 view.sql_table_name
             except QueryError as e:
-                all_errors.append(str(e))
+                all_errors.append(str(e) + f" in the view {view.name}")
+            try:
+                referenced_fields = view.referenced_fields()
+            except (AccessDeniedOrDoesNotExistException, QueryError) as e:
+                all_errors.append(str(e) + f" in the view {view.name}")
 
-            referenced_fields = view.referenced_fields()
             view_errors = view.collect_errors()
 
             for field in referenced_fields:
-                if isinstance(field, str):
-                    if "Warning: " in field:
-                        field = field.replace("Warning: ", "")
+                if isinstance(field, tuple):
+                    if "Warning: " in field[-1]:
+                        field_name = field[0].name
+                        field_reference = field[-1].replace("Warning: ", "")
                         prepend = "Warning: "
                     else:
+                        field_name = field[0].name
+                        field_reference = field[-1]
                         prepend = ""
-                    all_errors.append(f"{prepend}Could not locate reference {field} in view {view.name}")
+                    all_errors.append(
+                        f"{prepend}Could not locate reference {field_reference} in field {field_name} in view"
+                        f" {view.name}"
+                    )
             all_errors.extend(view_errors)
 
         for dashboard in self.dashboards():
@@ -315,8 +328,15 @@ class Project:
     def models(self) -> list:
         return [Model(m, project=self) for m in self._models]
 
-    def get_model(self, model_name: str) -> Union[Model, None]:
-        return next((m for m in self.models() if m.name == model_name), None)
+    def get_model(self, model_name: str) -> Model:
+        try:
+            return next((m for m in self.models() if m.name == model_name))
+        except StopIteration:
+            raise AccessDeniedOrDoesNotExistException(
+                f"Could not find or you do not have access to model {model_name}",
+                object_name=model_name,
+                object_type="model",
+            )
 
     def access_grants(self):
         return [AccessGrant(g) for m in self.models() for g in m.access_grants]

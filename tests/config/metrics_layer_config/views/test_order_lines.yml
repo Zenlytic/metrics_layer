@@ -5,91 +5,84 @@ name: order_lines
 sql_table_name: analytics.order_line_items
 
 default_date: order
-row_label: "Order line item"
+row_label: 'Order line item'
 model_name: test_model
 
-identifiers: 
-- name: order_line_id
-  type: primary
-  sql: ${order_line_id}
-- name: order_id
-  type: foreign
-  sql: ${order_id}
-- name: customer_id
-  type: foreign
-  sql: ${customer_id}
+identifiers:
+  - name: order_line_id
+    type: primary
+    sql: ${order_line_id}
+  - name: order_id
+    type: foreign
+    sql: ${order_id}
+  - name: customer_id
+    type: foreign
+    sql: ${customer_id}
 
 fields:
   - name: order_line_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
-    label: "Order line PK"
+    label: 'Order line PK'
     primary_key: yes
     hidden: yes
-    sql: "${TABLE}.order_line_id"
+    sql: '${TABLE}.order_line_id'
     group_label: "ID's"
     alias: [order_line_item_id]
 
   - name: order_id
-    field_type: "dimension"
+    field_type: 'dimension'
+    type: string
     hidden: yes
-    sql: "${TABLE}.order_unique_id"
+    sql: '${TABLE}.order_unique_id'
     group_label: "ID's"
 
   - name: customer_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     hidden: yes
-    sql: "${TABLE}.customer_id"
+    sql: '${TABLE}.customer_id'
     group_label: "ID's"
 
   - name: order
-    field_type: "dimension_group"
+    field_type: 'dimension_group'
     type: time
     datatype: date
-    timeframes: [
-      raw,
-      time,
-      date,
-      week,
-      month,
-      quarter,
-      year
-    ]
-    sql: "${TABLE}.order_date"
+    timeframes: [raw, time, date, week, month, quarter, year]
+    sql: '${TABLE}.order_date'
 
   - name: waiting
     field_type: dimension_group
     type: duration
     intervals: [day, week]
-    sql_start: "${TABLE}.view_date"
-    sql_end: "${TABLE}.order_date"
+    sql_start: '${TABLE}.view_date'
+    sql_end: '${TABLE}.order_date'
 
   - name: channel
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
-    sql: "${TABLE}.sales_channel"
+    sql: '${TABLE}.sales_channel'
 
   - name: parent_channel
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     sql: |
-        CASE
-        --- parent channel
-        WHEN ${channel} ilike '%social%' then 'Social'
-        ELSE 'Not Social'
-        END
+      CASE
+      --- parent channel
+      WHEN ${channel} ilike '%social%' then 'Social'
+      ELSE 'Not Social'
+      END
 
   - name: product_name
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
-    sql: "${TABLE}.product_name"
+    sql: '${TABLE}.product_name'
 
   - name: inventory_qty
-    field_type: "dimension"
+    field_type: 'dimension'
     hidden: yes
     type: number
-    sql: "${TABLE}.inventory_qty"
+    sql: '${TABLE}.inventory_qty'
 
   - name: is_on_sale_sql
     field_type: dimension
@@ -102,53 +95,53 @@ fields:
     case:
       whens:
         - sql: "${TABLE}.product_name ilike '%sale%'"
-          label: "On sale"
-      else: "Not on sale"
+          label: 'On sale'
+      else: 'Not on sale'
 
   - name: order_tier
     field_type: dimension
     type: tier
-    tiers: [0,20,50,100,300]
-    sql: "${TABLE}.revenue"
+    tiers: [0, 20, 50, 100, 300]
+    sql: '${TABLE}.revenue'
 
   - name: ending_on_hand_qty
     type: number
     field_type: measure
     value_format_name: decimal_0
-    description: "The ending inventory for the time period selected"
+    description: 'The ending inventory for the time period selected'
     sql: split_part(listagg(${inventory_qty}, ',') within group (order by ${order_date} desc), ',', 0)::int
 
   - name: number_of_email_purchased_items
     field_type: measure
     type: count
-    sql: "${TABLE}.order_id"
+    sql: '${TABLE}.order_id'
     filters:
       - field: channel
-        value: "Email"
+        value: 'Email'
 
   - name: average_order_revenue
-    field_type: "measure"
+    field_type: 'measure'
     type: average_distinct
     sql_distinct_key: ${order_id}
     sql: ${TABLE}.order_total
 
   - name: total_item_revenue
-    field_type: "measure"
+    field_type: 'measure'
     type: sum
     canon_date: order
-    sql: "${TABLE}.revenue"
+    sql: '${TABLE}.revenue'
 
   - name: total_item_costs
-    field_type: "measure"
+    field_type: 'measure'
     type: sum
-    sql: "${TABLE}.item_costs"
+    sql: '${TABLE}.item_costs'
     filters:
       - field: product_name
-        value: "Portable Charger"
+        value: 'Portable Charger'
       - field: product_name
-        value: "Portable Charger, Dual Charger"
+        value: 'Portable Charger, Dual Charger'
       - field: orders.revenue_in_cents
-        value: ">100"
+        value: '>100'
 
   - name: total_item_costs_pct
     field_type: measure
@@ -156,25 +149,25 @@ fields:
     sql: ${total_item_costs} * ${number_of_email_purchased_items}
 
   - name: line_item_aov
-    field_type: "measure"
+    field_type: 'measure'
     type: number
-    sql: "${total_item_revenue} / ${orders.number_of_orders}"
+    sql: '${total_item_revenue} / ${orders.number_of_orders}'
 
   - name: should_be_number
     field_type: measure
     type: sum
-    sql: "${line_item_aov} + ${total_item_costs_pct}"
+    sql: '${line_item_aov} + ${total_item_costs_pct}'
 
   - name: costs_per_session
     field_type: measure
-    type: number 
+    type: number
     sql: ${total_item_costs_pct} / nullif(${sessions.number_of_sessions}, 0)
     is_merged_result: yes
     value_format_name: usd
 
   - name: net_per_session
     field_type: measure
-    type: number 
+    type: number
     sql: ${revenue_per_session} - ${costs_per_session}
     is_merged_result: yes
     value_format_name: usd

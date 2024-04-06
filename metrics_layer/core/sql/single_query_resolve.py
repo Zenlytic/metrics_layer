@@ -1,9 +1,9 @@
 from metrics_layer.core.exceptions import QueryError
-from metrics_layer.core.sql.query_design import MetricsLayerDesign
-from metrics_layer.core.sql.query_generator import MetricsLayerQuery
-from metrics_layer.core.sql.query_funnel import FunnelQuery
-from metrics_layer.core.sql.query_cumulative_metric import CumulativeMetricsQuery
 from metrics_layer.core.model.definitions import Definitions
+from metrics_layer.core.sql.query_cumulative_metric import CumulativeMetricsQuery
+from metrics_layer.core.sql.query_design import MetricsLayerDesign
+from metrics_layer.core.sql.query_funnel import FunnelQuery
+from metrics_layer.core.sql.query_generator import MetricsLayerQuery
 
 
 class SingleSQLQueryResolver:
@@ -114,12 +114,8 @@ class SingleSQLQueryResolver:
         return where_with_query
 
     def parse_input(self):
-        # if self.explore.symmetric_aggregates == "no":
-        #     raise NotImplementedError("MetricsLayer does not support turning off symmetric aggregates")
-
         all_field_names = self.metrics + self.dimensions
         if len(set(all_field_names)) != len(all_field_names):
-            # TODO improve this error message
             raise QueryError("Ambiguous field names in the metrics and dimensions")
 
         for name in self.metrics:
@@ -128,16 +124,12 @@ class SingleSQLQueryResolver:
                 self.has_cumulative_metric = True
             self.field_lookup[name] = field
 
-        # Dimensions exceptions:
-        #   They are coming from a different explore than the metric, not joinable (handled in get_field)
-        #   They are not found in the selected explore (handled here)
-        # TODO make this better
         metric_view = None if len(self.metrics) == 0 else self.field_lookup[self.metrics[0]].view.name
 
         for name in self.dimensions:
             field = self.get_field_with_error_handling(name, "Dimension")
             # We will not use a group by if the primary key of the main resulting table is included
-            if field.primary_key == "yes" and field.view.name == metric_view and not self.force_group_by:
+            if field.primary_key and field.view.name == metric_view and not self.force_group_by:
                 self.no_group_by = True
             self.field_lookup[name] = field
 
