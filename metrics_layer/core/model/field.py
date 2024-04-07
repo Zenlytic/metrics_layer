@@ -256,7 +256,7 @@ class Field(MetricsLayerBase, SQLReplacement):
     def hidden(self):
         return self._definition.get("hidden", False)
 
-    @functools.cached_property
+    @property
     def sql(self):
         definition = json.loads(json.dumps(self._definition))
 
