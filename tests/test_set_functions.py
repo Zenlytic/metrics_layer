@@ -82,10 +82,10 @@ def test_sets(connection):
 
 @pytest.mark.project
 def test_drill_fields(connection):
-    field = connection.project.get_field("orders.number_of_orders")
+    field = connection.project.get_field("orders.new_vs_repeat")
 
     drill_field_names = field.drill_fields
-    assert field.id() == "orders.number_of_orders"
+    assert field.id() == "orders.new_vs_repeat"
     assert drill_field_names == [
         "orders.order_id",
         "orders.customer_id",

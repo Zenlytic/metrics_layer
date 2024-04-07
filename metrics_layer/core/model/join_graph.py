@@ -1,5 +1,6 @@
+import json
 from collections import defaultdict
-from copy import deepcopy
+from copy import copy
 from itertools import combinations, product
 
 import networkx
@@ -314,7 +315,7 @@ class JoinGraph(SQLReplacement):
         for view in self.project.views():
             for identifier in view.identifiers:
                 if identifier["type"] == IdentifierTypes.join:
-                    join_identifier = deepcopy(identifier)
+                    join_identifier = json.loads(json.dumps(identifier))
                     join_identifier["relationship"] = self._invert_relationship(
                         join_identifier["relationship"]
                     )
@@ -341,7 +342,7 @@ class JoinGraph(SQLReplacement):
 
     def _identifier_join_clause(self, identifier: dict, view_name: str):
         if "sql" in identifier:
-            cleaned_sql = deepcopy(str(identifier["sql"]))
+            cleaned_sql = copy(str(identifier["sql"]))
             for field_name in self.fields_to_replace(str(identifier["sql"])):
                 to_replace = "${" + field_name + "}"
                 if field_name != "TABLE" and "." not in field_name:
@@ -355,7 +356,7 @@ class JoinGraph(SQLReplacement):
         return clause
 
     def _verify_identifier_join(self, join: dict):
-        clean_join = deepcopy(join)
+        clean_join = json.loads(json.dumps(join))
         clean_join["type"] = join.get("type", ZenlyticJoinType.left_outer)
         clean_join["relationship"] = join.get("relationship", ZenlyticJoinRelationship.many_to_one)
         clean_join["sql_on"] = join["sql_on"]

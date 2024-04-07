@@ -1,4 +1,4 @@
-from copy import deepcopy
+import json
 
 import pytest
 
@@ -6,7 +6,7 @@ import pytest
 def _get_view_by_name(project, view_name):
     for view in project._views:
         if view["name"] == view_name:
-            return deepcopy(view)
+            return json.loads(json.dumps(view))
     raise ValueError(f"View {view_name} not found in project views")
 
 
@@ -346,6 +346,7 @@ def test_validation_with_no_replaced_objects(connection):
                     "fields": ["orders.sub_channel", "sessions.utm_campaign"],
                     "description": "This is a test",
                     "group_label": "Test",
+                    "link": "https://google.com",
                 },
             },
             [],
@@ -354,7 +355,7 @@ def test_validation_with_no_replaced_objects(connection):
 )
 def test_validation_with_replaced_model_properties(connection, name, value, errors):
     project = connection.project
-    model = deepcopy(project._models[0])
+    model = json.loads(json.dumps(project._models[0]))
     model[name] = value
     response = project.validate_with_replaced_objects(replaced_objects=[model])
 
@@ -894,6 +895,11 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
             [{"name": "customers", "type": "primary", "sql": "${order_id}", "join_as": "test"}],
             [],
         ),
+        (
+            "fields_for_analysis",
+            "marketing_channel",
+            ["The fields_for_analysis property, marketing_channel must be a list in the view order_lines"],
+        ),
     ],
 )
 def test_validation_with_replaced_view_properties(connection, name, value, errors):
@@ -1025,7 +1031,6 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                     "Canon date order_lines.order is not of field_type: dimension_group and type: "
                     "time in field avg_rainfall in view country_detail"
                 ),
-                "Could not locate reference order_date in field ending_on_hand_qty in view order_lines",
                 "Default date order is not of field_type: dimension_group and type: time in view order_lines",
                 (
                     "Field order in view order_lines has an invalid type yesno. Valid types for "
@@ -1212,8 +1217,14 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "primary_key",
             True,
             [
-                "Field total_item_costs in view order_lines has an invalid primary_key True. "
-                "primary_key is not a valid property for measures."
+                (
+                    "Field total_item_costs in view order_lines has an invalid primary_key True. "
+                    "primary_key is not a valid property for measures."
+                ),
+                (
+                    "Property primary_key is present on Field total_item_costs in view "
+                    "order_lines, but it is not a valid property."
+                ),
             ],
         ),
         (
@@ -1252,7 +1263,6 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                     "Canon date order_lines.order is not of field_type: dimension_group and type: "
                     "time in field avg_rainfall in view country_detail"
                 ),
-                "Could not locate reference order_date in field ending_on_hand_qty in view order_lines",
                 "Default date order is not of field_type: dimension_group and type: time in view order_lines",
                 (
                     "Field order in view order_lines has an invalid type number. Valid types for dimension"
@@ -1284,7 +1294,6 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                     "Could not find field order_date in join between country_detail and "
                     "order_lines referencing view order_lines"
                 ),
-                "Could not locate reference order_date in field ending_on_hand_qty in view order_lines",
                 (
                     "Field order in view order_lines is of type time and has timeframe value of 'timestamp'"
                     " which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second',"
@@ -1534,6 +1543,25 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 "measure."
             ],
         ),
+        (
+            "total_item_costs",
+            ("type", "measure", "cumulative_where"),
+            ("cumulative", "number_of_email_purchased_items", True),
+            [
+                "Field total_item_costs in view order_lines has an invalid cumulative_where "
+                "True. cumulative_where must be a string."
+            ],
+        ),
+        (
+            "total_item_costs",
+            ("type", "measure", "update_where_timeframe"),
+            ("cumulative", "number_of_email_purchased_items", "hi"),
+            [
+                "Field total_item_costs in view order_lines has an invalid "
+                "update_where_timeframe hi. update_where_timeframe must be a boolean (true or "
+                "false)."
+            ],
+        ),
         ("total_item_costs", ("type", "measure"), ("cumulative", "number_of_email_purchased_items"), []),
         (
             "total_item_costs",
@@ -1759,6 +1787,96 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             ["Field parent_channel in view order_lines has an invalid link -1. link must be a string."],
         ),
         ("parent_channel", "link", "https://google.com", []),
+        (
+            "total_item_costs",
+            "is_merged_result",
+            "yeah",
+            [
+                "Field total_item_costs in view order_lines has an invalid is_merged_result yeah. "
+                "is_merged_result must be a boolean (true or false)."
+            ],
+        ),
+        (
+            "parent_channel",
+            "random_key",
+            "yay",
+            [
+                "Property random_key is present on Field parent_channel in view order_lines, but "
+                "it is not a valid property."
+            ],
+        ),
+        (
+            "parent_channel",
+            "sql_distinct_key",
+            "${order_line_id}",
+            [
+                "Property sql_distinct_key is present on Field parent_channel in view order_lines, but "
+                "it is not a valid property."
+            ],
+        ),
+        (
+            "parent_channel",
+            "datatype",
+            "timestamp",
+            [
+                "Property datatype is present on Field parent_channel in view order_lines, but "
+                "it is not a valid property. Did you mean type?"
+            ],
+        ),
+        (
+            "total_item_costs",
+            "random_key",
+            "yay",
+            [
+                "Property random_key is present on Field total_item_costs in view order_lines, but "
+                "it is not a valid property."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "datatype",
+            "timestamp",
+            [
+                "Property datatype is present on Field total_item_costs in view order_lines, but "
+                "it is not a valid property. Did you mean type?"
+            ],
+        ),
+        (
+            "total_item_costs",
+            "searchable",
+            True,
+            [
+                "Property searchable is present on Field total_item_costs in view order_lines, but "
+                "it is not a valid property."
+            ],
+        ),
+        (
+            "order",
+            "random_key",
+            "yay",
+            [
+                "Property random_key is present on Field order in view order_lines, but "
+                "it is not a valid property."
+            ],
+        ),
+        (
+            "order",
+            "sql_distinct_key",
+            "${order_line_id}",
+            [
+                "Property sql_distinct_key is present on Field order in view order_lines, but "
+                "it is not a valid property."
+            ],
+        ),
+        (
+            "order",
+            "tiers",
+            [0, 20, 100],
+            [
+                "Property tiers is present on Field order in view order_lines, but it is not "
+                "a valid property. Did you mean timeframes?"
+            ],
+        ),
     ],
 )
 def test_validation_with_replaced_field_properties(connection, field_name, property_name, value, errors):

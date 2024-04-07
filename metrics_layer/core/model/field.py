@@ -1,7 +1,8 @@
 import functools
 import hashlib
+import json
 import re
-from copy import deepcopy
+from copy import copy
 from typing import TYPE_CHECKING, Union
 
 from pypika.terms import LiteralValue
@@ -152,6 +153,8 @@ class ZenlyticType:
 
 
 class Field(MetricsLayerBase, SQLReplacement):
+    internal_properties = ["is_personal_field"]
+
     def __init__(self, definition: dict, view) -> None:
         self.defaults = {"type": "string", "primary_key": False, "datatype": "timestamp"}
         self.default_intervals = ["second", "minute", "hour", "day", "week", "month", "quarter", "year"]
@@ -164,13 +167,6 @@ class Field(MetricsLayerBase, SQLReplacement):
         # Remove the label prefix if it's null
         if "label_prefix" in definition and definition["label_prefix"] is None:
             definition.pop("label_prefix")
-
-        if (
-            "sql" not in definition
-            and definition.get("field_type") == ZenlyticFieldType.measure
-            and definition.get("type") == "count"
-        ):
-            definition["primary_key_count"] = True
 
         self.view: View = view
         self.validate(definition)
@@ -217,27 +213,41 @@ class Field(MetricsLayerBase, SQLReplacement):
         if self.field_type == ZenlyticFieldType.dimension:
             dimension_only = [
                 "primary_key",
-                "sql",
                 "tags",
                 "drill_fields",
                 "searchable",
                 "tiers",
                 "link",
                 "canon_date",
+                "case",
             ]
             return shared_properties + dimension_only
         elif self.field_type == ZenlyticFieldType.dimension_group:
             dimension_group_only = [
+                "primary_key",
+                "searchable",
+                "tags",
+                "drill_fields",
                 "timeframes",
                 "intervals",
                 "sql_start",
                 "sql_end",
                 "convert_tz",
+                "convert_timezone",
                 "datatype",
+                "link",
             ]
             return shared_properties + dimension_group_only
         elif self.field_type == ZenlyticFieldType.measure:
-            measure_only = ["sql_distinct_key", "non_additive_dimension", "canon_date", "measure"]
+            measure_only = [
+                "sql_distinct_key",
+                "non_additive_dimension",
+                "canon_date",
+                "measure",
+                "is_merged_result",
+                "cumulative_where",
+                "update_where_timeframe",
+            ]
             return shared_properties + measure_only
         else:
             return shared_properties
@@ -246,9 +256,10 @@ class Field(MetricsLayerBase, SQLReplacement):
     def hidden(self):
         return self._definition.get("hidden", False)
 
-    @property
+    @functools.cached_property
     def sql(self):
-        definition = deepcopy(self._definition)
+        definition = json.loads(json.dumps(self._definition))
+
         if "sql" not in definition and "case" in definition:
             definition["sql"] = self._translate_looker_case_to_sql(definition["case"])
 
@@ -522,7 +533,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         return type_lookup[self.type](sql, query_type, functional_pk, alias_only)
 
     def strict_replaced_query(self):
-        clean_sql = deepcopy(self.sql)
+        clean_sql = copy(self.sql)
         fields_to_replace = self.fields_to_replace(clean_sql)
         for to_replace in fields_to_replace:
             if to_replace == "TABLE":
@@ -742,7 +753,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def _number_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
         if isinstance(sql, list):
-            replaced = deepcopy(self.sql)
+            replaced = copy(self.sql)
             for field_name in self.fields_to_replace(self.sql):
                 proper_to_replace = "${" + field_name + "}"
                 if field_name == "TABLE":
@@ -795,11 +806,11 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def to_dict(self, query_type: str = None):
         output = {**self._definition}
-        output["sql_raw"] = deepcopy(self.sql)
+        output["sql_raw"] = copy(self.sql)
         if output["field_type"] == ZenlyticFieldType.measure and output["type"] == "number":
             output["sql"] = self.get_referenced_sql_query()
         elif output["field_type"] == ZenlyticFieldType.dimension_group and self.dimension_group is None:
-            output["sql"] = deepcopy(self.sql)
+            output["sql"] = copy(self.sql)
         elif query_type:
             output["sql"] = self.sql_query(query_type)
         return output
@@ -1195,7 +1206,10 @@ class Field(MetricsLayerBase, SQLReplacement):
         errors = []
         if not self.valid_name(self.name):
             errors.append(self.name_error("field", self.name))
-        elif self.name in self.view.model.special_mapping_values:
+        elif (
+            self.name in self.view.model.special_mapping_values
+            and self.field_type != ZenlyticFieldType.dimension_group
+        ):
             errors.append(
                 f"Field name: {self.name} in view {self.view.name} is a reserved word and cannot be used as a"
                 " field name."
@@ -1576,6 +1590,12 @@ class Field(MetricsLayerBase, SQLReplacement):
             elif self.sql is not None and self.type != ZenlyticType.cumulative:
                 errors.extend(self.collect_sql_errors(self.sql, "sql"))
 
+            if "is_merged_result" in self._definition and not isinstance(self.is_merged_result, bool):
+                errors.append(
+                    f"Field {self.name} in view {self.view.name} has an invalid is_merged_result"
+                    f" {self.is_merged_result}. is_merged_result must be a boolean (true or false)."
+                )
+
             if self.type == ZenlyticType.cumulative:
                 if "measure" not in self._definition:
                     errors.append(
@@ -1603,6 +1623,19 @@ class Field(MetricsLayerBase, SQLReplacement):
                     errors.append(
                         f"Field {self.name} in view {self.view.name} is a cumulative metric (measure),"
                         f" but the measure property {self._definition.get('measure')} is unreachable."
+                    )
+                if "cumulative_where" in self._definition and not isinstance(self.cumulative_where, str):
+                    errors.append(
+                        f"Field {self.name} in view {self.view.name} has an invalid cumulative_where"
+                        f" {self.cumulative_where}. cumulative_where must be a string."
+                    )
+                if "update_where_timeframe" in self._definition and not isinstance(
+                    self.update_where_timeframe, bool
+                ):
+                    errors.append(
+                        f"Field {self.name} in view {self.view.name} has an invalid update_where_timeframe"
+                        f" {self.update_where_timeframe}. update_where_timeframe must be a boolean (true or"
+                        " false)."
                     )
             if self.type in ZenlyticType.requires_sql_distinct_key and not self.sql_distinct_key:
                 errors.append(
@@ -1713,14 +1746,12 @@ class Field(MetricsLayerBase, SQLReplacement):
 
         # Catch invalid attributes for all field types
         # (this property is scoped based on field_type)
-        # errors.extend(
-        #     self.invalid_property_error(
-        #         self._definition,
-        #         self.valid_properties,
-        #         "field",
-        #         f"{self.name} in view {self.view.name}"
-        #     )
-        # )
+        properties = self.valid_properties + self.internal_properties
+        errors.extend(
+            self.invalid_property_error(
+                self._definition, properties, "field", f"{self.name} in view {self.view.name}"
+            )
+        )
         # For personal fields everything is a warning
         if self.is_personal_field:
             errors = [f"{warning_prefix} {e}" for e in errors if warning_prefix not in e]
@@ -1756,8 +1787,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
         if self.type == "cumulative":
             referenced_fields = [self.measure]
-
-        elif self.sql_start and self.sql_end and self.type == "duration":
+        elif self.type == "duration" and self.sql_start and self.sql_end:
             start_fields = self.referenced_fields(self.sql_start)
             end_fields = self.referenced_fields(self.sql_end)
             referenced_fields = start_fields + end_fields
@@ -1769,7 +1799,8 @@ class Field(MetricsLayerBase, SQLReplacement):
             return list(set(f"{f.view.name}.{f.name}" for f in valid_references))
         return referenced_fields
 
-    def referenced_fields(self, sql, ignore_explore: bool = False):
+    @functools.lru_cache(maxsize=None)
+    def referenced_fields(self, sql):
         reference_fields = []
         if sql is None:
             return []
@@ -1825,7 +1856,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         return clean_sql
 
     def replace_fields(self, sql, query_type, view_name=None, alias_only=False):
-        clean_sql = deepcopy(sql)
+        clean_sql = copy(sql)
         view_name = self.view.name if not view_name else view_name
         fields_to_replace = self.fields_to_replace(sql)
         for to_replace in fields_to_replace:
@@ -1891,7 +1922,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         return case_sql + "end"
 
     def _clean_sql_for_case(self, sql: str):
-        clean_sql = deepcopy(sql)
+        clean_sql = copy(sql)
         for to_replace in self.fields_to_replace(sql):
             if to_replace != "TABLE":
                 clean_sql = clean_sql.replace("${" + to_replace + "}", "${" + to_replace.lower() + "}")

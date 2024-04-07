@@ -1,4 +1,4 @@
-from copy import deepcopy
+import json
 from typing import TYPE_CHECKING
 
 from metrics_layer.core.exceptions import (
@@ -39,7 +39,7 @@ class DashboardElement(MetricsLayerBase):
                 raise QueryError(f"Dashboard Element missing required key {k}")
 
     def to_dict(self):
-        definition = deepcopy(self._definition)
+        definition = json.loads(json.dumps(self._definition))
         definition["metrics"] = self.metrics
         definition["filters"] = self.parsed_filters(json_safe=True)
         return definition
@@ -121,7 +121,7 @@ class Dashboard(MetricsLayerBase):
                 raise QueryError(f"Dashboard missing required key {k}")
 
     def to_dict(self):
-        definition = deepcopy(self._definition)
+        definition = json.loads(json.dumps(self._definition))
         definition["elements"] = [e.to_dict() for e in self.elements()]
         definition["filters"] = self.parsed_filters(json_safe=True)
         return definition

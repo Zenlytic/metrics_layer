@@ -1,5 +1,5 @@
+import json
 from collections import Counter
-from copy import deepcopy
 from typing import TYPE_CHECKING
 
 import pendulum
@@ -83,6 +83,7 @@ class Model(MetricsLayerBase):
         "access_grants",
         "mappings",
     ]
+    internal_properties = ["_file_path"]
 
     def __init__(self, definition: dict, project) -> None:
         self.special_mapping_values = SPECIAL_MAPPING_VALUES
@@ -113,7 +114,7 @@ class Model(MetricsLayerBase):
 
     @property
     def mappings(self):
-        mappings = deepcopy(self._definition.get("mappings", {}))
+        mappings = json.loads(json.dumps(self._definition.get("mappings", {})))
 
         if not isinstance(mappings, dict):
             raise QueryError(f"The mappings property, {mappings} must be a dictionary")
@@ -185,8 +186,7 @@ class Model(MetricsLayerBase):
                         errors.append(str(e) + f" in the model {self.name}")
         except QueryError as e:
             errors.append(str(e) + f" in the model {self.name}")
-
-        valid_mappings_properties = ["fields", "group_label", "description"]
+        valid_mappings_properties = ["fields", "group_label", "description", "link"]
         try:
             mappings = self.mappings
             for mapping_name, mapped_values in mappings.items():
@@ -205,6 +205,12 @@ class Model(MetricsLayerBase):
                         f"The mapping value, {mapped_values} must be a dictionary in the model {self.name}"
                     )
                 if isinstance(mapped_values, dict):
+                    if "link" in mapped_values and not isinstance(mapped_values["link"], str):
+                        errors.append(
+                            f"The link property, {mapped_values['link']} must be a string"
+                            f" in the mapping {mapping_name} in the model {self.name}"
+                        )
+
                     if "group_label" in mapped_values and not isinstance(mapped_values["group_label"], str):
                         errors.append(
                             f"The group_label property, {mapped_values['group_label']} must be a string"
@@ -239,8 +245,9 @@ class Model(MetricsLayerBase):
                 raise QueryError(str(e) + f" in the model {self.name}")
             errors.append(str(e) + f" in the model {self.name}")
 
+        definition_to_check = {k: v for k, v in self._definition.items() if k not in self.internal_properties}
         errors.extend(
-            self.invalid_property_error(self._definition, self.valid_properties, "model", self.name)
+            self.invalid_property_error(definition_to_check, self.valid_properties, "model", self.name)
         )
         return errors
 

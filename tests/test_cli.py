@@ -703,9 +703,10 @@ def test_cli_validate_two_customer_tags(connection, fresh_project, mocker):
     assert result.exit_code == 0
     assert (
         result.output
-        == "Found 1 error in the project:\n\n"
-        "\nMultiple fields found for the tag customer - those fields were ['orders.cumulative_aov',"
-        " 'customers.customer_id']. Only one field can have the tag \"customer\" per joinable graph.\n\n"
+        == "Found 2 errors in the project:\n\n\nMultiple fields found for the tag customer - those fields"
+        " were ['orders.cumulative_aov', 'customers.customer_id']. Only one field can have the tag"
+        ' "customer" per joinable graph.\n\n\nProperty tags is present on Field cumulative_aov in view'
+        " orders, but it is not a valid property.\n\n"
     )
 
 

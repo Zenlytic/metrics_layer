@@ -37,8 +37,9 @@ class View(MetricsLayerBase, SQLReplacement):
         "event_name",
         "identifiers",
         "fields",
+        "fields_for_analysis",
     ]
-    internal_properties = ["model", "field_prefix"]
+    internal_properties = ["model", "field_prefix", "_file_path"]
 
     def __init__(self, definition: dict, project) -> None:
         if "sets" not in definition:
@@ -355,6 +356,12 @@ class View(MetricsLayerBase, SQLReplacement):
         if "event_name" in self._definition and not isinstance(self.event_name, str):
             errors.append(
                 f"The event_name property, {self.event_name} must be a string in the view {self.name}"
+            )
+
+        if "fields_for_analysis" in self._definition and not isinstance(self.fields_for_analysis, list):
+            errors.append(
+                f"The fields_for_analysis property, {self.fields_for_analysis} must be a list in the view"
+                f" {self.name}"
             )
 
         used_identifier_names = set()
@@ -695,7 +702,13 @@ class View(MetricsLayerBase, SQLReplacement):
         return sql_table_name
 
     def list_sets(self):
-        return [Set({**s, "view_name": self.name}, project=self.project) for s in self.sets]
+        if not isinstance(self.sets, list):
+            return []
+        sets = []
+        for s in self.sets:
+            if isinstance(s, dict):
+                sets.append(Set({**s, "view_name": self.name}, project=self.project))
+        return sets
 
     def get_set(self, set_name: str):
         return next((s for s in self.list_sets() if s.name == set_name), None)

@@ -1,4 +1,4 @@
-from copy import deepcopy
+from copy import copy
 from typing import TYPE_CHECKING
 
 from metrics_layer.core.exceptions import (
@@ -160,7 +160,7 @@ class Join(MetricsLayerBase, SQLReplacement):
         return list(set(joins))
 
     def get_replaced_sql_on(self, sql: str, query_type: str):
-        sql_on = deepcopy(sql)
+        sql_on = copy(sql)
         fields_to_replace = self.fields_to_replace(sql_on)
         for field in fields_to_replace:
             _, view_name, column_name = Field.field_name_parts(field)

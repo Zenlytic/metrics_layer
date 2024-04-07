@@ -3,7 +3,7 @@
 # for that configuration then replaces the MQL() section of the original string
 # with the correct SQL
 
-from copy import deepcopy
+from copy import copy, deepcopy
 
 import sqlparse
 from sqlparse.sql import Function, Identifier, IdentifierList, Statement, Where
@@ -76,7 +76,7 @@ class MQLConverter:
         self.connection = None
 
     def get_query(self):
-        converted_sql = deepcopy(self.sql)
+        converted_sql = copy(self.sql)
         statement = sqlparse.parse(self.sql)[0]
         for token in statement:
             # Handle case without an alias
@@ -89,7 +89,7 @@ class MQLConverter:
             # Handle error with parenthesis
             if isinstance(token, Identifier) and str(token).upper() == self._function_name:
                 raise ParseError(
-                    f"Expected beginning and ending parenthesis around statement beginning with "
+                    "Expected beginning and ending parenthesis around statement beginning with "
                     f"{str(token)} in statement {self.sql}"
                 )
 

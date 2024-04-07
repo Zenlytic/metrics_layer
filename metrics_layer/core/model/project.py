@@ -1,7 +1,6 @@
 import functools
 import json
 from collections import Counter
-from copy import deepcopy
 from typing import List, Union
 
 from metrics_layer.core.exceptions import (
@@ -129,7 +128,7 @@ class Project:
 
     def _handle_join_as_duplication(self, views: list):
         join_as_to_create = {}
-        copied_views = deepcopy(views)
+        copied_views = json.loads(json.dumps(views))
         for v in copied_views:
             for identifier in v.get("identifiers", []):
                 if "join_as" in identifier and identifier["type"] == "primary":
@@ -144,7 +143,7 @@ class Project:
                     if identifier["join_as"] not in join_as_to_create:
                         view_args = {
                             "identifiers": [identifier_to_add],
-                            "fields": deepcopy(v.get("fields", [])),
+                            "fields": json.loads(json.dumps(v.get("fields", []))),
                         }
                         if "join_as_label" in identifier:
                             view_args["label"] = identifier["join_as_label"]
@@ -179,36 +178,38 @@ class Project:
     def validate_with_replaced_objects(self, replaced_objects: list):
         replaced_views, replaced_models, replaced_dashboards = [], [], []
         for dict_obj in replaced_objects:
-            if dict_obj.get("type") == "view":
-                replaced_views.append(dict_obj)
-            elif dict_obj.get("type") == "model":
-                replaced_models.append(dict_obj)
-            elif dict_obj.get("type") == "dashboard":
-                replaced_dashboards.append(dict_obj)
-            else:
-                # We cannot use the object if it is not a view, model or dashboard
-                pass
+            if isinstance(dict_obj, dict):
+                if dict_obj.get("type") == "view":
+                    replaced_views.append(dict_obj)
+                elif dict_obj.get("type") == "model":
+                    replaced_models.append(dict_obj)
+                elif dict_obj.get("type") == "dashboard":
+                    replaced_dashboards.append(dict_obj)
+                else:
+                    # We cannot use the object if it is not a view, model or dashboard
+                    pass
 
         # Replace model files
         replaced_model_names = set([m["name"] for m in replaced_models])
         unchanged_models = [m for m in self._models if m["name"] not in replaced_model_names]
-        current_models = deepcopy(self._models)
+        current_models = json.loads(json.dumps(self._models))
         self._models = unchanged_models + replaced_models
 
         # Replace view files
         replaced_view_names = set([v["name"] for v in replaced_views])
         unchanged_views = [v for v in self._views if v["name"] not in replaced_view_names]
-        current_views = deepcopy(self._views)
+        current_views = json.loads(json.dumps(self._views))
         self._views = unchanged_views + replaced_views
 
         # Replace dashboard files
         replaced_dashboard_names = set([d["name"] for d in replaced_dashboards])
         unchanged_dashboards = [d for d in self._dashboards if d["name"] not in replaced_dashboard_names]
-        current_dashboards = deepcopy(self._dashboards)
+        current_dashboards = json.loads(json.dumps(self._dashboards))
         self._dashboards = unchanged_dashboards + replaced_dashboards
         self.refresh_cache()
 
         errors = self.validate()
+
         self._views = current_views
         self._models = current_models
         self._dashboards = current_dashboards
@@ -217,7 +218,6 @@ class Project:
 
     def validate(self):
         all_errors = []
-
         for model in self.models():
             try:
                 all_errors.extend(model.collect_errors())
@@ -241,6 +241,7 @@ class Project:
                 all_errors.append(error_text)
             except Exception:
                 pass
+
         for view in self.views():
             if len(self._required_access_filter_user_attributes) > 0:
                 for user_attribute_name in self._required_access_filter_user_attributes:

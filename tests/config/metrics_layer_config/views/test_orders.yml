@@ -91,7 +91,7 @@ fields:
     intervals: ['hour', 'day', 'week', 'month', 'quarter', 'year']
     sql_start: ${previous_order_raw}
     sql_end: ${order_raw}
-    label": 'between this and last order'
+    label: 'between this and last order'
 
   - name: revenue_dimension
     field_type: 'dimension'
@@ -122,10 +122,10 @@ fields:
     field_type: 'dimension'
     type: string
     sql: '${TABLE}.new_vs_repeat'
+    drill_fields: [test_set*, new_vs_repeat]
 
   - name: number_of_orders
     field_type: measure
-    drill_fields: [test_set*, new_vs_repeat]
     type: count
     sql: '${order_id}'
     canon_date: null

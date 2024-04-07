@@ -28,7 +28,6 @@ fields:
     hidden: yes
     sql: '${TABLE}.order_line_id'
     group_label: "ID's"
-    alias: [order_line_item_id]
 
   - name: order_id
     field_type: 'dimension'
