@@ -11,6 +11,7 @@ from pypika.terms import LiteralValue
 from metrics_layer.core.exceptions import QueryError
 
 from .base import MetricsLayerBase
+from .week_start_day_types import WeekStartDayTypes
 
 
 class LiteralValueCriterion(Criterion):
@@ -104,13 +105,13 @@ class Filter(MetricsLayerBase):
     week_start_day_default = pendulum.MONDAY
     week_end_day_default = pendulum.SUNDAY
     week_start_day_lookup = {
-        "monday": pendulum.MONDAY,
-        "tuesday": pendulum.TUESDAY,
-        "wednesday": pendulum.WEDNESDAY,
-        "thursday": pendulum.THURSDAY,
-        "friday": pendulum.FRIDAY,
-        "saturday": pendulum.SATURDAY,
-        "sunday": pendulum.SUNDAY,
+        WeekStartDayTypes.monday: pendulum.MONDAY,
+        WeekStartDayTypes.tuesday: pendulum.TUESDAY,
+        WeekStartDayTypes.wednesday: pendulum.WEDNESDAY,
+        WeekStartDayTypes.thursday: pendulum.THURSDAY,
+        WeekStartDayTypes.friday: pendulum.FRIDAY,
+        WeekStartDayTypes.saturday: pendulum.SATURDAY,
+        WeekStartDayTypes.sunday: pendulum.SUNDAY,
     }
 
     def __init__(self, definition: dict = {}) -> None:

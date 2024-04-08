@@ -4,106 +4,91 @@ name: customers
 
 sql_table_name: "{{ ref('customers') }}"
 default_date: first_order
-row_label: "Customer"
+row_label: 'Customer'
 required_access_grants: [test_access_grant_department_customers]
 model_name: test_model
 
-identifiers: 
-- name: customer_id
-  type: primary
-  sql: ${customer_id}
+identifiers:
+  - name: customer_id
+    type: primary
+    sql: ${customer_id}
 
 fields:
   - name: customer_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     primary_key: yes
     hidden: yes
-    sql: "${TABLE}.customer_id"
+    sql: '${TABLE}.customer_id'
     group_label: "ID's"
     tags: ['customer']
 
   - name: first_order
-    field_type: "dimension_group"
+    field_type: 'dimension_group'
     type: time
-    timeframes: [
-      raw,
-      time,
-      date,
-      week,
-      month,
-      quarter,
-      year
-    ]
-    sql: "${TABLE}.first_order_date"
+    timeframes: [raw, time, date, week, month, quarter, year]
+    sql: '${TABLE}.first_order_date'
 
   - name: cancelled
-    field_type: "dimension_group"
+    field_type: 'dimension_group'
     type: time
-    timeframes: [
-      raw,
-      time,
-      date,
-      week,
-      month,
-      quarter,
-      year
-    ]
-    sql: "${TABLE}.cancelled_date"
+    timeframes: [raw, time, date, week, month, quarter, year]
+    sql: '${TABLE}.cancelled_date'
 
   - name: number_of_customers
     field_type: measure
     type: count
+    sql: '${customer_id}'
 
   - name: region
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
-    sql: "${TABLE}.region"
+    sql: '${TABLE}.region'
 
   - name: gender
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
-    sql: "${TABLE}.gender"
+    sql: '${TABLE}.gender'
 
   - name: last_product_purchased
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
-    sql: "${TABLE}.last_product_purchased"
+    sql: '${TABLE}.last_product_purchased'
 
   - name: is_churned
     field_type: dimension
     type: yesno
-    sql: "${TABLE}.is_churned"
+    sql: '${TABLE}.is_churned'
 
   - name: customer_ltv
-    field_type: "dimension"
+    field_type: 'dimension'
     type: number
-    sql: "${TABLE}.customer_ltv"
+    sql: '${TABLE}.customer_ltv'
 
   - name: median_customer_ltv
-    field_type: "measure"
+    field_type: 'measure'
     type: median
-    sql: "${customer_ltv}"
+    sql: '${customer_ltv}'
 
   - name: average_customer_ltv
-    field_type: "measure"
+    field_type: 'measure'
     type: average
-    sql: "${customer_ltv}"
+    sql: '${customer_ltv}'
 
   - name: days_between_first_second_order
-    field_type: "measure"
+    field_type: 'measure'
     type: average
-    sql: "date_diff(cast(${TABLE}.second_order_date as date), cast(${TABLE}.first_order_date as date), day)"
+    sql: 'date_diff(cast(${TABLE}.second_order_date as date), cast(${TABLE}.first_order_date as date), day)'
 
   - name: total_sessions
-    field_type: "measure"
+    field_type: 'measure'
     type: sum
-    sql: "${TABLE}.total_sessions"
+    sql: '${TABLE}.total_sessions'
     filters:
       - field: is_churned
         value: no
 
   - name: total_sessions_divide
-    field_type: "measure"
+    field_type: 'measure'
     type: number
-    sql: "${total_sessions} / (100 * 1.0)"
+    sql: '${total_sessions} / (100 * 1.0)'

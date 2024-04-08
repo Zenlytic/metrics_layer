@@ -1,5 +1,6 @@
+import json
 from collections import defaultdict
-from copy import deepcopy
+from copy import copy
 from itertools import combinations, product
 
 import networkx
@@ -11,7 +12,7 @@ from metrics_layer.core.exceptions import (
 from metrics_layer.core.model.definitions import Definitions
 
 from .base import SQLReplacement
-from .join import Join
+from .join import Join, ZenlyticJoinRelationship, ZenlyticJoinType
 
 
 class IdentifierTypes:
@@ -19,11 +20,18 @@ class IdentifierTypes:
     foreign = "foreign"
     join = "join"
 
+    options = [primary, foreign, join]
+
 
 class JoinGraph(SQLReplacement):
     def __init__(self, project) -> None:
         self.project = project
-        self._join_preference = ["one_to_one", "many_to_one", "one_to_many", "many_to_many"]
+        self._join_preference = [
+            ZenlyticJoinRelationship.one_to_one,
+            ZenlyticJoinRelationship.many_to_one,
+            ZenlyticJoinRelationship.one_to_many,
+            ZenlyticJoinRelationship.many_to_many,
+        ]
         self._merged_result_graph = None
         self._graph = None
         self._field_memo = {}
@@ -307,7 +315,7 @@ class JoinGraph(SQLReplacement):
         for view in self.project.views():
             for identifier in view.identifiers:
                 if identifier["type"] == IdentifierTypes.join:
-                    join_identifier = deepcopy(identifier)
+                    join_identifier = json.loads(json.dumps(identifier))
                     join_identifier["relationship"] = self._invert_relationship(
                         join_identifier["relationship"]
                     )
@@ -325,7 +333,7 @@ class JoinGraph(SQLReplacement):
 
     def _identifier_to_join(self, first_identifier, first_view_name, second_identifier, second_view_name):
         relationship = self._derive_relationship(first_identifier, second_identifier)
-        join_type = "left_outer"
+        join_type = ZenlyticJoinType.left_outer
         first_clause = self._identifier_join_clause(first_identifier, first_view_name)
         second_clause = self._identifier_join_clause(second_identifier, second_view_name)
         sql_on = f"{first_clause}={second_clause}"
@@ -334,7 +342,7 @@ class JoinGraph(SQLReplacement):
 
     def _identifier_join_clause(self, identifier: dict, view_name: str):
         if "sql" in identifier:
-            cleaned_sql = deepcopy(str(identifier["sql"]))
+            cleaned_sql = copy(str(identifier["sql"]))
             for field_name in self.fields_to_replace(str(identifier["sql"])):
                 to_replace = "${" + field_name + "}"
                 if field_name != "TABLE" and "." not in field_name:
@@ -348,9 +356,9 @@ class JoinGraph(SQLReplacement):
         return clause
 
     def _verify_identifier_join(self, join: dict):
-        clean_join = deepcopy(join)
-        clean_join["type"] = join.get("type", "left_outer")
-        clean_join["relationship"] = join.get("relationship", "many_to_one")
+        clean_join = json.loads(json.dumps(join))
+        clean_join["type"] = join.get("type", ZenlyticJoinType.left_outer)
+        clean_join["relationship"] = join.get("relationship", ZenlyticJoinRelationship.many_to_one)
         clean_join["sql_on"] = join["sql_on"]
         clean_join["weight"] = self._edge_weight(clean_join["relationship"])
         return clean_join
@@ -360,13 +368,13 @@ class JoinGraph(SQLReplacement):
         base_type = identifier["type"]
         join_type = join_identifier["type"]
         if base_type == IdentifierTypes.foreign and join_type == IdentifierTypes.primary:
-            return "many_to_one"
+            return ZenlyticJoinRelationship.many_to_one
         elif base_type == IdentifierTypes.primary and join_type == IdentifierTypes.primary:
-            return "one_to_one"
+            return ZenlyticJoinRelationship.one_to_one
         elif base_type == IdentifierTypes.primary and join_type == IdentifierTypes.foreign:
-            return "one_to_many"
+            return ZenlyticJoinRelationship.one_to_many
         elif base_type == IdentifierTypes.foreign and join_type == IdentifierTypes.foreign:
-            return "many_to_many"
+            return ZenlyticJoinRelationship.many_to_many
         else:
             raise QueryError(
                 "This join type cannot be determined from the identifier properties. "
@@ -377,20 +385,20 @@ class JoinGraph(SQLReplacement):
     @staticmethod
     def _invert_relationship(relationship: str):
         mapping = {
-            "many_to_one": "one_to_many",
-            "one_to_many": "many_to_one",
-            "many_to_many": "many_to_many",
-            "one_to_one": "one_to_one",
+            ZenlyticJoinRelationship.many_to_one: ZenlyticJoinRelationship.one_to_many,
+            ZenlyticJoinRelationship.one_to_many: ZenlyticJoinRelationship.many_to_one,
+            ZenlyticJoinRelationship.many_to_many: ZenlyticJoinRelationship.many_to_many,
+            ZenlyticJoinRelationship.one_to_one: ZenlyticJoinRelationship.one_to_one,
         }
         return mapping[relationship]
 
     @staticmethod
     def _edge_weight(relationship: str):
         mapping = {
-            "many_to_one": 2,
-            "one_to_many": 3,
-            "many_to_many": 4,
-            "one_to_one": 1,
+            ZenlyticJoinRelationship.many_to_one: 2,
+            ZenlyticJoinRelationship.one_to_many: 3,
+            ZenlyticJoinRelationship.many_to_many: 4,
+            ZenlyticJoinRelationship.one_to_one: 1,
         }
         return mapping[relationship]
 
@@ -400,4 +408,4 @@ class JoinGraph(SQLReplacement):
 
     @staticmethod
     def _is_fanout(relationship: str):
-        return relationship in {"one_to_many", "many_to_many"}
+        return relationship in {ZenlyticJoinRelationship.one_to_many, ZenlyticJoinRelationship.many_to_many}

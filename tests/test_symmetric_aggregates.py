@@ -3,19 +3,6 @@ import pytest
 from metrics_layer.core.model.definitions import Definitions
 
 
-@pytest.mark.query
-def test_query_count_no_sql(connection):
-    query = connection.get_sql_query(metrics=["number_of_customers"], dimensions=["channel"])
-
-    correct = (
-        "SELECT order_lines.sales_channel as order_lines_channel,COUNT(DISTINCT(customers.customer_id))"
-        " as customers_number_of_customers FROM analytics.order_line_items order_lines "
-        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
-        "GROUP BY order_lines.sales_channel ORDER BY customers_number_of_customers DESC;"
-    )
-    assert query == correct
-
-
 @pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery, Definitions.redshift])
 @pytest.mark.query
 def test_query_sum_with_sql(connection, query_type):

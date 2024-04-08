@@ -1,13 +1,15 @@
-from copy import deepcopy
-from typing import List
 import functools
 import itertools
+from copy import deepcopy
+from typing import List
 
 import networkx
+
 from metrics_layer.core.exceptions import JoinError
 from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.filter import Filter
+from metrics_layer.core.model.join import ZenlyticJoinRelationship
 
 
 class MetricsLayerDesign:
@@ -61,7 +63,6 @@ class MetricsLayerDesign:
             return ordered_view_pairs
 
         except networkx.exception.NetworkXUnfeasible:
-
             if len(required_views) == 2:
                 try:
                     path = self._shortest_path_between_two(required_views)
@@ -197,10 +198,13 @@ class MetricsLayerDesign:
 
         if len(sorted_joins) == 0:
             return self.get_view(self.base_view_name).primary_key
-        elif any(j.relationship == "many_to_many" for j in sorted_joins):
+        elif any(j.relationship == ZenlyticJoinRelationship.many_to_many for j in sorted_joins):
             # There is no functional primary key if there is a many_to_many join
             return Definitions.does_not_exist
-        elif all(j.relationship in {"many_to_one", "one_to_one"} for j in sorted_joins):
+        elif all(
+            j.relationship in {ZenlyticJoinRelationship.many_to_one, ZenlyticJoinRelationship.one_to_one}
+            for j in sorted_joins
+        ):
             # The functional primary key is the key to the base join is all joins are many_to_one
             return self.get_view(self.base_view_name).primary_key
         else:
@@ -233,12 +237,15 @@ class MetricsLayerDesign:
         base_sequence = deepcopy([base_view.name])
         for i, j in enumerate(sorted_joins):
             previous_join_type = None if i == 0 else sorted_joins[i - 1].relationship
-            if j.relationship == "many_to_many":
+            if j.relationship == ZenlyticJoinRelationship.many_to_many:
                 return Definitions.does_not_exist
 
-            if j.relationship == "one_to_many" and previous_join_type == "many_to_one":
+            if (
+                j.relationship == ZenlyticJoinRelationship.one_to_many
+                and previous_join_type == ZenlyticJoinRelationship.many_to_one
+            ):
                 return Definitions.does_not_exist
-            elif j.relationship == "one_to_many":
+            elif j.relationship == ZenlyticJoinRelationship.one_to_many:
                 base_sequence.append(j.join_view_name)
         primary_key = base_sequence[-1]
         return primary_key

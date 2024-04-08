@@ -401,10 +401,11 @@ def test_cli_validate(connection, fresh_project, mocker):
     # assert result.exit_code == 0
     assert (
         result.output
-        == "Found 3 errors in the project:\n\n"
-        "\nCould not locate reference revenue_dimension in view order_lines\n\n"
-        "\nCould not locate reference revenue_dimension in view orders\n\n"
-        "\nDefault date sessions.session_date is unreachable in view orders\n\n"
+        == "Found 4 errors in the project:\n\n"
+        "\nCould not locate reference revenue_dimension in field total_item_costs in view order_lines\n\n"
+        "\nCould not locate reference revenue_dimension in field revenue_in_cents in view orders\n\n"
+        "\nCould not locate reference revenue_dimension in field total_revenue in view orders\n\n"
+        "\nDefault date sessions.session_date in view orders is not joinable to the view orders\n\n"
     )
 
 
@@ -446,9 +447,11 @@ def test_cli_validate_personal_field(connection, fresh_project, mocker):
     result = runner.invoke(validate)
 
     assert result.exit_code == 0
-    assert result.output == (
-        "Found 1 error in the project:\n\n"
-        "\nWarning: Field cancelled is a dimension_group, but does not have a type associated with it. You must set a type for this dimension_group.\n\n"  # noqa
+    assert (
+        result.output
+        == "Found 2 errors in the project:\n\n\nWarning: Field cancelled in view customers is missing the"
+        " required key 'type'.\n\n\nWarning: Field cancelled in view customers has an invalid type None."
+        " Valid types for dimension groups are: ['time', 'duration']\n\n"
     )
 
 
@@ -469,7 +472,7 @@ def test_cli_validate_personal_field_view_level_error(connection, fresh_project,
     assert result.exit_code == 0
     assert result.output == (
         "Found 1 error in the project:\n\n"
-        "\nWarning: Could not locate reference some_crazy_ref in view customers\n\n"  # noqa
+        "\nWarning: Could not locate reference some_crazy_ref in field cancelled in view customers\n\n"  # noqa
     )
 
 
@@ -519,7 +522,7 @@ def test_cli_validate_access_grants_setup(connection, fresh_project, mocker):
     assert result.exit_code == 0
     assert result.output == (
         "Found 1 error in the project:\n\n"
-        "\nThe view orders has an access filter that is incorrectly specified as a dictionary instead of a list, to specify it correctly check the documentation for access filters at https://docs.zenlytic.com\n\n"  # noqa
+        "\nThe view orders has an access filter, {'user_attribute': 'department', 'allowed_values': ['finance']} that is incorrectly specified as a when it should be a list, to specify it correctly check the documentation for access filters at https://docs.zenlytic.com/docs/data_modeling/access_grants#access-filters\n\n"  # noqa
     )
 
 
@@ -540,7 +543,7 @@ def test_cli_validate_warnings_for_no_date_on_metrics(connection, fresh_project,
     assert result.exit_code == 0
     assert result.output == (
         "Found 1 error in the project:\n\n"
-        "\nField discount_per_order is a merged result metric (measure), but does not have a date associated with it. Associate a date with the metric (measure) by setting either the canon_date property on the measure itself or the default_date property on the view the measure is in. Merged results are not possible without associated dates.\n\n"  # noqa
+        "\nField discount_per_order in view discounts is a merged result metric (measure), but does not have a date associated with it. Associate a date with the metric (measure) by setting either the canon_date property on the measure itself or the default_date property on the view the measure is in. Merged results are not possible without associated dates.\n\n"  # noqa
     )
 
 
@@ -562,29 +565,6 @@ def test_cli_validate_default_date_is_dim_group(connection, fresh_project, mocke
     assert result.output == (
         "Found 1 error in the project:\n\n"
         "\nDefault date discount_code is not of field_type: dimension_group and type: time in view discounts\n\n"  # noqa
-    )
-
-
-@pytest.mark.cli
-def test_cli_validate_no_type_dim_group_measure(connection, fresh_project, mocker):
-    # Break something so validation fails
-    project = fresh_project
-
-    project._views[2]["fields"][2].pop("type")
-    project._views[2]["fields"][3].pop("type")
-
-    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
-
-    runner = CliRunner()
-    result = runner.invoke(validate)
-
-    assert result.exit_code == 0
-    assert result.output == (
-        "Found 2 errors in the project:\n\n"
-        "\nField cancelled is a dimension_group, but does not have a type associated with it. You must set a type for this dimension_group.\n\n"  # noqa
-        "\nField number_of_customers is a measure, but does not have a type associated with it. You must set a type for this measure.\n\n"  # noqa
     )
 
 
@@ -625,9 +605,13 @@ def test_cli_validate_filter_with_no_field(connection, fresh_project, mocker):
     result = runner.invoke(validate)
 
     assert result.exit_code == 0
-    assert result.output == (
-        "Found 1 error in the project:\n\n"
-        "\nField total_sessions has a filter {'is_churned': None, 'value': False} that is missing the key value.\n\n"  # noqa
+    assert (
+        result.output
+        == "Found 3 errors in the project:\n\n\nField total_sessions filter in View customers is missing the"
+        " required field property\n\n\nField total_sessions filter in View customers has an invalid value"
+        " property. Valid values can be found here in the docs:"
+        " https://docs.zenlytic.com/docs/data_modeling/field_filter\n\n\nProperty is_churned is present"
+        " on Field Filter in field total_sessions in view customers, but it is not a valid property.\n\n"
     )
 
 
@@ -678,9 +662,9 @@ def test_cli_validate_names(connection, fresh_project, mocker):
     assert result.exit_code == 0
     assert result.output == (
         "Found 3 errors in the project:\n\n"
-        "\nCould not locate reference days_between_orders in view orders\n\n"
+        "\nCould not locate reference days_between_orders in field an invalid @name\\ in view orders\n\n"
         "\nField name: an invalid @name\\ is invalid. Please reference the naming conventions (only letters, numbers, or underscores)\n\n"  # noqa
-        "\nField between_orders is of type duration, but has property timeframes when it should have property intervals\n\n"  # noqa
+        "\nField between_orders in view orders is of type duration, but has property timeframes when it should have property intervals\n\n"  # noqa
     )
 
 
@@ -700,7 +684,7 @@ def test_cli_validate_model_name_in_view(connection, fresh_project, mocker):
     assert (
         result.output
         == "Found 1 error in the project:\n\n"
-        "\nCould not find a model in view orders. Use the model_name property to specify the model.\n\n"
+        "\nCould not find a model in the view orders. Use the model_name property to specify the model.\n\n"
     )
 
 
@@ -719,9 +703,10 @@ def test_cli_validate_two_customer_tags(connection, fresh_project, mocker):
     assert result.exit_code == 0
     assert (
         result.output
-        == "Found 1 error in the project:\n\n"
-        "\nMultiple fields found for the tag customer - those fields were ['orders.cumulative_aov',"
-        " 'customers.customer_id']. Only one field can have the tag \"customer\" per joinable graph.\n\n"
+        == "Found 2 errors in the project:\n\n\nMultiple fields found for the tag customer - those fields"
+        " were ['orders.cumulative_aov', 'customers.customer_id']. Only one field can have the tag"
+        ' "customer" per joinable graph.\n\n\nProperty tags is present on Field cumulative_aov in view'
+        " orders, but it is not a valid property.\n\n"
     )
 
 
@@ -743,7 +728,7 @@ def test_cli_dashboard_model_does_not_exist(connection, fresh_project, mocker):
     assert (
         result.output
         == "Found 1 error in the project:\n\n"
-        "\nCould not find model missing_model referenced in dashboard sales_dashboard.\n\n"
+        "\nCould not find or you do not have access to model missing_model in dashboard sales_dashboard\n\n"
     )
 
 
@@ -786,8 +771,10 @@ def test_cli_dimension_group_timeframes(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 1 error in the project:\n\n"
-        "\nField order is of type time and has timeframe value of 'timestamp' which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second', 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'week_index', 'week_of_year', 'week_of_month', 'month_of_year', 'month_of_year_index', 'month_name', 'month_index', 'quarter_of_year', 'hour_of_day', 'day_of_week', 'day_of_month', 'day_of_year'])\n\n"  # noqa
+        "Found 3 errors in the project:\n\n"
+        "\nIn the Set test_set2 Field order_time not found in view orders, please check that this field exists AND that you have access to it. \n\nIf this is a dimension group specify the group parameter, if not already specified, for example, with a dimension group named 'order' with timeframes: [raw, date, month] specify 'order_raw' or 'order_date' or 'order_month'\n\n"  # noqa
+        "\nIn the Set test_set_composed Field order_time not found in view orders, please check that this field exists AND that you have access to it. \n\nIf this is a dimension group specify the group parameter, if not already specified, for example, with a dimension group named 'order' with timeframes: [raw, date, month] specify 'order_raw' or 'order_date' or 'order_month'\n\n"  # noqa
+        "\nField order in view orders is of type time and has timeframe value of 'timestamp' which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second', 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'week_index', 'week_of_year', 'week_of_month', 'month_of_year', 'month_of_year_index', 'month_name', 'month_index', 'quarter_of_year', 'hour_of_day', 'day_of_week', 'day_of_month', 'day_of_year'])\n\n"  # noqa
     )
 
 
@@ -808,7 +795,7 @@ def test_cli_looker_parameter(connection, fresh_project, mocker):
     assert result.exit_code == 0
     assert result.output == (
         "Found 1 error in the project:\n\n"
-        "\nField orders.total_revenue contains invalid SQL for Zenlytic. Remove any Looker parameter references from the SQL.\n\n"  # noqa
+        "\nField total_revenue in view orders contains invalid SQL in property sql. Remove any Looker parameter references from the SQL.\n\n"  # noqa
     )
 
 
@@ -866,14 +853,13 @@ def test_cli_duplicate_view_names(connection, fresh_project, mocker):
     runner = CliRunner()
     result = runner.invoke(validate)
 
-    assert result.exit_code == 1
-    assert "QueryError" in str(result)
-    error_message = (
-        "Duplicate view names found in your project for the name orders. "
-        "Please make sure all view names are unique (note: join_as on identifiers "
-        "will create a view under its that name and the name must be unique)."
+    assert result.exit_code == 0
+    assert (
+        result.output
+        == "Found 1 error in the project:\n\n\nDuplicate view names found in your project for the name"
+        " orders. Please make sure all view names are unique (note: join_as on identifiers will create a"
+        " view under its that name and the name must be unique).\n\n"
     )
-    assert error_message in str(result)
 
 
 @pytest.mark.cli
@@ -890,14 +876,13 @@ def test_cli_duplicate_join_as_names(connection, fresh_project, mocker):
     runner = CliRunner()
     result = runner.invoke(validate)
 
-    assert result.exit_code == 1
-    assert "QueryError" in str(result)
-    error_message = (
-        "Duplicate view names found in your project for the name parent_account. "
-        "Please make sure all view names are unique (note: join_as on identifiers "
-        "will create a view under its that name and the name must be unique)."
+    assert result.exit_code == 0
+    assert (
+        result.output
+        == "Found 1 error in the project:\n\n\nDuplicate view names found in your project for the name"
+        " parent_account. Please make sure all view names are unique (note: join_as on identifiers will"
+        " create a view under its that name and the name must be unique).\n\n"
     )
-    assert error_message in str(result)
 
 
 @pytest.mark.cli
@@ -1087,9 +1072,10 @@ def test_cli_show(connection, mocker, name, extra_args):
             "Attributes in field order_id:\n\n"
             "  name: order_id\n"
             "  field_type: dimension\n"
+            "  type: string\n"
             "  group_label: ID's\n"
-            "  hidden: yes\n"
-            "  primary_key: yes\n"
+            "  hidden: True\n"
+            "  primary_key: True\n"
             "  sql: ${TABLE}.id\n"
         ),
         "order_date": (

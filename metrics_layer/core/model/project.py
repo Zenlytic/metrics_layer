@@ -1,7 +1,6 @@
 import functools
 import json
 from collections import Counter
-from copy import deepcopy
 from typing import List, Union
 
 from metrics_layer.core.exceptions import (
@@ -129,7 +128,7 @@ class Project:
 
     def _handle_join_as_duplication(self, views: list):
         join_as_to_create = {}
-        copied_views = deepcopy(views)
+        copied_views = json.loads(json.dumps(views))
         for v in copied_views:
             for identifier in v.get("identifiers", []):
                 if "join_as" in identifier and identifier["type"] == "primary":
@@ -144,7 +143,7 @@ class Project:
                     if identifier["join_as"] not in join_as_to_create:
                         view_args = {
                             "identifiers": [identifier_to_add],
-                            "fields": deepcopy(v.get("fields", [])),
+                            "fields": json.loads(json.dumps(v.get("fields", []))),
                         }
                         if "join_as_label" in identifier:
                             view_args["label"] = identifier["join_as_label"]
@@ -176,13 +175,63 @@ class Project:
 
         return copied_views
 
+    def validate_with_replaced_objects(self, replaced_objects: list):
+        replaced_views, replaced_models, replaced_dashboards = [], [], []
+        for dict_obj in replaced_objects:
+            if isinstance(dict_obj, dict):
+                if dict_obj.get("type") == "view":
+                    replaced_views.append(dict_obj)
+                elif dict_obj.get("type") == "model":
+                    replaced_models.append(dict_obj)
+                elif dict_obj.get("type") == "dashboard":
+                    replaced_dashboards.append(dict_obj)
+                else:
+                    # We cannot use the object if it is not a view, model or dashboard
+                    pass
+
+        # Replace model files
+        replaced_model_names = set([m["name"] for m in replaced_models])
+        unchanged_models = [m for m in self._models if m["name"] not in replaced_model_names]
+        current_models = json.loads(json.dumps(self._models))
+        self._models = unchanged_models + replaced_models
+
+        # Replace view files
+        replaced_view_names = set([v["name"] for v in replaced_views])
+        unchanged_views = [v for v in self._views if v["name"] not in replaced_view_names]
+        current_views = json.loads(json.dumps(self._views))
+        self._views = unchanged_views + replaced_views
+
+        # Replace dashboard files
+        replaced_dashboard_names = set([d["name"] for d in replaced_dashboards])
+        unchanged_dashboards = [d for d in self._dashboards if d["name"] not in replaced_dashboard_names]
+        current_dashboards = json.loads(json.dumps(self._dashboards))
+        self._dashboards = unchanged_dashboards + replaced_dashboards
+        self.refresh_cache()
+
+        errors = self.validate()
+
+        self._views = current_views
+        self._models = current_models
+        self._dashboards = current_dashboards
+        self.refresh_cache()
+        return errors
+
     def validate(self):
         all_errors = []
-
         for model in self.models():
-            all_errors.extend(model.collect_errors())
+            try:
+                all_errors.extend(model.collect_errors())
+            except QueryError as e:
+                # If we have an error building the model, we cannot continue
+                return [str(e)]
 
-        all_errors.extend(self.join_graph.collect_errors())
+        try:
+            all_errors.extend(self.join_graph.collect_errors())
+        except QueryError as e:
+            # If we have an error building the graph, we cannot continue
+            # and no other errors will be relevant until this is fixed
+            return [str(e)]
+
         for join_graph in self.join_graph.list_join_graphs():
             try:
                 self.get_field_by_tag(tag_name="customer", join_graphs=(join_graph,))
@@ -192,6 +241,7 @@ class Project:
                 all_errors.append(error_text)
             except Exception:
                 pass
+
         for view in self.views():
             if len(self._required_access_filter_user_attributes) > 0:
                 for user_attribute_name in self._required_access_filter_user_attributes:
@@ -209,19 +259,28 @@ class Project:
             try:
                 view.sql_table_name
             except QueryError as e:
-                all_errors.append(str(e))
+                all_errors.append(str(e) + f" in the view {view.name}")
+            try:
+                referenced_fields = view.referenced_fields()
+            except (AccessDeniedOrDoesNotExistException, QueryError) as e:
+                all_errors.append(str(e) + f" in the view {view.name}")
 
-            referenced_fields = view.referenced_fields()
             view_errors = view.collect_errors()
 
             for field in referenced_fields:
-                if isinstance(field, str):
-                    if "Warning: " in field:
-                        field = field.replace("Warning: ", "")
+                if isinstance(field, tuple):
+                    if "Warning: " in field[-1]:
+                        field_name = field[0].name
+                        field_reference = field[-1].replace("Warning: ", "")
                         prepend = "Warning: "
                     else:
+                        field_name = field[0].name
+                        field_reference = field[-1]
                         prepend = ""
-                    all_errors.append(f"{prepend}Could not locate reference {field} in view {view.name}")
+                    all_errors.append(
+                        f"{prepend}Could not locate reference {field_reference} in field {field_name} in view"
+                        f" {view.name}"
+                    )
             all_errors.extend(view_errors)
 
         for dashboard in self.dashboards():
@@ -271,7 +330,14 @@ class Project:
         return [Model(m, project=self) for m in self._models]
 
     def get_model(self, model_name: str) -> Model:
-        return next((m for m in self.models() if m.name == model_name), None)
+        try:
+            return next((m for m in self.models() if m.name == model_name))
+        except StopIteration:
+            raise AccessDeniedOrDoesNotExistException(
+                f"Could not find or you do not have access to model {model_name}",
+                object_name=model_name,
+                object_type="model",
+            )
 
     def access_grants(self):
         return [AccessGrant(g) for m in self.models() for g in m.access_grants]
@@ -318,10 +384,10 @@ class Project:
                 views.append(view)
         return views
 
-    def views(self, model: Model = None) -> list:
+    def views(self, model: Union[Model, None] = None) -> list:
         return self._all_views(model)
 
-    def get_view(self, view_name: str, model: Model = None) -> View:
+    def get_view(self, view_name: str, model: Union[Model, None] = None) -> View:
         try:
             return next((v for v in self.views(model=model) if v.name == view_name))
         except StopIteration:
@@ -331,7 +397,7 @@ class Project:
                 object_type="view",
             )
 
-    def sets(self, view_name: str = None):
+    def sets(self, view_name: Union[str, None] = None):
         if view_name:
             try:
                 views = [self.get_view(view_name)]
@@ -345,7 +411,7 @@ class Project:
             all_sets.extend(view.list_sets())
         return all_sets
 
-    def get_set(self, set_name: str, view_name: str = None):
+    def get_set(self, set_name: str, view_name: Union[str, None] = None):
         if view_name:
             sets = self.sets(view_name=view_name)
         else:
@@ -355,10 +421,10 @@ class Project:
     @functools.lru_cache(maxsize=None)
     def fields(
         self,
-        view_name: str = None,
+        view_name: Union[str, None] = None,
         show_hidden: bool = True,
         expand_dimension_groups: bool = False,
-        model: Model = None,
+        model: Union[Model, None] = None,
     ) -> list:
         if view_name is None:
             return self._all_fields(show_hidden, expand_dimension_groups, model)

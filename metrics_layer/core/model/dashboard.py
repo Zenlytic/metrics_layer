@@ -1,8 +1,16 @@
-from copy import deepcopy
+import json
+from typing import TYPE_CHECKING
 
-from metrics_layer.core.exceptions import QueryError
+from metrics_layer.core.exceptions import (
+    AccessDeniedOrDoesNotExistException,
+    QueryError,
+)
+
 from .base import MetricsLayerBase
 from .filter import Filter
+
+if TYPE_CHECKING:
+    from metrics_layer.core.model.project import Project
 
 
 class DashboardLayouts:
@@ -10,8 +18,8 @@ class DashboardLayouts:
 
 
 class DashboardElement(MetricsLayerBase):
-    def __init__(self, definition: dict = {}, dashboard=None, project=None) -> None:
-        self.project = project
+    def __init__(self, definition: dict, dashboard, project) -> None:
+        self.project: Project = project
         self.dashboard = dashboard
         self.validate(definition)
         super().__init__(definition)
@@ -31,7 +39,7 @@ class DashboardElement(MetricsLayerBase):
                 raise QueryError(f"Dashboard Element missing required key {k}")
 
     def to_dict(self):
-        definition = deepcopy(self._definition)
+        definition = json.loads(json.dumps(self._definition))
         definition["metrics"] = self.metrics
         definition["filters"] = self.parsed_filters(json_safe=True)
         return definition
@@ -62,8 +70,8 @@ class DashboardElement(MetricsLayerBase):
 
         try:
             self.get_model()
-        except QueryError as e:
-            errors.append(str(e))
+        except (AccessDeniedOrDoesNotExistException, QueryError) as e:
+            errors.append(str(e) + " in dashboard " + self.dashboard.name)
 
         for field in self.metrics + self.slice_by:
             if not self._function_executes(self.project.get_field, field):
@@ -89,14 +97,14 @@ class DashboardElement(MetricsLayerBase):
 
 
 class Dashboard(MetricsLayerBase):
-    def __init__(self, definition: dict = {}, project=None) -> None:
+    def __init__(self, definition: dict, project) -> None:
         if definition.get("name") is not None:
             definition["name"] = definition["name"].lower()
 
         if definition.get("layout") is None:
             definition["layout"] = DashboardLayouts.grid
 
-        self.project = project
+        self.project: Project = project
         self.validate(definition)
         super().__init__(definition)
 
@@ -113,7 +121,7 @@ class Dashboard(MetricsLayerBase):
                 raise QueryError(f"Dashboard missing required key {k}")
 
     def to_dict(self):
-        definition = deepcopy(self._definition)
+        definition = json.loads(json.dumps(self._definition))
         definition["elements"] = [e.to_dict() for e in self.elements()]
         definition["filters"] = self.parsed_filters(json_safe=True)
         return definition

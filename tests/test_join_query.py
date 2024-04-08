@@ -560,8 +560,10 @@ def test_query_single_join_count_and_filter(connection):
     )
 
     correct = (
-        "SELECT order_lines.sales_channel as order_lines_channel,COUNT(DISTINCT("
-        "case when orders.new_vs_repeat='New' then orders.id end)) "
+        "SELECT order_lines.sales_channel as order_lines_channel,NULLIF(COUNT(DISTINCT"
+        " CASE WHEN  (case when orders.new_vs_repeat='New' then orders.id end)  IS "
+        "NOT NULL THEN  case when orders.new_vs_repeat='New' then orders.id end  "
+        "ELSE NULL END), 0) "
         "as orders_new_order_count FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "GROUP BY order_lines.sales_channel ORDER BY orders_new_order_count DESC;"
@@ -578,7 +580,8 @@ def test_query_implicit_add_three_views(connection):
 
     correct = (
         "SELECT discounts.code as discounts_discount_code,country_detail.rain "
-        "as country_detail_rainfall,COUNT(DISTINCT(customers.customer_id)) "
+        "as country_detail_rainfall,NULLIF(COUNT(DISTINCT CASE WHEN  "
+        "(customers.customer_id)  IS NOT NULL THEN  customers.customer_id  ELSE NULL END), 0) "
         "as customers_number_of_customers FROM analytics_live.discounts discounts "
         "LEFT JOIN (SELECT * FROM ANALYTICS.COUNTRY_DETAIL) as country_detail "
         "ON discounts.country=country_detail.country "
@@ -706,12 +709,12 @@ def test_join_graph_many_to_many_use_bridge_table(connection):
     query = connection.get_sql_query(metrics=["number_of_customers"], dimensions=["accounts.account_name"])
 
     correct = (
-        "SELECT accounts.name as accounts_account_name,COUNT(DISTINCT(customers.customer_id)) as "
-        "customers_number_of_customers FROM analytics.customer_accounts z_customer_accounts "
-        "LEFT JOIN analytics.accounts accounts ON z_customer_accounts.account_id=accounts.account_id "
-        "LEFT JOIN analytics.customers customers ON "
-        "z_customer_accounts.customer_id=customers.customer_id GROUP BY accounts.name "
-        "ORDER BY customers_number_of_customers DESC;"
+        "SELECT accounts.name as accounts_account_name,NULLIF(COUNT(DISTINCT CASE WHEN "
+        " (customers.customer_id)  IS NOT NULL THEN  customers.customer_id  ELSE NULL END), 0) as"
+        " customers_number_of_customers FROM analytics.customer_accounts z_customer_accounts LEFT JOIN"
+        " analytics.accounts accounts ON z_customer_accounts.account_id=accounts.account_id LEFT JOIN"
+        " analytics.customers customers ON z_customer_accounts.customer_id=customers.customer_id GROUP BY"
+        " accounts.name ORDER BY customers_number_of_customers DESC;"
     )
     assert query == correct
 
@@ -724,12 +727,12 @@ def test_join_graph_many_to_many_skip_bridge_table(connection):
     )
 
     correct = (
-        "SELECT accounts.name as accounts_account_name,COUNT(DISTINCT(customers.customer_id)) "
-        "as customers_number_of_customers,COUNT(orders.id) as orders_number_of_orders "
-        "FROM analytics.orders orders LEFT JOIN analytics.customers customers "
-        "ON orders.customer_id=customers.customer_id LEFT JOIN analytics.accounts accounts "
-        "ON orders.account_id=accounts.account_id GROUP BY accounts.name "
-        "ORDER BY customers_number_of_customers DESC;"
+        "SELECT accounts.name as accounts_account_name,NULLIF(COUNT(DISTINCT CASE WHEN "
+        " (customers.customer_id)  IS NOT NULL THEN  customers.customer_id  ELSE NULL END), 0) as"
+        " customers_number_of_customers,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders"
+        " orders LEFT JOIN analytics.customers customers ON orders.customer_id=customers.customer_id LEFT"
+        " JOIN analytics.accounts accounts ON orders.account_id=accounts.account_id GROUP BY accounts.name"
+        " ORDER BY customers_number_of_customers DESC;"
     )
     assert query == correct
 
