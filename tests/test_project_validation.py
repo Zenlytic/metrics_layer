@@ -1877,6 +1877,18 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 "a valid property. Did you mean timeframes?"
             ],
         ),
+        (
+            "parent_channel",
+            "case",
+            {
+                "whens": [{"sql": "${TABLE}.product_name ilike '%sale%'", "label": "On sale"}],
+                "else": "Not on sale",
+            },
+            [
+                "Warning:: Field parent_channel in view order_lines is using a case "
+                "statement, which is deprecated. Please use the sql property instead."
+            ],
+        ),
     ],
 )
 def test_validation_with_replaced_field_properties(connection, field_name, property_name, value, errors):

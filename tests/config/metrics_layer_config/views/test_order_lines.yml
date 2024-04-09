@@ -91,11 +91,7 @@ fields:
   - name: is_on_sale_case
     field_type: dimension
     type: string
-    case:
-      whens:
-        - sql: "${TABLE}.product_name ilike '%sale%'"
-          label: 'On sale'
-      else: 'Not on sale'
+    sql: case when ${TABLE}.product_name ilike '%sale%' then 'On sale' else 'Not on sale' end
 
   - name: order_tier
     field_type: dimension
