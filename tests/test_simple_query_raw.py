@@ -21,13 +21,16 @@ simple_view = {
             "name": "order_id",
             "field_type": "dimension",
             "type": "string",
-            "primary_key": "yes",
+            "primary_key": True,
             "sql": "${TABLE}.order_id",
         },
         {
             "field_type": "measure",
             "type": "number",
-            "sql": "CASE WHEN ${average_order_value} = 0 THEN 0 ELSE ${total_revenue} / ${average_order_value} END",  # noqa
+            "sql": (  # noqa
+                "CASE WHEN ${average_order_value} = 0 THEN 0 ELSE ${total_revenue} /"
+                " ${average_order_value} END"
+            ),
             "name": "revenue_per_aov",
         },
         {"field_type": "measure", "type": "sum", "sql": "${TABLE}.revenue", "name": "total_revenue"},

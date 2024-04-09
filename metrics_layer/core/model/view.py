@@ -640,7 +640,7 @@ class View(MetricsLayerBase, SQLReplacement):
                 if expand_dimension_groups and field.field_type == "dimension_group":
                     if field.timeframes:
                         for timeframe in field.timeframes:
-                            additional = {"hidden": "yes"} if timeframe == "raw" else {}
+                            additional = {"hidden": True} if timeframe == "raw" else {}
                             fields.append(Field({**f, **additional, "dimension_group": timeframe}, view=self))
 
                     elif field.intervals:

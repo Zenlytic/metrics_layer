@@ -1365,12 +1365,11 @@ class Field(MetricsLayerBase, SQLReplacement):
                     f" {self._definition.get('sql')}. sql must be a string. The sql property must be present"
                     " for dimensions."
                 )
-            # TODO deprecate case statement
-            # elif "case" in self._definition:
-            #     errors.append(
-            #         f"{warning_prefix}: Field {self.name} in view {self.view.name} is using a case"
-            #         " statement, which is deprecated. Please use the sql property instead."
-            #     )
+            elif "case" in self._definition:
+                errors.append(
+                    f"{warning_prefix}: Field {self.name} in view {self.view.name} is using a case"
+                    " statement, which is deprecated. Please use the sql property instead."
+                )
             elif self.sql is not None:
                 errors.extend(self.collect_sql_errors(self.sql, "sql"))
 
