@@ -13,16 +13,66 @@ if TYPE_CHECKING:
     from metrics_layer.core.model.project import Project
 
 
-class DashboardLayouts:
-    grid = "grid"
-
-
 class DashboardElement(MetricsLayerBase):
     def __init__(self, definition: dict, dashboard, project) -> None:
         self.project: Project = project
         self.dashboard = dashboard
         self.validate(definition)
         super().__init__(definition)
+
+    @property
+    def valid_properties(self):
+        # model is a valid model
+        # title is a string
+        # question_type is one of explore, funnel, analyze_baskets, explain_change
+        # type is question or markdown
+        # time_period is string (valid field filter)
+        # filters (standard filters)
+        # size one of full, half, quarter
+        shared_properties = ["model", "title", "question_type", "type", "time_period", "filters", "size"]
+        if self._definition.get("question_type", "explore") == "explore":
+            # metrics is a list of strings
+            # metric (deprecated) is a single string
+            # slice_by is a list of strings
+            # pivot_by is a list of strings
+            # force_table: bool
+            # row_limit int
+            # show_annotations: bool
+            # show_totals: bool
+            # table_calculations: list of dict with: title: "Practitioner retention pct" formula: "[transaction_lines.number_of_patient_direct_practices] / cell_value([transaction_lines.number_of_patient_direct_practices], 1)" format: percent_1
+            # compare_time_period: str
+            # pivot_by_time_period: bool
+            question_properties = [
+                "metrics",
+                "metric",
+                "slice_by",
+                "pivot_by",
+                "force_table",
+                "row_limit",
+                "show_annotations",
+                "show_totals",
+                "table_calculations",
+                "compare_time_period",
+                "pivot_by_time_period",
+            ]
+        elif self._definition.get("question_type") == "explain_change":
+            # metric is a string
+            # compare_time_period is a string
+            question_properties = ["metric", "compare_time_period"]
+        elif self._definition.get("question_type") == "analyze_baskets":
+            # metric is a string
+            # category is a string reference to a field
+            # combinations string, one of 1_&_2, 1, 2
+            question_properties = ["metric", "category", "combinations"]
+        elif self._definition.get("question_type") == "funnel":
+            # metric is a string
+            # steps: list of lists of filters
+            # within dict with value (int) and unit one of FilterInterval type
+            # slice_by list of strings max length 1
+            question_properties = ["metric", "steps", "within", "slice_by"]
+        else:
+            raise QueryError(f"Invalid question type {self._definition.get('question_type')}")
+        return shared_properties + question_properties
 
     def get_model(self):
         model = self.project.get_model(self.model)
@@ -97,12 +147,11 @@ class DashboardElement(MetricsLayerBase):
 
 
 class Dashboard(MetricsLayerBase):
+    valid_properties = ["name", "label", "description", "filters", "elements"]
+
     def __init__(self, definition: dict, project) -> None:
         if definition.get("name") is not None:
             definition["name"] = definition["name"].lower()
-
-        if definition.get("layout") is None:
-            definition["layout"] = DashboardLayouts.grid
 
         self.project: Project = project
         self.validate(definition)
