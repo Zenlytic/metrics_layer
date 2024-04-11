@@ -186,7 +186,7 @@ class Model(MetricsLayerBase):
                         errors.append(str(e) + f" in the model {self.name}")
         except QueryError as e:
             errors.append(str(e) + f" in the model {self.name}")
-        valid_mappings_properties = ["fields", "group_label", "description", "link"]
+        valid_mappings_properties = ["fields", "group_label", "description", "link", "label"]
         try:
             mappings = self.mappings
             for mapping_name, mapped_values in mappings.items():

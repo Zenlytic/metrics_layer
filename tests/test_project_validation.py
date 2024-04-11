@@ -336,7 +336,7 @@ def test_validation_with_no_replaced_objects(connection):
         ),
         (
             "mappings",
-            {"myfield": {"fields": ["orders.sub_channel", "sessions.utm_campaign"]}},
+            {"myfield": {"fields": ["orders.sub_channel", "sessions.utm_campaign"], "label": "My label"}},
             [],
         ),
         (
