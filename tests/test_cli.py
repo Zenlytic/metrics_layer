@@ -164,7 +164,12 @@ def test_cli_seed_metrics_layer(
             assert social["type"] == "yesno"
             if query_type == Definitions.databricks:
                 assert social["sql"] == "${TABLE}.on_social_network"
-            elif query_type in {Definitions.snowflake, Definitions.druid}:
+            elif query_type in {
+                Definitions.snowflake,
+                Definitions.druid,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
                 assert social["sql"] == '${TABLE}."ON_SOCIAL_NETWORK"'
             else:
                 assert social["sql"] == "${TABLE}.ON_SOCIAL_NETWORK"
@@ -176,7 +181,12 @@ def test_cli_seed_metrics_layer(
                 assert acq_date["datatype"] == "timestamp"
             if query_type == Definitions.databricks:
                 assert acq_date["sql"] == "${TABLE}.acquisition_date"
-            elif query_type in {Definitions.snowflake, Definitions.druid}:
+            elif query_type in {
+                Definitions.snowflake,
+                Definitions.druid,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
                 assert acq_date["sql"] == '${TABLE}."ACQUISITION_DATE"'
             else:
                 assert acq_date["sql"] == "${TABLE}.ACQUISITION_DATE"
@@ -204,19 +214,34 @@ def test_cli_seed_metrics_layer(
                 "quarter",
                 "year",
             ]
-            if query_type in {Definitions.snowflake, Definitions.druid}:
+            if query_type in {
+                Definitions.snowflake,
+                Definitions.druid,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
                 assert date["sql"] == '${TABLE}."ORDER_CREATED_AT"'
             else:
                 assert date["sql"].upper() == "${TABLE}.ORDER_CREATED_AT"
 
             assert new["type"] == "string"
-            if query_type in {Definitions.snowflake, Definitions.druid}:
+            if query_type in {
+                Definitions.snowflake,
+                Definitions.druid,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
                 assert new["sql"] == '${TABLE}."NEW_VS_REPEAT"'
             else:
                 assert new["sql"].upper() == "${TABLE}.NEW_VS_REPEAT"
 
             assert num["type"] == "number"
-            if query_type in {Definitions.snowflake, Definitions.druid}:
+            if query_type in {
+                Definitions.snowflake,
+                Definitions.druid,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
                 assert num["sql"] == '${TABLE}."REVENUE"'
             else:
                 assert num["sql"].upper() == "${TABLE}.REVENUE"
@@ -258,7 +283,12 @@ def test_cli_seed_metrics_layer(
             cross_sell = next((f for f in data["fields"] if f["name"] == "crossell_product"))
 
             assert cross_sell["name"] == "crossell_product"
-            if query_type in {Definitions.snowflake, Definitions.druid}:
+            if query_type in {
+                Definitions.snowflake,
+                Definitions.druid,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
                 assert cross_sell["sql"] == '${TABLE}."@CRoSSell P-roduct:"'
             else:
                 assert cross_sell["sql"] == "${TABLE}.@CRoSSell P-roduct:"
@@ -287,19 +317,34 @@ def test_cli_seed_metrics_layer(
                 "quarter",
                 "year",
             ]
-            if query_type in {Definitions.snowflake, Definitions.druid}:
+            if query_type in {
+                Definitions.snowflake,
+                Definitions.druid,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
                 assert date["sql"] == '${TABLE}."SESSION_DATE"'
             else:
                 assert date["sql"].upper() == "${TABLE}.SESSION_DATE"
 
             assert pk["type"] == "string"
-            if query_type in {Definitions.snowflake, Definitions.druid}:
+            if query_type in {
+                Definitions.snowflake,
+                Definitions.druid,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
                 assert pk["sql"] == '${TABLE}."SESSION_ID"'
             else:
                 assert pk["sql"].upper() == "${TABLE}.SESSION_ID"
 
             assert num["type"] == "number"
-            if query_type in {Definitions.snowflake, Definitions.druid}:
+            if query_type in {
+                Definitions.snowflake,
+                Definitions.druid,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
                 assert num["sql"] == '${TABLE}."CONVERSION"'
             else:
                 assert num["sql"].upper() == "${TABLE}.CONVERSION"

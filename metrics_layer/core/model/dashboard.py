@@ -161,7 +161,8 @@ class Dashboard(MetricsLayerBase):
         for f in self._raw_filters():
             clean_filters = Filter({**f, **info}).filter_dict(json_safe)
             for clean_filter in clean_filters:
-                all_filters.append(clean_filter)
+                if clean_filter != {}:
+                    all_filters.append(clean_filter)
         return all_filters
 
     def elements(self):

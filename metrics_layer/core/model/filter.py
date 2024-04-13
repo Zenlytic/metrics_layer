@@ -134,7 +134,7 @@ class Filter(MetricsLayerBase):
 
     @staticmethod
     def _clean_filter_dict(filter_dict: dict, json_safe: bool):
-        if json_safe:
+        if json_safe and "expression" in filter_dict:
             filter_dict["expression"] = filter_dict["expression"].value
         return filter_dict
 
@@ -319,6 +319,10 @@ class Filter(MetricsLayerBase):
         # TODO more advanced parsing similar to
         # ref: https://docs.looker.com/reference/field-params/filters
 
+        # If the value is an empty dict, we should return None because the filters will be skipped
+        if str(value) == "":
+            return {}
+
         _symbol_to_filter_type_lookup = {
             "<=": MetricsLayerFilterExpressionType.LessOrEqualThan,
             ">=": MetricsLayerFilterExpressionType.GreaterOrEqualThan,
@@ -466,12 +470,13 @@ class Filter(MetricsLayerBase):
                 filter_list = filter_dict
 
             for filter_obj in filter_list:
-                field_reference = "${" + f["field"] + "}"
-                condition_value = Filter.sql_query(
-                    field_reference, filter_obj["expression"], filter_obj["value"]
-                )
-                condition = f"{condition_value}"
-                conditions.append(condition)
+                if filter_obj != {}:
+                    field_reference = "${" + f["field"] + "}"
+                    condition_value = Filter.sql_query(
+                        field_reference, filter_obj["expression"], filter_obj["value"]
+                    )
+                    condition = f"{condition_value}"
+                    conditions.append(condition)
 
         # Add the filter conditions AND'd together
         case_sql += " and ".join(conditions)
