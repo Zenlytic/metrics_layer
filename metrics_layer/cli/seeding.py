@@ -340,7 +340,12 @@ class SeedMetricsLayer:
             else:
                 raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
             # Add quotes for certain db only because we've seen issues with column names with special chars
-            if self.connection.type in {Definitions.druid, Definitions.snowflake}:
+            if self.connection.type in {
+                Definitions.druid,
+                Definitions.snowflake,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
                 column_name = '"' + row["COLUMN_NAME"] + '"'
             else:
                 column_name = row["COLUMN_NAME"]
