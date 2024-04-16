@@ -28,6 +28,7 @@ class Project:
         looker_env: Union[None, str] = None,
         connection_lookup: dict = {},
         manifest=None,
+        commit_hash=None,
     ):
         self._models = models
         self._views = self._handle_join_as_duplication(views)
@@ -41,6 +42,7 @@ class Project:
         self._timezone = None
         self._required_access_filter_user_attributes = []
         self._join_graph = None
+        self.commit_hash = commit_hash
 
     def __repr__(self):
         text = "models" if len(self._models) != 1 else "model"
