@@ -52,7 +52,11 @@ class ProjectLoader:
             raise TypeError(f"Unknown repo type: {repo_type}, valid types are 'metrics_layer', 'metricflow'")
 
         models, views, dashboards = reader.load()
-        commit_hash = self.repo.git_repo.head.commit.hexsha if self.repo.git_repo is not None else None
+        commit_hash = (
+            self.repo.git_repo.head.commit.hexsha
+            if isinstance(self.repo, GithubRepo) and self.repo.git_repo is not None
+            else None
+        )
         self.repo.delete()
 
         project = Project(
