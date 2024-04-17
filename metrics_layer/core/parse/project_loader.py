@@ -1,7 +1,7 @@
 import os
 
 from metrics_layer.core.model.project import Project
-from metrics_layer.core.parse.connections import connection_class_lookup, BaseConnection
+from metrics_layer.core.parse.connections import BaseConnection, connection_class_lookup
 
 from .github_repo import GithubRepo, LocalRepo
 from .manifest import Manifest
@@ -52,7 +52,11 @@ class ProjectLoader:
             raise TypeError(f"Unknown repo type: {repo_type}, valid types are 'metrics_layer', 'metricflow'")
 
         models, views, dashboards = reader.load()
-
+        commit_hash = (
+            self.repo.git_repo.head.commit.hexsha
+            if isinstance(self.repo, GithubRepo) and self.repo.git_repo is not None
+            else None
+        )
         self.repo.delete()
 
         project = Project(
@@ -61,6 +65,7 @@ class ProjectLoader:
             dashboards=dashboards,
             connection_lookup={c.name: c.type for c in self._connections},
             manifest=Manifest(reader.manifest),
+            commit_hash=commit_hash,
         )
         return project
 
