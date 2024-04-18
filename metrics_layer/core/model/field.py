@@ -282,7 +282,9 @@ class Field(MetricsLayerBase, SQLReplacement):
                 )
             filters_to_apply = definition.get("filters", [])
 
+            else_0 = False
             if non_additive_dimension := self.non_additive_dimension:
+                else_0 = True
                 if isinstance(self.non_additive_dimension, dict):
                     filters_to_apply += [
                         {
@@ -301,7 +303,9 @@ class Field(MetricsLayerBase, SQLReplacement):
                                 "value": LiteralValue(f"{self.non_additive_cte_alias()}.{window_alias}"),
                             }
                         ]
-            definition["sql"] = Filter.translate_looker_filters_to_sql(definition["sql"], filters_to_apply)
+            definition["sql"] = Filter.translate_looker_filters_to_sql(
+                definition["sql"], filters_to_apply, else_0=else_0
+            )
 
         if (
             "sql" in definition

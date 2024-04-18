@@ -453,7 +453,7 @@ class Filter(MetricsLayerBase):
         return date_obj.strftime("%Y-%m-%dT%H:%M:%S")
 
     @staticmethod
-    def translate_looker_filters_to_sql(sql: str, filters: list):
+    def translate_looker_filters_to_sql(sql: str, filters: list, else_0: bool = False):
         case_sql = "case when "
         conditions = []
         for f in filters:
@@ -481,7 +481,10 @@ class Filter(MetricsLayerBase):
         # Add the filter conditions AND'd together
         case_sql += " and ".join(conditions)
         # Add the result from the sql arg + imply NULL for anything not hitting the filter condition
-        case_sql += f" then {sql} end"
+        if else_0:
+            case_sql += f" then {sql} else 0 end"
+        else:
+            case_sql += f" then {sql} end"
 
         return case_sql
 
