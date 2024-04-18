@@ -13,7 +13,7 @@ def test_mrr_non_additive_dimension_no_group_by_max(connection, metric_suffix):
         f"WITH cte_mrr_{metric_suffix}_record_raw AS (SELECT {func}(mrr.record_date) as mrr_{func.lower()}_record_raw "  # noqa
         f"FROM analytics.mrr_by_customer mrr ORDER BY mrr_{func.lower()}_record_raw DESC) "
         f"SELECT SUM(case when mrr.record_date=cte_mrr_{metric_suffix}_record_raw.mrr_{func.lower()}_record_raw "  # noqa
-        f"then mrr.mrr end) as mrr_mrr_{metric_suffix} FROM analytics.mrr_by_customer mrr "
+        f"then mrr.mrr else 0 end) as mrr_mrr_{metric_suffix} FROM analytics.mrr_by_customer mrr "
         f"JOIN cte_mrr_{metric_suffix}_record_raw ON 1=1 ORDER BY mrr_mrr_{metric_suffix} DESC;"
     )
     assert query == correct
@@ -33,13 +33,13 @@ def test_mrr_non_additive_dimension_no_group_by_multi_cte(connection):
         " analytics.mrr_by_customer mrr ORDER BY mrr_max_record_raw DESC)"
         " ,cte_mrr_beginning_of_month_record_raw AS (SELECT MIN(mrr.record_date) as mrr_min_record_raw FROM"
         " analytics.mrr_by_customer mrr ORDER BY mrr_min_record_raw DESC) SELECT SUM(case when"
-        " mrr.record_date=cte_mrr_end_of_month_record_raw.mrr_max_record_raw then mrr.mrr end) as"
+        " mrr.record_date=cte_mrr_end_of_month_record_raw.mrr_max_record_raw then mrr.mrr else 0 end) as"
         " mrr_mrr_end_of_month,SUM(case when"
-        " mrr.record_date=cte_mrr_beginning_of_month_record_raw.mrr_min_record_raw then mrr.mrr end) as"
-        " mrr_mrr_beginning_of_month,SUM(case when DATE_TRUNC('DAY',"
+        " mrr.record_date=cte_mrr_beginning_of_month_record_raw.mrr_min_record_raw then mrr.mrr else 0 end)"
+        " as mrr_mrr_beginning_of_month,SUM(case when DATE_TRUNC('DAY',"
         " mrr.record_date)=cte_mrr_end_of_month_by_account_record_date.mrr_max_record_date and"
-        " mrr.account_id=cte_mrr_end_of_month_by_account_record_date.mrr_account_id then mrr.mrr end) as"
-        " mrr_mrr_end_of_month_by_account FROM analytics.mrr_by_customer mrr JOIN"
+        " mrr.account_id=cte_mrr_end_of_month_by_account_record_date.mrr_account_id then mrr.mrr else 0 end)"
+        " as mrr_mrr_end_of_month_by_account FROM analytics.mrr_by_customer mrr JOIN"
         " cte_mrr_end_of_month_by_account_record_date ON"
         " mrr.account_id=cte_mrr_end_of_month_by_account_record_date.mrr_account_id JOIN"
         " cte_mrr_end_of_month_record_raw ON 1=1 JOIN cte_mrr_beginning_of_month_record_raw ON 1=1 ORDER BY"
@@ -60,10 +60,11 @@ def test_mrr_non_additive_dimension_no_group_by_composed_with_duplicate_cte(conn
         " analytics.mrr_by_customer mrr ORDER BY mrr_max_record_raw DESC)"
         " ,cte_mrr_beginning_of_month_record_raw AS (SELECT MIN(mrr.record_date) as mrr_min_record_raw FROM"
         " analytics.mrr_by_customer mrr ORDER BY mrr_min_record_raw DESC) SELECT ((SUM(case when"
-        " mrr.record_date=cte_mrr_end_of_month_record_raw.mrr_max_record_raw then mrr.mrr end)) - (SUM(case"
-        " when mrr.record_date=cte_mrr_beginning_of_month_record_raw.mrr_min_record_raw then mrr.mrr end))) /"
-        " (COUNT(mrr.parent_account_id)) as mrr_mrr_change_per_billed_account,SUM(case when"
-        " mrr.record_date=cte_mrr_end_of_month_record_raw.mrr_max_record_raw then mrr.mrr end) as"
+        " mrr.record_date=cte_mrr_end_of_month_record_raw.mrr_max_record_raw then mrr.mrr else 0 end)) -"
+        " (SUM(case when mrr.record_date=cte_mrr_beginning_of_month_record_raw.mrr_min_record_raw then"
+        " mrr.mrr else 0 end))) / (COUNT(mrr.parent_account_id)) as"
+        " mrr_mrr_change_per_billed_account,SUM(case when"
+        " mrr.record_date=cte_mrr_end_of_month_record_raw.mrr_max_record_raw then mrr.mrr else 0 end) as"
         " mrr_mrr_end_of_month FROM analytics.mrr_by_customer mrr JOIN cte_mrr_end_of_month_record_raw ON 1=1"
         " JOIN cte_mrr_beginning_of_month_record_raw ON 1=1 ORDER BY mrr_mrr_change_per_billed_account DESC;"
     )
@@ -85,7 +86,7 @@ def test_mrr_non_additive_dimension_no_group_by_with_where(connection):
         f"FROM analytics.mrr_by_customer mrr WHERE mrr.plan_name='Enterprise' "
         "AND DATE_TRUNC('DAY', mrr.record_date)>'2022-04-03' ORDER BY mrr_max_record_raw DESC) "
         f"SELECT SUM(case when mrr.record_date=cte_mrr_end_of_month_record_raw.mrr_max_record_raw "  # noqa
-        f"then mrr.mrr end) as mrr_mrr_end_of_month FROM analytics.mrr_by_customer mrr "
+        f"then mrr.mrr else 0 end) as mrr_mrr_end_of_month FROM analytics.mrr_by_customer mrr "
         f"JOIN cte_mrr_end_of_month_record_raw ON 1=1 WHERE mrr.plan_name='Enterprise' "
         "AND DATE_TRUNC('DAY', mrr.record_date)>'2022-04-03' ORDER BY mrr_mrr_end_of_month DESC;"
     )
@@ -102,7 +103,7 @@ def test_mrr_non_additive_dimension_no_group_by_with_window_grouping(connection)
         f"FROM analytics.mrr_by_customer mrr GROUP BY mrr.account_id ORDER BY mrr_max_record_date DESC) "
         f"SELECT SUM(case when DATE_TRUNC('DAY', mrr.record_date)=cte_mrr_end_of_month_by_account_record_date"
         f".mrr_max_record_date and mrr.account_id=cte_mrr_end_of_month_by_account_record_date.mrr_account_id "
-        f"then mrr.mrr end) as mrr_mrr_end_of_month_by_account FROM analytics.mrr_by_customer mrr "
+        f"then mrr.mrr else 0 end) as mrr_mrr_end_of_month_by_account FROM analytics.mrr_by_customer mrr "
         f"JOIN cte_mrr_end_of_month_by_account_record_date ON mrr.account_id"
         f"=cte_mrr_end_of_month_by_account_record_date.mrr_account_id "
         f"ORDER BY mrr_mrr_end_of_month_by_account DESC;"
@@ -121,7 +122,7 @@ def test_mrr_non_additive_dimension_time_group_by(connection):
         "ORDER BY mrr_max_record_raw DESC) "
         "SELECT DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE)) as mrr_record_week,"
         "SUM(case when mrr.record_date=cte_mrr_end_of_month_record_raw.mrr_max_record_raw "
-        "then mrr.mrr end) as mrr_mrr_end_of_month FROM analytics.mrr_by_customer mrr "
+        "then mrr.mrr else 0 end) as mrr_mrr_end_of_month FROM analytics.mrr_by_customer mrr "
         "JOIN cte_mrr_end_of_month_record_raw ON DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE))"
         "=cte_mrr_end_of_month_record_raw.mrr_record_week GROUP BY DATE_TRUNC('WEEK', "
         "CAST(mrr.record_date AS DATE)) ORDER BY mrr_mrr_end_of_month DESC;"
@@ -148,7 +149,7 @@ def test_mrr_non_additive_dimension_time_group_by_with_where(connection):
         "CAST(mrr.record_date AS DATE)) ORDER BY mrr_max_record_raw DESC) "
         "SELECT DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE)) as mrr_record_week,"
         "SUM(case when mrr.record_date=cte_mrr_end_of_month_record_raw.mrr_max_record_raw "
-        "then mrr.mrr end) as mrr_mrr_end_of_month FROM analytics.mrr_by_customer mrr "
+        "then mrr.mrr else 0 end) as mrr_mrr_end_of_month FROM analytics.mrr_by_customer mrr "
         "JOIN cte_mrr_end_of_month_record_raw ON DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE))"
         "=cte_mrr_end_of_month_record_raw.mrr_record_week "
         "WHERE mrr.plan_name='Enterprise' AND DATE_TRUNC('DAY', mrr.record_date)>'2022-04-03' "
@@ -171,7 +172,7 @@ def test_mrr_non_additive_dimension_time_group_by_with_window_grouping(connectio
         f"SUM(case when DATE_TRUNC('DAY', mrr.record_date)=cte_mrr_end_of_month_by_account_record_date"
         f".mrr_max_record_date "
         f"and mrr.account_id=cte_mrr_end_of_month_by_account_record_date.mrr_account_id "
-        f"then mrr.mrr end) as mrr_mrr_end_of_month_by_account FROM analytics.mrr_by_customer mrr "
+        f"then mrr.mrr else 0 end) as mrr_mrr_end_of_month_by_account FROM analytics.mrr_by_customer mrr "
         f"JOIN cte_mrr_end_of_month_by_account_record_date ON mrr.account_id"
         f"=cte_mrr_end_of_month_by_account_record_date.mrr_account_id "
         f"and DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE))"
@@ -192,7 +193,7 @@ def test_mrr_non_additive_dimension_alt_group_by(connection):
         "FROM analytics.mrr_by_customer mrr GROUP BY mrr.plan_name ORDER BY mrr_max_record_raw DESC) "
         "SELECT mrr.plan_name as mrr_plan_name,"
         "SUM(case when mrr.record_date=cte_mrr_end_of_month_record_raw.mrr_max_record_raw "
-        "then mrr.mrr end) as mrr_mrr_end_of_month FROM analytics.mrr_by_customer mrr "
+        "then mrr.mrr else 0 end) as mrr_mrr_end_of_month FROM analytics.mrr_by_customer mrr "
         "JOIN cte_mrr_end_of_month_record_raw ON mrr.plan_name=cte_mrr_end_of_month_record_raw.mrr_plan_name "
         "GROUP BY mrr.plan_name ORDER BY mrr_mrr_end_of_month DESC;"
     )
@@ -217,7 +218,7 @@ def test_mrr_non_additive_dimension_alt_group_by_with_where(connection):
         "AND DATE_TRUNC('DAY', mrr.record_date)>'2022-04-03' GROUP BY mrr.plan_name ORDER BY mrr_max_record_raw DESC) "  # noqa
         "SELECT mrr.plan_name as mrr_plan_name,"
         "SUM(case when mrr.record_date=cte_mrr_end_of_month_record_raw.mrr_max_record_raw "
-        "then mrr.mrr end) as mrr_mrr_end_of_month FROM analytics.mrr_by_customer mrr "
+        "then mrr.mrr else 0 end) as mrr_mrr_end_of_month FROM analytics.mrr_by_customer mrr "
         "JOIN cte_mrr_end_of_month_record_raw ON mrr.plan_name=cte_mrr_end_of_month_record_raw.mrr_plan_name "
         "WHERE mrr.plan_name='Enterprise' "
         "AND DATE_TRUNC('DAY', mrr.record_date)>'2022-04-03' "
@@ -242,12 +243,12 @@ def test_mrr_non_additive_dimension_alt_group_by_with_having(connection):
         "GROUP BY mrr.plan_name ORDER BY mrr_max_record_raw DESC) "
         "SELECT mrr.plan_name as mrr_plan_name,"
         "SUM(case when mrr.record_date=cte_mrr_end_of_month_record_raw.mrr_max_record_raw "
-        "then mrr.mrr end) as mrr_mrr_end_of_month FROM analytics.mrr_by_customer mrr "
+        "then mrr.mrr else 0 end) as mrr_mrr_end_of_month FROM analytics.mrr_by_customer mrr "
         "JOIN cte_mrr_end_of_month_record_raw ON mrr.plan_name=cte_mrr_end_of_month_record_raw.mrr_plan_name "
         "WHERE mrr.plan_name='Enterprise' "
         "GROUP BY mrr.plan_name "
         "HAVING SUM(case when mrr.record_date=cte_mrr_end_of_month_record_raw"
-        ".mrr_max_record_raw then mrr.mrr end)>1100 ORDER BY mrr_mrr_end_of_month DESC;"
+        ".mrr_max_record_raw then mrr.mrr else 0 end)>1100 ORDER BY mrr_mrr_end_of_month DESC;"
     )
     assert query == correct
 
@@ -264,7 +265,7 @@ def test_mrr_non_additive_dimension_alt_group_by_with_window_grouping(connection
         "SUM(case when DATE_TRUNC('DAY', mrr.record_date)=cte_mrr_end_of_month_by_account_record_date"
         ".mrr_max_record_date "
         "and mrr.account_id=cte_mrr_end_of_month_by_account_record_date.mrr_account_id "
-        f"then mrr.mrr end) as mrr_mrr_end_of_month_by_account FROM analytics.mrr_by_customer mrr "
+        f"then mrr.mrr else 0 end) as mrr_mrr_end_of_month_by_account FROM analytics.mrr_by_customer mrr "
         f"JOIN cte_mrr_end_of_month_by_account_record_date ON mrr.account_id"
         "=cte_mrr_end_of_month_by_account_record_date.mrr_account_id and mrr.plan_name"
         "=cte_mrr_end_of_month_by_account_record_date.mrr_plan_name "
@@ -286,7 +287,7 @@ def test_mrr_non_additive_dimension_group_by_equal_to_window_grouping(connection
         f"SUM(case when DATE_TRUNC('DAY', mrr.record_date)=cte_mrr_end_of_month_by_account_record_date"
         f".mrr_max_record_date "
         f"and mrr.account_id=cte_mrr_end_of_month_by_account_record_date.mrr_account_id "
-        f"then mrr.mrr end) as mrr_mrr_end_of_month_by_account FROM analytics.mrr_by_customer mrr "
+        f"then mrr.mrr else 0 end) as mrr_mrr_end_of_month_by_account FROM analytics.mrr_by_customer mrr "
         f"JOIN cte_mrr_end_of_month_by_account_record_date ON mrr.account_id"
         f"=cte_mrr_end_of_month_by_account_record_date.mrr_account_id "
         f"GROUP BY mrr.account_id "
@@ -307,7 +308,7 @@ def test_mrr_non_additive_dimension_merged_results_no_group_by_where(connection)
         "SELECT MAX(mrr.record_date) as mrr_max_record_raw FROM analytics.mrr_by_customer mrr "
         "WHERE DATE_TRUNC('DAY', mrr.record_date)>'2022-04-03' ORDER BY mrr_max_record_raw DESC) "
         "SELECT SUM(case when mrr.record_date=cte_mrr_end_of_month_record_raw."
-        "mrr_max_record_raw then mrr.mrr end) as mrr_mrr_end_of_month "
+        "mrr_max_record_raw then mrr.mrr else 0 end) as mrr_mrr_end_of_month "
         "FROM analytics.mrr_by_customer mrr JOIN cte_mrr_end_of_month_record_raw ON 1=1 "
         "WHERE DATE_TRUNC('DAY', mrr.record_date)>'2022-04-03' ORDER BY mrr_mrr_end_of_month DESC"
         ") ,order_lines_order__cte_subquery_1 AS (SELECT SUM(order_lines.revenue) as "
@@ -337,7 +338,7 @@ def test_mrr_non_additive_dimension_merged_results_no_group_by_window_grouping(c
         f"SELECT SUM(case when DATE_TRUNC('DAY', mrr.record_date)=cte_mrr_end_of_month_by_account_record_date"
         ".mrr_max_record_date "
         "and mrr.account_id=cte_mrr_end_of_month_by_account_record_date.mrr_account_id "
-        f"then mrr.mrr end) as mrr_mrr_end_of_month_by_account FROM analytics.mrr_by_customer mrr "
+        f"then mrr.mrr else 0 end) as mrr_mrr_end_of_month_by_account FROM analytics.mrr_by_customer mrr "
         f"JOIN cte_mrr_end_of_month_by_account_record_date ON mrr.account_id"
         "=cte_mrr_end_of_month_by_account_record_date.mrr_account_id WHERE DATE_TRUNC('DAY', mrr.record_date)>'2022-04-03' "  # noqa
         "ORDER BY mrr_mrr_end_of_month_by_account DESC"
@@ -367,7 +368,7 @@ def test_mrr_non_additive_dimension_merged_results_time_group_by(connection):
         "ORDER BY mrr_max_record_raw DESC) "
         "SELECT DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE)) as mrr_record_week,"
         "SUM(case when mrr.record_date=cte_mrr_end_of_month_record_raw.mrr_max_record_raw "
-        "then mrr.mrr end) as mrr_mrr_end_of_month FROM analytics.mrr_by_customer mrr "
+        "then mrr.mrr else 0 end) as mrr_mrr_end_of_month FROM analytics.mrr_by_customer mrr "
         "JOIN cte_mrr_end_of_month_record_raw ON DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE))"
         "=cte_mrr_end_of_month_record_raw.mrr_record_week "
         "GROUP BY DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE)) ORDER BY mrr_mrr_end_of_month DESC"
@@ -400,7 +401,8 @@ def test_mrr_non_additive_dimension_time_group_by_ignore_dimensions(connection):
         "ORDER BY mrr_min_record_raw DESC) "
         "SELECT DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE)) as mrr_record_week,"
         "SUM(case when mrr.record_date=cte_mrr_beginning_of_month_no_group_by_record_raw.mrr_min_record_raw "
-        "then mrr.mrr end) as mrr_mrr_beginning_of_month_no_group_by FROM analytics.mrr_by_customer mrr "
+        "then mrr.mrr else 0 end) as mrr_mrr_beginning_of_month_no_group_by FROM analytics.mrr_by_customer"
+        " mrr "
         "JOIN cte_mrr_beginning_of_month_no_group_by_record_raw ON DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE))"  # noqa
         "=cte_mrr_beginning_of_month_no_group_by_record_raw.mrr_record_week GROUP BY DATE_TRUNC('WEEK', "
         "CAST(mrr.record_date AS DATE)) ORDER BY mrr_mrr_beginning_of_month_no_group_by DESC;"
@@ -424,7 +426,7 @@ def test_mrr_non_additive_dimension_time_group_by_with_window_grouping_ignore_di
         "SUM(case when DATE_TRUNC('DAY', mrr.record_date)=cte_mrr_end_of_month_by_account_no_group_by_record_date"  # noqa
         ".mrr_max_record_date "
         "and mrr.account_id=cte_mrr_end_of_month_by_account_no_group_by_record_date.mrr_account_id "
-        f"then mrr.mrr end) as mrr_mrr_end_of_month_by_account_no_group_by FROM analytics.mrr_by_customer mrr "  # noqa
+        f"then mrr.mrr else 0 end) as mrr_mrr_end_of_month_by_account_no_group_by FROM analytics.mrr_by_customer mrr "  # noqa
         f"JOIN cte_mrr_end_of_month_by_account_no_group_by_record_date ON mrr.account_id"
         "=cte_mrr_end_of_month_by_account_no_group_by_record_date.mrr_account_id "
         "and DATE_TRUNC('WEEK', CAST(mrr.record_date AS DATE))"
@@ -442,14 +444,13 @@ def test_mrr_non_additive_dimension_alt_group_by_ignore_dimensions(connection):
     )
 
     correct = (
-        "WITH cte_mrr_beginning_of_month_no_group_by_record_raw AS (SELECT "
-        "MIN(mrr.record_date) as mrr_min_record_raw "
-        "FROM analytics.mrr_by_customer mrr ORDER BY mrr_min_record_raw DESC) "
-        "SELECT mrr.plan_name as mrr_plan_name,"
-        "SUM(case when mrr.record_date=cte_mrr_beginning_of_month_no_group_by_record_raw.mrr_min_record_raw "
-        "then mrr.mrr end) as mrr_mrr_beginning_of_month_no_group_by FROM analytics.mrr_by_customer mrr "
-        "JOIN cte_mrr_beginning_of_month_no_group_by_record_raw ON 1=1 "
-        "GROUP BY mrr.plan_name ORDER BY mrr_mrr_beginning_of_month_no_group_by DESC;"
+        "WITH cte_mrr_beginning_of_month_no_group_by_record_raw AS (SELECT MIN(mrr.record_date) as"
+        " mrr_min_record_raw FROM analytics.mrr_by_customer mrr ORDER BY mrr_min_record_raw DESC) SELECT"
+        " mrr.plan_name as mrr_plan_name,SUM(case when"
+        " mrr.record_date=cte_mrr_beginning_of_month_no_group_by_record_raw.mrr_min_record_raw then mrr.mrr"
+        " else 0 end) as mrr_mrr_beginning_of_month_no_group_by FROM analytics.mrr_by_customer mrr JOIN"
+        " cte_mrr_beginning_of_month_no_group_by_record_raw ON 1=1 GROUP BY mrr.plan_name ORDER BY"
+        " mrr_mrr_beginning_of_month_no_group_by DESC;"
     )
     assert query == correct
 
@@ -468,7 +469,7 @@ def test_mrr_non_additive_dimension_alt_group_by_with_window_grouping_ignore_dim
         "SUM(case when DATE_TRUNC('DAY', mrr.record_date)=cte_mrr_end_of_month_by_account_no_group_by_record_date"  # noqa
         ".mrr_max_record_date "
         "and mrr.account_id=cte_mrr_end_of_month_by_account_no_group_by_record_date.mrr_account_id "
-        f"then mrr.mrr end) as mrr_mrr_end_of_month_by_account_no_group_by FROM analytics.mrr_by_customer mrr "  # noqa
+        f"then mrr.mrr else 0 end) as mrr_mrr_end_of_month_by_account_no_group_by FROM analytics.mrr_by_customer mrr "  # noqa
         f"JOIN cte_mrr_end_of_month_by_account_no_group_by_record_date ON mrr.account_id"
         "=cte_mrr_end_of_month_by_account_no_group_by_record_date.mrr_account_id "
         "GROUP BY mrr.plan_name ORDER BY mrr_mrr_end_of_month_by_account_no_group_by DESC;"
@@ -490,7 +491,7 @@ def test_mrr_non_additive_dimension_group_by_equal_to_window_grouping_ignore_dim
         "SUM(case when DATE_TRUNC('DAY', mrr.record_date)=cte_mrr_end_of_month_by_account_no_group_by_record_date"  # noqa
         ".mrr_max_record_date "
         "and mrr.account_id=cte_mrr_end_of_month_by_account_no_group_by_record_date.mrr_account_id "
-        f"then mrr.mrr end) as mrr_mrr_end_of_month_by_account_no_group_by FROM analytics.mrr_by_customer mrr "  # noqa
+        f"then mrr.mrr else 0 end) as mrr_mrr_end_of_month_by_account_no_group_by FROM analytics.mrr_by_customer mrr "  # noqa
         f"JOIN cte_mrr_end_of_month_by_account_no_group_by_record_date ON mrr.account_id"
         "=cte_mrr_end_of_month_by_account_no_group_by_record_date.mrr_account_id "
         "GROUP BY mrr.account_id "
@@ -515,7 +516,8 @@ def test_mrr_non_additive_dimension_merged_result_sub_join(connection):
         " ORDER BY mrr_max_record_date DESC) SELECT accounts.name as"
         " accounts_account_name,mrr.customer_account_type as mrr_customer_account_type,SUM(case when"
         " DATE_TRUNC('DAY', mrr.record_date)=cte_mrr_end_of_month_by_account_record_date.mrr_max_record_date"
-        " and mrr.account_id=cte_mrr_end_of_month_by_account_record_date.mrr_account_id then mrr.mrr end) as"
+        " and mrr.account_id=cte_mrr_end_of_month_by_account_record_date.mrr_account_id then mrr.mrr else 0"
+        " end) as"
         " mrr_mrr_end_of_month_by_account FROM analytics.mrr_by_customer mrr LEFT JOIN analytics.accounts"
         " accounts ON mrr.account_id=accounts.account_id JOIN cte_mrr_end_of_month_by_account_record_date ON"
         " mrr.account_id=cte_mrr_end_of_month_by_account_record_date.mrr_account_id and"
@@ -565,7 +567,8 @@ def test_mrr_non_additive_dimension_merged_result_sub_join_where(connection):
         " mrr.account_id,DATE_TRUNC('DAY', mrr.record_date) ORDER BY mrr_max_record_date DESC) SELECT"
         " DATE_TRUNC('DAY', mrr.record_date) as mrr_record_date,SUM(case when DATE_TRUNC('DAY',"
         " mrr.record_date)=cte_mrr_end_of_month_by_account_record_date.mrr_max_record_date and"
-        " mrr.account_id=cte_mrr_end_of_month_by_account_record_date.mrr_account_id then mrr.mrr end) as"
+        " mrr.account_id=cte_mrr_end_of_month_by_account_record_date.mrr_account_id then mrr.mrr else 0"
+        " end) as"
         " mrr_mrr_end_of_month_by_account FROM analytics.mrr_by_customer mrr LEFT JOIN analytics.accounts"
         " accounts ON mrr.account_id=accounts.account_id JOIN cte_mrr_end_of_month_by_account_record_date ON"
         " mrr.account_id=cte_mrr_end_of_month_by_account_record_date.mrr_account_id and DATE_TRUNC('DAY',"
