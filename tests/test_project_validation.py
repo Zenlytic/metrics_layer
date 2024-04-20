@@ -1166,6 +1166,15 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             [],
         ),
         (
+            "parent_channel",
+            "filters",
+            [{"field": "parent_channel", "value": "-None"}],
+            [
+                "Field parent_channel in view order_lines has a filter that references "
+                "itself. This is invalid, and the filter will not be applied."
+            ],
+        ),
+        (
             "total_item_costs",
             "filters",
             [{"field": "order_id", "value": ">1", "random": "key"}],
