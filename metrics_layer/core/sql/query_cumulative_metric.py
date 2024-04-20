@@ -1,16 +1,16 @@
 import functools
 from copy import deepcopy
 
-from pypika import JoinType, Criterion, Table
+from pypika import Criterion, JoinType, Table
 
-from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
-from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException
+from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.filter import LiteralValueCriterion
+from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_dialect import query_lookup
-from metrics_layer.core.sql.query_generator import MetricsLayerQuery
 from metrics_layer.core.sql.query_filter import MetricsLayerFilter
+from metrics_layer.core.sql.query_generator import MetricsLayerQuery
 
 SNOWFLAKE_DATE_SPINE = (
     "select dateadd(day, seq4(), '2000-01-01') as date from table(generator(rowcount => 365*40))"
@@ -256,7 +256,7 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
                 date_field.dimension_group = where_field.dimension_group
                 date_having["field"] = date_field.id()
                 date_having["query_type"] = self.query_type
-                f = MetricsLayerFilter(definition=date_having, design=None, filter_type="having")
+                f = MetricsLayerFilter(definition=date_having, design=self.design, filter_type="having")
                 date_spine_sql = date_field.apply_dimension_group_time_sql(
                     date_spine_reference, self.query_type
                 )
@@ -344,8 +344,10 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
             self._default_date_memo[date_key] = self.design.get_field(date_key)
         except Exception:
             raise AccessDeniedOrDoesNotExistException(
-                f"Could not find date needed to aggregate cumulative metric {cumulative_metric.name}, "
-                f"looking for date field named {date_field_name} in view {field.view.name}",
+                (
+                    f"Could not find date needed to aggregate cumulative metric {cumulative_metric.name}, "
+                    f"looking for date field named {date_field_name} in view {field.view.name}"
+                ),
                 object_type="field",
                 object_name=date_field_name,
             )
@@ -373,7 +375,6 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         for field_name in self.dimensions + self.metrics:
             field = self.design.get_field(field_name)
             if field.type == "number" and field.is_cumulative():
-
                 field_sql = field.sql_query(query_type=self.query_type, alias_only=True)
             elif field.is_cumulative():
                 field_sql = field.measure.alias(with_view=True)

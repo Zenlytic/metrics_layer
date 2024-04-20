@@ -1298,7 +1298,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                     if "field" in f and isinstance(f["field"], str) and "." not in f["field"]:
                         f["field"] = f"{self.view.name}.{f['field']}"
 
-                    if f["field"] == f"{self.view.name}.{self.name}":
+                    if "field" in f and f["field"] == f"{self.view.name}.{self.name}":
                         errors.append(
                             f"Field {self.name} in view {self.view.name} has a filter that references itself."
                             " This is invalid, and the filter will not be applied."
