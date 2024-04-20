@@ -280,7 +280,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                     "for the view. You can do this by adding the tag 'primary_key: true' to the "
                     "necessary dimension"
                 )
-            filters_to_apply = definition.get("filters", [])
+            # You cannot apply a filter to a field that is the same name as the field itself (this doesn't make sense)
+            filters_to_apply = [f for f in definition.get("filters", []) if f.get("field") != self.name]
 
             else_0 = False
             if non_additive_dimension := self.non_additive_dimension:
@@ -1296,6 +1297,12 @@ class Field(MetricsLayerBase, SQLReplacement):
                 else:
                     if "field" in f and isinstance(f["field"], str) and "." not in f["field"]:
                         f["field"] = f"{self.view.name}.{f['field']}"
+
+                    if "field" in f and f["field"] == f"{self.view.name}.{self.name}":
+                        errors.append(
+                            f"Field {self.name} in view {self.view.name} has a filter that references itself."
+                            " This is invalid, and the filter will not be applied."
+                        )
 
                     errors.extend(
                         self.collect_field_filter_errors(

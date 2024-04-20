@@ -1,14 +1,18 @@
 import datetime
 from typing import Dict
 
-from pypika import Criterion, Table, Field
+from pypika import Criterion, Field, Table
 from pypika.terms import LiteralValue
-from metrics_layer.core.exceptions import QueryError
 
+from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.field import Field as MetricsLayerField
-from metrics_layer.core.model.filter import Filter, MetricsLayerFilterExpressionType, LiteralValueCriterion
+from metrics_layer.core.model.filter import (
+    Filter,
+    LiteralValueCriterion,
+    MetricsLayerFilterExpressionType,
+)
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_errors import ParseError
 
@@ -97,7 +101,9 @@ class MetricsLayerFilter(MetricsLayerBase):
             except ParseError:
                 raise ParseError(f"We could not find field {self.field_name}")
 
-            if self.design.query_type == "BIGQUERY" and isinstance(definition["value"], datetime.datetime):
+            if self.design.query_type == Definitions.bigquery and isinstance(
+                definition["value"], datetime.datetime
+            ):
                 definition["value"] = bigquery_cast(self.field, definition["value"])
 
             if self.field.type == "yesno" and "False" in str(definition["value"]):
