@@ -83,6 +83,10 @@ class Join(MetricsLayerBase, SQLReplacement):
                 ", please pass only one of: sql_on, foreign_key"
             )
 
+    def _error(self, element, error, extra: dict = {}):
+        line, column = self.line_col(element)
+        return {**extra, "message": error, "line": line, "column": column}
+
     def collect_errors(self):
         errors = []
         if self.foreign_key:
@@ -95,7 +99,13 @@ class Join(MetricsLayerBase, SQLReplacement):
                     )
                 except Exception:
                     errors.append(
-                        f"Could not find field {self.foreign_key} in {self.name} referencing view {view_name}"
+                        self._error(
+                            self.foreign_key,
+                            (
+                                f"Could not find field {self.foreign_key} in {self.name} referencing view"
+                                f" {view_name}"
+                            ),
+                        )
                     )
             return errors
 
@@ -105,21 +115,26 @@ class Join(MetricsLayerBase, SQLReplacement):
             for field in fields_to_replace:
                 _, view_name, column_name = Field.field_name_parts(field)
                 if view_name is None:
-                    errors.append(f"Could not find view for field {field} in {self.name}")
+                    errors.append(
+                        self._error(self.sql_on, f"Could not find view for field {field} in {self.name}")
+                    )
                     continue
 
                 try:
                     view = self.project.get_view(view_name)
                 except Exception:
                     err_msg = f"Could not find view {view_name} in {self.name}"
-                    errors.append(err_msg)
+                    errors.append(self._error(self.sql_on, err_msg))
                     continue
 
                 try:
                     self.project.get_field(column_name, view_name=view.name)
                 except Exception:
                     errors.append(
-                        f"Could not find field {column_name} in {self.name} referencing view {view_name}"
+                        self._error(
+                            self.sql_on,
+                            f"Could not find field {column_name} in {self.name} referencing view {view_name}",
+                        )
                     )
 
         return errors

@@ -23,19 +23,31 @@ class Set(MetricsLayerBase):
             if k not in definition:
                 raise QueryError(f"Set missing required key {k}")
 
+    def _error(self, element, error, extra: dict = {}):
+        line, column = self.line_col(element)
+        error = {**extra, "message": error, "line": line, "column": column}
+        if self.view_name:
+            error["view_name"] = self.view_name
+        return error
+
     def collect_errors(self):
         errors = []
         if not self.valid_name(self.name):
-            errors.append(self.name_error("set", self.name))
+            errors.append(self._error(self.name, self.name_error("set", self.name)))
 
         if "view_name" in self._definition and self.valid_name(self.view_name):
             try:
                 self.project.get_view(self.view_name)
             except Exception as e:
-                errors.append(f"In the Set {self.name} " + str(e))
+                errors.append(self._error(self.view_name, f"In the Set {self.name} " + str(e)))
 
         if not isinstance(self.fields, list):
-            errors.append(f"The fields property, {self.fields} must be a list in the Set {self.name}")
+            errors.append(
+                self._error(
+                    self._definition["fields"],
+                    f"The fields property, {self.fields} must be a list in the Set {self.name}",
+                )
+            )
         else:
             try:
                 field_names = self.field_names()
@@ -47,9 +59,15 @@ class Set(MetricsLayerBase):
                 try:
                     self.project.get_field(field)
                 except Exception as e:
-                    errors.append(f"In the Set {self.name} " + str(e))
+                    errors.append(
+                        self._error(self._definition["fields"], f"In the Set {self.name} " + str(e))
+                    )
 
-        errors.extend(self.invalid_property_error(self._definition, self.valid_properties, "set", self.name))
+        errors.extend(
+            self.invalid_property_error(
+                self._definition, self.valid_properties, "set", self.name, error_func=self._error
+            )
+        )
         return errors
 
     def field_names(self):

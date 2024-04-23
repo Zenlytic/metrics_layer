@@ -5,6 +5,53 @@ import ruamel.yaml
 from .github_repo import BaseRepo
 
 
+class Str(ruamel.yaml.scalarstring.ScalarString):
+    __slots__ = "lc"
+
+    style = ""
+
+    def __new__(cls, value):
+        return ruamel.yaml.scalarstring.ScalarString.__new__(cls, value)
+
+
+class ZenlyticPreservedScalarString(ruamel.yaml.scalarstring.PreservedScalarString):
+    __slots__ = "lc"
+
+
+class ZenlyticDoubleQuotedScalarString(ruamel.yaml.scalarstring.DoubleQuotedScalarString):
+    __slots__ = "lc"
+
+
+class ZenlyticSingleQuotedScalarString(ruamel.yaml.scalarstring.SingleQuotedScalarString):
+    __slots__ = "lc"
+
+
+# This is so we can spy on the line and column of string types for error messages
+class ZenlyticConstructor(ruamel.yaml.constructor.RoundTripConstructor):
+    def construct_scalar(self, node):
+        # type: (Any) -> Any
+        if not isinstance(node, ruamel.yaml.nodes.ScalarNode):
+            raise ruamel.yaml.constructor.ConstructorError(
+                None, None, "expected a scalar node, but found %s" % node.id, node.start_mark
+            )
+
+        if node.style == "|" and isinstance(node.value, str):
+            ret_val = ZenlyticPreservedScalarString(node.value)
+        elif bool(self._preserve_quotes) and isinstance(node.value, str):
+            if node.style == "'":
+                ret_val = ZenlyticSingleQuotedScalarString(node.value)
+            elif node.style == '"':
+                ret_val = ZenlyticDoubleQuotedScalarString(node.value)
+            else:
+                ret_val = Str(node.value)
+        else:
+            ret_val = Str(node.value)
+        ret_val.lc = ruamel.yaml.comments.LineCol()
+        ret_val.lc.line = node.start_mark.line
+        ret_val.lc.col = node.start_mark.column
+        return ret_val
+
+
 class ProjectReaderBase:
     def __init__(self, repo: BaseRepo, profiles_dir: str = None):
         self.repo = repo
@@ -63,6 +110,7 @@ class ProjectReaderBase:
     @staticmethod
     def read_yaml_file(path: str):
         yaml = ruamel.yaml.YAML(typ="rt")
+        yaml.Constructor = ZenlyticConstructor
         yaml.version = (1, 1)
         with open(path, "r") as f:
             yaml_dict = yaml.load(f)

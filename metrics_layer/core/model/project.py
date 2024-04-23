@@ -218,6 +218,10 @@ class Project:
         self.refresh_cache()
         return errors
 
+    def _error(self, error: str, extra: dict = {}):
+        # For project level errors we cannot attribute a line or column
+        return {**extra, "message": error, "line": None, "column": None}
+
     def validate(self):
         all_errors = []
         for model in self.models():
@@ -225,14 +229,14 @@ class Project:
                 all_errors.extend(model.collect_errors())
             except QueryError as e:
                 # If we have an error building the model, we cannot continue
-                return [str(e)]
+                return [self._error(str(e))]
 
         try:
             all_errors.extend(self.join_graph.collect_errors())
         except QueryError as e:
             # If we have an error building the graph, we cannot continue
             # and no other errors will be relevant until this is fixed
-            return [str(e)]
+            return [self._error(str(e))]
 
         for join_graph in self.join_graph.list_join_graphs():
             try:
@@ -240,7 +244,7 @@ class Project:
             except QueryError as e:
                 error_text = str(e).replace(" name ", " tag ").split("\n")[0]
                 error_text += '. Only one field can have the tag "customer" per joinable graph.'
-                all_errors.append(error_text)
+                all_errors.append(self._error(error_text))
             except Exception:
                 pass
 
@@ -249,23 +253,33 @@ class Project:
                 for user_attribute_name in self._required_access_filter_user_attributes:
                     if not view.access_filters:
                         all_errors.append(
-                            f"View {view.name} does not have any access filters, but an access filter with"
-                            f" user attribute {user_attribute_name} is required."
+                            self._error(
+                                (
+                                    f"View {view.name} does not have any access filters, but an access filter"
+                                    f" with user attribute {user_attribute_name} is required."
+                                ),
+                                {"view_name": view.name},
+                            )
                         )
                     elif all(af["user_attribute"] != user_attribute_name for af in view.access_filters):
                         all_errors.append(
-                            f"View {view.name} does not have an access filter with the required user"
-                            f" attribute {user_attribute_name}"
+                            self._error(
+                                (
+                                    f"View {view.name} does not have an access filter with the required user"
+                                    f" attribute {user_attribute_name}"
+                                ),
+                                {"view_name": view.name},
+                            )
                         )
 
             try:
                 view.sql_table_name
             except QueryError as e:
-                all_errors.append(str(e) + f" in the view {view.name}")
+                all_errors.append(self._error(str(e) + f" in the view {view.name}", {"view_name": view.name}))
             try:
                 referenced_fields = view.referenced_fields()
             except (AccessDeniedOrDoesNotExistException, QueryError) as e:
-                all_errors.append(str(e) + f" in the view {view.name}")
+                all_errors.append(self._error(str(e) + f" in the view {view.name}", {"view_name": view.name}))
 
             view_errors = view.collect_errors()
 
@@ -280,8 +294,13 @@ class Project:
                         field_reference = field[-1]
                         prepend = ""
                     all_errors.append(
-                        f"{prepend}Could not locate reference {field_reference} in field {field_name} in view"
-                        f" {view.name}"
+                        self._error(
+                            (
+                                f"{prepend}Could not locate reference {field_reference} in field"
+                                f" {field_name} in view {view.name}"
+                            ),
+                            {"view_name": view.name, "field_name": field_name},
+                        )
                     )
             all_errors.extend(view_errors)
 
@@ -291,7 +310,13 @@ class Project:
 
         all_errors.extend(self._validate_dashboard_names())
 
-        return list(sorted(set(all_errors), key=lambda x: all_errors.index(x)))
+        cleaned_errors, _seen = [], set([])
+        for e in all_errors:
+            if isinstance(e, dict) and e["message"] not in _seen:
+                cleaned_errors.append(e)
+                _seen.add(e["message"])
+
+        return cleaned_errors
 
     def _validate_dashboard_names(self):
         # We need to make sure the unique identifiers for the dashboards are actually unique
@@ -301,7 +326,7 @@ class Project:
         for name, frequency in name_frequency:
             if frequency > 1:
                 msg = f"Dashboard name {name} appears {frequency} times, make sure dashboard names are unique"
-                errors.append(msg)
+                errors.append(self._error(msg))
             else:
                 break
         return errors
@@ -342,7 +367,7 @@ class Project:
             )
 
     def access_grants(self):
-        return [AccessGrant(g) for m in self.models() for g in m.access_grants]
+        return [AccessGrant(g, model=m) for m in self.models() for g in m.access_grants]
 
     def get_access_grant(self, grant_name: str):
         try:

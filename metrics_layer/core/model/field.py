@@ -1206,57 +1206,108 @@ class Field(MetricsLayerBase, SQLReplacement):
         else:
             raise QueryError(f"Unable to find a valid method for running week with query type {query_type}")
 
+    def _error(self, element, error, extra: dict = {}):
+        line, column = self.line_col(element)
+        return {
+            **extra,
+            "view_name": self.view.name,
+            "field_name": self.name,
+            "message": error,
+            "line": line,
+            "column": column,
+        }
+
     def collect_errors(self):
         warning_prefix = "Warning:"
         errors = []
         if not self.valid_name(self.name):
-            errors.append(self.name_error("field", self.name))
+            errors.append(self._error(self.name, self.name_error("field", self.name)))
         elif (
             self.name in self.view.model.special_mapping_values
             and self.field_type != ZenlyticFieldType.dimension_group
         ):
             errors.append(
-                f"Field name: {self.name} in view {self.view.name} is a reserved word and cannot be used as a"
-                " field name."
+                self._error(
+                    self.name,
+                    (
+                        f"Field name: {self.name} in view {self.view.name} is a reserved word and cannot be"
+                        " used as a field name."
+                    ),
+                )
             )
 
         if self.field_type not in ZenlyticFieldType.options:
             errors.append(
-                f"Field {self.name} in view {self.view.name} has an invalid field_type {self.field_type}."
-                f" Valid field_types are: {ZenlyticFieldType.options}"
+                self._error(
+                    self.field_type,
+                    (
+                        f"Field {self.name} in view {self.view.name} has an invalid field_type"
+                        f" {self.field_type}. Valid field_types are: {ZenlyticFieldType.options}"
+                    ),
+                )
             )
 
         if "type" not in self._definition:
-            errors.append(f"Field {self.name} in view {self.view.name} is missing the required key 'type'.")
+            errors.append(
+                self._error(
+                    self.name,
+                    f"Field {self.name} in view {self.view.name} is missing the required key 'type'.",
+                )
+            )
 
         if "label" in self._definition and not isinstance(self.label, str):
             errors.append(
-                f"Field {self.name} in view {self.view.name} has an invalid label {self.label}."
-                " label must be a string."
+                self._error(
+                    self._definition["label"],
+                    (
+                        f"Field {self.name} in view {self.view.name} has an invalid label {self.label}."
+                        " label must be a string."
+                    ),
+                )
             )
 
         if "group_label" in self._definition and not isinstance(self.group_label, str):
             errors.append(
-                f"Field {self.name} in view {self.view.name} has an invalid group_label {self.group_label}."
-                " group_label must be a string."
+                self._error(
+                    self._definition["group_label"],
+                    (
+                        f"Field {self.name} in view {self.view.name} has an invalid group_label"
+                        f" {self.group_label}. group_label must be a string."
+                    ),
+                )
             )
 
         if "hidden" in self._definition and not isinstance(self.hidden, bool):
             errors.append(
-                f"Field {self.name} in view {self.view.name} has an invalid hidden value of {self.hidden}."
-                " hidden must be a boolean (true or false)."
+                self._error(
+                    self._definition["hidden"],
+                    (
+                        f"Field {self.name} in view {self.view.name} has an invalid hidden value of"
+                        f" {self.hidden}. hidden must be a boolean (true or false)."
+                    ),
+                )
             )
 
         if "description" in self._definition and not isinstance(self.description, str):
             errors.append(
-                f"Field {self.name} in view {self.view.name} has an invalid description {self.description}."
-                " description must be a string."
+                self._error(
+                    self._definition["description"],
+                    (
+                        f"Field {self.name} in view {self.view.name} has an invalid description"
+                        f" {self.description}. description must be a string."
+                    ),
+                )
             )
 
         if "zoe_description" in self._definition and not isinstance(self.zoe_description, str):
             errors.append(
-                f"Field {self.name} in view {self.view.name} has an invalid zoe_description"
-                f" {self.zoe_description}. zoe_description must be a string."
+                self._error(
+                    self._definition["zoe_description"],
+                    (
+                        f"Field {self.name} in view {self.view.name} has an invalid zoe_description"
+                        f" {self.zoe_description}. zoe_description must be a string."
+                    ),
+                )
             )
 
         if (
@@ -1264,34 +1315,59 @@ class Field(MetricsLayerBase, SQLReplacement):
             and str(self.value_format_name) not in VALID_VALUE_FORMAT_NAMES
         ):
             errors.append(
-                f"Field {self.name} in view {self.view.name} has an invalid value_format_name"
-                f" {self.value_format_name}. Valid value_format_names are: {VALID_VALUE_FORMAT_NAMES}"
+                self._error(
+                    self._definition["value_format_name"],
+                    (
+                        f"Field {self.name} in view {self.view.name} has an invalid value_format_name"
+                        f" {self.value_format_name}. Valid value_format_names are: {VALID_VALUE_FORMAT_NAMES}"
+                    ),
+                )
             )
 
         if "synonyms" in self._definition and not isinstance(self.synonyms, list):
             errors.append(
-                f"Field {self.name} in view {self.view.name} has an invalid synonyms {self.synonyms}."
-                " synonyms must be a list of strings."
+                self._error(
+                    self._definition["synonyms"],
+                    (
+                        f"Field {self.name} in view {self.view.name} has an invalid synonyms {self.synonyms}."
+                        " synonyms must be a list of strings."
+                    ),
+                )
             )
         elif "synonyms" in self._definition:
             for synonym in self.synonyms:
                 if not isinstance(synonym, str):
                     errors.append(
-                        f"Field {self.name} in view {self.view.name} has an invalid synonym {synonym}."
-                        " The synonym must be a string."
+                        self._error(
+                            self._definition["synonyms"],
+                            (
+                                f"Field {self.name} in view {self.view.name} has an invalid synonym"
+                                f" {synonym}. The synonym must be a string."
+                            ),
+                        )
                     )
 
         if "filters" in self._definition and not isinstance(self.filters, list):
             errors.append(
-                f"Field {self.name} in view {self.view.name} has an invalid filters {self.filters}."
-                " The filters must be a list of dictionaries."
+                self._error(
+                    self._definition["filters"],
+                    (
+                        f"Field {self.name} in view {self.view.name} has an invalid filters {self.filters}."
+                        " The filters must be a list of dictionaries."
+                    ),
+                )
             )
         elif "filters" in self._definition and isinstance(self.filters, list):
             for f in self.filters:
                 if not isinstance(f, dict):
                     errors.append(
-                        f"Field {self.name} in view {self.view.name} has an invalid filter {f}."
-                        " filter must be a dictionary."
+                        self._error(
+                            self._definition["filters"],
+                            (
+                                f"Field {self.name} in view {self.view.name} has an invalid filter {f}."
+                                " filter must be a dictionary."
+                            ),
+                        )
                     )
 
                 else:
@@ -1300,13 +1376,23 @@ class Field(MetricsLayerBase, SQLReplacement):
 
                     if "field" in f and f["field"] == f"{self.view.name}.{self.name}":
                         errors.append(
-                            f"Field {self.name} in view {self.view.name} has a filter that references itself."
-                            " This is invalid, and the filter will not be applied."
+                            self._error(
+                                f["field"],
+                                (
+                                    f"Field {self.name} in view {self.view.name} has a filter that references"
+                                    " itself. This is invalid, and the filter will not be applied."
+                                ),
+                            )
                         )
 
                     errors.extend(
                         self.collect_field_filter_errors(
-                            f, self.view.project, f"Field {self.name} filter", "view", self.view.name
+                            f,
+                            self.view.project,
+                            f"Field {self.name} filter",
+                            "view",
+                            self.view.name,
+                            error_func=self._error,
                         )
                     )
                     errors.extend(
@@ -1315,13 +1401,19 @@ class Field(MetricsLayerBase, SQLReplacement):
                             ["field", "value"],
                             "field filter",
                             f"in field {self.name} in view {self.view.name}",
+                            error_func=self._error,
                         )
                     )
 
         if "extra" in self._definition and not isinstance(self.extra, dict):
             errors.append(
-                f"Field {self.name} in view {self.view.name} has an invalid extra {self.extra}."
-                " The extra must be a dictionary."
+                self._error(
+                    self._definition["extra"],
+                    (
+                        f"Field {self.name} in view {self.view.name} has an invalid extra {self.extra}."
+                        " The extra must be a dictionary."
+                    ),
+                )
             )
 
         errors.extend(
@@ -1330,6 +1422,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                 self.view.project,
                 f"in field {self.name} in view {self.view.name}",
                 f"in model {self.view.model.name}",
+                error_func=self._error,
             )
         )
 
@@ -1340,8 +1433,13 @@ class Field(MetricsLayerBase, SQLReplacement):
 
         if self.canon_date is not None and not isinstance(self.canon_date, str):
             errors.append(
-                f"Field {self.name} in view {self.view.name} has an invalid canon_date {self.canon_date}."
-                " canon_date must be a string."
+                self._error(
+                    self._definition.get("canon_date"),
+                    (
+                        f"Field {self.name} in view {self.view.name} has an invalid canon_date"
+                        f" {self.canon_date}. canon_date must be a string."
+                    ),
+                )
             )
         elif self.canon_date is not None and self.canon_date != view_default_date:
             try:
@@ -1351,56 +1449,101 @@ class Field(MetricsLayerBase, SQLReplacement):
                     or canon_date_field.type != "time"
                 ):
                     errors.append(
-                        f"Canon date {self.canon_date} is not of field_type: dimension_group and type: time"
-                        f" in field {self.name} in view {self.view.name}"
+                        self._error(
+                            self._definition.get("canon_date"),
+                            (
+                                f"Canon date {self.canon_date} is not of field_type: dimension_group and"
+                                f" type: time in field {self.name} in view {self.view.name}"
+                            ),
+                        )
                     )
             except (AccessDeniedOrDoesNotExistException, QueryError):
-                errors.append(f"Canon date {self.canon_date} is unreachable in field {self.name}.")
+                errors.append(
+                    self._error(
+                        self._definition.get("canon_date"),
+                        f"Canon date {self.canon_date} is unreachable in field {self.name}.",
+                    )
+                )
 
         # Dimension specific checks
         if self.field_type == ZenlyticFieldType.dimension:
             if str(self.type) not in ZenlyticType.dimension_options:
                 errors.append(
-                    f"Field {self.name} in view {self.view.name} has an invalid type {self.type}."
-                    f" Valid types for dimensions are: {ZenlyticType.dimension_options}"
+                    self._error(
+                        self._definition.get("type"),
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid type {self.type}."
+                            f" Valid types for dimensions are: {ZenlyticType.dimension_options}"
+                        ),
+                    )
                 )
             if "primary_key" in self._definition and not isinstance(self.primary_key, bool):
                 errors.append(
-                    f"Field {self.name} in view {self.view.name} has an invalid primary_key"
-                    f" {self.primary_key}. primary_key must be a boolean (true or false)."
+                    self._error(
+                        self._definition.get("primary_key"),
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid primary_key"
+                            f" {self.primary_key}. primary_key must be a boolean (true or false)."
+                        ),
+                    )
                 )
 
             if not isinstance(self._definition.get("sql"), str) and "case" not in self._definition:
                 errors.append(
-                    f"Field {self.name} in view {self.view.name} has an invalid sql"
-                    f" {self._definition.get('sql')}. sql must be a string. The sql property must be present"
-                    " for dimensions."
+                    self._error(
+                        self._definition.get("sql"),
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid sql"
+                            f" {self._definition.get('sql')}. sql must be a string. The sql property must be"
+                            " present for dimensions."
+                        ),
+                    )
                 )
             elif "case" in self._definition:
                 errors.append(
-                    f"{warning_prefix}: Field {self.name} in view {self.view.name} is using a case"
-                    " statement, which is deprecated. Please use the sql property instead."
+                    self._error(
+                        self._definition.get("case"),
+                        (
+                            f"{warning_prefix}: Field {self.name} in view {self.view.name} is using a case"
+                            " statement, which is deprecated. Please use the sql property instead."
+                        ),
+                    )
                 )
             elif self.sql is not None:
-                errors.extend(self.collect_sql_errors(self.sql, "sql"))
+                errors.extend(self.collect_sql_errors(self.sql, "sql", error_func=self._error))
 
             if "tags" in self._definition and not isinstance(self.tags, list):
                 errors.append(
-                    f"Field {self.name} in view {self.view.name} has an invalid tags"
-                    f" {self.tags}. tags must be a list of strings."
+                    self._error(
+                        self._definition["tags"],
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid tags"
+                            f" {self.tags}. tags must be a list of strings."
+                        ),
+                    )
                 )
             elif "tags" in self._definition:
                 for tag in self.tags:
                     if not isinstance(tag, str):
                         errors.append(
-                            f"Field {self.name} in view {self.view.name} has an invalid tag {tag}."
-                            " tags must be a list of strings."
+                            self._error(
+                                self._definition["tags"],
+                                (
+                                    f"Field {self.name} in view {self.view.name} has an invalid tag {tag}."
+                                    " tags must be a list of strings."
+                                ),
+                            )
                         )
 
             if "drill_fields" in self._definition and not isinstance(self._definition["drill_fields"], list):
                 errors.append(
-                    f"Field {self.name} in view {self.view.name} has an invalid drill_fields"
-                    ". drill_fields must be a list of strings."
+                    self._error(
+                        self._definition["drill_fields"],
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid drill_fields"
+                            ". drill_fields must be a list of strings."
+                        ),
+                    )
                 )
             elif self.drill_fields is not None:
                 for field_name in self.drill_fields:
@@ -1408,139 +1551,246 @@ class Field(MetricsLayerBase, SQLReplacement):
                         self.view.project.get_field(field_name)
                     except AccessDeniedOrDoesNotExistException:
                         errors.append(
-                            f"Field {field_name} in drill_fields is unreachable in field {self.name} in view"
-                            f" {self.view.name}."
+                            self._error(
+                                self._definition["drill_fields"],
+                                (
+                                    f"Field {field_name} in drill_fields is unreachable in field"
+                                    f" {self.name} in view {self.view.name}."
+                                ),
+                            )
                         )
 
             if "searchable" in self._definition and not isinstance(self.searchable, bool):
                 errors.append(
-                    f"Field {self.name} in view {self.view.name} has an invalid searchable"
-                    f" {self.searchable}. searchable must be a boolean (true or false)."
+                    self._error(
+                        self._definition["searchable"],
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid searchable"
+                            f" {self.searchable}. searchable must be a boolean (true or false)."
+                        ),
+                    )
                 )
             if self.type == ZenlyticType.tier:
                 if "tiers" not in self._definition:
                     errors.append(
-                        f"Field {self.name} in view {self.view.name} is of type tier, but does not have"
-                        " a tiers property. The tiers property is required for dimensions of type: tier."
+                        self._error(
+                            self._definition["name"],
+                            (
+                                f"Field {self.name} in view {self.view.name} is of type tier, but does not"
+                                " have a tiers property. The tiers property is required for dimensions of"
+                                " type: tier."
+                            ),
+                        )
                     )
                 elif "tiers" in self._definition and not isinstance(self.tiers, list):
                     errors.append(
-                        f"Field {self.name} in view {self.view.name} has an invalid tiers"
-                        f" {self.tiers}. tiers must be a list of dictionaries."
+                        self._error(
+                            self._definition["tiers"],
+                            (
+                                f"Field {self.name} in view {self.view.name} has an invalid tiers"
+                                f" {self.tiers}. tiers must be a list of dictionaries."
+                            ),
+                        )
                     )
                 elif "tiers" in self._definition:
                     for tier in self.tiers:
                         if not isinstance(tier, int):
                             errors.append(
-                                f"Field {self.name} in view {self.view.name} has an invalid tier"
-                                f" {tier}. tiers must be a list of integers."
+                                self._error(
+                                    tier,
+                                    (
+                                        f"Field {self.name} in view {self.view.name} has an invalid tier"
+                                        f" {tier}. tiers must be a list of integers."
+                                    ),
+                                )
                             )
             if "link" in self._definition and not isinstance(self.link, str):
                 errors.append(
-                    f"Field {self.name} in view {self.view.name} has an invalid link"
-                    f" {self.link}. link must be a string."
+                    self._error(
+                        self._definition["link"],
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid link"
+                            f" {self.link}. link must be a string."
+                        ),
+                    )
                 )
 
         # Dimension group specific checks
         elif self.field_type == ZenlyticFieldType.dimension_group:
             if str(self.type) not in ZenlyticType.dimension_group_options:
                 errors.append(
-                    f"Field {self.name} in view {self.view.name} has an invalid type {self.type}."
-                    f" Valid types for dimension groups are: {ZenlyticType.dimension_group_options}"
+                    self._error(
+                        self._definition.get("type"),
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid type {self.type}."
+                            f" Valid types for dimension groups are: {ZenlyticType.dimension_group_options}"
+                        ),
+                    )
                 )
             if "primary_key" in self._definition and not isinstance(self.primary_key, bool):
                 errors.append(
-                    f"Field {self.name} in view {self.view.name} has an invalid primary_key"
-                    f" {self.primary_key}. primary_key must be a boolean (true or false)."
+                    self._error(
+                        self._definition["primary_key"],
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid primary_key"
+                            f" {self.primary_key}. primary_key must be a boolean (true or false)."
+                        ),
+                    )
                 )
             # Handle time-specific properties
             if self.type == "time":
                 if "intervals" in self._definition:
                     errors.append(
-                        f"Field {self.name} in view {self.view.name} is of type time, but has property "
-                        "intervals when it should have property timeframes"
+                        self._error(
+                            self._definition["intervals"],
+                            (
+                                f"Field {self.name} in view {self.view.name} is of type time, but has"
+                                " property intervals when it should have property timeframes"
+                            ),
+                        )
                     )
 
                 if "timeframes" in self._definition and not isinstance(self.timeframes, list):
                     errors.append(
-                        f"Field {self.name} in view {self.view.name} has an invalid timeframes"
-                        f" {self.timeframes}. timeframes must be a list of strings."
+                        self._error(
+                            self._definition["timeframes"],
+                            (
+                                f"Field {self.name} in view {self.view.name} has an invalid timeframes"
+                                f" {self.timeframes}. timeframes must be a list of strings."
+                            ),
+                        )
                     )
                 else:
                     timeframes = self._definition.get("timeframes", [])
                     if not timeframes:
                         errors.append(
-                            f"Field {self.name} in view {self.view.name} is of type time and but does not"
-                            " have values for the timeframe property. Add valid timeframes (options:"
-                            f" {VALID_TIMEFRAMES})"
+                            self._error(
+                                self._definition["timeframes"],
+                                (
+                                    f"Field {self.name} in view {self.view.name} is of type time and but does"
+                                    " not have values for the timeframe property. Add valid timeframes"
+                                    f" (options: {VALID_TIMEFRAMES})"
+                                ),
+                            )
                         )
                     for i in timeframes:
                         if i not in VALID_TIMEFRAMES:
                             errors.append(
-                                f"Field {self.name} in view {self.view.name} is of type time and has"
-                                f" timeframe value of '{i}' which is not a valid timeframes (valid timeframes"
-                                f" are {VALID_TIMEFRAMES})"
+                                self._error(
+                                    self._definition["timeframes"],
+                                    (
+                                        f"Field {self.name} in view {self.view.name} is of type time and has"
+                                        f" timeframe value of '{i}' which is not a valid timeframes (valid"
+                                        f" timeframes are {VALID_TIMEFRAMES})"
+                                    ),
+                                )
                             )
                 if not isinstance(self._definition.get("sql"), str):
                     errors.append(
-                        f"Field {self.name} in view {self.view.name} is a dimension group of type time, but"
-                        " does not have a sql valid property. Dimension groups of type time must have a sql"
-                        " property and that property must be a string."
+                        self._error(
+                            self._definition["sql"],
+                            (
+                                f"Field {self.name} in view {self.view.name} is a dimension group of type"
+                                " time, but does not have a sql valid property. Dimension groups of type"
+                                " time must have a sql property and that property must be a string."
+                            ),
+                        )
                     )
 
                 elif self.sql is not None:
-                    errors.extend(self.collect_sql_errors(self.sql, "sql"))
+                    errors.extend(self.collect_sql_errors(self.sql, "sql", error_func=self._error))
 
                 if "convert_tz" in self._definition and not isinstance(self.convert_tz, bool):
                     errors.append(
-                        f"Field {self.name} in view {self.view.name} has an invalid convert_tz"
-                        f" {self.convert_tz}. convert_tz must be a boolean (true or false)."
+                        self._error(
+                            self._definition["convert_tz"],
+                            (
+                                f"Field {self.name} in view {self.view.name} has an invalid convert_tz"
+                                f" {self.convert_tz}. convert_tz must be a boolean (true or false)."
+                            ),
+                        )
                     )
                 if "convert_timezone" in self._definition and not isinstance(self.convert_timezone, bool):
                     errors.append(
-                        f"Field {self.name} in view {self.view.name} has an invalid convert_timezone"
-                        f" {self.convert_timezone}. convert_timezone must be a boolean (true or false)."
+                        self._error(
+                            self._definition["convert_timezone"],
+                            (
+                                f"Field {self.name} in view {self.view.name} has an invalid convert_timezone"
+                                f" {self.convert_timezone}. convert_timezone must be a boolean (true or"
+                                " false)."
+                            ),
+                        )
                     )
                 if "datatype" in self._definition and str(self.datatype) not in ZenlyticDataType.options:
                     errors.append(
-                        f"Field {self.name} in view {self.view.name} has an invalid datatype"
-                        f" {self.datatype}. Valid datatypes for time dimension groups are:"
-                        f" {ZenlyticDataType.options}"
+                        self._error(
+                            self._definition["datatype"],
+                            (
+                                f"Field {self.name} in view {self.view.name} has an invalid datatype"
+                                f" {self.datatype}. Valid datatypes for time dimension groups are:"
+                                f" {ZenlyticDataType.options}"
+                            ),
+                        )
                     )
 
             # Handle duration-specific properties
             if self.type == "duration":
                 if "timeframes" in self._definition:
                     errors.append(
-                        f"Field {self.name} in view {self.view.name} is of type duration, but has property "
-                        "timeframes when it should have property intervals"
+                        self._error(
+                            self._definition["timeframes"],
+                            (
+                                f"Field {self.name} in view {self.view.name} is of type duration, but has"
+                                " property timeframes when it should have property intervals"
+                            ),
+                        )
                     )
                 if self.type == "duration":
                     if "intervals" in self._definition and not isinstance(self.intervals, list):
                         errors.append(
-                            f"Field {self.name} in view {self.view.name} has an invalid intervals"
-                            f" {self.intervals}. intervals must be a list of strings."
+                            self._error(
+                                self._definition["intervals"],
+                                (
+                                    f"Field {self.name} in view {self.view.name} has an invalid intervals"
+                                    f" {self.intervals}. intervals must be a list of strings."
+                                ),
+                            )
                         )
                     else:
                         intervals = self._definition.get("intervals", [])
                         if not intervals:
                             errors.append(
-                                f"Field {self.name} in view {self.view.name} is of type duration and but does"
-                                " not have values for the intervals property. Add valid intervals (options:"
-                                f" {VALID_INTERVALS})"
+                                self._error(
+                                    self._definition["intervals"],
+                                    (
+                                        f"Field {self.name} in view {self.view.name} is of type duration and"
+                                        " but does not have values for the intervals property. Add valid"
+                                        f" intervals (options: {VALID_INTERVALS})"
+                                    ),
+                                )
                             )
                         for i in intervals:
                             if i not in VALID_INTERVALS:
                                 errors.append(
-                                    f"Field {self.name} in view {self.view.name} is of type duration and has"
-                                    f" interval value of '{i}' which is not a valid interval (valid intervals"
-                                    f" are {VALID_INTERVALS})"
+                                    self._error(
+                                        self._definition["intervals"],
+                                        (
+                                            f"Field {self.name} in view {self.view.name} is of type duration"
+                                            f" and has interval value of '{i}' which is not a valid interval"
+                                            f" (valid intervals are {VALID_INTERVALS})"
+                                        ),
+                                    )
                                 )
                     if "sql" in self._definition:
                         errors.append(
-                            f"Field {self.name} in view {self.view.name} is a dimension group of type"
-                            " duration, but has a sql property. Dimension groups of type duration must not"
-                            " have a sql property (just sql_start and sql_end)."
+                            self._error(
+                                self._definition["sql"],
+                                (
+                                    f"Field {self.name} in view {self.view.name} is a dimension group of type"
+                                    " duration, but has a sql property. Dimension groups of type duration"
+                                    " must not have a sql property (just sql_start and sql_end)."
+                                ),
+                            )
                         )
 
                     for property_name, sql_param in zip(
@@ -1548,35 +1798,51 @@ class Field(MetricsLayerBase, SQLReplacement):
                     ):
                         if not isinstance(self._definition.get(property_name), str):
                             errors.append(
-                                f"Field {self.name} in view {self.view.name} has an invalid"
-                                f" {property_name} {self._definition.get(property_name)}."
-                                f" {property_name} must be a string. The {property_name} property must be"
-                                " present for dimension groups of type duration."
+                                self._error(
+                                    self._definition.get(property_name),
+                                    (
+                                        f"Field {self.name} in view {self.view.name} has an invalid"
+                                        f" {property_name} {self._definition.get(property_name)}."
+                                        f" {property_name} must be a string. The {property_name} property"
+                                        " must be present for dimension groups of type duration."
+                                    ),
+                                )
                             )
                         elif sql_param is not None:
-                            errors.extend(self.collect_sql_errors(sql_param, "sql"))
+                            errors.extend(self.collect_sql_errors(sql_param, "sql", error_func=self._error))
 
         # Measure specific checks
         elif self.field_type == ZenlyticFieldType.measure:
             if str(self.type) not in ZenlyticType.measure_options:
                 errors.append(
-                    f"Field {self.name} in view {self.view.name} has an invalid type {self.type}."
-                    f" Valid types for measures are: {ZenlyticType.measure_options}"
+                    self._error(
+                        self._definition.get("type"),
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid type {self.type}."
+                            f" Valid types for measures are: {ZenlyticType.measure_options}"
+                        ),
+                    )
                 )
             if "primary_key" in self._definition:
                 errors.append(
-                    f"Field {self.name} in view {self.view.name} has an invalid primary_key"
-                    f" {self.primary_key}. primary_key is not a valid property for measures."
+                    self._error(
+                        self._definition["primary_key"],
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid primary_key"
+                            f" {self.primary_key}. primary_key is not a valid property for measures."
+                        ),
+                    )
                 )
             if not self.canon_date:
                 if self.is_merged_result:
                     error_text = (
-                        f"Field {self.name} in view {self.view.name} is a merged result metric (measure), but"
-                        " does not have a date associated with it. Associate a date with the metric"
-                        " (measure) by setting either the canon_date property on the measure itself or the"
-                        " default_date property on the view the measure is in. Merged results are not"
-                        " possible without associated dates."
+                        f"Field {self.name} in view {self.view.name} is a merged result metric (measure),"
+                        " but does not have a date associated with it. Associate a date with the metric"
+                        " (measure) by setting either the canon_date property on the measure itself or"
+                        " the default_date property on the view the measure is in. Merged results are"
+                        " not possible without associated dates."
                     )
+
                 else:
                     error_text = (
                         f"{warning_prefix} Field {self.name} in view {self.view.name} is a metric (measure),"
@@ -1585,37 +1851,62 @@ class Field(MetricsLayerBase, SQLReplacement):
                         " default_date property on the view the measure is in. Time periods and merged"
                         " results will not be possible to use until you define the date association"
                     )
-                errors.append(error_text)
+                errors.append(self._error(self._definition["name"], error_text))
             if "sql" not in self._definition and self.type != ZenlyticType.cumulative:
                 errors.append(
-                    f"Field {self.name} in view {self.view.name} is a measure, but does not have a sql"
-                    " property. Measures must have a sql property unless they are cumulative."
+                    self._error(
+                        self._definition["name"],
+                        (
+                            f"Field {self.name} in view {self.view.name} is a measure, but does not have a"
+                            " sql property. Measures must have a sql property unless they are cumulative."
+                        ),
+                    )
                 )
 
             elif self.type != ZenlyticType.cumulative and not isinstance(self._definition["sql"], str):
                 errors.append(
-                    f"Field {self.name} in view {self.view.name} has an invalid sql"
-                    f" {self._definition['sql']}. sql must be a string."
+                    self._error(
+                        self._definition["sql"],
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid sql"
+                            f" {self._definition['sql']}. sql must be a string."
+                        ),
+                    )
                 )
             elif self.sql is not None and self.type != ZenlyticType.cumulative:
-                errors.extend(self.collect_sql_errors(self.sql, "sql"))
+                errors.extend(self.collect_sql_errors(self.sql, "sql", error_func=self._error))
 
             if "is_merged_result" in self._definition and not isinstance(self.is_merged_result, bool):
                 errors.append(
-                    f"Field {self.name} in view {self.view.name} has an invalid is_merged_result"
-                    f" {self.is_merged_result}. is_merged_result must be a boolean (true or false)."
+                    self._error(
+                        self._definition["is_merged_result"],
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid is_merged_result"
+                            f" {self.is_merged_result}. is_merged_result must be a boolean (true or false)."
+                        ),
+                    )
                 )
 
             if self.type == ZenlyticType.cumulative:
                 if "measure" not in self._definition:
                     errors.append(
-                        f"Field {self.name} in view {self.view.name} is a cumulative metric (measure), but"
-                        " does not have a measure property."
+                        self._error(
+                            self._definition["name"],
+                            (
+                                f"Field {self.name} in view {self.view.name} is a cumulative metric"
+                                " (measure), but does not have a measure property."
+                            ),
+                        )
                     )
                 elif not isinstance(self._definition["measure"], str):
                     errors.append(
-                        f"Field {self.name} in view {self.view.name} has an invalid measure"
-                        f" {self._definition['measure']}. measure must be a string."
+                        self._error(
+                            self._definition["measure"],
+                            (
+                                f"Field {self.name} in view {self.view.name} has an invalid measure"
+                                f" {self._definition['measure']}. measure must be a string."
+                            ),
+                        )
                     )
                 try:
                     measure = self.measure
@@ -1626,36 +1917,68 @@ class Field(MetricsLayerBase, SQLReplacement):
                         )
                     if measure.field_type != ZenlyticFieldType.measure:
                         errors.append(
-                            f"Field {self.name} in view {self.view.name} is a cumulative metric (measure),"
-                            f" but the measure property {self._definition.get('measure')} is not a measure."
+                            self._error(
+                                self._definition["measure"],
+                                (
+                                    f"Field {self.name} in view {self.view.name} is a cumulative metric"
+                                    " (measure), but the measure property"
+                                    f" {self._definition.get('measure')} is not a measure."
+                                ),
+                            )
                         )
                 except (AccessDeniedOrDoesNotExistException, QueryError):
                     errors.append(
-                        f"Field {self.name} in view {self.view.name} is a cumulative metric (measure),"
-                        f" but the measure property {self._definition.get('measure')} is unreachable."
+                        self._error(
+                            self._definition["name"],
+                            (
+                                f"Field {self.name} in view {self.view.name} is a cumulative metric"
+                                f" (measure), but the measure property {self._definition.get('measure')} is"
+                                " unreachable."
+                            ),
+                        )
                     )
                 if "cumulative_where" in self._definition and not isinstance(self.cumulative_where, str):
                     errors.append(
-                        f"Field {self.name} in view {self.view.name} has an invalid cumulative_where"
-                        f" {self.cumulative_where}. cumulative_where must be a string."
+                        self._error(
+                            self._definition["cumulative_where"],
+                            (
+                                f"Field {self.name} in view {self.view.name} has an invalid cumulative_where"
+                                f" {self.cumulative_where}. cumulative_where must be a string."
+                            ),
+                        )
                     )
                 if "update_where_timeframe" in self._definition and not isinstance(
                     self.update_where_timeframe, bool
                 ):
                     errors.append(
-                        f"Field {self.name} in view {self.view.name} has an invalid update_where_timeframe"
-                        f" {self.update_where_timeframe}. update_where_timeframe must be a boolean (true or"
-                        " false)."
+                        self._error(
+                            self._definition["update_where_timeframe"],
+                            (
+                                f"Field {self.name} in view {self.view.name} has an invalid"
+                                f" update_where_timeframe {self.update_where_timeframe}."
+                                " update_where_timeframe must be a boolean (true or false)."
+                            ),
+                        )
                     )
             if self.type in ZenlyticType.requires_sql_distinct_key and not self.sql_distinct_key:
                 errors.append(
-                    f"Field {self.name} in view {self.view.name} is a measure of type {self.type},"
-                    " but does not have a sql_distinct_key property."
+                    self._error(
+                        self._definition["name"],
+                        (
+                            f"Field {self.name} in view {self.view.name} is a measure of type {self.type},"
+                            " but does not have a sql_distinct_key property."
+                        ),
+                    )
                 )
             elif self.sql_distinct_key and not isinstance(self.sql_distinct_key, str):
                 errors.append(
-                    f"Field {self.name} in view {self.view.name} has an invalid sql_distinct_key"
-                    f" {self.sql_distinct_key}. sql_distinct_key must be a string."
+                    self._error(
+                        self._definition["sql_distinct_key"],
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid sql_distinct_key"
+                            f" {self.sql_distinct_key}. sql_distinct_key must be a string."
+                        ),
+                    )
                 )
             elif self.sql_distinct_key:
                 for field_to_replace in self.fields_to_replace(self.sql_distinct_key):
@@ -1665,25 +1988,41 @@ class Field(MetricsLayerBase, SQLReplacement):
                         self.get_field_with_view_info(field_to_replace)
                     except AccessDeniedOrDoesNotExistException:
                         errors.append(
-                            f"Field {self.name} in view {self.view.name} has an invalid sql_distinct_key"
-                            f" {self.sql_distinct_key}. The field {field_to_replace} referenced in"
-                            " sql_distinct_key does not exist."
+                            self._error(
+                                self._definition["sql_distinct_key"],
+                                (
+                                    f"Field {self.name} in view {self.view.name} has an invalid"
+                                    f" sql_distinct_key {self.sql_distinct_key}. The field"
+                                    f" {field_to_replace} referenced in sql_distinct_key does not exist."
+                                ),
+                            )
                         )
 
             if "non_additive_dimension" in self._definition and not isinstance(
                 self._definition["non_additive_dimension"], dict
             ):
                 errors.append(
-                    f"Field {self.name} in view {self.view.name} has an invalid non_additive_dimension"
-                    f" {self._definition['non_additive_dimension']}. non_additive_dimension must be a"
-                    " dictionary."
+                    self._error(
+                        self._definition["non_additive_dimension"],
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid"
+                            f" non_additive_dimension {self._definition['non_additive_dimension']}."
+                            " non_additive_dimension must be a dictionary."
+                        ),
+                    )
                 )
             elif "non_additive_dimension" in self._definition:
                 if "name" not in self._definition["non_additive_dimension"]:
                     errors.append(
-                        f"Field {self.name} in view {self.view.name} has an invalid non_additive_dimension"
-                        f" {self.non_additive_dimension}. non_additive_dimension must have a 'name' property"
-                        " that references a type time dimension group."
+                        self._error(
+                            self._definition["non_additive_dimension"],
+                            (
+                                f"Field {self.name} in view {self.view.name} has an invalid"
+                                f" non_additive_dimension {self.non_additive_dimension}."
+                                " non_additive_dimension must have a 'name' property that references a type"
+                                " time dimension group."
+                            ),
+                        )
                     )
                 elif self.non_additive_dimension:
                     try:
@@ -1693,37 +2032,65 @@ class Field(MetricsLayerBase, SQLReplacement):
                             or referenced_field.type != "time"
                         ):
                             errors.append(
-                                f"Field {self.name} in view {self.view.name} has an invalid"
-                                " non_additive_dimension. The field"
-                                f" {self._definition['non_additive_dimension']['name']} referenced in"
-                                " non_additive_dimension is not a valid dimension group with type time."
+                                self._error(
+                                    self._definition["non_additive_dimension"]["name"],
+                                    (
+                                        f"Field {self.name} in view {self.view.name} has an invalid"
+                                        " non_additive_dimension. The field"
+                                        f" {self._definition['non_additive_dimension']['name']} referenced in"
+                                        " non_additive_dimension is not a valid dimension group with type"
+                                        " time."
+                                    ),
+                                )
                             )
                     except AccessDeniedOrDoesNotExistException:
                         errors.append(
-                            f"Field {self.name} in view {self.view.name} has an invalid"
-                            " non_additive_dimension. The field"
-                            f" {self._definition['non_additive_dimension']['name']} referenced in"
-                            " non_additive_dimension does not exist."
+                            self._error(
+                                self._definition["non_additive_dimension"]["name"],
+                                (
+                                    f"Field {self.name} in view {self.view.name} has an invalid"
+                                    " non_additive_dimension. The field"
+                                    f" {self._definition['non_additive_dimension']['name']} referenced in"
+                                    " non_additive_dimension does not exist."
+                                ),
+                            )
                         )
                     if str(self.non_additive_dimension.get("window_choice")) not in ["max", "min"]:
                         errors.append(
-                            f"Field {self.name} in view {self.view.name} has an invalid"
-                            " non_additive_dimension. window_choice must be"
-                            " either 'max' or 'min'."
+                            self._error(
+                                self._definition["non_additive_dimension"]["window_choice"],
+                                (
+                                    f"Field {self.name} in view {self.view.name} has an invalid"
+                                    " non_additive_dimension. window_choice must be"
+                                    " either 'max' or 'min'."
+                                ),
+                            )
                         )
                     if not isinstance(
                         self.non_additive_dimension.get("window_aware_of_query_dimensions", True), bool
                     ):
                         errors.append(
-                            f"Field {self.name} in view {self.view.name} has an invalid"
-                            " non_additive_dimension."
-                            " window_aware_of_query_dimensions must be a boolean."
+                            self._error(
+                                self._definition["non_additive_dimension"][
+                                    "window_aware_of_query_dimensions"
+                                ],
+                                (
+                                    f"Field {self.name} in view {self.view.name} has an invalid"
+                                    " non_additive_dimension."
+                                    " window_aware_of_query_dimensions must be a boolean."
+                                ),
+                            )
                         )
                     if not isinstance(self.non_additive_dimension.get("window_groupings", []), list):
                         errors.append(
-                            f"Field {self.name} in view {self.view.name} has an invalid"
-                            " non_additive_dimension. window_groupings must be"
-                            " a list."
+                            self._error(
+                                self._definition["non_additive_dimension"]["window_groupings"],
+                                (
+                                    f"Field {self.name} in view {self.view.name} has an invalid"
+                                    " non_additive_dimension. window_groupings must be"
+                                    " a list."
+                                ),
+                            )
                         )
                     else:
                         for grouping in self.non_additive_dimension.get("window_groupings", []):
@@ -1734,16 +2101,26 @@ class Field(MetricsLayerBase, SQLReplacement):
                                     ZenlyticFieldType.dimension,
                                 }:
                                     errors.append(
-                                        f"Field {self.name} in view {self.view.name} has an invalid"
-                                        " non_additive_dimension. The field"
-                                        f" {grouping} referenced in window_groupings is not a valid dimension"
-                                        " or dimension group."
+                                        self._error(
+                                            self._definition["non_additive_dimension"]["window_groupings"],
+                                            (
+                                                f"Field {self.name} in view {self.view.name} has an invalid"
+                                                f" non_additive_dimension. The field {grouping} referenced in"
+                                                " window_groupings is not a valid dimension or dimension"
+                                                " group."
+                                            ),
+                                        )
                                     )
                             except AccessDeniedOrDoesNotExistException:
                                 errors.append(
-                                    f"Field {self.name} in view {self.view.name} has an invalid"
-                                    " non_additive_dimension. The field"
-                                    f" {grouping} referenced in window_groupings does not exist."
+                                    self._error(
+                                        self._definition["non_additive_dimension"]["window_groupings"],
+                                        (
+                                            f"Field {self.name} in view {self.view.name} has an invalid"
+                                            " non_additive_dimension. The field"
+                                            f" {grouping} referenced in window_groupings does not exist."
+                                        ),
+                                    )
                                 )
                     errors.extend(
                         self.invalid_property_error(
@@ -1751,6 +2128,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                             ["name", "window_choice", "window_aware_of_query_dimensions", "window_groupings"],
                             "non additive dimension",
                             f"in field {self.name} in view {self.view.name}",
+                            error_func=self._error,
                         )
                     )
 
@@ -1759,20 +2137,33 @@ class Field(MetricsLayerBase, SQLReplacement):
         properties = self.valid_properties + self.internal_properties
         errors.extend(
             self.invalid_property_error(
-                self._definition, properties, "field", f"{self.name} in view {self.view.name}"
+                self._definition,
+                properties,
+                "field",
+                f"{self.name} in view {self.view.name}",
+                error_func=self._error,
             )
         )
         # For personal fields everything is a warning
         if self.is_personal_field:
-            errors = [f"{warning_prefix} {e}" for e in errors if warning_prefix not in e]
+            errors = [
+                {**e, "message": f"{warning_prefix} {e['message']}"}
+                for e in errors
+                if warning_prefix not in e
+            ]
         return errors
 
-    def collect_sql_errors(self, sql: str, property_name: str):
+    def collect_sql_errors(self, sql: str, property_name: str, error_func):
         errors = []
         if not isinstance(sql, str):
             errors.append(
-                f"Field {self.name} in view {self.view.name} has an invalid {property_name} {sql}."
-                f" {property_name} must be a string."
+                error_func(
+                    sql,
+                    (
+                        f"Field {self.name} in view {self.view.name} has an invalid {property_name} {sql}."
+                        f" {property_name} must be a string."
+                    ),
+                )
             )
         if sql and sql == "${" + self.name + "}":
             error_text = (
@@ -1780,7 +2171,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                 " reference a column using the ${TABLE}.myfield_name syntax or reference another dimension"
                 " or measure."
             )
-            errors.append(error_text)
+            errors.append(error_func(sql, error_text))
 
         # TODO improve this with sql parse or sql glot
         if self.get_referenced_sql_query(strings_only=False) is None:
@@ -1788,7 +2179,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                 f"Field {self.name} in view {self.view.name} contains invalid SQL in property"
                 f" {property_name}. Remove any Looker parameter references from the SQL."
             )
-            errors.append(error_text)
+            errors.append(error_func(sql, error_text))
         return errors
 
     def get_referenced_sql_query(self, strings_only=True):
@@ -1986,28 +2377,44 @@ class Field(MetricsLayerBase, SQLReplacement):
         return explicitly_cumulative or has_references
 
     @staticmethod
-    def collect_field_filter_errors(field_filter: dict, project, prefix: str, entity_name: str, name: str):
+    def collect_field_filter_errors(
+        field_filter: dict, project, prefix: str, entity_name: str, name: str, error_func
+    ):
         errors = []
         location = f"{entity_name.title()} {name}"
         if "field" not in field_filter:
-            errors.append(f"{prefix} in {location} is missing the required field property")
+            errors.append(
+                error_func(field_filter, f"{prefix} in {location} is missing the required field property")
+            )
         elif "field" in field_filter:
             try:
                 project.get_field(field_filter["field"])
             except AccessDeniedOrDoesNotExistException:
                 errors.append(
-                    f"{prefix} in {location} is referencing a field, {field_filter['field']} that"
-                    " does not exist"
+                    error_func(
+                        field_filter["field"],
+                        (
+                            f"{prefix} in {location} is referencing a field, {field_filter['field']} that"
+                            " does not exist"
+                        ),
+                    )
                 )
         if "value" not in field_filter:
-            errors.append(f"{prefix} in {location} is missing the required value property")
+            errors.append(
+                error_func(field_filter, f"{prefix} in {location} is missing the required value property")
+            )
         elif "value" in field_filter and not isinstance(field_filter["value"], str):
             try:
                 Filter(field_filter).filter_dict()
             except Exception:
                 errors.append(
-                    f"{prefix} in {location} has an invalid value property. Valid values can be found here in"
-                    " the docs: https://docs.zenlytic.com/docs/data_modeling/field_filter"
+                    error_func(
+                        field_filter["value"],
+                        (
+                            f"{prefix} in {location} has an invalid value property. Valid values can be found"
+                            " here in the docs: https://docs.zenlytic.com/docs/data_modeling/field_filter"
+                        ),
+                    )
                 )
 
         return errors
