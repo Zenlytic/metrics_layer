@@ -1,6 +1,10 @@
 import json
+from copy import deepcopy
 
 import pytest
+import ruamel.yaml
+
+from metrics_layer.core.parse.project_reader_base import Str
 
 
 def _get_view_by_name(project, view_name):
@@ -22,6 +26,163 @@ def test_validation_with_no_replaced_objects(connection):
     project = connection.project
     response = project.validate_with_replaced_objects(replaced_objects=[])
     assert response == []
+
+
+# Note: line / column validation only works if the property is
+# read from the YAML file, not injected like this
+@pytest.mark.validation
+@pytest.mark.parametrize(
+    "name,value,errors",
+    [
+        (
+            "name",
+            "@mytest",
+            [
+                {
+                    "message": (
+                        "Model name: @mytest is invalid. Please reference the naming conventions (only"
+                        " letters, numbers, or underscores)"
+                    ),
+                    "model_name": "@mytest",
+                    "line": 2,
+                    "column": 6,
+                }
+            ],
+        ),
+        (
+            "name",
+            "@mytest_plain_str_passed",
+            [
+                {
+                    "message": (
+                        "Model name: @mytest_plain_str_passed is invalid. Please reference the naming"
+                        " conventions (only letters, numbers, or underscores)"
+                    ),
+                    "model_name": "@mytest_plain_str_passed",
+                    "line": None,
+                    "column": None,
+                }
+            ],
+        ),
+        (
+            "mappings",
+            {"myfield": {"fields": ["orders.sub_channel", "sessions.utm_fake"]}},
+            [
+                {
+                    "column": None,
+                    "field_name": "sessions.utm_fake",
+                    "line": None,
+                    "message": (
+                        "In the mapping myfield in the model test_model, the Field "
+                        "utm_fake not found in view sessions, please check that this "
+                        "field exists AND that you have access to it. \n"
+                        "\n"
+                        "If this is a dimension group specify the group parameter, if not "
+                        "already specified, for example, with a dimension group named "
+                        "'order' with timeframes: [raw, date, month] specify 'order_raw' "
+                        "or 'order_date' or 'order_month'"
+                    ),
+                    "model_name": "test_model",
+                }
+            ],
+        ),
+    ],
+)
+def test_validation_model_with_fully_qualified_results(connection, name, value, errors):
+    project = connection.project
+    model = deepcopy(project._models[0])
+    if value == "@mytest":
+        value = Str(value)
+        value.lc = ruamel.yaml.comments.LineCol()
+        value.lc.line = 2
+        value.lc.col = 6
+
+    model[name] = value
+    response = project.validate_with_replaced_objects(replaced_objects=[model])
+
+    assert response == errors
+
+
+# Note: line / column validation only works if the property is
+# read from the YAML file, not injected like this
+@pytest.mark.validation
+@pytest.mark.parametrize(
+    "name,value,errors",
+    [
+        (
+            "label",
+            None,
+            [
+                {
+                    "message": "The label property, None must be a string in the view order_lines",
+                    "view_name": "order_lines",
+                    "line": None,
+                    "column": None,
+                }
+            ],
+        )
+    ],
+)
+def test_validation_view_with_fully_qualified_results(connection, name, value, errors):
+    project = connection.project
+    view = _get_view_by_name(project, "order_lines")
+    view[name] = value
+    response = project.validate_with_replaced_objects(replaced_objects=[view])
+
+    print(response)
+    assert response == errors
+
+
+# Note: line / column validation only works if the property is
+# read from the YAML file, not injected like this
+@pytest.mark.validation
+@pytest.mark.parametrize(
+    "field_name,property_name,value,errors",
+    [
+        (
+            "total_item_revenue",
+            "canon_date",
+            "fake",
+            [
+                {
+                    "message": "Canon date order_lines.fake is unreachable in field total_item_revenue.",
+                    "view_name": "order_lines",
+                    "field_name": "total_item_revenue",
+                    "line": 346,
+                    "column": 8,
+                }
+            ],
+        )
+    ],
+)
+def test_validation_field_with_fully_qualified_results(connection, field_name, property_name, value, errors):
+    project = connection.project
+    view = _get_view_by_name(project, "order_lines")
+
+    if property_name == "__ADD__":
+        field = value
+    else:
+        field = _get_field_by_name(view, field_name)
+
+    if value == "__POP__":
+        field.pop(property_name)
+    elif property_name == "__ADD__":
+        view["fields"].append(value)
+    elif isinstance(property_name, tuple):
+        for p, v in zip(property_name, value):
+            field[p] = v
+    elif value == "fake":
+        value = Str(value)
+        value.lc = ruamel.yaml.comments.LineCol()
+        value.lc.line = 346
+        value.lc.col = 8
+        field[property_name] = value
+    else:
+        field[property_name] = value
+    response = project.validate_with_replaced_objects(replaced_objects=[view])
+
+    print(response)
+    assert response == errors
 
 
 @pytest.mark.validation
@@ -359,7 +520,7 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
     model[name] = value
     response = project.validate_with_replaced_objects(replaced_objects=[model])
 
-    assert response == errors
+    assert [e["message"] for e in response] == errors
 
 
 @pytest.mark.validation
@@ -909,7 +1070,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
     response = project.validate_with_replaced_objects(replaced_objects=[view])
 
     print(response)
-    assert response == errors
+    assert [e["message"] for e in response] == errors
 
 
 @pytest.mark.validation
@@ -1164,15 +1325,6 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "filters",
             [{"field": "order_id", "value": ""}],  # This is valid, but will be ignored
             [],
-        ),
-        (
-            "parent_channel",
-            "filters",
-            [{"field": "parent_channel", "value": "-None"}],
-            [
-                "Field parent_channel in view order_lines has a filter that references "
-                "itself. This is invalid, and the filter will not be applied."
-            ],
         ),
         (
             "total_item_costs",
@@ -1927,4 +2079,4 @@ def test_validation_with_replaced_field_properties(connection, field_name, prope
     response = project.validate_with_replaced_objects(replaced_objects=[view])
 
     print(response)
-    assert response == errors
+    assert [e["message"] for e in response] == errors

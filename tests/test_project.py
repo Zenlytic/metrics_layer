@@ -94,6 +94,6 @@ def test_add_field_personal_fields_are_warnings(connection):
     field = connection.project.get_field("total_new_revenue!")
     errors = field.collect_errors()
     assert errors != []
-    assert all("Warning:" in e for e in errors)
+    assert all("Warning:" in e["message"] for e in errors)
 
     connection.project.remove_field("total_new_revenue", view_name="orders")

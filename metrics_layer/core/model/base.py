@@ -33,15 +33,28 @@ class MetricsLayerBase:
         )
 
     @staticmethod
-    def invalid_property_error(definition: dict, valid_properties: List[str], entity_name: str, name: str):
+    def line_col(element):
+        line = getattr(getattr(element, "lc", None), "line", None)
+        column = getattr(getattr(element, "lc", None), "col", None)
+        return line, column
+
+    @staticmethod
+    def invalid_property_error(
+        definition: dict, valid_properties: List[str], entity_name: str, name: str, error_func: callable
+    ):
         errors = []
         for key in definition:
             if key not in valid_properties:
                 proposed_property = MetricsLayerBase.propose_property(key, valid_properties)
                 proposed = f" Did you mean {proposed_property}?" if proposed_property else ""
                 errors.append(
-                    f"Property {key} is present on {entity_name.title()} {name}, but it is not a valid"
-                    f" property.{proposed}"
+                    error_func(
+                        definition[key],
+                        (
+                            f"Property {key} is present on {entity_name.title()} {name}, but it is not a"
+                            f" valid property.{proposed}"
+                        ),
+                    )
                 )
         return errors
 

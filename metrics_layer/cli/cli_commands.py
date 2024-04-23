@@ -67,7 +67,7 @@ def validate(profile, target):
     else:
         echo(f"Found {len(errors)} error{'s' if len(errors)> 1 else ''} in the project:\n")
         for error in errors:
-            echo(f"\n{error}\n")
+            echo(f"\n{error['message']}\n")
 
 
 @cli_group.command()

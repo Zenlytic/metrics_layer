@@ -65,18 +65,28 @@ class DashboardElement(MetricsLayerBase):
         to_add = {"week_start_day": self.get_model().week_start_day, "timezone": self.project.timezone}
         return [f for raw in self._raw_filters() for f in Filter({**raw, **to_add}).filter_dict(json_safe)]
 
+    def _error(self, element, error, extra: dict = {}):
+        return self.dashboard._error(element, error, extra)
+
     def collect_errors(self):
         errors = []
 
         try:
             self.get_model()
         except (AccessDeniedOrDoesNotExistException, QueryError) as e:
-            errors.append(str(e) + " in dashboard " + self.dashboard.name)
+            errors.append(
+                self._error(self._definition.get("model"), str(e) + " in dashboard " + self.dashboard.name)
+            )
 
-        for field in self.metrics + self.slice_by:
+        for field in self.metrics:
             if not self._function_executes(self.project.get_field, field):
                 err_msg = f"Could not find field {field} referenced in dashboard {self.dashboard.name}"
-                errors.append(err_msg)
+                errors.append(self._error(self._definition.get("metrics"), err_msg))
+
+        for field in self.slice_by:
+            if not self._function_executes(self.project.get_field, field):
+                err_msg = f"Could not find field {field} referenced in dashboard {self.dashboard.name}"
+                errors.append(self._error(self._definition.get("slice_by"), err_msg))
 
         for f in self._raw_filters():
             if not self._function_executes(self.project.get_field, f["field"]):
@@ -84,7 +94,7 @@ class DashboardElement(MetricsLayerBase):
                     f"Could not find field {f['field']} referenced"
                     f" in a filter in dashboard {self.dashboard.name}"
                 )
-                errors.append(err_msg)
+                errors.append(self._error(self._definition.get("filters"), err_msg))
         return errors
 
     @staticmethod
@@ -126,6 +136,10 @@ class Dashboard(MetricsLayerBase):
         definition["filters"] = self.parsed_filters(json_safe=True)
         return definition
 
+    def _error(self, element, error, extra: dict = {}):
+        line, column = self.line_col(element)
+        return {**extra, "dashboard_name": self.name, "message": error, "line": line, "column": column}
+
     def collect_errors(self):
         errors = []
         for f in self._raw_filters():
@@ -133,7 +147,7 @@ class Dashboard(MetricsLayerBase):
                 self.project.get_field(f["field"])
             except Exception:
                 err_msg = f"Could not find field {f['field']} referenced in a filter in dashboard {self.name}"
-                errors.append(err_msg)
+                errors.append(self._error(self._definition["filters"], err_msg))
 
         for element in self.elements():
             errors.extend(element.collect_errors())

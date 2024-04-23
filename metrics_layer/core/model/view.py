@@ -177,11 +177,15 @@ class View(MetricsLayerBase, SQLReplacement):
     def primary_key(self):
         return next((f for f in self.fields() if f.primary_key), None)
 
+    def _error(self, element, error, extra: dict = {}):
+        line, column = self.line_col(element)
+        return {**extra, "view_name": self.name, "message": error, "line": line, "column": column}
+
     def collect_errors(self):
         try:
             fields = self.fields(show_hidden=True)
         except QueryError as e:
-            return [str(e)]
+            return [self._error(self._definition.get("fields"), str(e))]
 
         errors = []
         try:
@@ -190,58 +194,102 @@ class View(MetricsLayerBase, SQLReplacement):
                 " model."
             )
             if self.model is None:
-                return [model_error]
+                return [self._error(self._definition.get("model_name"), model_error)]
         except QueryError:
-            return [model_error]
+            return [self._error(self._definition.get("model_name"), model_error)]
 
         if not self.valid_name(self.name):
-            errors.append(self.name_error("view", self.name))
+            errors.append(self._error(self.name, self.name_error("view", self.name)))
 
         if "label" in self._definition and not isinstance(self.label, str):
-            errors.append(f"The label property, {self.label} must be a string in the view {self.name}")
+            errors.append(
+                self._error(
+                    self.label, f"The label property, {self.label} must be a string in the view {self.name}"
+                )
+            )
 
         if "description" in self._definition and not isinstance(self.description, str):
             errors.append(
-                f"The description property, {self.description} must be a string in the view {self.name}"
+                self._error(
+                    self.description,
+                    f"The description property, {self.description} must be a string in the view {self.name}",
+                )
             )
 
         if "sql_table_name" in self._definition and "derived_table" in self._definition:
             errors.append(
-                f"Warning: View {self.name} has both sql_table_name and derived_table defined, derived_table"
-                " will be used"
+                self._error(
+                    self.sql_table_name,
+                    (
+                        f"Warning: View {self.name} has both sql_table_name and derived_table defined,"
+                        " derived_table will be used"
+                    ),
+                )
             )
         if "sql_table_name" not in self._definition and "derived_table" not in self._definition:
             errors.append(
-                f"View {self.name} does not have a sql_table_name or derived_table defined, this view will"
-                " not work"
+                self._error(
+                    self.sql_table_name,
+                    (
+                        f"View {self.name} does not have a sql_table_name or derived_table defined, this view"
+                        " will not work"
+                    ),
+                )
             )
         if "sql_table_name" in self._definition and not isinstance(self._definition["sql_table_name"], str):
             errors.append(
-                f"The sql_table_name property, {self._definition['sql_table_name']} must be a string in"
-                f" the view {self.name}"
+                self._error(
+                    self.sql_table_name,
+                    (
+                        f"The sql_table_name property, {self._definition['sql_table_name']} must be a string"
+                        f" in the view {self.name}"
+                    ),
+                ),
             )
 
         if "derived_table" in self._definition:
             derived_table = self._definition["derived_table"]
             if not isinstance(derived_table, dict):
                 errors.append(
-                    f"The derived_table property, {derived_table} must be a dictionary in the view"
-                    f" {self.name}"
+                    self._error(
+                        derived_table,
+                        (
+                            f"The derived_table property, {derived_table} must be a dictionary in the view"
+                            f" {self.name}"
+                        ),
+                    )
                 )
             else:
                 if "sql" not in derived_table:
                     errors.append(
-                        f"Derived table in view {self.name} is missing the sql property, this view will not"
-                        " work"
+                        self._error(
+                            derived_table,
+                            (
+                                f"Derived table in view {self.name} is missing the sql property, this view"
+                                " will not work"
+                            ),
+                        )
                     )
                 if "sql" in derived_table and not isinstance(derived_table["sql"], str):
                     errors.append(
-                        f"The sql property, {derived_table['sql']} must be a string in the view {self.name}"
+                        self._error(
+                            derived_table,
+                            (
+                                f"The sql property, {derived_table['sql']} must be a string in the view"
+                                f" {self.name}"
+                            ),
+                        )
                     )
 
         if "default_date" in self._definition and not isinstance(self._definition["default_date"], str):
             errors.append(
-                f"The default_date property, {self.default_date} must be a string in the view {self.name}"
+                self._error(
+                    self._definition["default_date"],
+                    (
+                        f"The default_date property, {self.default_date} must be a string in the view"
+                        f" {self.name}"
+                    ),
+                )
             )
         elif "default_date" in self._definition and self.default_date:
             try:
@@ -252,46 +300,84 @@ class View(MetricsLayerBase, SQLReplacement):
                 field = self.project.get_field_by_name(name)
                 if field.field_type != "dimension_group" or field.type != "time":
                     errors.append(
-                        f"Default date {self.default_date} is not of field_type: dimension_group and type: time in view {self.name}"  # noqa
+                        self._error(
+                            self._definition["default_date"],
+                            (
+                                f"Default date {self.default_date} is not of field_type: dimension_group and"
+                                f" type: time in view {self.name}"
+                            ),
+                        )
                     )
             except (AccessDeniedOrDoesNotExistException, QueryError):
                 errors.append(
-                    f"Default date {self.default_date} in view {self.name} is not joinable to the view"
-                    f" {self.name}"
+                    self._error(
+                        self._definition["default_date"],
+                        (
+                            f"Default date {self.default_date} in view {self.name} is not joinable to the"
+                            f" view {self.name}"
+                        ),
+                    )
                 )
 
         if "row_label" in self._definition and not isinstance(self.row_label, str):
             errors.append(
-                f"The row_label property, {self.row_label} must be a string in the view {self.name}"
+                self._error(
+                    self._definition["row_label"],
+                    f"The row_label property, {self.row_label} must be a string in the view {self.name}",
+                )
             )
 
         if "sets" in self._definition and not isinstance(self.sets, list):
-            errors.append(f"The sets property, {self.sets} must be a list in the view {self.name}")
+            errors.append(
+                self._error(
+                    self._definition["sets"],
+                    f"The sets property, {self.sets} must be a list in the view {self.name}",
+                )
+            )
         elif "sets" in self._definition and isinstance(self.sets, list):
             for s in self.sets:
                 if not isinstance(s, dict):
-                    errors.append(f"Set {s} in view {self.name} must be a dictionary")
+                    errors.append(
+                        self._error(
+                            self._definition["sets"], f"Set {s} in view {self.name} must be a dictionary"
+                        )
+                    )
                 else:
                     try:
                         _set = Set({**s, "view_name": self.name}, project=self.project)
                         errors.extend(_set.collect_errors())
                     except QueryError as e:
-                        errors.append(str(e) + " in the view " + self.name)
+                        errors.append(
+                            self._error(self._definition["sets"], str(e) + " in the view " + self.name)
+                        )
 
         if "always_filter" in self._definition and not isinstance(self.always_filter, list):
             errors.append(
-                f"The always_filter property, {self.always_filter} must be a list in the view {self.name}"
+                self._error(
+                    self._definition["always_filter"],
+                    (
+                        f"The always_filter property, {self.always_filter} must be a list in the view"
+                        f" {self.name}"
+                    ),
+                )
             )
         elif "always_filter" in self._definition and isinstance(self.always_filter, list):
             for f in self.always_filter:
                 if not isinstance(f, dict):
-                    errors.append(f"Always filter {f} in view {self.name} must be a dictionary")
+                    errors.append(
+                        self._error(
+                            self._definition["always_filter"],
+                            f"Always filter {f} in view {self.name} must be a dictionary",
+                        )
+                    )
                     continue
 
                 if "field" in f and isinstance(f["field"], str) and "." not in f["field"]:
                     f["field"] = f"{self.name}.{f['field']}"
                 errors.extend(
-                    Field.collect_field_filter_errors(f, self.project, "Always filter", "view", self.name)
+                    Field.collect_field_filter_errors(
+                        f, self.project, "Always filter", "view", self.name, error_func=self._error
+                    )
                 )
 
         if self.primary_key is None:
@@ -299,90 +385,151 @@ class View(MetricsLayerBase, SQLReplacement):
                 f"Warning: The view {self.name} does not have a primary key, "
                 "specify one using the tag primary_key: true"
             )
-            errors += [primary_key_error]
+            errors += [self._error(None, primary_key_error)]
 
         if "access_filters" in self._definition and not isinstance(self.access_filters, list):
-            access_filter_error = (
-                f"The view {self.name} has an access filter, {self.access_filters} that is incorrectly"
-                " specified as a when it should be a list, to specify it correctly check the documentation"
-                " for access filters at"
-                " https://docs.zenlytic.com/docs/data_modeling/access_grants#access-filters"
+            access_filter_error = self._error(
+                self._definition["access_filters"],
+                (
+                    f"The view {self.name} has an access filter, {self.access_filters} that is incorrectly"
+                    " specified as a when it should be a list, to specify it correctly check the"
+                    " documentation for access filters at"
+                    " https://docs.zenlytic.com/docs/data_modeling/access_grants#access-filters"
+                ),
             )
             errors.append(access_filter_error)
         elif self.access_filters is not None and isinstance(self.access_filters, list):
             for f in self.access_filters:
                 if not isinstance(f, dict):
-                    errors.append(f"Access filter {f} in view {self.name} must be a dictionary")
+                    errors.append(
+                        self._error(
+                            self._definition["access_filters"],
+                            f"Access filter {f} in view {self.name} must be a dictionary",
+                        )
+                    )
                     continue
                 if "field" not in f:
-                    errors.append(f"Access filter in view {self.name} is missing the required field property")
+                    errors.append(
+                        self._error(
+                            self._definition["access_filters"],
+                            f"Access filter in view {self.name} is missing the required field property",
+                        )
+                    )
                 elif "field" in f:
                     try:
                         field = self.project.get_field(f["field"])
                     except AccessDeniedOrDoesNotExistException:
                         errors.append(
-                            f"Access filter in view {self.name} is referencing a field, {f['field']} that"
-                            " does not exist"
+                            self._error(
+                                f["field"],
+                                (
+                                    f"Access filter in view {self.name} is referencing a field,"
+                                    f" {f['field']} that does not exist"
+                                ),
+                            )
                         )
                 if "user_attribute" not in f:
                     errors.append(
-                        f"Access filter in view {self.name} is missing the required user_attribute property"
+                        self._error(
+                            self._definition["access_filters"],
+                            (
+                                f"Access filter in view {self.name} is missing the required user_attribute"
+                                " property"
+                            ),
+                        )
                     )
                 elif "user_attribute" in f and not isinstance(f["user_attribute"], str):
                     errors.append(
-                        f"Access filter in view {self.name} is referencing a user_attribute,"
-                        f" {f['user_attribute']} that must be a string, but is not"
+                        self._error(
+                            f["user_attribute"],
+                            (
+                                f"Access filter in view {self.name} is referencing a user_attribute,"
+                                f" {f['user_attribute']} that must be a string, but is not"
+                            ),
+                        )
                     )
 
         errors.extend(
             self.collect_required_access_grant_errors(
-                self._definition, self.project, f"in view {self.name}", f"in model {self.model_name}"
+                self._definition,
+                self.project,
+                f"in view {self.name}",
+                f"in model {self.model_name}",
+                error_func=self._error,
             )
         )
         if "event_dimension" in self._definition and not isinstance(self._definition["event_dimension"], str):
             errors.append(
-                f"The event_dimension property, {self._definition['event_dimension']} must be a string in the"
-                f" view {self.name}"
+                self._error(
+                    self._definition["event_dimension"],
+                    (
+                        f"The event_dimension property, {self._definition['event_dimension']} must be a"
+                        f" string in the view {self.name}"
+                    ),
+                )
             )
         elif "event_dimension" in self._definition and self.event_dimension:
             try:
                 self.project.get_field(self.event_dimension)
             except AccessDeniedOrDoesNotExistException:
                 errors.append(
-                    f"The event_dimension property, {self.event_dimension} in the view {self.name} is not a"
-                    " valid field"
+                    self._error(
+                        self._definition["event_dimension"],
+                        (
+                            f"The event_dimension property, {self.event_dimension} in the view {self.name} is"
+                            " not a valid field"
+                        ),
+                    )
                 )
 
         if "event_name" in self._definition and not isinstance(self.event_name, str):
             errors.append(
-                f"The event_name property, {self.event_name} must be a string in the view {self.name}"
+                self._error(
+                    self._definition["event_name"],
+                    f"The event_name property, {self.event_name} must be a string in the view {self.name}",
+                )
             )
 
         if "fields_for_analysis" in self._definition and not isinstance(self.fields_for_analysis, list):
             errors.append(
-                f"The fields_for_analysis property, {self.fields_for_analysis} must be a list in the view"
-                f" {self.name}"
+                self._error(
+                    self._definition["fields_for_analysis"],
+                    (
+                        f"The fields_for_analysis property, {self.fields_for_analysis} must be a list in the"
+                        f" view {self.name}"
+                    ),
+                )
             )
 
         used_identifier_names = set()
 
         try:
             for i in self.identifiers:
-                errors.extend(self.collect_identifier_errors(i))
+                errors.extend(self.collect_identifier_errors(i, error_func=self._error))
                 if "name" in i:
                     if i["name"] in used_identifier_names:
-                        errors.append(f"Duplicate identifier name {i['name']} in view {self.name}")
+                        errors.append(
+                            self._error(
+                                i["name"], f"Duplicate identifier name {i['name']} in view {self.name}"
+                            )
+                        )
                     used_identifier_names.add(i["name"])
                 if "identifiers" in i:
                     for identifier in i["identifiers"]:
                         if identifier.get("name") not in {_id.get("name") for _id in self.identifiers}:
                             errors.append(
-                                f"Reference to identifier {identifier.get('name')} in the composite key of"
-                                f" identifier {i.get('name')} in view {self.name} does not exist"
+                                self._error(
+                                    i["name"],
+                                    (
+                                        f"Reference to identifier {identifier.get('name')} in the composite"
+                                        f" key of identifier {i.get('name')} in view {self.name} does not"
+                                        " exist"
+                                    ),
+                                )
                             )
 
         except QueryError as e:
-            errors.append(str(e))
+            errors.append(self._error(self._definition.get("identifiers"), str(e)))
 
         primary_keys = set()
         for field in fields:
@@ -392,35 +539,52 @@ class View(MetricsLayerBase, SQLReplacement):
 
         if len(primary_keys) > 1:
             errors.append(
-                f"Multiple primary keys found in view {self.name}: {', '.join(sorted(primary_keys))}."
-                " Only one primary key is allowed"
+                self._error(
+                    None,
+                    (
+                        f"Multiple primary keys found in view {self.name}: {', '.join(sorted(primary_keys))}."
+                        " Only one primary key is allowed"
+                    ),
+                )
             )
 
         # Check for duplicate fields
         field_names = [f.name for f in fields]
         if len(field_names) != len(set(field_names)):
             errors.append(
-                f"Duplicate field names in view {self.name}:"
-                f" {', '.join(set(f for f in field_names if field_names.count(f) > 1))}"
+                self._error(
+                    self._definition.get("fields"),
+                    (
+                        f"Duplicate field names in view {self.name}:"
+                        f" {', '.join(set(f for f in field_names if field_names.count(f) > 1))}"
+                    ),
+                )
             )
 
         definition_to_check = {k: v for k, v in self._definition.items() if k not in self.internal_properties}
         errors.extend(
-            self.invalid_property_error(definition_to_check, self.valid_properties, "view", self.name)
+            self.invalid_property_error(
+                definition_to_check, self.valid_properties, "view", self.name, error_func=self._error
+            )
         )
         return errors
 
     @staticmethod
     def collect_required_access_grant_errors(
-        definition: dict, project, application_location: str, grant_location: str
+        definition: dict, project, application_location: str, grant_location: str, error_func
     ):
         errors = []
         if "required_access_grants" in definition and not isinstance(
             definition["required_access_grants"], list
         ):
             errors.append(
-                f"The required_access_grants property, {definition['required_access_grants']} must be a list"
-                f" {application_location}"
+                error_func(
+                    definition["required_access_grants"],
+                    (
+                        f"The required_access_grants property, {definition['required_access_grants']} must be"
+                        f" a list {application_location}"
+                    ),
+                )
             )
         elif "required_access_grants" in definition and isinstance(
             definition["required_access_grants"], list
@@ -428,42 +592,67 @@ class View(MetricsLayerBase, SQLReplacement):
             for f in definition["required_access_grants"]:
                 if not isinstance(f, str):
                     errors.append(
-                        f"The access grant reference {f} in the required_access_grants property must be a"
-                        f" string {application_location}"
+                        error_func(
+                            f,
+                            (
+                                f"The access grant reference {f} in the required_access_grants property must"
+                                f" be a string {application_location}"
+                            ),
+                        )
                     )
                 else:
                     try:
                         project.get_access_grant(f)
                     except QueryError:
                         errors.append(
-                            f"The access grant {f} in the required_access_grants property does not exist"
-                            f" {grant_location}"
+                            error_func(
+                                f,
+                                (
+                                    f"The access grant {f} in the required_access_grants property does not"
+                                    f" exist {grant_location}"
+                                ),
+                            )
                         )
         return errors
 
-    def collect_identifier_errors(self, identifier: dict):
+    def collect_identifier_errors(self, identifier: dict, error_func):
         all_identifier_properties = ["name", "type"]
         errors = []
 
         if not isinstance(identifier["name"], str):
             errors.append(
-                f"The name property, {identifier['name']} in the identifier in view {self.name} must be a"
-                " string"
+                error_func(
+                    identifier["name"],
+                    (
+                        f"The name property, {identifier['name']} in the identifier in view {self.name} must"
+                        " be a string"
+                    ),
+                )
             )
             return errors
         elif not self.valid_name(identifier["name"]):
-            errors.append(self.name_error("identifier", identifier["name"]))
+            errors.append(error_func(identifier["name"], self.name_error("identifier", identifier["name"])))
 
         if not isinstance(identifier["type"], str):
             errors.append(
-                f"The type property, {identifier['type']} in the identifier {identifier['name']} in view"
-                f" {self.name} must be a string"
+                error_func(
+                    identifier["type"],
+                    (
+                        f"The type property, {identifier['type']} in the identifier {identifier['name']} in"
+                        f" view {self.name} must be a string"
+                    ),
+                )
             )
             return errors
         elif identifier["type"] not in IdentifierTypes.options:
             errors.append(
-                f"The type property, {identifier['type']} in the identifier {identifier['name']} in view"
-                f" {self.name} must be one of {IdentifierTypes.options}"
+                error_func(
+                    identifier["type"],
+                    (
+                        f"The type property, {identifier['type']} in the identifier {identifier['name']} in"
+                        f" view {self.name} must be one of {IdentifierTypes.options}"
+                    ),
+                )
             )
             return errors
 
@@ -474,27 +663,48 @@ class View(MetricsLayerBase, SQLReplacement):
             # Reference must reference a view that exists
             if "reference" not in identifier:
                 errors.append(
-                    f"Identifier {identifier['name']} in view {self.name} is missing the required reference"
-                    f" property for the {IdentifierTypes.join} type of join"
+                    error_func(
+                        identifier["name"],
+                        (
+                            f"Identifier {identifier['name']} in view {self.name} is missing the required"
+                            f" reference property for the {IdentifierTypes.join} type of join"
+                        ),
+                    )
                 )
             elif not isinstance(identifier["reference"], str):
                 errors.append(
-                    f"The reference property, {identifier['reference']} in the identifier"
-                    f" {identifier['name']} in view {self.name} must be a string"
+                    error_func(
+                        identifier["reference"],
+                        (
+                            f"The reference property, {identifier['reference']} in the identifier"
+                            f" {identifier['name']} in view {self.name} must be a string"
+                        ),
+                    )
                 )
             else:
                 try:
                     self.project.get_view(identifier["reference"])
                 except AccessDeniedOrDoesNotExistException:
                     errors.append(
-                        f"The reference property, {identifier['reference']} in the identifier"
-                        f" {identifier['name']} in view {self.name} is not a valid view"
+                        error_func(
+                            identifier["reference"],
+                            (
+                                f"The reference property, {identifier['reference']} in the identifier"
+                                f" {identifier['name']} in view {self.name} is not a valid view"
+                            ),
+                        )
                     )
             # join_type must be one of the valid join types
             if "join_type" in identifier and identifier["join_type"] not in ZenlyticJoinType.options:
                 errors.append(
-                    f"The join_type property, {identifier['join_type']} in the identifier"
-                    f" {identifier['name']} in view {self.name} must be one of {ZenlyticJoinType.options}"
+                    error_func(
+                        identifier["join_type"],
+                        (
+                            f"The join_type property, {identifier['join_type']} in the identifier"
+                            f" {identifier['name']} in view {self.name} must be one of"
+                            f" {ZenlyticJoinType.options}"
+                        ),
+                    )
                 )
 
             # relationship must be one of the valid join relationships
@@ -503,28 +713,48 @@ class View(MetricsLayerBase, SQLReplacement):
                 and identifier["relationship"] not in ZenlyticJoinRelationship.options
             ):
                 errors.append(
-                    f"The relationship property, {identifier['relationship']} in the identifier"
-                    f" {identifier['name']} in view {self.name} must be one of"
-                    f" {ZenlyticJoinRelationship.options}"
+                    error_func(
+                        identifier["relationship"],
+                        (
+                            f"The relationship property, {identifier['relationship']} in the identifier"
+                            f" {identifier['name']} in view {self.name} must be one of"
+                            f" {ZenlyticJoinRelationship.options}"
+                        ),
+                    )
                 )
 
             # SQL on is logically verified in the join itself
             if "sql_on" in identifier and not isinstance(identifier["sql_on"], str):
                 errors.append(
-                    f"The sql_on property, {identifier['sql_on']} in the identifier {identifier['name']} in"
-                    f" view {self.name} must be a string"
+                    error_func(
+                        identifier["sql_on"],
+                        (
+                            f"The sql_on property, {identifier['sql_on']} in the identifier"
+                            f" {identifier['name']} in view {self.name} must be a string"
+                        ),
+                    )
                 )
             additional_properties = custom_join_valid_properties
         else:
             if "sql" in identifier and not isinstance(identifier["sql"], str):
                 errors.append(
-                    f"The sql property, {identifier['sql']} in the identifier {identifier['name']} in view"
-                    f" {self.name} must be a string"
+                    error_func(
+                        identifier["sql"],
+                        (
+                            f"The sql property, {identifier['sql']} in the identifier {identifier['name']} in"
+                            f" view {self.name} must be a string"
+                        ),
+                    )
                 )
             elif "sql" in identifier and "${" not in str(identifier["sql"]):
                 errors.append(
-                    f'Warning: Identifier {identifier["name"]} in view {self.name} is missing'
-                    ' "${", are you sure you are using the reference syntax correctly?'
+                    error_func(
+                        identifier["sql"],
+                        (
+                            f'Warning: Identifier {identifier["name"]} in view {self.name} is missing'
+                            ' "${", are you sure you are using the reference syntax correctly?'
+                        ),
+                    )
                 )
             # Check that referenced sql fields are valid
             elif "sql" in identifier:
@@ -537,40 +767,72 @@ class View(MetricsLayerBase, SQLReplacement):
                             self.project.get_field(f"{view_name}.{column_name}")
                         except AccessDeniedOrDoesNotExistException:
                             errors.append(
-                                f"Could not find field {field} referenced in identifier"
-                                f" {identifier['name']} in view {self.name}"
+                                error_func(
+                                    identifier["name"],
+                                    (
+                                        f"Could not find field {field} referenced in identifier"
+                                        f" {identifier['name']} in view {self.name}"
+                                    ),
+                                )
                             )
             elif "sql" not in identifier and "identifiers" not in identifier:
                 try:
                     self.project.get_field(f"{self.name}.{identifier['name']}")
                 except AccessDeniedOrDoesNotExistException:
                     errors.append(
-                        f"Could not find field {identifier['name']} referenced in identifier"
-                        f" {identifier['name']} in view {self.name}. Use the sql property to reference a"
-                        " different field in the view"
+                        error_func(
+                            identifier["name"],
+                            (
+                                f"Could not find field {identifier['name']} referenced in identifier"
+                                f" {identifier['name']} in view {self.name}. Use the sql property to"
+                                " reference a different field in the view"
+                            ),
+                        )
                     )
             elif "sql" not in identifier and "identifiers" in identifier:
                 if not isinstance(identifier["identifiers"], list):
                     errors.append(
-                        f"The identifiers property, {identifier['identifiers']} must be a list in the"
-                        f" identifier {identifier['name']} in view {self.name}"
+                        error_func(
+                            identifier["identifiers"],
+                            (
+                                f"The identifiers property, {identifier['identifiers']} must be a list in the"
+                                f" identifier {identifier['name']} in view {self.name}"
+                            ),
+                        )
                     )
                 else:
                     if identifier["type"] != IdentifierTypes.primary:
                         errors.append(
-                            f"The identifiers property on a composite key {identifier['name']}  in view"
-                            f" {self.name} is only allowed for type: primary, not type: {identifier['type']}"
+                            error_func(
+                                identifier["name"],
+                                (
+                                    f"The identifiers property on a composite key {identifier['name']}  in"
+                                    f" view {self.name} is only allowed for type: primary, not type:"
+                                    f" {identifier['type']}"
+                                ),
+                            )
                         )
                     for i in identifier["identifiers"]:
                         if not isinstance(i, dict):
                             errors.append(
-                                f"Identifier {i} in the identifiers property of the identifier"
-                                f" {identifier['name']} in view {self.name} must be a dictionary"
+                                error_func(
+                                    i,
+                                    (
+                                        f"Identifier {i} in the identifiers property of the identifier"
+                                        f" {identifier['name']} in view {self.name} must be a dictionary"
+                                    ),
+                                )
                             )
                         else:
                             if "name" not in i:
                                 errors.append(
-                                    f"Identifier in view {self.name} is missing the required name property"
+                                    error_func(
+                                        i,
+                                        (
+                                            f"Identifier in view {self.name} is missing the required name"
+                                            " property"
+                                        ),
+                                    )
                                 )
 
             additional_properties = identifier_join_valid_properties
@@ -578,30 +840,53 @@ class View(MetricsLayerBase, SQLReplacement):
         if "join_as" in identifier:
             if not isinstance(identifier["join_as"], str):
                 errors.append(
-                    f"The join_as property, {identifier['join_as']} in the identifier {identifier['name']} in"
-                    f" view {self.name} must be a string"
+                    error_func(
+                        identifier["join_as"],
+                        (
+                            f"The join_as property, {identifier['join_as']} in the identifier"
+                            f" {identifier['name']} in view {self.name} must be a string"
+                        ),
+                    )
                 )
             if "join_as_label" in identifier and not isinstance(identifier["join_as_label"], str):
                 errors.append(
-                    f"The join_as_label property, {identifier['join_as_label']} in the identifier"
-                    f" {identifier['name']} in view {self.name} must be a string"
+                    error_func(
+                        identifier["join_as_label"],
+                        (
+                            f"The join_as_label property, {identifier['join_as_label']} in the identifier"
+                            f" {identifier['name']} in view {self.name} must be a string"
+                        ),
+                    )
                 )
             if "join_as_field_prefix" in identifier and not isinstance(
                 identifier["join_as_field_prefix"], str
             ):
                 errors.append(
-                    f"The join_as_field_prefix property, {identifier['join_as_field_prefix']} in the"
-                    f" identifier {identifier['name']} in view {self.name} must be a string"
+                    error_func(
+                        identifier["join_as_field_prefix"],
+                        (
+                            f"The join_as_field_prefix property, {identifier['join_as_field_prefix']} in the"
+                            f" identifier {identifier['name']} in view {self.name} must be a string"
+                        ),
+                    )
                 )
             if "include_metrics" in identifier and not isinstance(identifier["include_metrics"], bool):
                 errors.append(
-                    f"The include_metrics property, {identifier['include_metrics']} in the identifier"
-                    f" {identifier['name']} in view {self.name} must be a boolean"
+                    error_func(
+                        identifier["include_metrics"],
+                        (
+                            f"The include_metrics property, {identifier['include_metrics']} in the identifier"
+                            f" {identifier['name']} in view {self.name} must be a boolean"
+                        ),
+                    )
                 )
 
         join_properties = additional_properties + all_identifier_properties + join_as_valid_properties
-        for e in self.invalid_property_error(identifier, join_properties, "identifier", identifier["name"]):
-            errors.append(f"{e} in view {self.name}")
+        for e in self.invalid_property_error(
+            identifier, join_properties, "identifier", identifier["name"], error_func=error_func
+        ):
+            e["message"] += f" in view {self.name}"
+            errors.append(e)
         return errors
 
     def referenced_fields(self):
