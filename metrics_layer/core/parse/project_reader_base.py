@@ -8,11 +8,6 @@ from .github_repo import BaseRepo
 class Str(ruamel.yaml.scalarstring.ScalarString):
     __slots__ = "lc"
 
-    style = ""
-
-    def __new__(cls, value):
-        return ruamel.yaml.scalarstring.ScalarString.__new__(cls, value)
-
 
 class ZenlyticPreservedScalarString(ruamel.yaml.scalarstring.PreservedScalarString):
     __slots__ = "lc"
@@ -117,10 +112,20 @@ class ProjectReaderBase:
         return yaml_dict
 
     @staticmethod
+    def repr_str(representer, data):
+        return representer.represent_str(str(data))
+
+    @staticmethod
     def dump_yaml_file(data: dict, path: str):
+        yaml = ruamel.yaml.YAML(typ="rt")
+        yaml.Constructor = ZenlyticConstructor
+        yaml.representer.add_representer(Str, ProjectReaderBase.repr_str)
+        yaml.representer.add_representer(ZenlyticPreservedScalarString, ProjectReaderBase.repr_str)
+        yaml.representer.add_representer(ZenlyticDoubleQuotedScalarString, ProjectReaderBase.repr_str)
+        yaml.representer.add_representer(ZenlyticSingleQuotedScalarString, ProjectReaderBase.repr_str)
         filtered_data = {k: v for k, v in data.items() if not k.startswith("_")}
         with open(path, "w") as f:
-            ruamel.yaml.dump(filtered_data, f, Dumper=ruamel.yaml.RoundTripDumper)
+            yaml.dump(filtered_data, f)
 
     def load(self) -> None:
         raise NotImplementedError()

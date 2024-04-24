@@ -89,9 +89,9 @@ class DashboardElement(MetricsLayerBase):
                 errors.append(self._error(self._definition.get("slice_by"), err_msg))
 
         for f in self._raw_filters():
-            if not self._function_executes(self.project.get_field, f["field"]):
+            if not self._function_executes(self.project.get_field, f.get("field")):
                 err_msg = (
-                    f"Could not find field {f['field']} referenced"
+                    f"Could not find field {f.get('field')} referenced"
                     f" in a filter in dashboard {self.dashboard.name}"
                 )
                 errors.append(self._error(self._definition.get("filters"), err_msg))
