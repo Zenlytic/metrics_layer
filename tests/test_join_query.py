@@ -365,6 +365,24 @@ def test_query_single_join_with_filter(connection):
 
 
 @pytest.mark.query
+def test_query_single_join_with_custom_join_type(connection):
+    query = connection.get_sql_query(
+        metrics=["submitted_form.number_of_form_submissions"],
+        dimensions=["submitted_form.context_os", "customers.gender"],
+    )
+
+    correct = (
+        "SELECT submitted_form.context_os as submitted_form_context_os,customers.gender as"
+        " customers_gender,COUNT(submitted_form.id) as submitted_form_number_of_form_submissions FROM"
+        " analytics.submitted_form submitted_form FULL OUTER JOIN analytics.customers customers ON"
+        " customers.customer_id=submitted_form.customer_id AND DATE_TRUNC('DAY', submitted_form.session_date)"
+        " is not null GROUP BY submitted_form.context_os,customers.gender ORDER BY"
+        " submitted_form_number_of_form_submissions DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_query_multiple_join(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
