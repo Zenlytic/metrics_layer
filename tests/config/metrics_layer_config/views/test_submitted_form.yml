@@ -13,6 +13,7 @@ identifiers:
     type: join
     reference: customers
     relationship: many_to_one
+    join_type: full_outer
     sql_on: '${customers.customer_id}=${submitted_form.customer_id} AND ${submitted_form.session_date} is not null'
 
 access_filters:
