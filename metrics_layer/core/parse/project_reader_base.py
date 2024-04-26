@@ -105,7 +105,9 @@ class ProjectReaderBase:
     @staticmethod
     def read_yaml_file(path: str):
         yaml = ruamel.yaml.YAML(typ="rt")
-        yaml.Constructor = ZenlyticConstructor
+        # HOTFIX: this somehow introduced a unicode error on multiline strings with the character
+        # \u0007 (bell) in them. Commenting out the below code is a temporary fix.
+        # yaml.Constructor = ZenlyticConstructor
         yaml.version = (1, 1)
         with open(path, "r") as f:
             yaml_dict = yaml.load(f)
@@ -118,11 +120,14 @@ class ProjectReaderBase:
     @staticmethod
     def dump_yaml_file(data: dict, path: str):
         yaml = ruamel.yaml.YAML(typ="rt")
-        yaml.Constructor = ZenlyticConstructor
-        yaml.representer.add_representer(Str, ProjectReaderBase.repr_str)
-        yaml.representer.add_representer(ZenlyticPreservedScalarString, ProjectReaderBase.repr_str)
-        yaml.representer.add_representer(ZenlyticDoubleQuotedScalarString, ProjectReaderBase.repr_str)
-        yaml.representer.add_representer(ZenlyticSingleQuotedScalarString, ProjectReaderBase.repr_str)
+        # HOTFIX: this somehow introduced a unicode error on multiline strings with the character
+        # \u0007 (bell) in them. Commenting out the below code is a temporary fix.
+
+        # yaml.Constructor = ZenlyticConstructor
+        # yaml.representer.add_representer(Str, ProjectReaderBase.repr_str)
+        # yaml.representer.add_representer(ZenlyticPreservedScalarString, ProjectReaderBase.repr_str)
+        # yaml.representer.add_representer(ZenlyticDoubleQuotedScalarString, ProjectReaderBase.repr_str)
+        # yaml.representer.add_representer(ZenlyticSingleQuotedScalarString, ProjectReaderBase.repr_str)
         filtered_data = {k: v for k, v in data.items() if not k.startswith("_")}
         with open(path, "w") as f:
             yaml.dump(filtered_data, f)
