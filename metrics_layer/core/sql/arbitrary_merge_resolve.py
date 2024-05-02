@@ -145,5 +145,16 @@ class ArbitraryMergedQueryResolver(SingleSQLQueryResolver):
                 )
             if not isinstance(merged_query.get("join_fields", []), list):
                 raise QueryError(f"Each item in merged_queries must have 'join_fields' key as a list.")
-            if i > 0 and not merged_query.get("join_fields"):
+            if i > 0 and not merged_query.get("join_fields", []):
                 raise QueryError(f"Each item in merged_queries after the first must have 'join_fields' key.")
+            if i > 0:
+                for join_field in merged_query.get("join_fields", []):
+                    if ("field" not in join_field or not isinstance(join_field.get("field"), str)) or (
+                        "source_field" not in join_field
+                        or not isinstance(join_field.get("source_field"), str)
+                    ):
+                        raise QueryError(
+                            f"Each item in merged_queries after the first must have the 'join_fields' key"
+                            f" with the keys 'field' and 'source_field', both of which are field ids"
+                            f" (strings)"
+                        )

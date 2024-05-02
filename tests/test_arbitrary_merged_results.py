@@ -23,6 +23,16 @@ def test_query_no_inputs(connection):
         ["this should be a dict"],
         {"metrics": []},
         {"metrics": ["number_of_sessions"], "dimensions": ["device"]},
+        {
+            "metrics": ["number_of_events"],
+            "dimensions": ["device"],
+            "join_fields": [{"field": "events.device"}],
+        },
+        {
+            "metrics": ["number_of_events"],
+            "dimensions": ["device"],
+            "join_fields": [{"source_field": "sessions.session_device"}],
+        },
     ],
 )
 def test_query_bad_merged_queries(connection, query_2):
