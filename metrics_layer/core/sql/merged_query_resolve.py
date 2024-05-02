@@ -40,6 +40,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         self.dimensions = dimensions
         self.parse_field_names(where, having, order_by)
         self.model = model
+        self.query_type = None
 
     def get_query(self, semicolon: bool = True):
         self.parse_field_names(self.where, self.having, self.order_by)
@@ -85,6 +86,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             ]
             for k, items in self.mapping_lookup.items()
         }
+        self.query_type = resolver.query_type
         query_config = {
             "merged_metrics": self.merged_metrics,
             "query_metrics": readable_metrics,
@@ -93,12 +95,13 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             "queries_to_join": queries_to_join,
             "join_hashes": list(sorted(readable_join_hashes)),
             "mapping_lookup": readable_mapping_lookup,
-            "query_type": resolver.query_type,
+            "query_type": self.query_type,
             "limit": self.limit,
+            "return_pypika_query": self.return_pypika_query,
             "project": self.project,
         }
         # Druid does not allow semicolons
-        if resolver.query_type == Definitions.druid:
+        if self.query_type == Definitions.druid:
             semicolon = False
 
         merged_result_query = MetricsLayerMergedResultsQuery(query_config)

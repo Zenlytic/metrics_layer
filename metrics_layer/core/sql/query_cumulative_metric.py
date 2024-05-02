@@ -77,7 +77,7 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         base_cte_query = base_cte_query.select(*select)
 
         if self.having:
-            where = self.get_where_from_having(project=self.design)
+            where = self.get_where_with_aliases(self.having, project=self.design)
             base_cte_query = base_cte_query.where(Criterion.all(where))
 
         base_cte_query = base_cte_query.limit(self.limit)

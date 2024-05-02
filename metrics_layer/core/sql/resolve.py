@@ -50,6 +50,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self.project.set_connection_schema(connection_schema)
         self.field_id_mapping = {}
         self._resolve_mapped_fields()
+        self.query_type = None
 
     @property
     def is_merged_result(self):
@@ -101,6 +102,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             **self.kwargs,
         )
         query = resolver.get_query(semicolon)
+        self.query_type = resolver.query_type
         return query
 
     def _get_merged_result_query(self, semicolon: bool):
@@ -116,6 +118,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             **self.kwargs,
         )
         query = resolver.get_query(semicolon)
+        self.query_type = resolver.query_type
         return query
 
     def _resolve_mapped_fields(self):
