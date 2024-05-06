@@ -129,10 +129,18 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self._all_fields = (
             self.metrics + self.dimensions + self._where_fields + self._having_fields + self._order_fields
         )
-        for field_name in self._all_fields:
+
+        replace_bools = [True] * len(self._all_fields) + [False] * len(
+            self.kwargs.get("mapping_lookup_dimensions", [])
+        )
+        lookup_only_fields = [
+            d for d in self.kwargs.get("mapping_lookup_dimensions", []) if d not in self._all_fields
+        ]
+        field_ids = self._all_fields + lookup_only_fields
+        for do_replace, field_name in zip(replace_bools, field_ids):
             mapped_field = self.project.get_mapped_field(field_name, model=self.model)
             if mapped_field:
-                self.mapping_lookup[field_name] = mapped_field
+                self.mapping_lookup[field_name] = {**mapped_field, "do_replace": do_replace}
             else:
                 field_obj = self.project.get_field(field_name, model=self.model)
                 self.field_object_lookup[field_name] = field_obj
@@ -145,6 +153,9 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             mergeable_graphs, joinable_graphs = self._join_graphs_by_type(self.field_lookup)
             self._handle_invalid_merged_result(mergeable_graphs, joinable_graphs)
             for name, mapped_field in self.mapping_lookup.items():
+                if not mapped_field.pop("do_replace"):
+                    continue  # Skip fields that are only for lookup
+
                 is_date_mapping = mapped_field["name"] in self.model.special_mapping_values
                 if is_date_mapping and len(self.metrics) >= 1:
                     # Use the first metric to replace the mapped field everywhere

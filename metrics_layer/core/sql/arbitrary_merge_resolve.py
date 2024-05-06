@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import List, Union
 
 from metrics_layer.core.exceptions import (
@@ -10,6 +11,7 @@ from metrics_layer.core.model.project import Project
 from metrics_layer.core.sql.query_arbitrary_merged_queries import (
     MetricsLayerMergedQueries,
 )
+from metrics_layer.core.sql.query_base import QueryKindTypes
 from metrics_layer.core.sql.resolve import SQLQueryResolver
 from metrics_layer.core.sql.single_query_resolve import SingleSQLQueryResolver
 
@@ -25,7 +27,7 @@ class ArbitraryMergedQueryResolver(SingleSQLQueryResolver):
         connections: List = [],
         **kwargs,
     ):
-        self.validate_arbitrary_merged_queries(merged_queries)
+        merged_queries = self.validate_arbitrary_merged_queries(merged_queries)
         self.merged_queries = merged_queries
         self.verbose = kwargs.get("verbose", False)
         self.where = where
@@ -35,13 +37,27 @@ class ArbitraryMergedQueryResolver(SingleSQLQueryResolver):
         self.project = project
         self.connections = connections
         self.connection = None
+        # All queries are merged queries (obviously)
+        self.query_kind = QueryKindTypes.merged
         self.kwargs = kwargs
+        self._mapping_lookup = {}
+
+    @property
+    def mapping_lookup(self):
+        self.get_query()
+        return self._mapping_lookup
 
     def get_query(self, semicolon: bool = True):
         sub_queries = []
-        primary_resolver = self._init_resolver(self.merged_queries[0])
+        source_fields = [jf["source_field"] for mq in self.merged_queries for jf in mq.get("join_fields", [])]
+        primary_resolver = self._init_resolver(self.merged_queries[0], extra_lookup_dims=source_fields)
+        self._add_mapping_lookup(primary_resolver)
+
         for i, merged_query in enumerate(self.merged_queries):
-            resolver = self._init_resolver(merged_query)
+            extra_lookup_dims = [jf["field"] for jf in merged_query.get("join_fields", [])]
+            resolver = self._init_resolver(merged_query, extra_lookup_dims=extra_lookup_dims)
+            self._add_mapping_lookup(resolver)
+
             self.connection = resolver.connection
             join_fields = merged_query.get("join_fields", [])
             if i > 0:
@@ -74,7 +90,6 @@ class ArbitraryMergedQueryResolver(SingleSQLQueryResolver):
             semicolon = False
 
         query = merged_queries_resolver.get_query(semicolon=semicolon)
-
         return query
 
     def _resolve_join_fields_mappings(
@@ -116,8 +131,13 @@ class ArbitraryMergedQueryResolver(SingleSQLQueryResolver):
             f" field must be included in query {query_number}."
         )
 
-    def _init_resolver(self, merged_query: dict):
-        kws = {**self.kwargs, "limit": merged_query.get("limit"), "return_pypika_query": True}
+    def _init_resolver(self, merged_query: dict, extra_lookup_dims: list = []):
+        kws = {
+            **self.kwargs,
+            "limit": merged_query.get("limit"),
+            "mapping_lookup_dimensions": extra_lookup_dims,
+            "return_pypika_query": True,
+        }
         return SQLQueryResolver(
             metrics=merged_query.get("metrics", []),
             dimensions=merged_query.get("dimensions", []),
@@ -129,9 +149,23 @@ class ArbitraryMergedQueryResolver(SingleSQLQueryResolver):
             **kws,
         )
 
+    def _add_mapping_lookup(self, resolver: SQLQueryResolver):
+        where_fields = [f["field"] for f in resolver.where]
+        order_by_fields = [f["field"] for f in resolver.order_by]
+        for mapping_name, mapping_field in resolver.mapping_lookup.items():
+            if mapping_name not in self._mapping_lookup:
+                if any(d in mapping_field["fields"] for d in resolver.dimensions):
+                    field_name = next((f for f in mapping_field["fields"] if f in resolver.dimensions))
+                elif any(f in mapping_field["fields"] for f in where_fields):
+                    field_name = next((f for f in mapping_field["fields"] if f in where_fields))
+                elif any(f in mapping_field["fields"] for f in order_by_fields):
+                    field_name = next((f for f in mapping_field["fields"] if f in order_by_fields))
+                self._mapping_lookup[mapping_name] = field_name
+
     @staticmethod
     def validate_arbitrary_merged_queries(merged_queries: list):
-        for i, merged_query in enumerate(merged_queries):
+        cleaned_merged_queries = []
+        for i, merged_query in enumerate(deepcopy(merged_queries)):
             if not isinstance(merged_query, dict):
                 raise QueryError(
                     f"merged_queries must be a list of dictionaries. Item {i} is not a dictionary."
@@ -148,6 +182,7 @@ class ArbitraryMergedQueryResolver(SingleSQLQueryResolver):
             if i > 0 and not merged_query.get("join_fields", []):
                 raise QueryError(f"Each item in merged_queries after the first must have 'join_fields' key.")
             if i > 0:
+                join_fields = []
                 for join_field in merged_query.get("join_fields", []):
                     if ("field" not in join_field or not isinstance(join_field.get("field"), str)) or (
                         "source_field" not in join_field
@@ -158,3 +193,12 @@ class ArbitraryMergedQueryResolver(SingleSQLQueryResolver):
                             f" with the keys 'field' and 'source_field', both of which are field ids"
                             f" (strings)"
                         )
+                    join_fields.append(
+                        {
+                            "field": join_field["field"].lower(),
+                            "source_field": join_field["source_field"].lower(),
+                        }
+                    )
+                merged_query["join_fields"] = join_fields
+            cleaned_merged_queries.append(merged_query)
+        return cleaned_merged_queries

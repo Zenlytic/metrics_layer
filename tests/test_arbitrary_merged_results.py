@@ -4,6 +4,7 @@ import pytest
 
 from metrics_layer.core.exceptions import JoinError, QueryError
 from metrics_layer.core.model.definitions import Definitions
+from metrics_layer.core.sql.arbitrary_merge_resolve import ArbitraryMergedQueryResolver
 
 
 @pytest.mark.query
@@ -48,7 +49,7 @@ def test_query_merged_queries_simple_one_dimension(connection):
     query_2 = {
         "metrics": ["number_of_events"],
         "dimensions": ["device"],
-        "join_fields": [{"field": "events.device", "source_field": "sessions.session_device"}],
+        "join_fields": [{"field": "EVENTS.DEVICE", "source_field": "sessions.session_device"}],
     }
 
     primary_query = {"metrics": ["number_of_sessions"], "dimensions": ["device"]}
@@ -473,6 +474,57 @@ def test_query_merged_queries_where_having_post_merge(connection):
 
 
 @pytest.mark.query
+def test_query_merged_queries_mapping_lookup_on_resolver(connection):
+    query_1 = {
+        "metrics": ["number_of_events"],
+        "dimensions": ["events.device", "date"],
+    }
+    query_2 = {
+        "metrics": ["number_of_login_events"],
+        "dimensions": ["login_events.device"],
+        "join_fields": [{"field": "device", "source_field": "device"}],
+    }
+    resolver = ArbitraryMergedQueryResolver(
+        merged_queries=[query_1, query_2], query_type="SNOWFLAKE", project=connection.project
+    )
+    assert resolver.mapping_lookup == {"date": "events.event_date", "device": "events.device"}
+
+
+@pytest.mark.query
+def test_query_merged_queries_mapped_where_post_merge(connection):
+    primary_query = {"metrics": ["number_of_email_purchased_items"], "dimensions": ["campaign"]}
+    query_2 = {
+        "metrics": ["total_item_revenue"],
+        "dimensions": ["campaign"],
+        "join_fields": [{"field": "campaign", "source_field": "campaign"}],
+    }
+
+    query = connection.get_sql_query(
+        merged_queries=[primary_query, query_2],
+        where=[{"field": "campaign", "expression": "not_equal_to", "value": "Facebook-Promo"}],
+    )
+
+    correct = (
+        "WITH merged_query_0 AS (SELECT orders.campaign as orders_campaign,COUNT(case when"
+        " order_lines.sales_channel='Email' then order_lines.order_id end) as"
+        " order_lines_number_of_email_purchased_items FROM analytics.order_line_items order_lines LEFT JOIN"
+        " analytics.orders orders ON order_lines.order_unique_id=orders.id GROUP BY orders.campaign ORDER BY"
+        " order_lines_number_of_email_purchased_items DESC) ,merged_query_1 AS (SELECT orders.campaign as"
+        " orders_campaign,SUM(order_lines.revenue) as order_lines_total_item_revenue FROM"
+        " analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON"
+        " order_lines.order_unique_id=orders.id GROUP BY orders.campaign ORDER BY"
+        " order_lines_total_item_revenue DESC) SELECT"
+        " merged_query_0.order_lines_number_of_email_purchased_items as"
+        " order_lines_number_of_email_purchased_items,merged_query_0.orders_campaign as"
+        " orders_campaign,merged_query_1.order_lines_total_item_revenue as order_lines_total_item_revenue"
+        " FROM merged_query_0 JOIN merged_query_1 ON"
+        " merged_query_0.orders_campaign=merged_query_1.orders_campaign WHERE"
+        " merged_query_0.orders_campaign<>'Facebook-Promo';"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_query_merged_queries_handle_mappings_in_join_fields(connection):
     primary_query = {"metrics": ["number_of_orders"], "dimensions": ["date"]}
     query_2 = {
@@ -496,6 +548,36 @@ def test_query_merged_queries_handle_mappings_in_join_fields(connection):
         " order_lines_total_item_revenue,merged_query_1.order_lines_product_name as order_lines_product_name"
         " FROM merged_query_0 JOIN merged_query_1 ON"
         " merged_query_0.orders_order_date=merged_query_1.order_lines_order_date;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_merged_queries_handle_non_date_mappings_in_join_fields(connection):
+    query_1 = {
+        "metrics": ["number_of_events"],
+        "dimensions": ["events.device", "date"],
+    }
+    query_2 = {
+        "metrics": ["number_of_login_events"],
+        "dimensions": ["login_events.device"],
+        "join_fields": [{"field": "device", "source_field": "device"}],
+    }
+    query = connection.get_sql_query(merged_queries=[query_1, query_2])
+
+    correct = (
+        "WITH merged_query_0 AS (SELECT events.device as events_device,DATE_TRUNC('DAY', events.event_date)"
+        " as events_event_date,COUNT(DISTINCT(events.id)) as events_number_of_events FROM analytics.events"
+        " events GROUP BY events.device,DATE_TRUNC('DAY', events.event_date) ORDER BY events_number_of_events"
+        " DESC) ,merged_query_1 AS (SELECT events.device as"
+        " login_events_device,COUNT(DISTINCT(login_events.id)) as login_events_number_of_login_events FROM"
+        " analytics.login_events login_events LEFT JOIN analytics.events events ON login_events.id=events.id"
+        " GROUP BY events.device ORDER BY login_events_number_of_login_events DESC) SELECT"
+        " merged_query_0.events_number_of_events as events_number_of_events,merged_query_0.events_device as"
+        " events_device,merged_query_0.events_event_date as"
+        " events_event_date,merged_query_1.login_events_number_of_login_events as"
+        " login_events_number_of_login_events FROM merged_query_0 JOIN merged_query_1 ON"
+        " merged_query_0.events_device=merged_query_1.login_events_device;"
     )
     assert query == correct
 
