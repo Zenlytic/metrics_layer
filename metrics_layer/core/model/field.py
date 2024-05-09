@@ -285,7 +285,9 @@ class Field(MetricsLayerBase, SQLReplacement):
 
             else_0 = False
             if non_additive_dimension := self.non_additive_dimension:
-                else_0 = True
+                # We need to do else 0 if it's a numeric operation like sum, average, etc
+                # But we need to do else null if it is a non numeric op like count, count_distinct
+                else_0 = self.type not in {ZenlyticType.count, ZenlyticType.count_distinct}
                 if isinstance(self.non_additive_dimension, dict):
                     filters_to_apply += [
                         {
@@ -558,8 +560,6 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def _needs_symmetric_aggregate(self, functional_pk: MetricsLayerBase):
         if functional_pk:
-            if functional_pk == Definitions.does_not_exist:
-                return True
             try:
                 field_pk_id = self.view.primary_key.id()
             except AttributeError:
@@ -569,7 +569,9 @@ class Field(MetricsLayerBase, SQLReplacement):
                     "Define the primary key by adding primary_key: yes to the field "
                     "that is the primary key of the table."
                 )
-            different_functional_pk = field_pk_id != functional_pk.id()
+            different_functional_pk = (
+                functional_pk == Definitions.does_not_exist or field_pk_id != functional_pk.id()
+            )
         else:
             different_functional_pk = False
         return different_functional_pk
