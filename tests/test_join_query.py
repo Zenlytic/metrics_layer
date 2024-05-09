@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import pytest
 
 from metrics_layer.core.exceptions import JoinError, QueryError
@@ -64,6 +66,36 @@ def test_query_no_join_average_distinct(connection):
         "(order_lines.order_total)  IS NOT NULL THEN  order_lines.order_unique_id  ELSE NULL END), 0)) "
         "as order_lines_average_order_revenue FROM analytics.order_line_items order_lines "
         "GROUP BY order_lines.sales_channel ORDER BY order_lines_average_order_revenue DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+@pytest.mark.parametrize("field", ["order_lines.order_week", "orders.order_week"])
+def test_query_bigquery_week_filter_type_conversion(connection, field):
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["channel"],
+        where=[
+            {
+                "field": field,
+                "expression": "greater_than",
+                "value": datetime(year=2021, month=8, day=4),
+            }
+        ],
+        query_type="BIGQUERY",
+    )
+
+    cast_as = "DATE" if "order_lines.order_week" == field else "TIMESTAMP"
+    sql_field = "order_lines.order_date" if "order_lines.order_week" == field else "orders.order_date"
+    join = ""
+    if "orders" in field:
+        join = "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
+    correct = (
+        "SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) as"
+        f" order_lines_total_item_revenue FROM analytics.order_line_items order_lines {join}WHERE"
+        f" CAST(DATE_TRUNC(CAST({sql_field} AS DATE), WEEK) AS {cast_as})>{cast_as}('2021-08-04 00:00:00')"
+        " GROUP BY order_lines_channel;"
     )
     assert query == correct
 
@@ -231,7 +263,6 @@ def test_query_single_join_metric_with_sub_field(connection):
     assert query == correct
 
 
-# TODO need one like this with order lines and rainfall
 @pytest.mark.query
 def test_query_single_join_with_forced_additional_join(connection):
     query = connection.get_sql_query(
@@ -249,7 +280,7 @@ def test_query_single_join_with_forced_additional_join(connection):
         "(country_detail.rain)  IS NOT NULL THEN  country_detail.country  ELSE NULL END), "
         "0)) as country_detail_avg_rainfall FROM analytics.discount_detail discount_detail "
         "LEFT JOIN analytics_live.discounts discounts ON discounts.discount_id=discount_detail.discount_id "
-        "AND DATE_TRUNC(CAST(discounts.order_date AS DATE), WEEK) is not null LEFT JOIN "
+        "AND CAST(DATE_TRUNC(CAST(discounts.order_date AS DATE), WEEK) AS TIMESTAMP) is not null LEFT JOIN "
         "(SELECT * FROM ANALYTICS.COUNTRY_DETAIL) as country_detail "
         "ON discounts.country=country_detail.country "
         "GROUP BY discount_detail_discount_promo_name;"

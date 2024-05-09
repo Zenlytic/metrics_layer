@@ -1,6 +1,7 @@
 import functools
 import json
 from collections import Counter
+from contextlib import contextmanager
 from typing import List, Union
 
 from metrics_layer.core.exceptions import (
@@ -177,7 +178,8 @@ class Project:
 
         return copied_views
 
-    def validate_with_replaced_objects(self, replaced_objects: list):
+    @contextmanager
+    def replace_objects(self, replaced_objects: list):
         replaced_views, replaced_models, replaced_dashboards = [], [], []
         for dict_obj in replaced_objects:
             if isinstance(dict_obj, dict):
@@ -195,28 +197,32 @@ class Project:
         replaced_model_names = set([m["name"] for m in replaced_models])
         unchanged_models = [m for m in self._models if m["name"] not in replaced_model_names]
         current_models = json.loads(json.dumps(self._models))
-        self._models = unchanged_models + replaced_models
 
         # Replace view files
         replaced_view_names = set([v["name"] for v in replaced_views])
         unchanged_views = [v for v in self._views if v["name"] not in replaced_view_names]
         current_views = json.loads(json.dumps(self._views))
-        self._views = unchanged_views + replaced_views
 
         # Replace dashboard files
         replaced_dashboard_names = set([d["name"] for d in replaced_dashboards])
         unchanged_dashboards = [d for d in self._dashboards if d["name"] not in replaced_dashboard_names]
         current_dashboards = json.loads(json.dumps(self._dashboards))
-        self._dashboards = unchanged_dashboards + replaced_dashboards
-        self.refresh_cache()
 
-        errors = self.validate()
+        try:
+            self._models = unchanged_models + replaced_models
+            self._views = unchanged_views + replaced_views
+            self._dashboards = unchanged_dashboards + replaced_dashboards
+            self.refresh_cache()
+            yield
+        finally:
+            self._dashboards = current_dashboards
+            self._views = current_views
+            self._models = current_models
+            self.refresh_cache()
 
-        self._views = current_views
-        self._models = current_models
-        self._dashboards = current_dashboards
-        self.refresh_cache()
-        return errors
+    def validate_with_replaced_objects(self, replaced_objects: list):
+        with self.replace_objects(replaced_objects):
+            return self.validate()
 
     def _error(self, error: str, extra: dict = {}):
         # For project level errors we cannot attribute a line or column

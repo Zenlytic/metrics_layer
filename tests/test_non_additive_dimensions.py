@@ -20,6 +20,26 @@ def test_mrr_non_additive_dimension_no_group_by_max(connection, metric_suffix):
 
 
 @pytest.mark.query
+@pytest.mark.parametrize("metric_suffix", ["end_of_month", "beginning_of_month"])
+def test_mrr_non_additive_dimension_no_group_by_counts(connection, metric_suffix):
+    query = connection.get_sql_query(metrics=[f"accounts_{metric_suffix}"])
+
+    func = "MAX" if metric_suffix == "end_of_month" else "MIN"
+    agg = "COUNT(DISTINCT(" if metric_suffix == "end_of_month" else "COUNT("
+    close = "))" if metric_suffix == "end_of_month" else ")"
+    correct = (
+        f"WITH cte_accounts_{metric_suffix}_record_raw AS (SELECT {func}(mrr.record_date) as"
+        f" mrr_{func.lower()}_record_raw FROM analytics.mrr_by_customer mrr ORDER BY"
+        f" mrr_{func.lower()}_record_raw DESC) SELECT {agg}case when"
+        f" mrr.record_date=cte_accounts_{metric_suffix}_record_raw.mrr_{func.lower()}_record_raw then"
+        f" mrr.parent_account_id end{close} as mrr_accounts_{metric_suffix} FROM analytics.mrr_by_customer"
+        f" mrr JOIN cte_accounts_{metric_suffix}_record_raw ON 1=1 ORDER BY"
+        f" mrr_accounts_{metric_suffix} DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_mrr_non_additive_dimension_no_group_by_multi_cte(connection):
     query = connection.get_sql_query(
         metrics=[f"mrr_end_of_month", "mrr_beginning_of_month", "mrr_end_of_month_by_account"]
