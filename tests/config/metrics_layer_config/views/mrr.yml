@@ -72,6 +72,22 @@ fields:
     type: count
     sql: ${parent_account_id}
 
+  - name: accounts_beginning_of_month
+    field_type: measure
+    type: count
+    sql: ${parent_account_id}
+    non_additive_dimension:
+      name: record_raw
+      window_choice: min
+
+  - name: accounts_end_of_month
+    field_type: measure
+    type: count_distinct
+    sql: ${parent_account_id}
+    non_additive_dimension:
+      name: record_raw
+      window_choice: max
+
   - name: mrr_end_of_month
     field_type: measure
     type: sum
