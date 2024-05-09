@@ -1105,7 +1105,9 @@ class Field(MetricsLayerBase, SQLReplacement):
                     f"CAST(DATETIME_TRUNC(CAST({s} AS DATETIME), HOUR) AS {self.datatype.upper()})"
                 ),
                 "date": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} AS DATE), DAY) AS {self.datatype.upper()})",
-                "week": self._week_dimension_group_time_sql,
+                "week": lambda s, qt: (
+                    f"CAST({self._week_dimension_group_time_sql(s, qt)} AS {self.datatype.upper()})"
+                ),
                 "month": lambda s, qt: (  # noqa
                     f"CAST(DATE_TRUNC(CAST({s} AS DATE), MONTH) AS {self.datatype.upper()})"
                 ),

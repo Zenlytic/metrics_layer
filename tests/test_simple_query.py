@@ -496,8 +496,8 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
                 " AS TIMESTAMP) AS DATE), DAY) AS TIMESTAMP)"
             ),
             "week": (  # noqa
-                "CAST(DATE_TRUNC(CAST(CAST(DATETIME(CAST(simple.order_date AS TIMESTAMP), 'America/New_York')"
-                " AS TIMESTAMP) AS DATE) + 1, WEEK) - 1 AS TIMESTAMP)"
+                "CAST(CAST(DATE_TRUNC(CAST(CAST(DATETIME(CAST(simple.order_date AS TIMESTAMP),"
+                " 'America/New_York') AS TIMESTAMP) AS DATE) + 1, WEEK) - 1 AS TIMESTAMP) AS TIMESTAMP)"
             ),
         }
         where = (
@@ -849,7 +849,10 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "minute": "CAST(DATETIME_TRUNC(CAST(simple.order_date AS DATETIME), MINUTE) AS TIMESTAMP)",
             "hour": "CAST(DATETIME_TRUNC(CAST(simple.order_date AS DATETIME), HOUR) AS TIMESTAMP)",
             "date": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), DAY) AS TIMESTAMP)",
-            "week": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE) + 1, WEEK) - 1 AS TIMESTAMP)",
+            "week": (
+                "CAST(CAST(DATE_TRUNC(CAST(simple.order_date AS DATE) + 1, WEEK) - 1 AS TIMESTAMP) AS"
+                " TIMESTAMP)"
+            ),
             "month": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), MONTH) AS TIMESTAMP)",
             "quarter": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), QUARTER) AS TIMESTAMP)",
             "year": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), YEAR) AS TIMESTAMP)",
