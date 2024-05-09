@@ -9,36 +9,34 @@ default_date: event
 row_label: Event
 
 identifiers:
-- name: event_id
-  type: primary
-  sql: ${event_id}
+  - name: event_id
+    type: primary
+    sql: ${event_id}
 
 fields:
   - name: event_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     primary_key: yes
     hidden: yes
-    sql: "${TABLE}.id"
+    sql: '${TABLE}.id'
 
   - name: event
-    field_type: "dimension_group"
+    field_type: 'dimension_group'
     type: time
-    timeframes: [
-      raw,
-      time,
-      date,
-      week,
-      month,
-      quarter,
-      year
-    ]
-    sql: "${TABLE}.event_date"
+    timeframes: [raw, time, date, week, month, quarter, year]
+    sql: '${TABLE}.event_date'
 
   - name: device
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
-    sql: "${TABLE}.device"
+    sql: '${TABLE}.device'
+    hidden: yes
+
+  - name: event_campaign
+    field_type: 'dimension'
+    type: string
+    sql: '${TABLE}.campaign'
     hidden: yes
 
   - name: number_of_events

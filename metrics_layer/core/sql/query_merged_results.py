@@ -24,10 +24,14 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
         complete_query = base_cte_query.select(*select)
 
         if self.having:
-            where = self.get_where_from_having(project=self.project)
+            where = self.get_where_with_aliases(self.having, project=self.project)
             complete_query = complete_query.where(Criterion.all(where))
 
-        sql = str(complete_query.limit(self.limit))
+        completed_query = complete_query.limit(self.limit)
+        if self.return_pypika_query:
+            return completed_query
+
+        sql = str(completed_query)
         if semicolon:
             sql += ";"
         return sql

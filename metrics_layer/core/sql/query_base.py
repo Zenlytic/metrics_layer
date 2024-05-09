@@ -6,6 +6,7 @@ from pypika import JoinType
 from pypika.terms import LiteralValue
 from sqlparse.tokens import Name, Punctuation
 
+from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.model.join import Join, ZenlyticJoinType
 from metrics_layer.core.sql.query_filter import MetricsLayerFilter
@@ -15,14 +16,28 @@ class MetricsLayerQueryBase(MetricsLayerBase):
     def _base_query(self):
         return self.query_lookup[self.query_type]
 
-    def get_where_from_having(self, project):
+    def get_where_with_aliases(
+        self, filters: list, project, cte_alias_lookup: dict = {}, raise_if_not_in_lookup: bool = False
+    ):
         where = []
-        for having_clause in self.having:
-            having_clause["query_type"] = self.query_type
-            f = MetricsLayerFilter(definition=having_clause, design=None, filter_type="where")
-            field = project.get_field(having_clause["field"])
-            where.append(f.criterion(field.alias(with_view=True)))
+        for filter_clause in filters:
+            filter_clause["query_type"] = self.query_type
+            f = MetricsLayerFilter(definition=filter_clause, design=None, filter_type="where")
+            field = project.get_field(filter_clause["field"])
+            field_alias = field.alias(with_view=True)
+            if field_alias in cte_alias_lookup:
+                field_alias = f"{cte_alias_lookup[field_alias]}.{field_alias}"
+            elif raise_if_not_in_lookup:
+                self._raise_query_error_from_cte(field.id(capitalize_alias=True))
+            where.append(f.criterion(field_alias))
         return where
+
+    @staticmethod
+    def _raise_query_error_from_cte(field_name: str):
+        raise QueryError(
+            f"Field {field_name} is not present in either source query, so it"
+            " cannot be applied as a filter. Please add it to one of the source queries."
+        )
 
     @staticmethod
     def parse_identifiers_from_clause(clause: str):

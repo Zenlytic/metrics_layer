@@ -1,17 +1,20 @@
 import functools
 from copy import deepcopy
 
-from pypika import JoinType, Criterion, Table
+from pypika import Criterion, JoinType, Table
 
-from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
-from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
-from metrics_layer.core.model.filter import LiteralValueCriterion, FilterInterval
-from metrics_layer.core.model.field import Field
+from metrics_layer.core.exceptions import (
+    AccessDeniedOrDoesNotExistException,
+    QueryError,
+)
 from metrics_layer.core.model.definitions import Definitions
+from metrics_layer.core.model.field import Field
+from metrics_layer.core.model.filter import FilterInterval, LiteralValueCriterion
+from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_dialect import query_lookup
-from metrics_layer.core.sql.query_generator import MetricsLayerQuery
 from metrics_layer.core.sql.query_filter import MetricsLayerFilter
+from metrics_layer.core.sql.query_generator import MetricsLayerQuery
 
 
 class FunnelQuery(MetricsLayerQueryBase):
@@ -74,7 +77,7 @@ class FunnelQuery(MetricsLayerQueryBase):
         base_cte_query = base_cte_query.from_(result_table).select(result_table.star)
 
         if self.having:
-            where = self.get_where_from_having(project=self.design)
+            where = self.get_where_with_aliases(self.having, project=self.design)
             base_cte_query = base_cte_query.where(Criterion.all(where))
 
         base_cte_query = base_cte_query.limit(self.limit)

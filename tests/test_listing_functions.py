@@ -26,7 +26,7 @@ def test_list_metrics(connection):
 @pytest.mark.project
 def test_list_dimensions(connection):
     dimensions = connection.list_dimensions(show_hidden=True)
-    assert len(dimensions) == 96
+    assert len(dimensions) == 97
 
     dimensions = connection.list_dimensions()
     assert len(dimensions) == 63
