@@ -74,13 +74,21 @@ class ArbitraryMergedQueryResolver(SingleSQLQueryResolver):
                 }
             )
 
+        mapping_lookup = self._mapping_lookup
+        clean_where = [{**w, "field": mapping_lookup.get(w["field"].lower(), w["field"])} for w in self.where]
+        clean_having = [
+            {**h, "field": mapping_lookup.get(h["field"].lower(), h["field"])} for h in self.having
+        ]
+        clean_order_by = [
+            {**o, "field": mapping_lookup.get(o["field"].lower(), o["field"])} for o in self.order_by
+        ]
         merged_queries_resolver = MetricsLayerMergedQueries(
             {
                 "merged_queries": sub_queries,
                 "query_type": resolver.query_type,
-                "where": self.where,
-                "having": self.having,
-                "order_by": self.order_by,
+                "where": clean_where,
+                "having": clean_having,
+                "order_by": clean_order_by,
                 "limit": self.limit,
                 "project": self.project,
             }
