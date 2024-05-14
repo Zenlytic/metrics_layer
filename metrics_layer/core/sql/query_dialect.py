@@ -90,10 +90,10 @@ if_null_lookup = {
     Definitions.snowflake: "ifnull",
     Definitions.bigquery: "ifnull",
     Definitions.redshift: "nvl",
-    Definitions.postgres: "ifnull",
-    Definitions.databricks: "ifnull",
+    Definitions.postgres: "coalesce",
+    Definitions.databricks: "coalesce",
     Definitions.druid: "nvl",
-    Definitions.duck_db: "ifnull",
+    Definitions.duck_db: "coalesce",
     Definitions.sql_server: "isnull",
     Definitions.azure_synapse: "isnull",
 }
