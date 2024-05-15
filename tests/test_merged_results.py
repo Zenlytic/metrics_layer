@@ -444,6 +444,35 @@ def test_merged_result_query_only_metric_with_having(connection):
 
 
 @pytest.mark.query
+def test_merged_result_query_metric_with_having_non_selected(connection):
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["sessions.utm_source"],
+        having=[
+            {"field": "number_of_sessions", "expression": "less_than", "value": 5400},
+        ],
+    )
+
+    cte_1, cte_2 = "order_lines_order__cte_subquery_0", "sessions_session__cte_subquery_1"
+
+    correct = (
+        f"WITH {cte_1} AS (SELECT orders.sub_channel as orders_sub_channel,SUM(order_lines.revenue) as"
+        " order_lines_total_item_revenue FROM analytics.order_line_items order_lines LEFT JOIN"
+        " analytics.orders orders ON order_lines.order_unique_id=orders.id GROUP BY orders.sub_channel ORDER"
+        f" BY order_lines_total_item_revenue DESC) ,{cte_2} AS (SELECT sessions.utm_source as"
+        " sessions_utm_source,COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions"
+        " sessions GROUP BY sessions.utm_source ORDER BY sessions_number_of_sessions DESC) SELECT"
+        f" {cte_1}.order_lines_total_item_revenue as"
+        " order_lines_total_item_revenue,sessions_session__cte_subquery_1.sessions_number_of_sessions as"
+        f" sessions_number_of_sessions,ifnull({cte_1}.orders_sub_channel, {cte_2}.sessions_utm_source) as"
+        f" orders_sub_channel,ifnull({cte_2}.sessions_utm_source, {cte_1}.orders_sub_channel) as"
+        f" sessions_utm_source FROM {cte_1} FULL OUTER JOIN {cte_2} ON"
+        f" {cte_1}.orders_sub_channel={cte_2}.sessions_utm_source WHERE sessions_number_of_sessions<5400;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_merged_result_query_with_non_component(connection):
     query = connection.get_sql_query(
         metrics=["revenue_per_session", "average_days_between_orders"],

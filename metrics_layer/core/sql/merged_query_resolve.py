@@ -123,6 +123,15 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             else:
                 self.secondary_metrics.append(field)
 
+        secondary_metric_ids = [m.id() for m in self.secondary_metrics]
+        merged_metric_ids = [m.id() for m in self.merged_metrics]
+        for h in self.having:
+            field = self.project.get_field(h["field"])
+            if field.id() not in secondary_metric_ids and not field.is_merged_result:
+                self.secondary_metrics.append(field)
+            elif field.id() not in merged_metric_ids and field.is_merged_result:
+                self.merged_metrics.append(field)
+
         for dimension in self.dimensions:
             self.dimension_fields.append(self.project.get_field(dimension))
 
