@@ -3,7 +3,9 @@ import pytest
 from metrics_layer.core.model.definitions import Definitions
 
 
-@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery, Definitions.redshift])
+@pytest.mark.parametrize(
+    "query_type", [Definitions.snowflake, Definitions.bigquery, Definitions.redshift, Definitions.postgres]
+)
 @pytest.mark.query
 def test_query_sum_with_sql(connection, query_type):
     query = connection.get_sql_query(metrics=["total_revenue"], dimensions=["channel"], query_type=query_type)
@@ -18,6 +20,14 @@ def test_query_sum_with_sql(connection, query_type):
             "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
         )
         order_by = " ORDER BY orders_total_revenue DESC"
+    elif query_type in {Definitions.postgres}:
+        sa = (
+            "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) * (1000000 * 1.0)) AS"
+            " DECIMAL(38,0))) + (HASHTEXTEXTENDED(orders.id, 0))::NUMERIC(38, 0)) - SUM(DISTINCT"
+            " (HASHTEXTEXTENDED(orders.id, 0))::NUMERIC(38, 0))) AS DOUBLE PRECISION) / CAST((1000000*1.0) AS"
+            " DOUBLE PRECISION), 0)"
+        )
+        order_by = ""
     elif query_type == Definitions.bigquery:
         sa = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) "
