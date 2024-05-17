@@ -17,6 +17,24 @@ def test_null_values_filters_canon_date(connection):
 
 
 @pytest.mark.project
+def test_get_joinable_views(connection):
+    orders_join_views = connection.project.get_joinable_views("orders")
+
+    assert orders_join_views == [
+        "accounts",
+        "country_detail",
+        "customers",
+        "discount_detail",
+        "discounts",
+        "order_lines",
+    ]
+
+    sessions_join_views = connection.project.get_joinable_views("sessions")
+
+    assert sessions_join_views == ["customers"]
+
+
+@pytest.mark.project
 def test_add_field_bad_view(connection):
     with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
         connection.project.add_field(

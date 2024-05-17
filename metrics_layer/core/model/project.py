@@ -430,6 +430,9 @@ class Project:
                 object_type="view",
             )
 
+    def get_joinable_views(self, view_name: str) -> List[str]:
+        return self.join_graph.get_joinable_view_names(view_name)
+
     def sets(self, view_name: Union[str, None] = None):
         if view_name:
             try:

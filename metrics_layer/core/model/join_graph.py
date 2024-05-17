@@ -82,6 +82,18 @@ class JoinGraph(SQLReplacement):
             self._weak_graph_memo[view_name] = join_graph_hashes
         return self._weak_graph_memo[view_name]
 
+    def get_joinable_view_names(self, view_name: str):
+        graph = self.project.join_graph.graph
+        sorted_components = self._strongly_connected_components(graph)
+
+        joinable_views = []
+        for components in sorted_components:
+            subgraph_nodes = self._subgraph_nodes_from_components(graph, components)
+            if view_name in subgraph_nodes:
+                joinable_views.extend(list(subgraph_nodes))
+
+        return [v for v in sorted(list(set(joinable_views))) if v != view_name]
+
     def _strongly_connected_components(self, graph):
         components = networkx.strongly_connected_components(graph)
         # Sort the sub-components graphs alphabetically
