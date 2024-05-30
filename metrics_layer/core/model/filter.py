@@ -191,6 +191,27 @@ class Filter(MetricsLayerBase):
         if tz is None:
             tz = "UTC"
 
+        if " until " in str(date_condition):
+            first, second = date_condition.split(" until ")
+
+            start_expression = MetricsLayerFilterExpressionType.GreaterOrEqualThan
+            parsed_first = Filter.parse_date_condition(first, tz)
+            if parsed_first is None:
+                start_value = Filter._parse_date_string(first)
+                first_filter = (start_expression, start_value)
+            else:
+                first_filter = parsed_first[0]
+
+            end_expression = MetricsLayerFilterExpressionType.LessOrEqualThan
+            parsed_second = Filter.parse_date_condition(second, tz)
+            if parsed_second is None:
+                end_value = Filter._parse_date_string(second)
+                second_filter = (end_expression, end_value)
+            else:
+                second_filter = parsed_second[-1]
+
+            return [first_filter, second_filter]
+
         if date_condition == "today":
             expression = MetricsLayerFilterExpressionType.GreaterOrEqualThan
             cleaned_value = Filter._start_date(lag=0, date_part=FilterInterval.day, tz=tz)

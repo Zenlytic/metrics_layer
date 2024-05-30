@@ -1,8 +1,8 @@
 import pendulum
 import pytest
 
-from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core import MetricsLayerConnection
+from metrics_layer.core.exceptions import QueryError
 
 
 def test_dashboard_located(connection):
@@ -147,6 +147,9 @@ def test_dashboard_filter_timezone(fresh_project):
         {"field": "orders.revenue_dimension", "value": "!=120"},
         {"field": "orders.revenue_dimension", "value": "<>120"},
         {"field": "orders.order_month", "value": "after 2021-02-03"},
+        {"field": "orders.order_month", "value": "2021-02-03 until 2022-02-03"},
+        {"field": "orders.order_month", "value": "2021-02-03 until yesterday"},
+        {"field": "orders.order_month", "value": "2021-02-03 until this month"},
         {"field": "orders.order_month", "value": "before 2021-02-03"},
         {"field": "orders.order_date", "value": "on 2021-02-03"},
         {"field": "orders.order_date", "value": "not on 2021-02-03"},
@@ -212,6 +215,9 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         True: "equal_to",
         False: "equal_to",
         "after 2021-02-03": "greater_or_equal_than",
+        "2021-02-03 until 2022-02-03": "greater_or_equal_than",
+        "2021-02-03 until yesterday": "greater_or_equal_than",
+        "2021-02-03 until this month": "greater_or_equal_than",
         "before 2021-02-03": "less_or_equal_than",
         "on 2021-02-03": "equal_to",
         "not on 2021-02-03": "not_equal_to",
@@ -266,6 +272,9 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         True: True,
         False: False,
         "after 2021-02-03": "2021-02-03T00:00:00",
+        "2021-02-03 until 2022-02-03": "2021-02-03T00:00:00",
+        "2021-02-03 until yesterday": "2021-02-03T00:00:00",
+        "2021-02-03 until this month": "2021-02-03T00:00:00",
         "before 2021-02-03": "2021-02-03T00:00:00",
         "on 2021-02-03": "2021-02-03T00:00:00",
         "not on 2021-02-03": "2021-02-03T00:00:00",
@@ -316,6 +325,12 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         "last month": pendulum.now("UTC").subtract(months=1).end_of("month").strftime(date_format),
         "last quarter": pendulum.now("UTC").subtract(months=3).last_of("quarter").strftime(date_format),
         "last year": pendulum.now("UTC").subtract(years=1).end_of("year").strftime(date_format),
+        "2021-02-03 until 2022-02-03": "2022-02-03T00:00:00",
+        "2021-02-03 until yesterday": pendulum.now("UTC")
+        .subtract(days=1)
+        .end_of("day")
+        .strftime(date_format),
+        "2021-02-03 until this month": pendulum.now("UTC").end_of("month").strftime(date_format),
         "week to date": pendulum.now("UTC")
         .subtract(days=1 if pendulum.now("UTC").day_of_week != 1 else 0)
         .end_of("day")
