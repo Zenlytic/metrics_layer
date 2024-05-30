@@ -143,6 +143,9 @@ class MetricsLayerConnection:
             connection = resolver.connection
             query = resolver.get_query()
         elif len(merged_queries) > 0:
+            # This kwarg is meaningless in the context of the merged query resolver
+            # But it can mess up sub queries if it's not popped here
+            kwargs.pop("merged_result", None)
             resolver = ArbitraryMergedQueryResolver(
                 merged_queries=merged_queries,
                 where=where,
