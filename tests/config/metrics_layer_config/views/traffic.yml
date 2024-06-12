@@ -1,19 +1,19 @@
 version: 1
 type: view
 name: traffic
-
+hidden: true
 sql_table_name: analytics.traffic
 model_name: test_model
 
 fields:
   - name: traffic_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     primary_key: yes
     hidden: yes
-    sql: "${TABLE}.id"
+    sql: '${TABLE}.id'
 
   - name: traffic_source
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
-    sql: "${TABLE}.traffic_source"
+    sql: '${TABLE}.traffic_source'

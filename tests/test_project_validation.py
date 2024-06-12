@@ -1067,6 +1067,14 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
             ["View order_lines has an invalid extra []. The extra must be a dictionary."],
         ),
         ("extra", {"random": "key"}, []),
+        (
+            "hidden",
+            "yes",
+            [
+                "View order_lines has an invalid hidden value of yes. hidden must"
+                " be a boolean (true or false)."
+            ],
+        ),
     ],
 )
 def test_validation_with_replaced_view_properties(connection, name, value, errors):

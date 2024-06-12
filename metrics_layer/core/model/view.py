@@ -25,6 +25,7 @@ class View(MetricsLayerBase, SQLReplacement):
         "model_name",
         "label",
         "description",
+        "hidden",
         "sql_table_name",
         "derived_table",
         "default_date",
@@ -60,6 +61,10 @@ class View(MetricsLayerBase, SQLReplacement):
                 str(self._definition["sql_table_name"]), self.project.looker_env
             )
         return
+
+    @property
+    def hidden(self):
+        return self._definition.get("hidden", False)
 
     @property
     def identifiers(self):
@@ -217,6 +222,17 @@ class View(MetricsLayerBase, SQLReplacement):
                 )
             )
 
+        if "hidden" in self._definition and not isinstance(self.hidden, bool):
+            errors.append(
+                self._error(
+                    self._definition["hidden"],
+                    (
+                        f"View {self.name} has an invalid hidden value of"
+                        f" {self.hidden}. hidden must be a boolean (true or false)."
+                    ),
+                )
+            )
+
         if "sql_table_name" in self._definition and "derived_table" in self._definition:
             errors.append(
                 self._error(
@@ -335,7 +351,7 @@ class View(MetricsLayerBase, SQLReplacement):
                     f"View {self.name} has an invalid extra {self.extra}. The extra must be a dictionary.",
                 )
             )
-            
+
         if "sets" in self._definition and not isinstance(self.sets, list):
             errors.append(
                 self._error(
