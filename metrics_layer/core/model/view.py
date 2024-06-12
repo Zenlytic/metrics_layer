@@ -35,6 +35,7 @@ class View(MetricsLayerBase, SQLReplacement):
         "required_access_grants",
         "event_dimension",
         "event_name",
+        "extra",
         "identifiers",
         "fields",
         "fields_for_analysis",
@@ -327,6 +328,14 @@ class View(MetricsLayerBase, SQLReplacement):
                 )
             )
 
+        if "extra" in self._definition and not isinstance(self.extra, dict):
+            errors.append(
+                self._error(
+                    self._definition["extra"],
+                    f"View {self.name} has an invalid extra {self.extra}. The extra must be a dictionary.",
+                )
+            )
+            
         if "sets" in self._definition and not isinstance(self.sets, list):
             errors.append(
                 self._error(
