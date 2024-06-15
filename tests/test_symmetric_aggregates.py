@@ -10,13 +10,23 @@ from metrics_layer.core.model.definitions import Definitions
 def test_query_sum_with_sql(connection, query_type):
     query = connection.get_sql_query(metrics=["total_revenue"], dimensions=["channel"], query_type=query_type)
 
-    if query_type in {Definitions.snowflake, Definitions.redshift}:
+    if query_type in {Definitions.snowflake}:
         sa = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) "
             "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(orders.id), "
             "'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) "
             "- SUM(DISTINCT (TO_NUMBER(MD5(orders.id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "
             "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
+            "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
+        )
+        order_by = " ORDER BY orders_total_revenue DESC"
+    elif query_type == Definitions.redshift:
+        sa = (
+            "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) "
+            "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (FARMFINGERPRINT64(orders.id)"
+            ")::NUMERIC(38, 0)) "
+            "- SUM(DISTINCT (FARMFINGERPRINT64(orders.id))"
+            "::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
             "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
         )
         order_by = " ORDER BY orders_total_revenue DESC"
@@ -87,13 +97,23 @@ def test_query_average_with_sql(connection, query_type: str):
         metrics=["average_order_value"], dimensions=["channel"], query_type=query_type
     )
 
-    if query_type in {Definitions.snowflake, Definitions.redshift}:
+    if query_type in {Definitions.snowflake}:
         sa_sum = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) "
             "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(orders.id), "
             "'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) "
             "- SUM(DISTINCT (TO_NUMBER(MD5(orders.id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "
             "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
+            "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
+        )
+        order_by = " ORDER BY orders_average_order_value DESC"
+    elif query_type == Definitions.redshift:
+        sa_sum = (
+            "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) "
+            "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (FARMFINGERPRINT64(orders.id)"
+            ")::NUMERIC(38, 0)) "
+            "- SUM(DISTINCT (FARMFINGERPRINT64(orders.id))"
+            "::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
             "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
         )
         order_by = " ORDER BY orders_average_order_value DESC"
@@ -126,13 +146,23 @@ def test_query_number_with_sql(connection, query_type):
         metrics=["total_sessions_divide"], dimensions=["channel"], query_type=query_type
     )
 
-    if query_type in {Definitions.snowflake, Definitions.redshift}:
+    if query_type in {Definitions.snowflake}:
         sa_sum = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when (customers.is_churned)=false then customers.total_sessions end, 0) "  # noqa
             "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(case when (customers.is_churned)=false then customers.customer_id end), "  # noqa
             "'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) "
             "- SUM(DISTINCT (TO_NUMBER(MD5(case when (customers.is_churned)=false then customers.customer_id end), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') "  # noqa
             "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
+            "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
+        )
+        order_by = " ORDER BY customers_total_sessions_divide DESC"
+    elif query_type == Definitions.redshift:
+        sa_sum = (
+            "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when (customers.is_churned)=false then customers.total_sessions end, 0) "  # noqa
+            "* (1000000 * 1.0)) AS DECIMAL(38,0))) + (FARMFINGERPRINT64(case when (customers.is_churned)=false then customers.customer_id end)"  # noqa
+            ")::NUMERIC(38, 0)) "
+            "- SUM(DISTINCT (FARMFINGERPRINT64(case when (customers.is_churned)=false then customers.customer_id end))"  # noqa
+            "::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
             "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
         )
         order_by = " ORDER BY customers_total_sessions_divide DESC"
