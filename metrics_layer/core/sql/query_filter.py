@@ -101,6 +101,17 @@ class MetricsLayerFilter(MetricsLayerBase):
             except ParseError:
                 raise ParseError(f"We could not find field {self.field_name}")
 
+            # If the value is a string, it might be a field reference.
+            # If it is a field reference, we need to replace it with the actual
+            # field's sql as a LiteralValue
+            if "value" in definition and isinstance(definition["value"], str):
+                try:
+                    value_field = self.design.get_field(definition["value"])
+                    functional_pk = self.design.functional_pk()
+                    definition["value"] = LiteralValue(value_field.sql_query(self.query_type, functional_pk))
+                except Exception:
+                    pass
+
             if self.design.query_type == Definitions.bigquery and isinstance(
                 definition["value"], datetime.datetime
             ):
@@ -116,6 +127,7 @@ class MetricsLayerFilter(MetricsLayerBase):
         if self.is_literal_filter:
             return LiteralValueCriterion(self.replace_fields_literal_filter())
         functional_pk = self.design.functional_pk()
+
         return self.criterion(self.field.sql_query(self.query_type, functional_pk))
 
     def isin_sql_query(self, cte_alias, field_name, query_generator):

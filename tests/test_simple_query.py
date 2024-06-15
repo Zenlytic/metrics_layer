@@ -206,6 +206,25 @@ def test_simple_query_dimension_filter(connections):
 
 
 @pytest.mark.query
+def test_simple_query_field_to_field_filter(connections):
+    project = Project(models=[simple_model], views=[simple_view])
+    conn = MetricsLayerConnection(project=project, connections=connections)
+    query = conn.get_sql_query(
+        metrics=["total_revenue"],
+        dimensions=["organic_channels"],
+        where=[{"field": "new_vs_repeat", "expression": "greater_than", "value": "simple.group"}],
+    )
+
+    correct = (
+        "SELECT case when LOWER(simple.sales_channel) LIKE LOWER('%organic%') then simple.sales_channel end"
+        " as simple_organic_channels,SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple"
+        " WHERE simple.new_vs_repeat>simple.group_name GROUP BY case when LOWER(simple.sales_channel) LIKE"
+        " LOWER('%organic%') then simple.sales_channel end ORDER BY simple_total_revenue DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 @pytest.mark.parametrize(
     "metric,query_type",
     [

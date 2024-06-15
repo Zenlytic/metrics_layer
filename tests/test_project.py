@@ -35,6 +35,17 @@ def test_get_joinable_views(connection):
 
 
 @pytest.mark.project
+def test_hidden_views(connection):
+    all_views = connection.project.views()
+
+    assert "traffic" in [v.name for v in all_views]
+
+    all_views = connection.project.views(show_hidden=False)
+
+    assert "traffic" not in [v.name for v in all_views]
+
+
+@pytest.mark.project
 def test_add_field_bad_view(connection):
     with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
         connection.project.add_field(

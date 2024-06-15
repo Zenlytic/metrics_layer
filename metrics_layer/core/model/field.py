@@ -615,8 +615,10 @@ class Field(MetricsLayerBase, SQLReplacement):
                 f"Symmetric aggregates are not supported in {query_type}. "
                 "Use the 'sum' type instead of 'sum_distinct'."
             )
-        elif query_type in {Definitions.snowflake, Definitions.redshift}:
+        elif query_type == Definitions.snowflake:
             return self._sum_symmetric_aggregate_snowflake(sql, primary_key_sql, alias_only, factor)
+        elif query_type == Definitions.redshift:
+            return self._sum_symmetric_aggregate_redshift(sql, primary_key_sql, alias_only, factor)
         elif query_type in {Definitions.postgres, Definitions.duck_db}:
             return self._sum_symmetric_aggregate_postgres(sql, primary_key_sql, alias_only, factor)
         elif query_type == Definitions.bigquery:
@@ -646,16 +648,34 @@ class Field(MetricsLayerBase, SQLReplacement):
         self, sql: str, primary_key_sql: str, alias_only: bool, factor: int = 1_000_000
     ):
         if not primary_key_sql:
-            raw_primary_key_sql = self.view.primary_key.sql_query(
-                Definitions.snowflake, alias_only=alias_only
-            )
+            raw_primary_key_sql = self.view.primary_key.sql_query(Definitions.postgres, alias_only=alias_only)
             primary_key_sql = self._get_sql_distinct_key(
-                raw_primary_key_sql, Definitions.snowflake, alias_only
+                raw_primary_key_sql, Definitions.postgres, alias_only
             )
 
         adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS DECIMAL(38,0)))"
 
         pk_sum = f"(HASHTEXTEXTENDED({primary_key_sql}, 0))::NUMERIC(38, 0)"
+
+        sum_with_pk_backout = f"SUM(DISTINCT {adjusted_sum} + {pk_sum}) - SUM(DISTINCT {pk_sum})"
+
+        backed_out_cast = f"COALESCE(CAST(({sum_with_pk_backout}) AS DOUBLE PRECISION)"
+
+        result = f"{backed_out_cast} / CAST(({factor}*1.0) AS DOUBLE PRECISION), 0)"
+        return result
+
+    def _sum_symmetric_aggregate_redshift(
+        self, sql: str, primary_key_sql: str, alias_only: bool, factor: int = 1_000_000
+    ):
+        if not primary_key_sql:
+            raw_primary_key_sql = self.view.primary_key.sql_query(Definitions.redshift, alias_only=alias_only)
+            primary_key_sql = self._get_sql_distinct_key(
+                raw_primary_key_sql, Definitions.redshift, alias_only
+            )
+
+        adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS DECIMAL(38,0)))"
+
+        pk_sum = f"(FARMFINGERPRINT64({primary_key_sql}))::NUMERIC(38, 0)"
 
         sum_with_pk_backout = f"SUM(DISTINCT {adjusted_sum} + {pk_sum}) - SUM(DISTINCT {pk_sum})"
 
