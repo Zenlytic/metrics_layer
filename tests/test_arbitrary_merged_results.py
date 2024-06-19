@@ -64,7 +64,7 @@ def test_query_merged_queries_simple_one_dimension(connection):
         " merged_query_0.sessions_number_of_sessions as"
         " sessions_number_of_sessions,merged_query_0.sessions_session_device as"
         " sessions_session_device,merged_query_1.events_number_of_events as events_number_of_events FROM"
-        " merged_query_0 JOIN merged_query_1 ON"
+        " merged_query_0 LEFT JOIN merged_query_1 ON"
         " merged_query_0.sessions_session_device=merged_query_1.events_device;"
     )
     assert query == correct
@@ -99,7 +99,7 @@ def test_query_merged_queries_simple_two_dimension_all_mapped(connection):
         " sessions_number_of_sessions,merged_query_0.sessions_utm_campaign as"
         " sessions_utm_campaign,merged_query_0.sessions_session_device as"
         " sessions_session_device,merged_query_1.events_number_of_events as events_number_of_events FROM"
-        " merged_query_0 JOIN merged_query_1 ON"
+        " merged_query_0 LEFT JOIN merged_query_1 ON"
         " merged_query_0.sessions_session_device=merged_query_1.events_device and"
         " merged_query_0.sessions_utm_campaign=merged_query_1.events_event_campaign;"
     )
@@ -107,11 +107,13 @@ def test_query_merged_queries_simple_two_dimension_all_mapped(connection):
 
 
 @pytest.mark.query
-def test_query_merged_queries_simple_two_dimension_one_mapped(connection):
+@pytest.mark.parametrize("join_type", ["inner", "left_outer", "full_outer"])
+def test_query_merged_queries_simple_two_dimension_one_mapped(connection, join_type):
     query_2 = {
         "metrics": ["number_of_events"],
         "dimensions": ["event_campaign"],
         "join_fields": [{"field": "events.event_campaign", "source_field": "sessions.utm_campaign"}],
+        "join_type": join_type,
     }
 
     primary_query = {
@@ -120,6 +122,12 @@ def test_query_merged_queries_simple_two_dimension_one_mapped(connection):
     }
     query = connection.get_sql_query(merged_queries=[primary_query, query_2])
 
+    join_lookup = {
+        "inner": "JOIN",
+        "left_outer": "LEFT JOIN",
+        "full_outer": "FULL OUTER JOIN",
+    }
+    join_logic = join_lookup[join_type]
     correct = (
         "WITH merged_query_0 AS (SELECT sessions.utm_campaign as"
         " sessions_utm_campaign,sessions.session_device as sessions_session_device,COUNT(sessions.id) as"
@@ -131,7 +139,7 @@ def test_query_merged_queries_simple_two_dimension_one_mapped(connection):
         " sessions_number_of_sessions,merged_query_0.sessions_utm_campaign as"
         " sessions_utm_campaign,merged_query_0.sessions_session_device as"
         " sessions_session_device,merged_query_1.events_number_of_events as events_number_of_events FROM"
-        " merged_query_0 JOIN merged_query_1 ON"
+        f" merged_query_0 {join_logic} merged_query_1 ON"
         " merged_query_0.sessions_utm_campaign=merged_query_1.events_event_campaign;"
     )
     assert query == correct
@@ -175,7 +183,7 @@ def test_query_merged_queries_same_dimension_one_mapped_filter(connection):
         " merged_query_0.order_lines_line_item_aov as"
         " order_lines_line_item_aov,merged_query_0.order_lines_product_name as"
         " order_lines_product_name,merged_query_1.order_lines_total_item_revenue as"
-        " order_lines_total_item_revenue FROM merged_query_0 JOIN merged_query_1 ON"
+        " order_lines_total_item_revenue FROM merged_query_0 LEFT JOIN merged_query_1 ON"
         " merged_query_0.order_lines_product_name=merged_query_1.order_lines_product_name;"
     )
     assert query == correct
@@ -204,7 +212,7 @@ def test_query_merged_queries_same_dimension_same_measure(connection):
         " order_lines.product_name ORDER BY order_lines_total_item_revenue DESC) SELECT"
         " merged_query_0.order_lines_total_item_revenue as"
         " order_lines_total_item_revenue,merged_query_0.order_lines_product_name as order_lines_product_name"
-        " FROM merged_query_0 JOIN merged_query_1 ON"
+        " FROM merged_query_0 LEFT JOIN merged_query_1 ON"
         " merged_query_0.order_lines_product_name=merged_query_1.order_lines_product_name;"
     )
     assert query == correct
@@ -235,7 +243,7 @@ def test_query_merged_queries_same_dimension_same_measure_with_extra(connection)
         " merged_query_0.order_lines_total_item_revenue as"
         " order_lines_total_item_revenue,merged_query_0.order_lines_product_name as"
         " order_lines_product_name,merged_query_1.order_lines_number_of_email_purchased_items as"
-        " order_lines_number_of_email_purchased_items FROM merged_query_0 JOIN merged_query_1 ON"
+        " order_lines_number_of_email_purchased_items FROM merged_query_0 LEFT JOIN merged_query_1 ON"
         " merged_query_0.order_lines_product_name=merged_query_1.order_lines_product_name;"
     )
     assert query == correct
@@ -274,7 +282,7 @@ def test_query_merged_queries_all_options_in_second_query(connection):
         " merged_query_0.order_lines_number_of_email_purchased_items as"
         " order_lines_number_of_email_purchased_items,merged_query_0.order_lines_product_name as"
         " order_lines_product_name,merged_query_1.order_lines_total_item_revenue as"
-        " order_lines_total_item_revenue FROM merged_query_0 JOIN merged_query_1 ON"
+        " order_lines_total_item_revenue FROM merged_query_0 LEFT JOIN merged_query_1 ON"
         " merged_query_0.order_lines_product_name=merged_query_1.order_lines_product_name;"
     )
     assert query == correct
@@ -305,7 +313,7 @@ def test_query_merged_queries_order_by_asc_post_merge(connection):
         " merged_query_0.order_lines_number_of_email_purchased_items as"
         " order_lines_number_of_email_purchased_items,merged_query_0.order_lines_product_name as"
         " order_lines_product_name,merged_query_1.order_lines_total_item_revenue as"
-        " order_lines_total_item_revenue FROM merged_query_0 JOIN merged_query_1 ON"
+        " order_lines_total_item_revenue FROM merged_query_0 LEFT JOIN merged_query_1 ON"
         " merged_query_0.order_lines_product_name=merged_query_1.order_lines_product_name ORDER BY"
         " merged_query_0.order_lines_number_of_email_purchased_items ASC;"
     )
@@ -338,7 +346,7 @@ def test_query_merged_queries_order_by_limit_post_merge(connection):
         " merged_query_0.order_lines_number_of_email_purchased_items as"
         " order_lines_number_of_email_purchased_items,merged_query_0.order_lines_product_name as"
         " order_lines_product_name,merged_query_1.order_lines_total_item_revenue as"
-        " order_lines_total_item_revenue FROM merged_query_0 JOIN merged_query_1 ON"
+        " order_lines_total_item_revenue FROM merged_query_0 LEFT JOIN merged_query_1 ON"
         " merged_query_0.order_lines_product_name=merged_query_1.order_lines_product_name ORDER BY"
         " merged_query_1.order_lines_total_item_revenue DESC LIMIT 5;"
     )
@@ -389,7 +397,7 @@ def test_query_merged_queries_dim_group(connection, query_type):
         " merged_query_0.orders_number_of_orders as orders_number_of_orders,merged_query_0.orders_order_date"
         " as orders_order_date,merged_query_1.order_lines_total_item_revenue as"
         " order_lines_total_item_revenue,merged_query_1.order_lines_product_name as order_lines_product_name"
-        " FROM merged_query_0 JOIN merged_query_1 ON"
+        " FROM merged_query_0 LEFT JOIN merged_query_1 ON"
         f" {condition};"
     )
     assert query == correct
@@ -432,9 +440,9 @@ def test_query_merged_queries_three_way(connection):
         " order_lines_product_name,merged_query_0.order_lines_order_date as"
         " order_lines_order_date,merged_query_1.order_lines_total_item_revenue as"
         " order_lines_total_item_revenue,merged_query_2.order_lines_total_item_costs as"
-        " order_lines_total_item_costs FROM merged_query_0 JOIN merged_query_1 ON"
-        " merged_query_0.order_lines_order_date=merged_query_1.order_lines_order_date JOIN merged_query_2 ON"
-        " merged_query_0.order_lines_product_name=merged_query_2.order_lines_product_name;"
+        " order_lines_total_item_costs FROM merged_query_0 LEFT JOIN merged_query_1 ON"
+        " merged_query_0.order_lines_order_date=merged_query_1.order_lines_order_date LEFT JOIN"
+        " merged_query_2 ON merged_query_0.order_lines_product_name=merged_query_2.order_lines_product_name;"
     )
     assert query == correct
 
@@ -465,7 +473,7 @@ def test_query_merged_queries_where_having_post_merge(connection):
         " merged_query_0.order_lines_number_of_email_purchased_items as"
         " order_lines_number_of_email_purchased_items,merged_query_0.order_lines_product_name as"
         " order_lines_product_name,merged_query_1.order_lines_total_item_revenue as"
-        " order_lines_total_item_revenue FROM merged_query_0 JOIN merged_query_1 ON"
+        " order_lines_total_item_revenue FROM merged_query_0 LEFT JOIN merged_query_1 ON"
         " merged_query_0.order_lines_product_name=merged_query_1.order_lines_product_name WHERE"
         " merged_query_0.order_lines_product_name<>'East' AND"
         " merged_query_1.order_lines_total_item_revenue>100;"
@@ -517,7 +525,7 @@ def test_query_merged_queries_mapped_where_post_merge(connection):
         " merged_query_0.order_lines_number_of_email_purchased_items as"
         " order_lines_number_of_email_purchased_items,merged_query_0.orders_campaign as"
         " orders_campaign,merged_query_1.order_lines_total_item_revenue as order_lines_total_item_revenue"
-        " FROM merged_query_0 JOIN merged_query_1 ON"
+        " FROM merged_query_0 LEFT JOIN merged_query_1 ON"
         " merged_query_0.orders_campaign=merged_query_1.orders_campaign WHERE"
         " merged_query_0.orders_campaign<>'Facebook-Promo';"
     )
@@ -546,7 +554,7 @@ def test_query_merged_queries_handle_mappings_in_join_fields(connection):
         " orders_number_of_orders,merged_query_0.orders_order_date as"
         " orders_order_date,merged_query_1.order_lines_total_item_revenue as"
         " order_lines_total_item_revenue,merged_query_1.order_lines_product_name as order_lines_product_name"
-        " FROM merged_query_0 JOIN merged_query_1 ON"
+        " FROM merged_query_0 LEFT JOIN merged_query_1 ON"
         " merged_query_0.orders_order_date=merged_query_1.order_lines_order_date;"
     )
     assert query == correct
@@ -576,7 +584,7 @@ def test_query_merged_queries_handle_non_date_mappings_in_join_fields(connection
         " merged_query_0.events_number_of_events as events_number_of_events,merged_query_0.events_device as"
         " events_device,merged_query_0.events_event_date as"
         " events_event_date,merged_query_1.login_events_number_of_login_events as"
-        " login_events_number_of_login_events FROM merged_query_0 JOIN merged_query_1 ON"
+        " login_events_number_of_login_events FROM merged_query_0 LEFT JOIN merged_query_1 ON"
         " merged_query_0.events_device=merged_query_1.login_events_device;"
     )
     assert query == correct
@@ -719,7 +727,7 @@ def test_query_merged_queries_all_db_flavors(connection, query_type):
         " merged_query_0.order_lines_number_of_email_purchased_items as"
         " order_lines_number_of_email_purchased_items,merged_query_0.order_lines_product_name as"
         " order_lines_product_name,merged_query_1.order_lines_total_item_revenue as"
-        " order_lines_total_item_revenue FROM merged_query_0 JOIN merged_query_1 ON"
+        " order_lines_total_item_revenue FROM merged_query_0 LEFT JOIN merged_query_1 ON"
         " merged_query_0.order_lines_product_name=merged_query_1.order_lines_product_name;"
     )
     assert query == correct

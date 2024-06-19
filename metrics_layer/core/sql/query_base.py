@@ -58,13 +58,17 @@ class MetricsLayerQueryBase(MetricsLayerBase):
 
     @staticmethod
     def get_pypika_join_type(join: Join):
-        if join.join_type == ZenlyticJoinType.left_outer:
+        return MetricsLayerQueryBase.pypika_join_type_lookup(join.join_type)
+
+    @staticmethod
+    def pypika_join_type_lookup(join_type: str):
+        if join_type == ZenlyticJoinType.left_outer:
             return JoinType.left
-        elif join.join_type == ZenlyticJoinType.inner:
+        elif join_type == ZenlyticJoinType.inner:
             return JoinType.inner
-        elif join.join_type == ZenlyticJoinType.full_outer:
+        elif join_type == ZenlyticJoinType.full_outer:
             return JoinType.outer
-        elif join.join_type == ZenlyticJoinType.cross:
+        elif join_type == ZenlyticJoinType.cross:
             return JoinType.cross
         return JoinType.left
 
