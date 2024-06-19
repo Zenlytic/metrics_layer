@@ -394,7 +394,7 @@ class SeedMetricsLayer:
             ]
 
             for field in fields:
-                if field["sql"].split(".", 1)[1].lower() in searchable_column_names:
+                if field["sql"].split(".", 1)[1].lower().replace('"', "") in searchable_column_names:
                     field["searchable"] = True
 
         return fields

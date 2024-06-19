@@ -71,6 +71,7 @@ class ArbitraryMergedQueryResolver(SingleSQLQueryResolver):
                     "cte_alias": f"merged_query_{i}",
                     "query": sub_query,
                     "join_fields": join_fields,
+                    "join_type": merged_query.get("join_type"),
                 }
             )
 

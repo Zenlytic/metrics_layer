@@ -407,7 +407,11 @@ class Field(MetricsLayerBase, SQLReplacement):
             # then we need to make it a merged result.
             referenced_canon_dates = set()
             for reference in self.referenced_fields(self.sql):
-                if reference.field_type == ZenlyticFieldType.measure and reference.type != "cumulative":
+                if (
+                    not isinstance(reference, str)
+                    and reference.field_type == ZenlyticFieldType.measure
+                    and reference.type != "cumulative"
+                ):
                     referenced_canon_dates.add(reference.canon_date)
 
             return len(referenced_canon_dates) > 1
@@ -421,7 +425,11 @@ class Field(MetricsLayerBase, SQLReplacement):
             # then we need to make it not joinable
             referenced_canon_date_views = list()
             for reference in self.referenced_fields(self.sql):
-                if reference.field_type == ZenlyticFieldType.measure and reference.type != "cumulative":
+                if (
+                    not isinstance(reference, str)
+                    and reference.field_type == ZenlyticFieldType.measure
+                    and reference.type != "cumulative"
+                ):
                     if reference.canon_date:
                         canon_date_view_name, _ = reference.canon_date.split(".")
                         weak_hashes = self.view.project.join_graph.weak_join_graph_hashes(
