@@ -773,7 +773,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "month_of_year": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')",
             "month_name": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')",
             "quarter_of_year": "EXTRACT(QUARTER FROM simple.order_date)",
-            "hour_of_day": "HOUR(CAST(simple.order_date AS TIMESTAMP))",
+            "hour_of_day": "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))",
             "day_of_week": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Dy')",
             "day_of_month": "EXTRACT(DAY FROM simple.order_date)",
             "day_of_year": "EXTRACT(DOY FROM simple.order_date)",

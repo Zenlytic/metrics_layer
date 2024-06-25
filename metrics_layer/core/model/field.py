@@ -1029,7 +1029,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM {s})",
                 "month_of_year": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Mon')",
                 "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM {s})",
-                "hour_of_day": lambda s, qt: f"HOUR(CAST({s} AS TIMESTAMP))",
+                "hour_of_day": lambda s, qt: f"EXTRACT(HOUR FROM CAST({s} AS TIMESTAMP))",
                 "day_of_week": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Dy')",
                 "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM {s})",
                 "day_of_year": lambda s, qt: f"EXTRACT(DOY FROM {s})",
