@@ -396,33 +396,51 @@ class SeedMetricsLayer:
             for field in fields:
                 if field["sql"].split(".", 1)[1].lower().replace('"', "") in searchable_column_names:
                     field["searchable"] = True
+                elif field["field_type"] == "dimension" and field["type"] == "string":
+                    field["searchable"] = False
 
         return fields
 
-    def column_cardinalities_query(self, column_names: List[str], schema_name: str, table_name: str) -> str:
+    def column_cardinalities_query(
+        self,
+        column_names: List[str],
+        schema_name: str,
+        table_name: str,
+        custom_sql_base: str,
+        quote: bool = True,
+    ) -> str:
         cardinality_queries = []
         for column_name in column_names:
             if self.connection.type in (Definitions.snowflake, Definitions.duck_db, Definitions.druid):
-                query = (
-                    f'APPROX_COUNT_DISTINCT( "{column_name}" ) as "{column_name}_cardinality"'  # noqa: E501
-                )
+                quote_column_name = f'"{column_name}"' if quote else column_name
+                query = f'APPROX_COUNT_DISTINCT( {quote_column_name} ) as "{column_name}_cardinality"'  # noqa: E501
             elif self.connection.type == Definitions.redshift:
-                query = f'APPROXIMATE COUNT(DISTINCT "{column_name}" ) as "{column_name}_cardinality"'  # noqa: E501
+                quote_column_name = f'"{column_name}"' if quote else column_name
+                query = f'COUNT(DISTINCT {quote_column_name} ) as "{column_name}_cardinality"'  # noqa: E501
             elif self.connection.type == Definitions.postgres:
-                query = f'COUNT(DISTINCT "{column_name}" ) as "{column_name}_cardinality"'  # noqa: E501
+                quote_column_name = f'"{column_name}"' if quote else column_name
+                query = f'COUNT(DISTINCT {quote_column_name} ) as "{column_name}_cardinality"'  # noqa: E501
             elif self.connection.type in {Definitions.sql_server, Definitions.azure_synapse}:
+                quote_column_name = f'"{column_name}"' if quote else column_name
+                query = f'APPROX_COUNT_DISTINCT( {quote_column_name} ) as "{column_name}_cardinality"'  # noqa: E501
+            elif self.connection.type == Definitions.bigquery:
+                quote_column_name = f"`{column_name}`" if quote else column_name
                 query = (
-                    f'APPROX_COUNT_DISTINCT( "{column_name}" ) as "{column_name}_cardinality"'  # noqa: E501
+                    f"APPROX_COUNT_DISTINCT( TO_JSON_STRING({quote_column_name}) ) as"
+                    f" `{column_name}_cardinality`"
                 )
-            elif self.connection.type in {Definitions.bigquery, Definitions.databricks}:
-                query = f"APPROX_COUNT_DISTINCT( `{column_name}` ) as `{column_name}_cardinality`"
+            elif self.connection.type == Definitions.databricks:
+                quote_column_name = f"`{column_name}`" if quote else column_name
+                query = f"APPROX_COUNT_DISTINCT( {quote_column_name} ) as `{column_name}_cardinality`"
             else:
                 raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
             cardinality_queries.append(query)
 
         query = f"SELECT {', '.join(cardinality_queries)}"
 
-        if self.connection.type in {
+        if custom_sql_base:
+            query += f" FROM {custom_sql_base}"
+        elif self.connection.type in {
             Definitions.snowflake,
             Definitions.duck_db,
             Definitions.druid,
