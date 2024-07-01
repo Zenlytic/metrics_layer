@@ -61,10 +61,12 @@ fields:
     field_type: 'dimension'
     type: string
     sql: '${TABLE}.sales_channel'
+    searchable: true
 
   - name: parent_channel
     field_type: 'dimension'
     type: string
+    searchable: true
     sql: |
       CASE
       --- parent channel
@@ -76,6 +78,7 @@ fields:
     field_type: 'dimension'
     type: string
     sql: '${TABLE}.product_name'
+    searchable: true
 
   - name: inventory_qty
     field_type: 'dimension'
@@ -92,6 +95,7 @@ fields:
     field_type: dimension
     type: string
     sql: case when ${TABLE}.product_name ilike '%sale%' then 'On sale' else 'Not on sale' end
+    searchable: true
 
   - name: order_tier
     field_type: dimension

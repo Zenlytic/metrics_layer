@@ -17,3 +17,4 @@ fields:
     field_type: 'dimension'
     type: string
     sql: '${TABLE}.traffic_source'
+    searchable: true

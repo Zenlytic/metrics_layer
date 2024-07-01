@@ -44,16 +44,19 @@ fields:
     field_type: 'dimension'
     type: string
     sql: '${TABLE}.region'
+    searchable: true
 
   - name: gender
     field_type: 'dimension'
     type: string
     sql: '${TABLE}.gender'
+    searchable: true
 
   - name: last_product_purchased
     field_type: 'dimension'
     type: string
     sql: '${TABLE}.last_product_purchased'
+    searchable: true
 
   - name: is_churned
     field_type: dimension
