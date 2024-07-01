@@ -102,6 +102,7 @@ class Model(MetricsLayerBase):
         "week_start_day",
         "timezone",
         "default_convert_tz",
+        "fiscal_month_offset",
         "access_grants",
         "mappings",
     ]
@@ -121,6 +122,12 @@ class Model(MetricsLayerBase):
                 if k != "name":
                     name_str = f" in the model {definition.get('name')}"
                 raise QueryError(f"Model missing required key {k}{name_str}")
+
+    @property
+    def fiscal_month_offset(self):
+        if "fiscal_month_offset" in self._definition:
+            return self._definition["fiscal_month_offset"]
+        return 0
 
     @property
     def access_grants(self):
@@ -185,6 +192,18 @@ class Model(MetricsLayerBase):
                     self.label, f"The label property, {self.label} must be a string in the model {self.name}"
                 )
             )
+
+        if "fiscal_month_offset" in self._definition:
+            if not isinstance(self.fiscal_month_offset, int):
+                errors.append(
+                    self._error(
+                        self.fiscal_month_offset,
+                        (
+                            f"The fiscal_month_offset property, {self.fiscal_month_offset} must be an integer"
+                            f" in the model {self.name}"
+                        ),
+                    )
+                )
 
         if "week_start_day" in self._definition:
             if str(self.week_start_day) not in WeekStartDayTypes.options:
