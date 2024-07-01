@@ -203,6 +203,16 @@ def test_validation_field_with_fully_qualified_results(connection, field_name, p
         ("label", None, ["The label property, None must be a string in the model test_model"]),
         ("label", "My Model!", []),
         (
+            "fiscal_month_offset",
+            "3 months",
+            ["The fiscal_month_offset property, 3 months must be an integer in the model test_model"],
+        ),
+        (
+            "fiscal_month_offset",
+            2,
+            [],
+        ),
+        (
             "week_start_day",
             "sundae",
             [
