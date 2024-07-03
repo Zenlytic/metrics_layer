@@ -274,6 +274,26 @@ def test_mrr_non_additive_dimension_alt_group_by_with_having(connection):
 
 
 @pytest.mark.query
+def test_mrr_non_additive_dimension_alt_group_by_with_having_not_in_select(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_billed_accounts"],
+        dimensions=[],
+        where=[{"field": "mrr.plan_name", "expression": "equal_to", "value": "Enterprise"}],
+        having=[{"field": "mrr.mrr_end_of_month", "expression": "greater_than", "value": 1100}],
+    )
+
+    correct = (
+        "WITH cte_mrr_end_of_month_record_raw AS (SELECT MAX(mrr.record_date) as mrr_max_record_raw FROM"
+        " analytics.mrr_by_customer mrr WHERE mrr.plan_name='Enterprise' ORDER BY mrr_max_record_raw DESC)"
+        " SELECT COUNT(mrr.parent_account_id) as mrr_number_of_billed_accounts FROM analytics.mrr_by_customer"
+        " mrr JOIN cte_mrr_end_of_month_record_raw ON 1=1 WHERE mrr.plan_name='Enterprise' HAVING SUM(case"
+        " when mrr.record_date=cte_mrr_end_of_month_record_raw.mrr_max_record_raw then mrr.mrr else 0"
+        " end)>1100 ORDER BY mrr_number_of_billed_accounts DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_mrr_non_additive_dimension_alt_group_by_with_window_grouping(connection):
     query = connection.get_sql_query(metrics=[f"mrr_end_of_month_by_account"], dimensions=["mrr.plan_name"])
 

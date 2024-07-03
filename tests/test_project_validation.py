@@ -203,6 +203,16 @@ def test_validation_field_with_fully_qualified_results(connection, field_name, p
         ("label", None, ["The label property, None must be a string in the model test_model"]),
         ("label", "My Model!", []),
         (
+            "fiscal_month_offset",
+            "3 months",
+            ["The fiscal_month_offset property, 3 months must be an integer in the model test_model"],
+        ),
+        (
+            "fiscal_month_offset",
+            2,
+            [],
+        ),
+        (
             "week_start_day",
             "sundae",
             [
@@ -1478,10 +1488,11 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 (
                     "Field order in view order_lines is of type time and has timeframe value of 'timestamp'"
                     " which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second',"
-                    " 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'week_index',"
-                    " 'week_of_year', 'week_of_month', 'month_of_year', 'month_of_year_index', 'month_name',"
-                    " 'month_index', 'quarter_of_year', 'hour_of_day', 'day_of_week', 'day_of_month',"
-                    " 'day_of_year'])"
+                    " 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'fiscal_month',"
+                    " 'fiscal_quarter', 'fiscal_year', 'week_index', 'week_of_year', 'week_of_month',"
+                    " 'month_of_year', 'month_of_year_index', 'fiscal_month_index',"
+                    " 'fiscal_month_of_year_index', 'month_name', 'month_index', 'quarter_of_year',"
+                    " 'fiscal_quarter_of_year', 'hour_of_day', 'day_of_week', 'day_of_month', 'day_of_year'])"
                 ),
             ],
         ),

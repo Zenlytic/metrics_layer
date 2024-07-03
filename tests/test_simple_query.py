@@ -13,6 +13,7 @@ simple_model = {
     "type": "model",
     "name": "core",
     "connection": "testing_snowflake",
+    "fiscal_month_offset": 1,
     "week_start_day": "sunday",
     "explores": [{"name": "simple_explore", "from": "simple"}],
 }
@@ -72,6 +73,12 @@ simple_view = {
                 "month",
                 "quarter",
                 "year",
+                "fiscal_month",
+                "fiscal_quarter",
+                "fiscal_year",
+                "fiscal_month_of_year_index",
+                "fiscal_month_index",
+                "fiscal_quarter_of_year",
                 "week_index",
                 "week_of_year",
                 "week_of_month",
@@ -583,6 +590,12 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month", Definitions.snowflake),
         ("quarter", Definitions.snowflake),
         ("year", Definitions.snowflake),
+        ("fiscal_month", Definitions.snowflake),
+        ("fiscal_quarter", Definitions.snowflake),
+        ("fiscal_year", Definitions.snowflake),
+        ("fiscal_month_of_year_index", Definitions.snowflake),
+        ("fiscal_month_index", Definitions.snowflake),
+        ("fiscal_quarter_of_year", Definitions.snowflake),
         ("week_index", Definitions.snowflake),
         ("week_of_year", Definitions.snowflake),
         ("week_of_month", Definitions.snowflake),
@@ -604,6 +617,12 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month", Definitions.databricks),
         ("quarter", Definitions.databricks),
         ("year", Definitions.databricks),
+        ("fiscal_month", Definitions.databricks),
+        ("fiscal_quarter", Definitions.databricks),
+        ("fiscal_year", Definitions.databricks),
+        ("fiscal_month_of_year_index", Definitions.databricks),
+        ("fiscal_month_index", Definitions.databricks),
+        ("fiscal_quarter_of_year", Definitions.databricks),
         ("week_index", Definitions.databricks),
         ("week_of_month", Definitions.databricks),
         ("month_of_year_index", Definitions.databricks),
@@ -622,6 +641,12 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month", Definitions.druid),
         ("quarter", Definitions.druid),
         ("year", Definitions.druid),
+        ("fiscal_month", Definitions.druid),
+        ("fiscal_quarter", Definitions.druid),
+        ("fiscal_year", Definitions.druid),
+        ("fiscal_month_of_year_index", Definitions.druid),
+        ("fiscal_month_index", Definitions.druid),
+        ("fiscal_quarter_of_year", Definitions.druid),
         ("week_index", Definitions.druid),
         ("week_of_month", Definitions.druid),
         ("month_of_year_index", Definitions.druid),
@@ -640,6 +665,12 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month", Definitions.sql_server),
         ("quarter", Definitions.sql_server),
         ("year", Definitions.sql_server),
+        ("fiscal_month", Definitions.sql_server),
+        ("fiscal_quarter", Definitions.sql_server),
+        ("fiscal_year", Definitions.sql_server),
+        ("fiscal_month_of_year_index", Definitions.sql_server),
+        ("fiscal_month_index", Definitions.sql_server),
+        ("fiscal_quarter_of_year", Definitions.sql_server),
         ("week_index", Definitions.sql_server),
         ("week_of_month", Definitions.sql_server),
         ("month_of_year_index", Definitions.sql_server),
@@ -658,6 +689,12 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month", Definitions.azure_synapse),
         ("quarter", Definitions.azure_synapse),
         ("year", Definitions.azure_synapse),
+        ("fiscal_month", Definitions.azure_synapse),
+        ("fiscal_quarter", Definitions.azure_synapse),
+        ("fiscal_year", Definitions.azure_synapse),
+        ("fiscal_month_of_year_index", Definitions.azure_synapse),
+        ("fiscal_month_index", Definitions.azure_synapse),
+        ("fiscal_quarter_of_year", Definitions.azure_synapse),
         ("week_index", Definitions.azure_synapse),
         ("week_of_month", Definitions.azure_synapse),
         ("month_of_year_index", Definitions.azure_synapse),
@@ -676,6 +713,12 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month", Definitions.redshift),
         ("quarter", Definitions.redshift),
         ("year", Definitions.redshift),
+        ("fiscal_month", Definitions.redshift),
+        ("fiscal_quarter", Definitions.redshift),
+        ("fiscal_year", Definitions.redshift),
+        ("fiscal_month_of_year_index", Definitions.redshift),
+        ("fiscal_month_index", Definitions.redshift),
+        ("fiscal_quarter_of_year", Definitions.redshift),
         ("week_index", Definitions.redshift),
         ("week_of_month", Definitions.redshift),
         ("month_of_year_index", Definitions.redshift),
@@ -694,6 +737,12 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month", Definitions.postgres),
         ("quarter", Definitions.postgres),
         ("year", Definitions.postgres),
+        ("fiscal_month", Definitions.postgres),
+        ("fiscal_quarter", Definitions.postgres),
+        ("fiscal_year", Definitions.postgres),
+        ("fiscal_month_of_year_index", Definitions.postgres),
+        ("fiscal_month_index", Definitions.postgres),
+        ("fiscal_quarter_of_year", Definitions.postgres),
         ("week_index", Definitions.postgres),
         ("week_of_month", Definitions.postgres),
         ("month_of_year_index", Definitions.postgres),
@@ -712,6 +761,12 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month", Definitions.duck_db),
         ("quarter", Definitions.duck_db),
         ("year", Definitions.duck_db),
+        ("fiscal_month", Definitions.duck_db),
+        ("fiscal_quarter", Definitions.duck_db),
+        ("fiscal_year", Definitions.duck_db),
+        ("fiscal_month_of_year_index", Definitions.duck_db),
+        ("fiscal_month_index", Definitions.duck_db),
+        ("fiscal_quarter_of_year", Definitions.duck_db),
         ("week_index", Definitions.duck_db),
         ("week_of_month", Definitions.duck_db),
         ("month_of_year_index", Definitions.duck_db),
@@ -730,6 +785,12 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month", Definitions.bigquery),
         ("quarter", Definitions.bigquery),
         ("year", Definitions.bigquery),
+        ("fiscal_month", Definitions.bigquery),
+        ("fiscal_quarter", Definitions.bigquery),
+        ("fiscal_year", Definitions.bigquery),
+        ("fiscal_month_of_year_index", Definitions.bigquery),
+        ("fiscal_month_index", Definitions.bigquery),
+        ("fiscal_quarter_of_year", Definitions.bigquery),
         ("week_index", Definitions.bigquery),
         ("week_of_month", Definitions.bigquery),
         ("month_of_year_index", Definitions.bigquery),
@@ -762,6 +823,12 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "month": "DATE_TRUNC('MONTH', simple.order_date)",
             "quarter": "DATE_TRUNC('QUARTER', simple.order_date)",
             "year": "DATE_TRUNC('YEAR', simple.order_date)",
+            "fiscal_month": "DATE_TRUNC('MONTH', DATEADD(MONTH, 1, simple.order_date))",
+            "fiscal_quarter": "DATE_TRUNC('QUARTER', DATEADD(MONTH, 1, simple.order_date))",
+            "fiscal_year": "DATE_TRUNC('YEAR', DATEADD(MONTH, 1, simple.order_date))",
+            "fiscal_month_of_year_index": f"EXTRACT(MONTH FROM DATEADD(MONTH, 1, simple.order_date))",
+            "fiscal_month_index": f"EXTRACT(MONTH FROM DATEADD(MONTH, 1, simple.order_date))",
+            "fiscal_quarter_of_year": "EXTRACT(QUARTER FROM DATEADD(MONTH, 1, simple.order_date))",
             "week_index": f"EXTRACT(WEEK FROM simple.order_date)",
             "week_of_year": f"EXTRACT(WEEK FROM simple.order_date)",
             "week_of_month": (  # noqa
@@ -797,6 +864,21 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "month": "DATEADD(MONTH, DATEDIFF(MONTH, 0, CAST(simple.order_date AS DATE)), 0)",
             "quarter": "DATEADD(QUARTER, DATEDIFF(QUARTER, 0, CAST(simple.order_date AS DATE)), 0)",
             "year": "DATEADD(YEAR, DATEDIFF(YEAR, 0, CAST(simple.order_date AS DATE)), 0)",
+            "fiscal_month": (
+                "DATEADD(MONTH, DATEDIFF(MONTH, 0, CAST(DATEADD(MONTH, 1, simple.order_date) AS DATE)), 0)"
+            ),
+            "fiscal_quarter": (
+                "DATEADD(QUARTER, DATEDIFF(QUARTER, 0, CAST(DATEADD(MONTH, 1, simple.order_date) AS"
+                " DATE)), 0)"
+            ),
+            "fiscal_year": (
+                "DATEADD(YEAR, DATEDIFF(YEAR, 0, CAST(DATEADD(MONTH, 1, simple.order_date) AS DATE)), 0)"
+            ),
+            "fiscal_month_of_year_index": (
+                f"EXTRACT(MONTH FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS DATE))"
+            ),
+            "fiscal_month_index": "EXTRACT(MONTH FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS DATE))",
+            "fiscal_quarter_of_year": "DATEPART(QUARTER, CAST(DATEADD(MONTH, 1, simple.order_date) AS DATE))",
             "week_index": f"EXTRACT(WEEK FROM CAST(simple.order_date AS DATE))",
             "week_of_month": (  # noqa
                 f"EXTRACT(WEEK FROM CAST(simple.order_date AS DATE)) - EXTRACT(WEEK FROM DATEADD(MONTH,"
@@ -826,6 +908,20 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "month": "DATE_TRUNC('MONTH', CAST(simple.order_date AS TIMESTAMP))",
             "quarter": "DATE_TRUNC('QUARTER', CAST(simple.order_date AS TIMESTAMP))",
             "year": "DATE_TRUNC('YEAR', CAST(simple.order_date AS TIMESTAMP))",
+            "fiscal_month": "DATE_TRUNC('MONTH', CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))",  # noqa
+            "fiscal_quarter": (  # noqa
+                "DATE_TRUNC('QUARTER', CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
+            ),
+            "fiscal_year": "DATE_TRUNC('YEAR', CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))",  # noqa
+            "fiscal_month_of_year_index": (  # noqa
+                f"EXTRACT(MONTH FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
+            ),
+            "fiscal_month_index": (  # noqa
+                f"EXTRACT(MONTH FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
+            ),
+            "fiscal_quarter_of_year": (  # noqa
+                "EXTRACT(QUARTER FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
+            ),
             "week_index": f"EXTRACT(WEEK FROM CAST(simple.order_date AS TIMESTAMP))",
             "week_of_month": (  # noqa
                 f"EXTRACT(WEEK FROM CAST(simple.order_date AS TIMESTAMP)) - EXTRACT(WEEK FROM"
@@ -845,6 +941,24 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             order_by = ""
 
         if query_type == Definitions.databricks:
+            result_lookup[
+                "fiscal_month"
+            ] = "DATE_TRUNC('MONTH', CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            result_lookup[
+                "fiscal_quarter"
+            ] = "DATE_TRUNC('QUARTER', CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            result_lookup[
+                "fiscal_year"
+            ] = "DATE_TRUNC('YEAR', CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            result_lookup[
+                "fiscal_month_of_year_index"
+            ] = f"EXTRACT(MONTH FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            result_lookup[
+                "fiscal_month_index"
+            ] = f"EXTRACT(MONTH FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            result_lookup[
+                "fiscal_quarter_of_year"
+            ] = "EXTRACT(QUARTER FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
             result_lookup["month_of_year"] = "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'MMM')"
             result_lookup["hour_of_day"] = "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))"
             result_lookup["day_of_week"] = "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'E')"
@@ -875,6 +989,23 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "month": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), MONTH) AS TIMESTAMP)",
             "quarter": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), QUARTER) AS TIMESTAMP)",
             "year": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), YEAR) AS TIMESTAMP)",
+            "fiscal_month": (
+                "CAST(DATE_TRUNC(CAST(DATE_ADD(simple.order_date, INTERVAL 1 MONTH) AS DATE), MONTH) AS"
+                " TIMESTAMP)"
+            ),
+            "fiscal_quarter": (
+                "CAST(DATE_TRUNC(CAST(DATE_ADD(simple.order_date, INTERVAL 1 MONTH) AS DATE), QUARTER) AS"
+                " TIMESTAMP)"
+            ),
+            "fiscal_year": (
+                "CAST(DATE_TRUNC(CAST(DATE_ADD(simple.order_date, INTERVAL 1 MONTH) AS DATE), YEAR) AS"
+                " TIMESTAMP)"
+            ),
+            "fiscal_month_of_year_index": (
+                f"EXTRACT(MONTH FROM DATE_ADD(simple.order_date, INTERVAL 1 MONTH))"
+            ),
+            "fiscal_month_index": f"EXTRACT(MONTH FROM DATE_ADD(simple.order_date, INTERVAL 1 MONTH))",
+            "fiscal_quarter_of_year": "EXTRACT(QUARTER FROM DATE_ADD(simple.order_date, INTERVAL 1 MONTH))",
             "week_index": f"EXTRACT(WEEK FROM simple.order_date)",
             "week_of_month": (  # noqa
                 f"EXTRACT(WEEK FROM simple.order_date) - EXTRACT(WEEK FROM DATE_TRUNC(CAST(simple.order_date"

@@ -79,7 +79,9 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         # Parse any non-additive dimension on given metrics to collect
         # them as CTE's for the appropriate filters
         self.non_additive_ctes = []
-        for metric in definition.get("metrics", []):
+        metrics_in_select = definition.get("metrics", [])
+        metrics_in_having = [h.field.id() for h in self.having_filters if h.field]
+        for metric in metrics_in_select + metrics_in_having:
             metric_field = self.design.get_field(metric)
             for ref_field in [metric_field] + metric_field.referenced_fields(metric_field.sql):
                 if non_additive_dimension := ref_field.non_additive_dimension:
