@@ -414,15 +414,12 @@ class SeedMetricsLayer:
             if self.connection.type in (Definitions.snowflake, Definitions.duck_db, Definitions.druid):
                 quote_column_name = f'"{column_name}"' if quote else column_name
                 query = f'APPROX_COUNT_DISTINCT( {quote_column_name} ) as "{column_name}_cardinality"'  # noqa: E501
-            elif self.connection.type == Definitions.redshift:
-                quote_column_name = f'"{column_name}"' if quote else column_name
-                query = f'COUNT(DISTINCT {quote_column_name} ) as "{column_name}_cardinality"'  # noqa: E501
-            elif self.connection.type == Definitions.postgres:
+            elif self.connection.type in {Definitions.redshift, Definitions.postgres}:
                 quote_column_name = f'"{column_name}"' if quote else column_name
                 query = f'COUNT(DISTINCT {quote_column_name} ) as "{column_name}_cardinality"'  # noqa: E501
             elif self.connection.type in {Definitions.sql_server, Definitions.azure_synapse}:
                 quote_column_name = f'"{column_name}"' if quote else column_name
-                query = f'APPROX_COUNT_DISTINCT( {quote_column_name} ) as "{column_name}_cardinality"'  # noqa: E501
+                query = f'APPROX_COUNT_DISTINCT( cast({quote_column_name} as text) ) as "{column_name}_cardinality"'  # noqa: E501
             elif self.connection.type == Definitions.bigquery:
                 quote_column_name = f"`{column_name}`" if quote else column_name
                 query = (
