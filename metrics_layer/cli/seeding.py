@@ -406,7 +406,7 @@ class SeedMetricsLayer:
         column_names: List[str],
         schema_name: str,
         table_name: str,
-        custom_sql_base: str,
+        custom_sql_base: str | None = None,
         quote: bool = True,
     ) -> str:
         cardinality_queries = []
