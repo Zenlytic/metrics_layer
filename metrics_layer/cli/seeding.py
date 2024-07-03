@@ -1,6 +1,6 @@
 import os
 import re
-from typing import List
+from typing import List, Union
 
 import pandas as pd
 
@@ -406,7 +406,7 @@ class SeedMetricsLayer:
         column_names: List[str],
         schema_name: str,
         table_name: str,
-        custom_sql_base: str | None = None,
+        custom_sql_base: Union[str, None] = None,
         quote: bool = True,
     ) -> str:
         cardinality_queries = []
