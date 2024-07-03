@@ -7,27 +7,20 @@ model_name: new_model
 
 fields:
   - name: other_traffic_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     primary_key: yes
     hidden: yes
-    sql: "${TABLE}.id"
+    sql: '${TABLE}.id'
 
   - name: other_traffic_source
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
-    sql: "${TABLE}.traffic_source"
+    sql: '${TABLE}.traffic_source'
+    searchable: false
 
   - name: original_traffic
-    field_type: "dimension_group"
+    field_type: 'dimension_group'
     type: time
-    timeframes: [
-      raw,
-      time,
-      date,
-      week,
-      month,
-      quarter,
-      year
-    ]
-    sql: "${TABLE}.date"
+    timeframes: [raw, time, date, week, month, quarter, year]
+    sql: '${TABLE}.date'

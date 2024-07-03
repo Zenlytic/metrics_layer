@@ -5,15 +5,15 @@ model_name: test_model
 sql_table_name: analytics.discount_detail
 
 identifiers:
-- name: discount_join
-  type: join
-  reference: discounts
-  relationship: one_to_one
-  sql_on: "${discounts.discount_id}=${discount_detail.discount_id} AND ${discounts.order_week} is not null"
+  - name: discount_join
+    type: join
+    reference: discounts
+    relationship: one_to_one
+    sql_on: '${discounts.discount_id}=${discount_detail.discount_id} AND ${discounts.order_week} is not null'
 
 fields:
   - name: discount_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     primary_key: yes
     hidden: yes
@@ -21,9 +21,10 @@ fields:
     group_label: "ID's"
 
   - name: discount_promo_name
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     sql: ${TABLE}.promo_name
+    searchable: true
 
   - name: discount_usd
     field_type: measure

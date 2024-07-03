@@ -42,6 +42,7 @@ fields:
     field_type: 'dimension'
     type: string
     sql: '${TABLE}.name'
+    searchable: true
 
   - name: n_created_accounts
     field_type: 'measure'

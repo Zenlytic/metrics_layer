@@ -1118,6 +1118,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 "field_type": "dimension",
                 "type": "string",
                 "sql": "${TABLE}.order_line_id",
+                "hidden": True,
             },
             [
                 (
@@ -1135,7 +1136,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
         (
             None,
             "__ADD__",
-            {"name": "date", "field_type": "dimension", "type": "string", "sql": "${TABLE}.date"},
+            {"name": "date", "field_type": "dimension", "type": "number", "sql": "${TABLE}.date"},
             ["Field name: date in view order_lines is a reserved word and cannot be used as a field name."],
         ),
         (
@@ -1153,7 +1154,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "__POP__",
             [
                 "Field missing required key 'name' The field passed was {'field_type': "
-                "'dimension', 'type': 'string', 'sql': \"CASE\\n--- parent "
+                "'dimension', 'type': 'string', 'searchable': True, 'sql': \"CASE\\n--- parent "
                 "channel\\nWHEN ${channel} ilike '%social%' then 'Social'\\nELSE 'Not "
                 "Social'\\nEND\\n\"} in the view order_lines in the model test_model"
             ],
@@ -1164,9 +1165,9 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "__POP__",
             [
                 "Field 'parent_channel' missing required key 'field_type' The field passed was {'name':"
-                " 'parent_channel', 'type': 'string', 'sql': \"CASE\\n--- parent channel\\nWHEN ${channel}"
-                " ilike '%social%' then 'Social'\\nELSE 'Not Social'\\nEND\\n\"} in the view order_lines in"
-                " the model test_model"
+                " 'parent_channel', 'type': 'string', 'searchable': True, 'sql': \"CASE\\n--- parent"
+                " channel\\nWHEN ${channel} ilike '%social%' then 'Social'\\nELSE 'Not Social'\\nEND\\n\"} in"
+                " the view order_lines in the model test_model"
             ],
         ),
         (
@@ -1174,8 +1175,14 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "field_type",
             "metric",
             [
-                "Field parent_channel in view order_lines has an invalid field_type metric. Valid field_types"
-                " are: ['dimension', 'dimension_group', 'measure']"
+                (
+                    "Field parent_channel in view order_lines has an invalid field_type metric. Valid"
+                    " field_types are: ['dimension', 'dimension_group', 'measure']"
+                ),
+                (
+                    "Property searchable is present on Field parent_channel in view order_lines, "
+                    "but it is not a valid property."
+                ),
             ],
         ),
         (
@@ -2077,8 +2084,18 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 "else": "Not on sale",
             },
             [
-                "Warning:: Field parent_channel in view order_lines is using a case "
+                "Warning: Field parent_channel in view order_lines is using a case "
                 "statement, which is deprecated. Please use the sql property instead."
+            ],
+        ),
+        (
+            "parent_channel",
+            "searchable",
+            "__POP__",
+            [
+                "Field parent_channel in view order_lines does not have required 'searchable' "
+                "property set to either true or false. This property is required for "
+                "dimensions of type string that are not hidden."
             ],
         ),
     ],
