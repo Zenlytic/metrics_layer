@@ -1664,6 +1664,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                             " property set to either true or false. This property is required for"
                             " dimensions of type string that are not hidden."
                         ),
+                        extra={'is_auto_fixable': True}
                     )
                 )
             if "primary_key" in self._definition and not isinstance(self.primary_key, bool):
