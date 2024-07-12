@@ -3,62 +3,59 @@ type: view
 name: discounts
 model_name: test_model
 
-sql_table_name: "-- if dev -- dev_db.discounts
-                 -- if prod -- analytics_live.discounts"
+sql_table_name: '-- if dev -- dev_db.discounts
+  -- if prod -- analytics_live.discounts'
 
 default_date: order
-row_label: "Discount"
+row_label: 'Discount'
 
 identifiers:
-- name: order_id
-  type: foreign
-  allowed_fanouts: [order_lines]
-  sql: ${order_id}
-- name: country_id
-  type: foreign
-  sql: ${country}
+  - name: order_id
+    type: foreign
+    allowed_fanouts: [order_lines]
+    sql: ${order_id}
+  - name: country_id
+    type: foreign
+    sql: ${country}
 
 fields:
   - name: discount_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     primary_key: yes
     hidden: yes
-    sql: "${TABLE}.discount_id"
+    sql: '${TABLE}.discount_id'
     group_label: "ID's"
 
   - name: order_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     hidden: yes
-    sql: "${TABLE}.order_id"
+    sql: '${TABLE}.order_id'
     group_label: "ID's"
 
   - name: country
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
-    sql: "${TABLE}.country"
+    sql: '${TABLE}.country'
+    searchable: true
 
   - name: order
-    field_type: "dimension_group"
+    field_type: 'dimension_group'
     type: time
-    timeframes: [
-      date,
-      week,
-      month,
-      year
-    ]
-    sql: "${TABLE}.order_date"
+    timeframes: [date, week, month, year]
+    sql: '${TABLE}.order_date'
 
   - name: discount_code
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
-    sql: "${TABLE}.code"
+    sql: '${TABLE}.code'
+    searchable: true
 
   - name: total_discount_amt
-    field_type: "measure"
+    field_type: 'measure'
     type: sum
-    sql: "${TABLE}.discount_amt"
+    sql: '${TABLE}.discount_amt'
     canon_date: order
 
   - name: discount_per_order

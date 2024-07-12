@@ -58,6 +58,7 @@ fields:
     field_type: 'dimension'
     type: string
     sql: '${TABLE}.for_set_testing'
+    searchable: false
 
   - name: order
     field_type: 'dimension_group'
@@ -107,21 +108,25 @@ fields:
     field_type: 'dimension'
     type: string
     sql: '${TABLE}.sub_channel'
+    searchable: true
 
   - name: warehouse_location
     field_type: dimension
     type: string
     sql: ${TABLE}.warehouselocation
+    searchable: true
 
   - name: campaign
     field_type: 'dimension'
     type: string
     sql: '${TABLE}.campaign'
+    searchable: true
 
   - name: new_vs_repeat
     field_type: 'dimension'
     type: string
     sql: '${TABLE}.new_vs_repeat'
+    searchable: true
     drill_fields: [test_set*, new_vs_repeat]
 
   - name: number_of_orders

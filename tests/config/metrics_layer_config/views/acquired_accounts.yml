@@ -24,6 +24,7 @@ fields:
     field_type: 'dimension'
     type: string
     sql: '${TABLE}.type'
+    searchable: true
 
   - name: number_of_acquired_accounts
     field_type: measure

@@ -61,11 +61,13 @@ fields:
     field_type: dimension
     type: string
     sql: ${TABLE}.customer_account_type
+    searchable: true
 
   - name: plan_name
     field_type: dimension
     type: string
     sql: ${TABLE}.plan_name
+    searchable: true
 
   - name: number_of_billed_accounts
     field_type: measure

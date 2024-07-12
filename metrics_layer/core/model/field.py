@@ -1650,6 +1650,23 @@ class Field(MetricsLayerBase, SQLReplacement):
                         ),
                     )
                 )
+            if (
+                str(self.field_type) == ZenlyticFieldType.dimension
+                and str(self.type) == ZenlyticType.string
+                and not self.hidden
+                and "searchable" not in self._definition
+            ):
+                errors.append(
+                    self._error(
+                        self._definition.get("searchable"),
+                        (
+                            f"Field {self.name} in view {self.view.name} does not have required 'searchable'"
+                            " property set to either true or false. This property is required for"
+                            " dimensions of type string that are not hidden."
+                        ),
+                        extra={'is_auto_fixable': True}
+                    )
+                )
             if "primary_key" in self._definition and not isinstance(self.primary_key, bool):
                 errors.append(
                     self._error(
@@ -1677,7 +1694,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                     self._error(
                         self._definition.get("case"),
                         (
-                            f"{warning_prefix}: Field {self.name} in view {self.view.name} is using a case"
+                            f"{warning_prefix} Field {self.name} in view {self.view.name} is using a case"
                             " statement, which is deprecated. Please use the sql property instead."
                         ),
                     )
