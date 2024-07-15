@@ -408,27 +408,34 @@ class SeedMetricsLayer:
         table_name: str,
         custom_sql_base: Union[str, None] = None,
         quote: bool = True,
+        alias_mappings: Union[dict, None] = None,
     ) -> str:
         cardinality_queries = []
         for column_name in column_names:
+            if alias_mappings is not None and column_name in alias_mappings:
+                column_name_alias = alias_mappings[column_name]
+            else:
+                column_name_alias = column_name
             if self.connection.type in (Definitions.snowflake, Definitions.duck_db, Definitions.druid):
                 quote_column_name = f'"{column_name}"' if quote else column_name
-                query = f'APPROX_COUNT_DISTINCT( {quote_column_name} ) as "{column_name}_cardinality"'  # noqa: E501
+                query = f'APPROX_COUNT_DISTINCT( {quote_column_name} ) as "{column_name_alias}_cardinality"'  # noqa: E501
             elif self.connection.type in {Definitions.redshift, Definitions.postgres}:
                 quote_column_name = f'"{column_name}"' if quote else column_name
-                query = f'COUNT(DISTINCT {quote_column_name} ) as "{column_name}_cardinality"'  # noqa: E501
+                query = (
+                    f'COUNT(DISTINCT {quote_column_name} ) as "{column_name_alias}_cardinality"'  # noqa: E501
+                )
             elif self.connection.type in {Definitions.sql_server, Definitions.azure_synapse}:
                 quote_column_name = f'"{column_name}"' if quote else column_name
-                query = f'APPROX_COUNT_DISTINCT( cast({quote_column_name} as text) ) as "{column_name}_cardinality"'  # noqa: E501
+                query = f'COUNT(DISTINCT cast({quote_column_name} as VARCHAR(MAX))) as "{column_name_alias}_cardinality"'  # noqa: E501
             elif self.connection.type == Definitions.bigquery:
                 quote_column_name = f"`{column_name}`" if quote else column_name
                 query = (
                     f"APPROX_COUNT_DISTINCT( TO_JSON_STRING({quote_column_name}) ) as"
-                    f" `{column_name}_cardinality`"
+                    f" `{column_name_alias}_cardinality`"
                 )
             elif self.connection.type == Definitions.databricks:
                 quote_column_name = f"`{column_name}`" if quote else column_name
-                query = f"APPROX_COUNT_DISTINCT( {quote_column_name} ) as `{column_name}_cardinality`"
+                query = f"APPROX_COUNT_DISTINCT( {quote_column_name} ) as `{column_name_alias}_cardinality`"
             else:
                 raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
             cardinality_queries.append(query)
