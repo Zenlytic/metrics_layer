@@ -12,6 +12,7 @@ from metrics_layer.core.model.filter import (
     Filter,
     LiteralValueCriterion,
     MetricsLayerFilterExpressionType,
+    MetricsLayerFilterGroupLogicalOperatorType,
 )
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_errors import ParseError
@@ -43,6 +44,9 @@ class MetricsLayerFilter(MetricsLayerBase):
         #  are properly defined in the design
         self.design = design
         self.is_literal_filter = "literal" in definition
+        # This is a filter with parenthesis like (XYZ or ABC)
+        self.is_filter_group = "conditions" in definition
+
         if self.design:
             self.query_type = self.design.query_type
         else:
@@ -51,7 +55,7 @@ class MetricsLayerFilter(MetricsLayerBase):
 
         self.validate(definition)
 
-        if not self.is_literal_filter:
+        if not self.is_literal_filter and not self.is_filter_group:
             self.expression_type = MetricsLayerFilterExpressionType.parse(definition["expression"])
 
         super().__init__(definition)
@@ -70,6 +74,19 @@ class MetricsLayerFilter(MetricsLayerBase):
         """
         key = definition.get("field", None)
         filter_literal = definition.get("literal", None)
+        filter_group_conditions = definition.get("conditions", None)
+        if filter_group_conditions:
+            for f in filter_group_conditions:
+                MetricsLayerFilter(f, self.design, self.filter_type)
+
+            if "logical_operator" not in definition:
+                raise ParseError(f"Filter group '{definition}' needs a logical_operator.")
+            elif definition["logical_operator"] not in MetricsLayerFilterGroupLogicalOperatorType.options:
+                raise ParseError(
+                    f"Filter group '{definition}' needs a valid logical operator. Options are:"
+                    f" {MetricsLayerFilterGroupLogicalOperatorType.options}"
+                )
+            return
 
         is_boolean_value = str(definition.get("value")).lower() == "true" and key is None
         if is_boolean_value:
@@ -123,11 +140,30 @@ class MetricsLayerFilter(MetricsLayerBase):
             if self.field.type == "yesno" and "True" in str(definition["value"]):
                 definition["expression"] = "boolean_true"
 
+    def group_sql_query(self, functional_pk: str):
+        pypika_conditions = []
+        for condition in self.conditions:
+            condition_object = MetricsLayerFilter(condition, self.design, self.filter_type)
+            if condition_object.is_filter_group:
+                pypika_conditions.append(condition_object.group_sql_query(functional_pk))
+            else:
+                pypika_conditions.append(
+                    condition_object.criterion(
+                        condition_object.field.sql_query(self.query_type, functional_pk)
+                    )
+                )
+        if self.logical_operator == MetricsLayerFilterGroupLogicalOperatorType.and_:
+            return Criterion.all(pypika_conditions)
+        elif self.logical_operator == MetricsLayerFilterGroupLogicalOperatorType.or_:
+            return Criterion.any(pypika_conditions)
+        raise ParseError(f"Invalid logical operator: {self.logical_operator}")
+
     def sql_query(self):
         if self.is_literal_filter:
             return LiteralValueCriterion(self.replace_fields_literal_filter())
         functional_pk = self.design.functional_pk()
-
+        if self.is_filter_group:
+            return self.group_sql_query(functional_pk)
         return self.criterion(self.field.sql_query(self.query_type, functional_pk))
 
     def isin_sql_query(self, cte_alias, field_name, query_generator):

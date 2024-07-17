@@ -8,6 +8,7 @@ from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException
 from metrics_layer.core.model import Definitions, Project
 from metrics_layer.core.parse.connections import BaseConnection
+from metrics_layer.core.sql.query_errors import ParseError
 
 simple_model = {
     "type": "model",
@@ -136,6 +137,12 @@ simple_view = {
             "intervals": ["second", "minute", "hour", "day", "week", "month", "quarter", "year"],
             "name": "waiting",
             "label": "Between view and order",
+        },
+        {
+            "field_type": "dimension",
+            "type": "number",
+            "sql": "${TABLE}.discount_amt",
+            "name": "discount_amt",
         },
         {
             "field_type": "dimension",
@@ -1683,3 +1690,153 @@ def test_simple_query_with_all(connections):
         "GROUP BY simple.sales_channel HAVING SUM(simple.revenue)>12 ORDER BY simple_total_revenue ASC;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_simple_query_with_or_filters_no_nesting(connections):
+    project = Project(models=[simple_model], views=[simple_view])
+    conn = MetricsLayerConnection(project=project, connections=connections)
+    query = conn.get_sql_query(
+        metrics=["total_revenue"],
+        dimensions=["channel"],
+        where=[
+            {
+                "logical_operator": "OR",
+                "conditions": [
+                    {"field": "channel", "expression": "not_equal_to", "value": "Email"},
+                    {"field": "new_vs_repeat", "expression": "equal_to", "value": "New"},
+                ],
+            },
+            {"field": "discount_amt", "expression": "greater_than", "value": 1335},
+        ],
+    )
+
+    correct = (
+        "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM"
+        " analytics.orders simple WHERE (simple.sales_channel<>'Email' OR simple.new_vs_repeat='New')"
+        " AND simple.discount_amt>1335 GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_simple_query_with_or_filters_single_nesting(connections):
+    project = Project(models=[simple_model], views=[simple_view])
+    conn = MetricsLayerConnection(project=project, connections=connections)
+    query = conn.get_sql_query(
+        metrics=["total_revenue"],
+        dimensions=["channel"],
+        where=[
+            {
+                "logical_operator": "OR",
+                "conditions": [
+                    {
+                        "logical_operator": "AND",
+                        "conditions": [
+                            {"field": "channel", "expression": "not_equal_to", "value": "Email"},
+                            {"field": "discount_amt", "expression": "less_than", "value": 0.01},
+                        ],
+                    },
+                    {"field": "new_vs_repeat", "expression": "equal_to", "value": "New"},
+                ],
+            },
+            {"field": "discount_amt", "expression": "greater_than", "value": 1335},
+        ],
+    )
+
+    correct = (
+        "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM"
+        " analytics.orders simple WHERE ((simple.sales_channel<>'Email' AND simple.discount_amt<0.01) OR"
+        " simple.new_vs_repeat='New') AND simple.discount_amt>1335 GROUP BY simple.sales_channel ORDER BY"
+        " simple_total_revenue DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_simple_query_with_or_filters_triple_nesting(connections):
+    project = Project(models=[simple_model], views=[simple_view])
+    conn = MetricsLayerConnection(project=project, connections=connections)
+    query = conn.get_sql_query(
+        metrics=["total_revenue"],
+        dimensions=["channel"],
+        where=[
+            {"field": "discount_amt", "expression": "greater_than", "value": 1335},
+            {
+                "logical_operator": "OR",
+                "conditions": [
+                    {
+                        "logical_operator": "AND",
+                        "conditions": [
+                            {"field": "channel", "expression": "not_equal_to", "value": "Email"},
+                            {"field": "discount_amt", "expression": "less_than", "value": 0.01},
+                            {
+                                "logical_operator": "OR",
+                                "conditions": [
+                                    {"field": "channel", "expression": "equal_to", "value": "Email"},
+                                    {"field": "discount_amt", "expression": "less_than", "value": -100.05},
+                                    {
+                                        "logical_operator": "AND",
+                                        "conditions": [
+                                            {
+                                                "field": "channel",
+                                                "expression": "equal_to",
+                                                "value": "Facebook",
+                                            },
+                                            {
+                                                "field": "new_vs_repeat",
+                                                "expression": "equal_to",
+                                                "value": "Repeat",
+                                            },
+                                        ],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                    {"field": "new_vs_repeat", "expression": "equal_to", "value": "New"},
+                ],
+            },
+            {
+                "logical_operator": "OR",
+                "conditions": [
+                    {"field": "channel", "expression": "not_equal_to", "value": "Email"},
+                    {"field": "discount_amt", "expression": "less_than", "value": 0.01},
+                ],
+            },
+            {"field": "discount_amt", "expression": "greater_than", "value": 13},
+        ],
+    )
+
+    correct = (
+        "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM"
+        " analytics.orders simple WHERE simple.discount_amt>1335 AND ((simple.sales_channel<>'Email' AND"
+        " simple.discount_amt<0.01 AND (simple.sales_channel='Email' OR simple.discount_amt<-100.05 OR"
+        " (simple.sales_channel='Facebook' AND simple.new_vs_repeat='Repeat'))) OR"
+        " simple.new_vs_repeat='New') AND (simple.sales_channel<>'Email' OR simple.discount_amt<0.01) AND"
+        " simple.discount_amt>13 GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_simple_query_with_or_filters_errors(connections):
+    project = Project(models=[simple_model], views=[simple_view])
+    conn = MetricsLayerConnection(project=project, connections=connections)
+    with pytest.raises(ParseError) as exc_info:
+        conn.get_sql_query(
+            metrics=["total_revenue"],
+            dimensions=["channel"],
+            where=[
+                {
+                    "logical_operator": "ORR",
+                    "conditions": [
+                        {"field": "channel", "expression": "not_equal_to", "value": "Email"},
+                        {"field": "new_vs_repeat", "expression": "equal_to", "value": "New"},
+                    ],
+                }
+            ],
+        )
+
+    assert exc_info.value
+    assert "needs a valid logical operator. Options are: ['AND', 'OR']" in str(exc_info.value)

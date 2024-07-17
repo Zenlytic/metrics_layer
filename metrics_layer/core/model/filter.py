@@ -24,6 +24,12 @@ class LiteralValueCriterion(Criterion):
         return self.sql_query
 
 
+class MetricsLayerFilterGroupLogicalOperatorType:
+    and_ = "AND"
+    or_ = "OR"
+    options = [and_, or_]
+
+
 class MetricsLayerFilterExpressionType(str, Enum):
     Unknown = "UNKNOWN"
     LessThan = "less_than"

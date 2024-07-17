@@ -184,13 +184,32 @@ class SingleSQLQueryResolver:
 
     @staticmethod
     def parse_identifiers_from_dicts(conditions: list):
+        flattened_conditions = SingleSQLQueryResolver.flatten_filters(conditions)
         try:
-            return [cond["field"] for cond in conditions if "group_by" not in cond]
+            return [cond["field"] for cond in flattened_conditions if "group_by" not in cond]
         except KeyError:
             for cond in conditions:
                 if "field" not in cond:
                     break
             raise QueryError(f"Identifier was missing required 'field' key: {cond}")
+
+    @staticmethod
+    def flatten_filters(filters: list):
+        flat_list = []
+
+        def recurse(filter_obj):
+            if isinstance(filter_obj, dict):
+                if "conditions" in filter_obj:
+                    for f in filter_obj["conditions"]:
+                        recurse(f)
+                else:
+                    flat_list.append(filter_obj)
+            elif isinstance(filter_obj, list):
+                for item in filter_obj:
+                    recurse(item)
+
+        recurse(filters)
+        return flat_list
 
     @staticmethod
     def _check_for_dict(conditions: list):
