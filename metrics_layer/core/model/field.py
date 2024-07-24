@@ -71,6 +71,7 @@ VALID_VALUE_FORMAT_NAMES = [
     "usd_1",
     "usd_2",
     "string",
+    "image_url",
     "date",
     "week",
     "month",
@@ -96,6 +97,7 @@ VALID_VALUE_FORMAT_NAMES = [
     "usd_1",
     "usd_2",
     "string",
+    "image_url",
 ]
 if TYPE_CHECKING:
     from metrics_layer.core.model.view import View
