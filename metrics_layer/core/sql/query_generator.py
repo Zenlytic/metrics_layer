@@ -202,7 +202,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                 # When there are no group by dimensions, we need to join on a dummy join for the case filter
                 if len(group_by_dimensions) == 0:
                     join_sql = LiteralValueCriterion("1=1")
-                    base_query = base_query.join(Table(definition["cte_alias"])).on(join_sql)
+                    base_query = base_query.left_join(Table(definition["cte_alias"])).on(join_sql)
 
                 # When there are group by dimensions, we need to join on *all* those dimensions
                 else:
@@ -212,7 +212,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                         field_sql = self.get_sql(f)
                         condition.append(f"{field_sql}={definition['cte_alias']}.{f.alias(with_view=True)}")
                     join_sql = LiteralValueCriterion(" and ".join(condition))
-                    base_query = base_query.join(Table(definition["cte_alias"])).on(join_sql)
+                    base_query = base_query.left_join(Table(definition["cte_alias"])).on(join_sql)
 
         if self.funnel_filters:
             cte_alias = "link_filter_subquery"
