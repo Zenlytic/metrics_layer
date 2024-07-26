@@ -185,7 +185,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
             for definition in sorted(self.non_additive_ctes, key=lambda x: x["alias"]):
                 group_by_dimensions = definition.get("window_groupings", [])
                 if definition.get("window_aware_of_query_dimensions", True):
-                    group_by_dimensions.extend(self.dimensions)
+                    group_by_dimensions.extend([d.lower() for d in self.dimensions])
                 else:
                     non_additive_dim = self.design.get_field(definition["name"])
                     # Only add a dimension if it's a variation of the non additive dimension
@@ -206,11 +206,26 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
 
                 # When there are group by dimensions, we need to join on *all* those dimensions
                 else:
+                    nulls_are_equal = definition.get("nulls_are_equal", False)
                     condition = []
                     for dim in group_by_dimensions:
                         f = self.design.get_field(dim)
                         field_sql = self.get_sql(f)
-                        condition.append(f"{field_sql}={definition['cte_alias']}.{f.alias(with_view=True)}")
+                        if nulls_are_equal and self.query_type != Definitions.snowflake:
+                            condition.append(
+                                f"({field_sql}={definition['cte_alias']}.{f.alias(with_view=True)} OR"
+                                f" ({field_sql} IS NULL AND"
+                                f" {definition['cte_alias']}.{f.alias(with_view=True)} IS NULL))"
+                            )
+                        elif nulls_are_equal and self.query_type == Definitions.snowflake:
+                            condition.append(
+                                f"equal_null({field_sql},"
+                                f" {definition['cte_alias']}.{f.alias(with_view=True)})"
+                            )
+                        else:
+                            condition.append(
+                                f"{field_sql}={definition['cte_alias']}.{f.alias(with_view=True)}"
+                            )
                     join_sql = LiteralValueCriterion(" and ".join(condition))
                     base_query = base_query.left_join(Table(definition["cte_alias"])).on(join_sql)
 

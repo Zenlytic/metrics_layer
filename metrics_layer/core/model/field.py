@@ -1472,6 +1472,21 @@ class Field(MetricsLayerBase, SQLReplacement):
                 )
             )
 
+        # This value is pulled from the DESCRIPTION_MAX_CHARS constant in Zenlytic
+        description_max_chars = 512
+        if "description" in self._definition and isinstance(self.description, str):
+            if len(self.description) > description_max_chars:
+                errors.append(
+                    self._error(
+                        self._definition["description"],
+                        (
+                            f"Field {self.name} in view {self.view.name} has a description that is too long."
+                            f" Descriptions must be {description_max_chars} characters or less. It will be"
+                            f" truncated to the first {description_max_chars} characters."
+                        ),
+                    )
+                )
+
         if "zoe_description" in self._definition and not isinstance(self.zoe_description, str):
             errors.append(
                 self._error(
@@ -1482,6 +1497,18 @@ class Field(MetricsLayerBase, SQLReplacement):
                     ),
                 )
             )
+        if "zoe_description" in self._definition and isinstance(self.zoe_description, str):
+            if len(self.zoe_description) > description_max_chars:
+                errors.append(
+                    self._error(
+                        self._definition["zoe_description"],
+                        (
+                            f"Field {self.name} in view {self.view.name} has a zoe_description that is too"
+                            f" long. Descriptions must be {description_max_chars} characters or less. It will"
+                            f" be truncated to the first {description_max_chars} characters."
+                        ),
+                    )
+                )
 
         if (
             "value_format_name" in self._definition
@@ -1526,7 +1553,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                     self._definition["filters"],
                     (
                         f"Field {self.name} in view {self.view.name} has an invalid filters {self.filters}."
-                        " The filters must be a list of dictionaries."
+                        " The filters must be a list of filters, not an individual filter. In yaml syntax"
+                        " use the '-' character to denote a list element."
                     ),
                 )
             )
@@ -1664,7 +1692,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                             " property set to either true or false. This property is required for"
                             " dimensions of type string that are not hidden."
                         ),
-                        extra={'is_auto_fixable': True}
+                        extra={"is_auto_fixable": True},
                     )
                 )
             if "primary_key" in self._definition and not isinstance(self.primary_key, bool):
@@ -2271,6 +2299,17 @@ class Field(MetricsLayerBase, SQLReplacement):
                                 ),
                             )
                         )
+                    if not isinstance(self.non_additive_dimension.get("nulls_are_equal", False), bool):
+                        errors.append(
+                            self._error(
+                                self._definition["non_additive_dimension"]["nulls_are_equal"],
+                                (
+                                    f"Field {self.name} in view {self.view.name} has an invalid"
+                                    " non_additive_dimension."
+                                    " nulls_are_equal must be a boolean."
+                                ),
+                            )
+                        )
                     if not isinstance(self.non_additive_dimension.get("window_groupings", []), list):
                         errors.append(
                             self._error(
@@ -2315,7 +2354,13 @@ class Field(MetricsLayerBase, SQLReplacement):
                     errors.extend(
                         self.invalid_property_error(
                             self.non_additive_dimension,
-                            ["name", "window_choice", "window_aware_of_query_dimensions", "window_groupings"],
+                            [
+                                "name",
+                                "window_choice",
+                                "window_aware_of_query_dimensions",
+                                "nulls_are_equal",
+                                "window_groupings",
+                            ],
                             "non additive dimension",
                             f"in field {self.name} in view {self.view.name}",
                             error_func=self._error,

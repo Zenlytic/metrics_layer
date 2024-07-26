@@ -121,6 +121,15 @@ fields:
     type: number
     sql: ${mrr_end_of_month_by_account} / ${z_customer_accounts.number_of_account_customer_connections}
 
+  - name: mrr_beginning_of_month_nulls_equal
+    field_type: measure
+    type: sum
+    sql: ${mrr_value}
+    non_additive_dimension:
+      name: record_raw
+      window_choice: min
+      nulls_are_equal: true
+
   - name: mrr_beginning_of_month_no_group_by
     field_type: measure
     type: sum
