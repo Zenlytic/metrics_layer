@@ -494,6 +494,38 @@ def test_mrr_non_additive_dimension_alt_group_by_ignore_dimensions(connection):
 
 
 @pytest.mark.query
+@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery])
+def test_mrr_non_additive_dimension_alt_group_by_nulls_equal(connection, query_type):
+    query = connection.get_sql_query(
+        metrics=["mrr_beginning_of_month_nulls_equal"], dimensions=["mrr.plan_name"], query_type=query_type
+    )
+    if query_type == Definitions.snowflake:
+        join_logic = (
+            "equal_null(mrr.plan_name, cte_mrr_beginning_of_month_nulls_equal_record_raw.mrr_plan_name)"
+        )
+        group_by = "mrr.plan_name"
+        cte_order_by = " ORDER BY mrr_min_record_raw DESC"
+        order_by = " ORDER BY mrr_mrr_beginning_of_month_nulls_equal DESC"
+    else:
+        join_logic = (
+            "(mrr.plan_name=cte_mrr_beginning_of_month_nulls_equal_record_raw.mrr_plan_name OR (mrr.plan_name"
+            " IS NULL AND cte_mrr_beginning_of_month_nulls_equal_record_raw.mrr_plan_name IS NULL))"
+        )
+        group_by = "mrr_plan_name"
+        order_by = cte_order_by = ""
+    correct = (
+        "WITH cte_mrr_beginning_of_month_nulls_equal_record_raw AS (SELECT mrr.plan_name as"
+        " mrr_plan_name,MIN(mrr.record_date) as mrr_min_record_raw FROM analytics.mrr_by_customer mrr GROUP"
+        f" BY {group_by}{cte_order_by}) SELECT mrr.plan_name as mrr_plan_name,SUM(case"
+        " when mrr.record_date=cte_mrr_beginning_of_month_nulls_equal_record_raw.mrr_min_record_raw then"
+        " mrr.mrr else 0 end) as mrr_mrr_beginning_of_month_nulls_equal FROM analytics.mrr_by_customer mrr"
+        f" LEFT JOIN cte_mrr_beginning_of_month_nulls_equal_record_raw ON {join_logic}"
+        f" GROUP BY {group_by}{order_by};"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_mrr_non_additive_dimension_alt_group_by_with_window_grouping_ignore_dimensions(connection):
     query = connection.get_sql_query(
         metrics=[f"mrr_end_of_month_by_account_no_group_by"], dimensions=["mrr.plan_name"]

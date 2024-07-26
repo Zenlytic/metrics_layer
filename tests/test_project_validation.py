@@ -1892,6 +1892,15 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
         (
             "total_item_costs",
             "non_additive_dimension",
+            {"name": "order_raw", "window_choice": "max", "nulls_are_equal": 2},
+            [
+                "Field total_item_costs in view order_lines has an invalid "
+                "non_additive_dimension. nulls_are_equal must be a boolean."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "non_additive_dimension",
             {"name": "order_raw", "window_choice": "max", "window_groupings": "account"},
             [
                 "Field total_item_costs in view order_lines has an invalid "

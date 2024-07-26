@@ -2299,6 +2299,17 @@ class Field(MetricsLayerBase, SQLReplacement):
                                 ),
                             )
                         )
+                    if not isinstance(self.non_additive_dimension.get("nulls_are_equal", False), bool):
+                        errors.append(
+                            self._error(
+                                self._definition["non_additive_dimension"]["nulls_are_equal"],
+                                (
+                                    f"Field {self.name} in view {self.view.name} has an invalid"
+                                    " non_additive_dimension."
+                                    " nulls_are_equal must be a boolean."
+                                ),
+                            )
+                        )
                     if not isinstance(self.non_additive_dimension.get("window_groupings", []), list):
                         errors.append(
                             self._error(
@@ -2343,7 +2354,13 @@ class Field(MetricsLayerBase, SQLReplacement):
                     errors.extend(
                         self.invalid_property_error(
                             self.non_additive_dimension,
-                            ["name", "window_choice", "window_aware_of_query_dimensions", "window_groupings"],
+                            [
+                                "name",
+                                "window_choice",
+                                "window_aware_of_query_dimensions",
+                                "nulls_are_equal",
+                                "window_groupings",
+                            ],
                             "non additive dimension",
                             f"in field {self.name} in view {self.view.name}",
                             error_func=self._error,
