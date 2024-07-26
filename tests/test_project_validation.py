@@ -1085,6 +1085,25 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
                 " be a boolean (true or false)."
             ],
         ),
+        (
+            "description",
+            (
+                "This is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description. "
+                "Second, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Third, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+            ),
+            [
+                "View order_lines has a description that is too long. "
+                "Descriptions must be 512 characters or less. It will be truncated to the "
+                "first 512 characters."
+            ],
+        ),
     ],
 )
 def test_validation_with_replaced_view_properties(connection, name, value, errors):
@@ -1338,8 +1357,9 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "filters",
             {"field": "order_id", "value": 1},
             [
-                "Field total_item_costs in view order_lines has an invalid filters {'field': "
-                "'order_id', 'value': 1}. The filters must be a list of dictionaries."
+                "Field total_item_costs in view order_lines has an invalid filters {'field': 'order_id',"
+                " 'value': 1}. The filters must be a list of filters, not an individual filter. In yaml"
+                " syntax use the '-' character to denote a list element."
             ],
         ),
         (
@@ -2096,6 +2116,26 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 "Field parent_channel in view order_lines does not have required 'searchable' "
                 "property set to either true or false. This property is required for "
                 "dimensions of type string that are not hidden."
+            ],
+        ),
+        (
+            "parent_channel",
+            "description",
+            (
+                "This is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description. "
+                "Second, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Third, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+            ),
+            [
+                "Field parent_channel in view order_lines has a description that is too long. "
+                "Descriptions must be 512 characters or less. It will be truncated to the "
+                "first 512 characters."
             ],
         ),
     ],
