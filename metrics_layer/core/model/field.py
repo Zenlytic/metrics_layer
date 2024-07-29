@@ -139,7 +139,24 @@ class ZenlyticType:
     time = "time"
     duration = "duration"
     cumulative = "cumulative"
-    dimension_options = [string, yesno, number, tier]
+    us_state = "us_state"
+    us_county = "us_county"
+    us_zip_code = "us_zip_code"
+    us_state_abbreviation = "us_state_abbreviation"
+    country = "country"
+    country_abbreviation = "country_abbreviation"
+    dimension_options = [
+        string,
+        yesno,
+        number,
+        tier,
+        us_state,
+        us_county,
+        us_zip_code,
+        us_state_abbreviation,
+        country,
+        country_abbreviation,
+    ]
     dimension_group_options = [time, duration]
     measure_options = [
         count,
