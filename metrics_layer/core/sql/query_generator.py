@@ -171,8 +171,32 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
             base_query = base_query.having(Criterion.all(having))
 
         if self.having_group_by_filters:
+            # First consolidate them if they share the same group by field
+            seen = {}
+            for f in self.having_group_by_filters:
+                matches = [
+                    consolidated_filter for k, consolidated_filter in seen.items() if f.group_by == k[1]
+                ]
+                if matches:
+                    consolidated = False
+                    for match in matches:
+                        try:
+                            # The consolidation step will raise a QueryError if the filters can't be
+                            # consolidated, which means the field cannot be joined.
+                            # These filters must remain separate.
+                            match.consolidate_group_by_filter(f)
+                            consolidated = True
+                            break
+                        except QueryError:
+                            pass
+
+                    if not consolidated:
+                        seen[(len(matches), f.group_by)] = f
+                else:
+                    seen[(0, f.group_by)] = f
+
             group_by_where = []
-            for i, f in enumerate(sorted(self.having_group_by_filters)):
+            for i, (_, f) in enumerate(sorted(seen.items(), key=lambda x: x[0])):
                 cte_alias = f"filter_subquery_{i}"
                 cte_query = f.cte(query_class=MetricsLayerQuery, design_class=MetricsLayerDesign)
                 base_query = base_query.with_(Table(cte_query), cte_alias)
