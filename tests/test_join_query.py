@@ -1041,3 +1041,67 @@ def test_join_as_label_field_level(connection):
     assert parent_account_name.name == "account_name"
     assert parent_account_name.label_prefix == "Parent"
     assert parent_account_name.label == "Parent Account Name"
+
+
+@pytest.mark.query
+def test_query_with_or_filters_with_mappings(connection):
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["channel"],
+        where=[
+            {
+                "logical_operator": "OR",
+                "conditions": [
+                    {"field": "date", "expression": "less_than", "value": "2023-09-02"},
+                    {"field": "new_vs_repeat", "expression": "equal_to", "value": "New"},
+                ],
+            },
+            {"field": "date", "expression": "greater_than", "value": "2023-09-02"},
+        ],
+    )
+
+    correct = (
+        "SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) as"
+        " order_lines_total_item_revenue FROM analytics.order_line_items order_lines LEFT JOIN"
+        " analytics.orders orders ON order_lines.order_unique_id=orders.id WHERE (DATE_TRUNC('DAY',"
+        " order_lines.order_date)<'2023-09-02' OR orders.new_vs_repeat='New') AND DATE_TRUNC('DAY',"
+        " order_lines.order_date)>'2023-09-02' GROUP BY order_lines.sales_channel ORDER BY"
+        " order_lines_total_item_revenue DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_with_or_filters_with_mappings_nested(connection):
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["channel"],
+        where=[
+            {
+                "logical_operator": "OR",
+                "conditions": [
+                    {"field": "date", "expression": "less_than", "value": "2023-09-02"},
+                    {"field": "new_vs_repeat", "expression": "equal_to", "value": "New"},
+                    {
+                        "logical_operator": "AND",
+                        "conditions": [
+                            {"field": "date", "expression": "less_than", "value": "2023-09-02"},
+                            {"field": "new_vs_repeat", "expression": "equal_to", "value": "New"},
+                        ],
+                    },
+                ],
+            },
+            {"field": "date", "expression": "greater_than", "value": "2023-09-02"},
+        ],
+    )
+
+    correct = (
+        "SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) as"
+        " order_lines_total_item_revenue FROM analytics.order_line_items order_lines LEFT JOIN"
+        " analytics.orders orders ON order_lines.order_unique_id=orders.id WHERE (DATE_TRUNC('DAY',"
+        " order_lines.order_date)<'2023-09-02' OR orders.new_vs_repeat='New' OR (DATE_TRUNC('DAY',"
+        " order_lines.order_date)<'2023-09-02' AND orders.new_vs_repeat='New')) AND DATE_TRUNC('DAY',"
+        " order_lines.order_date)>'2023-09-02' GROUP BY order_lines.sales_channel ORDER BY"
+        " order_lines_total_item_revenue DESC;"
+    )
+    assert query == correct
