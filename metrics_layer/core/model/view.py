@@ -223,14 +223,15 @@ class View(MetricsLayerBase, SQLReplacement):
             )
 
         # This value is pulled from the MAX_VIEW_DESCRIPTION_LENGTH constant in Zenlytic
-        view_description_max_chars = 512
+        view_description_max_chars = 1024
         if "description" in self._definition and isinstance(self.description, str):
             if len(self.description) > view_description_max_chars:
                 errors.append(
                     self._error(
                         self._definition["description"],
                         (
-                            f"View {self.name} has a description that is too long. Descriptions must be"
+                            f"View {self.name} has a description that is too long"
+                            f" ({len(self.description)} characters). Descriptions must be"
                             f" {view_description_max_chars} characters or less. It will be truncated to the"
                             f" first {view_description_max_chars} characters."
                         ),

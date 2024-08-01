@@ -1480,9 +1480,10 @@ class Field(MetricsLayerBase, SQLReplacement):
                     self._error(
                         self._definition["description"],
                         (
-                            f"Field {self.name} in view {self.view.name} has a description that is too long."
-                            f" Descriptions must be {description_max_chars} characters or less. It will be"
-                            f" truncated to the first {description_max_chars} characters."
+                            f"Field {self.name} in view {self.view.name} has a description that is too long"
+                            f" ({len(self.description)} characters). Descriptions must be"
+                            f" {description_max_chars} characters or less. It will be truncated to the first"
+                            f" {description_max_chars} characters."
                         ),
                     )
                 )
