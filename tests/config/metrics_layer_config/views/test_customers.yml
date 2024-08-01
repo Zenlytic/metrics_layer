@@ -95,3 +95,8 @@ fields:
     field_type: 'measure'
     type: number
     sql: '${total_sessions} / (100 * 1.0)'
+
+  - name: unique_user_iphone_sessions
+    field_type: 'measure'
+    type: count_distinct
+    sql: case when ${sessions.session_device} = 'iPhone' then ${customer_id} end

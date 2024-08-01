@@ -458,7 +458,7 @@ def test_cli_validate(connection, fresh_project, mocker):
 def test_cli_validate_broken_canon_date(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
-    project._views[2]["fields"][-2]["canon_date"] = "does_not_exist"
+    project._views[2]["fields"][-3]["canon_date"] = "does_not_exist"
     project.refresh_cache()
     project.join_graph
 
@@ -639,7 +639,7 @@ def test_cli_validate_filter_with_no_field(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
 
-    project._views[2]["fields"][-2]["filters"][0] = {"is_churned": None, "value": False}
+    project._views[2]["fields"][-3]["filters"][0] = {"is_churned": None, "value": False}
 
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)

@@ -1009,6 +1009,20 @@ def test_null_filter_handling_metric_filter(connection):
 
 
 @pytest.mark.query
+def test_join_graph_production_with_sql_reference(connection):
+    sessions_field = connection.project.get_field("unique_user_iphone_sessions")
+    sessions_no_merged_results = [jg for jg in sessions_field.join_graphs() if "merged_result" not in jg]
+
+    revenue_field = connection.project.get_field("total_item_revenue")
+    revenue_no_merged_results = [jg for jg in revenue_field.join_graphs() if "merged_result" not in jg]
+
+    # These should NOT overlap in join graphs (without merged results) because the
+    # first (though on the customers view), references a field in the sessions view,
+    # which requires a join that the revenue metric does not have as an option
+    assert set(revenue_no_merged_results).isdisjoint(sessions_no_merged_results)
+
+
+@pytest.mark.query
 def test_join_as_label(connection):
     view = connection.project.get_view("child_account")
     assert view.name == "child_account"
