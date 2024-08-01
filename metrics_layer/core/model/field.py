@@ -2667,8 +2667,24 @@ class Field(MetricsLayerBase, SQLReplacement):
                 f"Could not find a model in view {self.view.name}, "
                 "please pass the model or set the model_name argument in the view"
             )
+        # We need to pick the most restricted join graph based on all other
+        # views referenced in the SQL of this field.
+        sql_references = self.get_referenced_sql_query(strings_only=False)
+        referenced_views = set([self.view.name])
 
-        base = self.view.project.join_graph.weak_join_graph_hashes(self.view.name)
+        # First, we get the views that are referenced, and put them in a set.
+        for ref in sql_references:
+            referenced_views.add(ref.view.name)
+
+        # Then, we get the weakly connected references to EACH view that is referenced in the SQL
+        base_collection = []
+        for view_name in referenced_views:
+            base_collection.append(set(self.view.project.join_graph.weak_join_graph_hashes(view_name)))
+
+        # Finally, we get intersection of the set of the weakly connected references
+        # to EACH view that is referenced in the SQL, to get the most restricted
+        # join graph that can actually be joined to this field
+        base = list(set.intersection(*base_collection))
 
         if self.is_cumulative():
             return base
