@@ -58,7 +58,7 @@ class SingleSQLQueryResolver:
             "dimensions": self.dimensions,
             "funnel": self.funnel,
             "where": self.parse_where(self.where),
-            "having": self.having,
+            "having": self.parse_having(self.having),
             "order_by": self.order_by,
             "select_raw_sql": self.select_raw_sql,
             "limit": self.limit,
@@ -110,8 +110,36 @@ class SingleSQLQueryResolver:
                 w["query_class"] = FunnelQuery(
                     funnel_query, design=self.design, suppress_warnings=self.suppress_warnings
                 )
+            if "logical_operator" in w:
+                field_types = set(
+                    [self.field_lookup[f["field"]].field_type for f in self.flatten_filters(w["conditions"])]
+                )
+                if "measure" in field_types and (
+                    "dimension" in field_types or "dimension_group" in field_types
+                ):
+                    raise QueryError(
+                        "Cannot mix dimensions and measures in a compound filter with a logical_operator"
+                    )
             where_with_query.append(w)
         return where_with_query
+
+    def parse_having(self, having: list):
+        if having is None or having == [] or self._is_literal(having):
+            return having
+        validated_having = []
+        for h in having:
+            if "logical_operator" in h:
+                field_types = set(
+                    [self.field_lookup[f["field"]].field_type for f in self.flatten_filters(h["conditions"])]
+                )
+                if "measure" in field_types and (
+                    "dimension" in field_types or "dimension_group" in field_types
+                ):
+                    raise QueryError(
+                        "Cannot mix dimensions and measures in a compound filter with a logical_operator"
+                    )
+            validated_having.append(h)
+        return validated_having
 
     def parse_input(self):
         all_field_names = self.metrics + self.dimensions
