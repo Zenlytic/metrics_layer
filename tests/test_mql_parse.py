@@ -13,7 +13,7 @@ def test_query_no_join_mql(connection):
         "SELECT * FROM (SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) "
         "as order_lines_total_item_revenue FROM "
         "analytics.order_line_items order_lines GROUP BY order_lines.sales_channel "
-        "ORDER BY order_lines_total_item_revenue DESC);"
+        "ORDER BY order_lines_total_item_revenue DESC NULLS LAST);"
     )
     assert query == correct
 
@@ -52,7 +52,7 @@ def test_query_single_join_mql(connection):
         "order_lines_total_item_revenue FROM analytics.order_line_items "
         "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "GROUP BY order_lines.sales_channel,orders.new_vs_repeat "
-        "ORDER BY order_lines_total_item_revenue DESC) as rev_group;"
+        "ORDER BY order_lines_total_item_revenue DESC NULLS LAST) as rev_group;"
     )
     assert query == correct
 
@@ -71,7 +71,7 @@ def test_query_multiple_join_mql(connection):
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
         "GROUP BY customers.region,orders.new_vs_repeat "
-        "ORDER BY order_lines_total_item_revenue DESC) as rev_group;"
+        "ORDER BY order_lines_total_item_revenue DESC NULLS LAST) as rev_group;"
     )
     assert query == correct
 
@@ -79,20 +79,23 @@ def test_query_multiple_join_mql(connection):
 @pytest.mark.query
 def test_query_multiple_join_all_mql(connection):
     query = connection.get_sql_query(
-        sql="SELECT * FROM MQL(total_item_revenue BY region, new_vs_repeat WHERE ${customers.region} != 'West' AND ${orders.new_vs_repeat} <> 'New' HAVING ${total_item_revenue} > -12 AND ${total_item_revenue} < 122 ORDER BY total_item_revenue ASC, new_vs_repeat) as rev_group",  # noqa
+        sql=(  # noqa
+            "SELECT * FROM MQL(total_item_revenue BY region, new_vs_repeat WHERE ${customers.region} !="
+            " 'West' AND ${orders.new_vs_repeat} <> 'New' HAVING ${total_item_revenue} > -12 AND"
+            " ${total_item_revenue} < 122 ORDER BY total_item_revenue ASC NULLS LAST, new_vs_repeat) as"
+            " rev_group"
+        ),
     )
 
     correct = (
-        "SELECT * FROM (SELECT customers.region as customers_region,"
-        "orders.new_vs_repeat as orders_new_vs_repeat,"
-        "SUM(order_lines.revenue) as order_lines_total_item_revenue "
-        "FROM analytics.order_line_items order_lines "
-        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
-        "WHERE customers.region != 'West' AND orders.new_vs_repeat <>"
-        " 'New' GROUP BY customers.region,orders.new_vs_repeat HAVING (SUM(order_lines.revenue)) > -12 AND "
-        "(SUM(order_lines.revenue)) < 122 ORDER BY order_lines_total_item_revenue ASC,orders_new_vs_repeat"
-        " ASC) as rev_group;"
+        "SELECT * FROM (SELECT customers.region as customers_region,orders.new_vs_repeat as"
+        " orders_new_vs_repeat,SUM(order_lines.revenue) as order_lines_total_item_revenue FROM"
+        " analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON"
+        " order_lines.order_unique_id=orders.id LEFT JOIN analytics.customers customers ON"
+        " order_lines.customer_id=customers.customer_id WHERE customers.region != 'West' AND"
+        " orders.new_vs_repeat <> 'New' GROUP BY customers.region,orders.new_vs_repeat HAVING"
+        " (SUM(order_lines.revenue)) > -12 AND (SUM(order_lines.revenue)) < 122 ORDER BY"
+        " order_lines_total_item_revenue ASC NULLS LAST,orders_new_vs_repeat ASC NULLS LAST) as rev_group;"
     )
     assert query == correct
 
@@ -100,7 +103,12 @@ def test_query_multiple_join_all_mql(connection):
 @pytest.mark.query
 def test_query_mql_sequence(connection):
     query = connection.get_sql_query(
-        sql="SELECT * FROM MQL(number_of_orders, total_item_revenue FOR orders FUNNEL ${order_lines.channel} = 'Paid' THEN ${order_lines.channel} = 'Organic' THEN ${order_lines.channel} = 'Paid' or ${customers.region} = 'West' WITHIN 3 days WHERE ${customers.region} != 'West') as sequence_group",  # noqa
+        sql=(  # noqa
+            "SELECT * FROM MQL(number_of_orders, total_item_revenue FOR orders FUNNEL ${order_lines.channel}"
+            " = 'Paid' THEN ${order_lines.channel} = 'Organic' THEN ${order_lines.channel} = 'Paid' or"
+            " ${customers.region} = 'West' WITHIN 3 days WHERE ${customers.region} != 'West') as"
+            " sequence_group"
+        ),
     )
 
     revenue_calc = (
@@ -162,7 +170,7 @@ def test_query_mql_as_subset(connection):
         "FROM analytics.order_line_items "
         "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "GROUP BY order_lines.sales_channel,orders.new_vs_repeat "
-        "ORDER BY order_lines_total_item_revenue DESC) as rev_group LEFT JOIN "
+        "ORDER BY order_lines_total_item_revenue DESC NULLS LAST) as rev_group LEFT JOIN "
         "analytics.channeldata channelinfo on rev_group.channel = channelinfo.channel;"
     )
     assert query == correct
@@ -181,7 +189,7 @@ def test_query_mql_mapping_query(connection):
         "SELECT * FROM (SELECT orders.sub_channel as orders_sub_channel,SUM(order_lines.revenue) "
         "as order_lines_total_item_revenue FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        "GROUP BY orders.sub_channel ORDER BY order_lines_total_item_revenue DESC);"
+        "GROUP BY orders.sub_channel ORDER BY order_lines_total_item_revenue DESC NULLS LAST);"
     )
     query = connection.get_sql_query(sql="SELECT * FROM MQL(total_item_revenue by source)")
     assert query == correct
