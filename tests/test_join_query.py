@@ -660,6 +660,24 @@ def test_query_number_measure_w_dimension_reference(connection):
 
 
 @pytest.mark.query
+def test_query_number_as_array_filter(connection):
+    query = connection.get_sql_query(
+        metrics=["total_non_merchant_revenue"],
+        dimensions=[],
+        where=[
+            {"field": "orders.order_date", "expression": "greater_than", "value": "2022-04-03"},
+        ],
+    )
+
+    correct = (
+        "SELECT SUM(case when orders.anon_id NOT IN (9,3,22,9082) then orders.revenue end) as"
+        " orders_total_non_merchant_revenue FROM analytics.orders orders WHERE DATE_TRUNC('DAY',"
+        " orders.order_date)>'2022-04-03' ORDER BY orders_total_non_merchant_revenue DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 @pytest.mark.parametrize("bool_value", ["True", "False"])
 def test_query_bool_and_date_filter(connection, bool_value):
     query = connection.get_sql_query(
@@ -843,15 +861,14 @@ def test_always_filter_with_and_without_join(connection):
     )
 
     correct = (
-        "SELECT DATE_TRUNC('DAY', created_workspace.session_date) as created_workspace_created_date,"
-        "COUNT(created_workspace.id) as created_workspace_number_of_workspace_creations "
-        "FROM analytics.created_workspace created_workspace "
-        "LEFT JOIN analytics.customers customers "
-        "ON created_workspace.customer_id=customers.customer_id "
-        "WHERE NOT (customers.is_churned) AND NOT created_workspace.context_os IS NULL "
-        "AND created_workspace.context_os IN ('1','Google','os:iOS') "
-        "GROUP BY DATE_TRUNC('DAY', created_workspace.session_date) "
-        "ORDER BY created_workspace_number_of_workspace_creations DESC NULLS LAST;"
+        "SELECT DATE_TRUNC('DAY', created_workspace.session_date) as"
+        " created_workspace_created_date,COUNT(created_workspace.id) as"
+        " created_workspace_number_of_workspace_creations FROM analytics.created_workspace created_workspace"
+        " LEFT JOIN analytics.customers customers ON created_workspace.customer_id=customers.customer_id"
+        " WHERE NOT (customers.is_churned) AND NOT created_workspace.context_os IS NULL AND"
+        " created_workspace.context_os IN ('1','Google','os:iOS') AND created_workspace.id NOT IN (1,44,87)"
+        " GROUP BY DATE_TRUNC('DAY', created_workspace.session_date) ORDER BY"
+        " created_workspace_number_of_workspace_creations DESC NULLS LAST;"
     )
     assert query == correct
 

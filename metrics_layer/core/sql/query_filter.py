@@ -1,6 +1,7 @@
 import datetime
 from typing import Dict
 
+import pandas as pd
 from pypika import Criterion, Field, Table
 from pypika.terms import LiteralValue
 
@@ -172,9 +173,13 @@ class MetricsLayerFilter(MetricsLayerBase):
                     value = bigquery_cast(self.field, f["value"])
                 else:
                     value = f["value"]
-                criteria.append(Filter.sql_query(field_sql, f["expression"], value))
+                criteria.append(Filter.sql_query(field_sql, f["expression"], value, self.field.type))
             return Criterion.all(criteria)
-        return Filter.sql_query(field_sql, self.expression_type, self.value)
+        if isinstance(self.field, MetricsLayerField):
+            field_datatype = self.field.type
+        else:
+            field_datatype = "unknown"
+        return Filter.sql_query(field_sql, self.expression_type, self.value, field_datatype)
 
     def cte(self, query_class, design_class):
         if not self.is_group_by:

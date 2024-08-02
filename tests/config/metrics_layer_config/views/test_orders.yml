@@ -54,6 +54,11 @@ fields:
     sql: '${TABLE}.account_id'
     group_label: "ID's"
 
+  - name: anon_id
+    field_type: 'dimension'
+    type: number
+    sql: '${TABLE}.anon_id'
+
   - name: do_not_use
     field_type: 'dimension'
     type: string
@@ -147,6 +152,14 @@ fields:
     field_type: 'measure'
     type: sum
     sql: ${revenue_dimension}
+
+  - name: total_non_merchant_revenue
+    field_type: measure
+    type: sum
+    sql: ${TABLE}.revenue
+    filters:
+      - field: anon_id
+        value: -9, -3, -22, -9082
 
   - name: total_lifetime_revenue
     field_type: measure
