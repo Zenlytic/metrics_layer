@@ -672,7 +672,7 @@ def test_query_number_as_array_filter(connection):
     correct = (
         "SELECT SUM(case when orders.anon_id NOT IN (9,3,22,9082) then orders.revenue end) as"
         " orders_total_non_merchant_revenue FROM analytics.orders orders WHERE DATE_TRUNC('DAY',"
-        " orders.order_date)>'2022-04-03' ORDER BY orders_total_non_merchant_revenue DESC;"
+        " orders.order_date)>'2022-04-03' ORDER BY orders_total_non_merchant_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
