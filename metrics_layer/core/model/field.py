@@ -286,7 +286,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                     "for the view. You can do this by adding the tag 'primary_key: true' to the "
                     "necessary dimension"
                 )
-            # You cannot apply a filter to a field that is the same name as the field itself (this doesn't make sense)
+            # You cannot apply a filter to a field that is the same name
+            # as the field itself (this doesn't make sense)
             filters_to_apply = [f for f in definition.get("filters", []) if f.get("field") != self.name]
 
             else_0 = False
@@ -313,7 +314,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                             }
                         ]
             definition["sql"] = Filter.translate_looker_filters_to_sql(
-                definition["sql"], filters_to_apply, else_0=else_0
+                definition["sql"], filters_to_apply, self.view, else_0=else_0
             )
 
         if (
@@ -592,7 +593,9 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def _get_sql_distinct_key(self, sql_distinct_key: str, query_type: str, alias_only: bool):
         if self.filters:
-            clean_sql_distinct_key = Filter.translate_looker_filters_to_sql(sql_distinct_key, self.filters)
+            clean_sql_distinct_key = Filter.translate_looker_filters_to_sql(
+                sql_distinct_key, self.filters, self.view
+            )
         else:
             clean_sql_distinct_key = sql_distinct_key
         return self._replace_sql_query(clean_sql_distinct_key, query_type, alias_only=alias_only)
