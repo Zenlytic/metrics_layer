@@ -157,7 +157,7 @@ def test_simple_query_dynamic_schema():
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-        "{} simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC;"
+        "{} simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
 
     class sf_mock(BaseConnection):
@@ -193,7 +193,9 @@ def test_simple_query(connections):
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
     )
-    correct += "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC;"
+    correct += (
+        "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC NULLS LAST;"
+    )
     assert query == correct
 
 
@@ -207,7 +209,7 @@ def test_simple_query_dimension_filter(connections):
         "SELECT case when LOWER(simple.sales_channel) LIKE LOWER('%organic%') then simple.sales_channel end"
         " as simple_organic_channels,SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple"
         " GROUP BY case when LOWER(simple.sales_channel) LIKE LOWER('%organic%') then simple.sales_channel"
-        " end ORDER BY simple_total_revenue DESC;"
+        " end ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -226,7 +228,7 @@ def test_simple_query_field_to_field_filter(connections):
         "SELECT case when LOWER(simple.sales_channel) LIKE LOWER('%organic%') then simple.sales_channel end"
         " as simple_organic_channels,SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple"
         " WHERE simple.new_vs_repeat>simple.group_name GROUP BY case when LOWER(simple.sales_channel) LIKE"
-        " LOWER('%organic%') then simple.sales_channel end ORDER BY simple_total_revenue DESC;"
+        " LOWER('%organic%') then simple.sales_channel end ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -264,7 +266,7 @@ def test_simple_query_min_max(connections, metric, query_type):
     group_by = "simple.sales_channel"
     semi = ";"
     if query_type in {Definitions.snowflake, Definitions.redshift, Definitions.duck_db}:
-        order_by = f" ORDER BY simple_{agg.lower()}_revenue DESC"
+        order_by = f" ORDER BY simple_{agg.lower()}_revenue DESC NULLS LAST"
     else:
         order_by = ""
 
@@ -303,7 +305,7 @@ def test_simple_query_count_distinct(connections, query_type):
     group_by = "simple.sales_channel"
     semi = ";"
     if query_type in {Definitions.snowflake, Definitions.redshift, Definitions.duck_db}:
-        order_by = f" ORDER BY simple_unique_groups DESC"
+        order_by = f" ORDER BY simple_unique_groups DESC NULLS LAST"
     else:
         order_by = ""
 
@@ -328,7 +330,7 @@ def test_simple_query_single_metric(connections):
 
     correct = (
         "SELECT SUM(simple.revenue) as simple_total_revenue "
-        "FROM analytics.orders simple ORDER BY simple_total_revenue DESC;"
+        "FROM analytics.orders simple ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -341,7 +343,7 @@ def test_simple_query_single_dimension(connections):
 
     correct = (
         "SELECT simple.sales_channel as simple_channel FROM analytics.orders simple "
-        "GROUP BY simple.sales_channel ORDER BY simple_channel ASC;"
+        "GROUP BY simple.sales_channel ORDER BY simple_channel ASC NULLS LAST;"
     )
     assert query == correct
 
@@ -358,7 +360,7 @@ def test_simple_query_limit(connections, query_type):
     if Definitions.snowflake == query_type:
         correct = (
             "SELECT simple.sales_channel as simple_channel FROM analytics.orders simple "
-            "GROUP BY simple.sales_channel ORDER BY simple_channel ASC LIMIT 10;"
+            "GROUP BY simple.sales_channel ORDER BY simple_channel ASC NULLS LAST LIMIT 10;"
         )
     elif query_type in {Definitions.sql_server, Definitions.azure_synapse}:
         correct = (
@@ -377,7 +379,7 @@ def test_simple_query_count(connections):
     query = conn.get_sql_query(metrics=["count"], dimensions=["channel"])
 
     correct = "SELECT simple.sales_channel as simple_channel,COUNT(*) as simple_count FROM "
-    correct += "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_count DESC;"
+    correct += "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_count DESC NULLS LAST;"
     assert query == correct
 
 
@@ -388,7 +390,7 @@ def test_simple_query_alias_keyword(connections):
     query = conn.get_sql_query(metrics=["count"], dimensions=["group"])
 
     correct = "SELECT simple.group_name as simple_group,COUNT(*) as simple_count FROM "
-    correct += "analytics.orders simple GROUP BY simple.group_name ORDER BY simple_count DESC;"
+    correct += "analytics.orders simple GROUP BY simple.group_name ORDER BY simple_count DESC NULLS LAST;"
     assert query == correct
 
 
@@ -465,7 +467,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
             f"AS {ttype}) AS TIMESTAMP))>='{start}' AND DATE_TRUNC('DAY', "
             f"CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS {ttype}) AS TIMESTAMP))<='{end}'"  # noqa
         )
-        order_by = " ORDER BY simple_total_revenue DESC"
+        order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
     elif query_type == Definitions.databricks:
         if field == "previous_order":
             result_lookup = {"date": "DATE_TRUNC('DAY', CAST(simple.previous_order_date AS TIMESTAMP))"}
@@ -512,7 +514,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
             f"CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP))<='{end}'"  # noqa
         )
         if query_type == Definitions.duck_db:
-            order_by = " ORDER BY simple_total_revenue DESC"
+            order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
         else:
             order_by = ""
     elif query_type == Definitions.bigquery:
@@ -848,7 +850,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         if query_type == Definitions.redshift:
             result_lookup["month_of_year"] = "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')"
             result_lookup["month_name"] = "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')"
-        order_by = " ORDER BY simple_total_revenue DESC"
+        order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
 
     elif query_type in {Definitions.sql_server, Definitions.azure_synapse}:
         result_lookup = {
@@ -936,7 +938,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "day_of_year": "EXTRACT('DOY' FROM CAST(simple.order_date AS TIMESTAMP))",
         }
         if query_type == Definitions.duck_db:
-            order_by = " ORDER BY simple_total_revenue DESC"
+            order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
         else:
             order_by = ""
 
@@ -1147,7 +1149,7 @@ def test_simple_query_dimension_group_interval(connections, interval: str, query
             "quarter": "DATEDIFF('QUARTER', simple.view_date, simple.order_date)",
             "year": "DATEDIFF('YEAR', simple.view_date, simple.order_date)",
         }
-        order_by = " ORDER BY simple_total_revenue DESC"
+        order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
     elif query_type == Definitions.druid:
         result_lookup = {
             "second": "TIMESTAMPDIFF(SECOND, simple.view_date, simple.order_date)",
@@ -1249,7 +1251,7 @@ def test_simple_query_two_group_by(connections):
     correct = (
         "SELECT simple.sales_channel as simple_channel,simple.new_vs_repeat as simple_new_vs_repeat,"
         "SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple "
-        "GROUP BY simple.sales_channel,simple.new_vs_repeat ORDER BY simple_total_revenue DESC;"
+        "GROUP BY simple.sales_channel,simple.new_vs_repeat ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -1267,7 +1269,7 @@ def test_simple_query_two_metric(connections):
         "SELECT simple.sales_channel as simple_channel,simple.new_vs_repeat as simple_new_vs_repeat,"
         "SUM(simple.revenue) as simple_total_revenue,AVG(simple.revenue) as simple_average_order_value FROM "
         "analytics.orders simple GROUP BY simple.sales_channel,simple.new_vs_repeat "
-        "ORDER BY simple_total_revenue DESC;"
+        "ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -1282,7 +1284,7 @@ def test_simple_query_custom_dimension(connections):
         "SELECT (CASE WHEN simple.sales_channel != 'fraud' THEN TRUE ELSE FALSE END) as "
         "simple_is_valid_order,SUM(simple.revenue) as simple_total_revenue "
         "FROM analytics.orders simple GROUP BY (CASE WHEN simple.sales_channel "
-        "!= 'fraud' THEN TRUE ELSE FALSE END) ORDER BY simple_total_revenue DESC;"
+        "!= 'fraud' THEN TRUE ELSE FALSE END) ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -1294,9 +1296,9 @@ def test_simple_query_custom_metric(connections):
     query = conn.get_sql_query(metrics=["revenue_per_aov"], dimensions=["channel"])
 
     correct = (
-        "SELECT simple.sales_channel as simple_channel,CASE WHEN (AVG(simple.revenue)) = 0 THEN "
-        "0 ELSE (SUM(simple.revenue)) / (AVG(simple.revenue)) END as simple_revenue_per_aov FROM "
-        "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_revenue_per_aov DESC;"
+        "SELECT simple.sales_channel as simple_channel,CASE WHEN (AVG(simple.revenue)) = 0 THEN 0 ELSE"
+        " (SUM(simple.revenue)) / (AVG(simple.revenue)) END as simple_revenue_per_aov FROM analytics.orders"
+        " simple GROUP BY simple.sales_channel ORDER BY simple_revenue_per_aov DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -1361,7 +1363,7 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
     }:
         order_by = ""
     else:
-        order_by = " ORDER BY simple_total_revenue DESC"
+        order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
 
     semi = ";"
     if query_type == Definitions.druid:
@@ -1445,7 +1447,7 @@ def test_simple_query_convert_tz_alias_no(connections):
     correct = (
         "SELECT DATE_TRUNC('DAY', simple.order_date) as simple_order_date,"
         "SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple "
-        "GROUP BY DATE_TRUNC('DAY', simple.order_date) ORDER BY simple_total_revenue DESC;"
+        "GROUP BY DATE_TRUNC('DAY', simple.order_date) ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -1498,7 +1500,7 @@ def test_simple_query_with_where_dict(connections, field_name, filter_type, valu
     )
 
     if query_type == Definitions.snowflake:
-        order_by = " ORDER BY simple_total_revenue DESC"
+        order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
         semi = ";"
     elif query_type == Definitions.druid:
         order_by = ""
@@ -1566,7 +1568,7 @@ def test_simple_query_with_where_literal(connections):
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
         "analytics.orders simple WHERE simple.sales_channel != 'Email' GROUP BY simple.sales_channel "
-        "ORDER BY simple_total_revenue DESC;"
+        "ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -1611,7 +1613,7 @@ def test_simple_query_with_having_dict(connections, filter_type):
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
         f"analytics.orders simple GROUP BY simple.sales_channel HAVING {full_expr} "
-        "ORDER BY simple_total_revenue DESC;"
+        "ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -1627,25 +1629,63 @@ def test_simple_query_with_having_literal(connections):
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
         "analytics.orders simple GROUP BY simple.sales_channel HAVING (SUM(simple.revenue)) > 12 "
-        "ORDER BY simple_total_revenue DESC;"
+        "ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
 
-@pytest.mark.query
-def test_simple_query_with_order_by_dict(connections):
+@pytest.mark.queryy
+@pytest.mark.parametrize(
+    "query_type",
+    [
+        Definitions.snowflake,
+        Definitions.bigquery,
+        Definitions.redshift,
+        Definitions.postgres,
+        Definitions.druid,
+        Definitions.sql_server,
+        Definitions.duck_db,
+        Definitions.databricks,
+        Definitions.azure_synapse,
+    ],
+)
+def test_simple_query_with_order_by_dict(connections, query_type):
     project = Project(models=[simple_model], views=[simple_view])
     conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(
-        metrics=["total_revenue", "average_order_value"],
+        metrics=["total_revenue", "average_order_value", "max_revenue"],
         dimensions=["channel"],
-        order_by=[{"field": "total_revenue", "sort": "asc"}, {"field": "average_order_value"}],
+        order_by=[
+            {"field": "total_revenue", "sort": "asc"},
+            {"field": "average_order_value"},
+            {"field": "max_revenue", "sort": "desc"},
+        ],
+        query_type=query_type,
     )
 
+    if query_type == Definitions.bigquery:
+        group_by = "simple_channel"
+    else:
+        group_by = "simple.sales_channel"
+
+    semi = ";" if query_type not in {Definitions.druid} else ""
+    if query_type in {
+        Definitions.snowflake,
+        Definitions.redshift,
+        Definitions.duck_db,
+        Definitions.postgres,
+        Definitions.databricks,
+        Definitions.bigquery,
+    }:
+        nulls_last = " NULLS LAST"
+    else:
+        nulls_last = ""
     correct = (
-        "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue,"
-        "AVG(simple.revenue) as simple_average_order_value FROM analytics.orders simple "
-        "GROUP BY simple.sales_channel ORDER BY simple_total_revenue ASC,simple_average_order_value ASC;"
+        "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as"
+        " simple_total_revenue,AVG(simple.revenue) as simple_average_order_value,MAX(simple.revenue) as"
+        f" simple_max_revenue FROM analytics.orders simple GROUP BY {group_by} ORDER BY"
+        f" simple_total_revenue ASC{nulls_last},simple_average_order_value ASC{nulls_last},simple_max_revenue"
+        f" DESC{nulls_last}{semi}"
     )
     assert query == correct
 
@@ -1660,7 +1700,7 @@ def test_simple_query_with_order_by_literal(connections):
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-        "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue ASC;"
+        "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue ASC NULLS LAST;"
     )
     assert query == correct
 
@@ -1678,8 +1718,8 @@ def test_simple_query_with_all(connections):
     )
 
     correct = (
-        "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-        "analytics.orders simple WHERE simple.sales_channel<>'Email' "
-        "GROUP BY simple.sales_channel HAVING SUM(simple.revenue)>12 ORDER BY simple_total_revenue ASC;"
+        "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM"
+        " analytics.orders simple WHERE simple.sales_channel<>'Email' GROUP BY simple.sales_channel HAVING"
+        " SUM(simple.revenue)>12 ORDER BY simple_total_revenue ASC NULLS LAST;"
     )
     assert query == correct
