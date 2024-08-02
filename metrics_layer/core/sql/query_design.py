@@ -279,7 +279,7 @@ class MetricsLayerDesign:
                         fields.append(field)
                         for filter_dict in f.filter_dict():
                             filter_sql = Filter.sql_query(
-                                field_sql, filter_dict["expression"], filter_dict["value"]
+                                field_sql, filter_dict["expression"], filter_dict["value"], field.type
                             )
                             conditions.append(str(filter_sql))
 
