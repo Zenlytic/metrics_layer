@@ -2391,16 +2391,6 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def collect_sql_errors(self, sql: str, property_name: str, error_func):
         errors = []
-        if not isinstance(sql, str):
-            errors.append(
-                error_func(
-                    sql,
-                    (
-                        f"Field {self.name} in view {self.view.name} has an invalid {property_name} {sql}."
-                        f" {property_name} must be a string."
-                    ),
-                )
-            )
         if sql and sql == "${" + self.name + "}":
             error_text = (
                 f"Field {self.name} references itself in its '{property_name}' property. You need to"
@@ -2409,13 +2399,20 @@ class Field(MetricsLayerBase, SQLReplacement):
             )
             errors.append(error_func(sql, error_text))
 
-        # TODO improve this with sql parse or sql glot
-        if self.get_referenced_sql_query(strings_only=False) is None:
+        refs = self.get_referenced_sql_query(strings_only=False)
+        if refs is None:
             error_text = (
                 f"Field {self.name} in view {self.view.name} contains invalid SQL in property"
                 f" {property_name}. Remove any Looker parameter references from the SQL."
             )
             errors.append(error_func(sql, error_text))
+        else:
+            for ref in refs:
+                if isinstance(ref, str):
+                    error_text = (
+                        f"Field {self.name} in view {self.view.name} contains invalid field reference {ref}."
+                    )
+                    errors.append(error_func(sql, error_text))
         return errors
 
     def get_referenced_sql_query(self, strings_only=True):
@@ -2674,8 +2671,10 @@ class Field(MetricsLayerBase, SQLReplacement):
         referenced_views = set([self.view.name])
 
         # First, we get the views that are referenced, and put them in a set.
-        for ref in sql_references:
-            referenced_views.add(ref.view.name)
+        if sql_references is not None:
+            for ref in sql_references:
+                if isinstance(ref, Field):
+                    referenced_views.add(ref.view.name)
 
         # Then, we get the weakly connected references to EACH view that is referenced in the SQL
         base_collection = []

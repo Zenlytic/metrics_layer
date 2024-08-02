@@ -1635,7 +1635,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "total_item_costs",
             "sql",
             "${TABL}.mycol",
-            ["Could not locate reference tabl in field total_item_costs in view order_lines"],
+            [
+                "Could not locate reference tabl in field total_item_costs in view order_lines",
+                "Field total_item_costs in view order_lines contains invalid field reference tabl.",
+            ],
         ),
         ("total_item_costs", "sql", "${TABLE}.mycol", []),
         ("total_item_costs", "sql", "${order_date}", []),
@@ -1680,7 +1683,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "waiting",
             "sql_end",
             "${TABL}.mycol",
-            ["Could not locate reference tabl in field waiting in view order_lines"],
+            [
+                "Could not locate reference tabl in field waiting in view order_lines",
+                "Field waiting in view order_lines contains invalid field reference tabl.",
+            ],
         ),
         ("waiting", "sql_end", "${TABLE}.mycol", []),
         ("waiting", "sql_end", "${order_date}", []),
@@ -1864,6 +1870,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             [
                 "Could not locate reference order_lines.fake in field total_item_costs in view order_lines",
                 (
+                    "Field total_item_costs in view order_lines contains invalid field reference "
+                    "order_lines.fake."
+                ),
+                (
                     "Field total_item_costs in view order_lines has an invalid "
                     "non_additive_dimension. The field order_lines.fake referenced in "
                     "non_additive_dimension does not exist."
@@ -1922,6 +1932,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             {"name": "order_raw", "window_choice": "max", "window_groupings": ["fake"]},
             [
                 "Could not locate reference order_lines.fake in field total_item_costs in view order_lines",
+                (
+                    "Field total_item_costs in view order_lines contains invalid field reference "
+                    "order_lines.fake."
+                ),
                 (
                     "Field total_item_costs in view order_lines has an invalid "
                     "non_additive_dimension. The field order_lines.fake "
@@ -2134,6 +2148,15 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 "Field parent_channel in view order_lines does not have required 'searchable' "
                 "property set to either true or false. This property is required for "
                 "dimensions of type string that are not hidden."
+            ],
+        ),
+        (
+            "revenue_per_session",
+            "sql",
+            "${sessions.number_of_sess} * ${total_item_revenue} / nullif(${total_item_revenue}, 0)",
+            [
+                "Field revenue_per_session in view order_lines contains invalid field "
+                "reference sessions.number_of_sess."
             ],
         ),
         (

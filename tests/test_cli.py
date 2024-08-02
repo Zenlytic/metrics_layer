@@ -446,11 +446,14 @@ def test_cli_validate(connection, fresh_project, mocker):
     # assert result.exit_code == 0
     assert (
         result.output
-        == "Found 4 errors in the project:\n\n"
+        == "Found 7 errors in the project:\n\n"
         "\nCould not locate reference revenue_dimension in field total_item_costs in view order_lines\n\n"
+        "\nField total_item_costs in view order_lines contains invalid field reference revenue_dimension.\n\n"
         "\nCould not locate reference revenue_dimension in field revenue_in_cents in view orders\n\n"
         "\nCould not locate reference revenue_dimension in field total_revenue in view orders\n\n"
         "\nDefault date sessions.session_date in view orders is not joinable to the view orders\n\n"
+        "\nField revenue_in_cents in view orders contains invalid field reference revenue_dimension.\n\n"
+        "\nField total_revenue in view orders contains invalid field reference revenue_dimension.\n\n"
     )
 
 
@@ -516,8 +519,9 @@ def test_cli_validate_personal_field_view_level_error(connection, fresh_project,
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 1 error in the project:\n\n"
+        "Found 2 errors in the project:\n\n"
         "\nWarning: Could not locate reference some_crazy_ref in field cancelled in view customers\n\n"  # noqa
+        "\nWarning: Field cancelled in view customers contains invalid field reference some_crazy_ref.\n\n"  # noqa
     )
 
 
@@ -706,9 +710,10 @@ def test_cli_validate_names(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 3 errors in the project:\n\n"
+        "Found 4 errors in the project:\n\n"
         "\nCould not locate reference days_between_orders in field an invalid @name\\ in view orders\n\n"
         "\nField name: an invalid @name\\ is invalid. Please reference the naming conventions (only letters, numbers, or underscores)\n\n"  # noqa
+        "\nField an invalid @name\ in view orders contains invalid field reference days_between_orders.\n\n"
         "\nField between_orders in view orders is of type duration, but has property timeframes when it should have property intervals\n\n"  # noqa
     )
 
