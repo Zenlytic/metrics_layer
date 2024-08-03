@@ -315,7 +315,17 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         if self._is_literal(where):
             return where.replace(to_replace, field.id())
         else:
-            return [{**w, "field": field.id()} if w["field"] == to_replace else w for w in where]
+            result = []
+            for w in where:
+                if "field" in w and w["field"] == to_replace:
+                    result.append({**w, "field": field.id()})
+                elif "field" not in w:
+                    result.append(
+                        {**w, "conditions": self._replace_dict_or_literal(w["conditions"], to_replace, field)}
+                    )
+                else:
+                    result.append(w)
+            return result
 
     def _get_model_for_query(self, model_name: str = None, metrics: list = [], dimensions: list = []):
         models = self.project.models()
