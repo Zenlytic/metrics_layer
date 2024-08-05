@@ -54,7 +54,7 @@ def test_mapping_metric_mapped_date_and_filter(connection, time_grain):
     elif time_grain == "week":
         date_part = "DATE_TRUNC('WEEK', CAST(orders.order_date AS DATE))"
     elif time_grain == "week_of_year":
-        date_part = "EXTRACT(WEEK FROM orders.order_date)"
+        date_part = "EXTRACT(WEEK FROM DATE_TRUNC('WEEK', CAST(orders.order_date AS DATE)))"
     elif time_grain == "month":
         date_part = "DATE_TRUNC('MONTH', orders.order_date)"
     elif time_grain == "month_of_year":
