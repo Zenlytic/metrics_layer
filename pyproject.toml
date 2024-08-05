@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "metrics_layer"
-version = "0.10.50"
+version = "0.12.29"
 description = "The open source metrics layer."
 authors = ["Paul Blankley <paul@zenlytic.com>"]
 keywords = ["Metrics Layer", "Business Intelligence", "Analytics"]
@@ -16,45 +16,42 @@ GitPython = ">=3.1.20"
 sqlparse = ">=0.4.1"
 PyPika = "^0.48.8"
 pandas = "^1.5.2"
-redshift-connector = {version = ">=2.0.905", optional = true}
+numpy = "^1.24.4"
+redshift-connector = {version = ">=2.0.917", optional = true}
 snowflake-connector-python = {version = ">=3.5.0", optional = true}
 pyarrow = {version = ">=10", optional = true}
 google-cloud-bigquery = {version = ">=2.24.1", optional = true}
 psycopg2-binary = {version = ">=2.9.3", optional = true}
 SQLAlchemy = {version = ">=1.3.18", optional = true}
-dbt-core = {version = "<1.6.0", optional = true}
-dbt-extractor = {version = "^0.4.0", optional = true}
-dbt-snowflake = {version = "^1.0.0", optional = true}
-dbt-bigquery = {version = "^1.0.0", optional = true}
-dbt-redshift = {version = "^1.0.0", optional = true}
-dbt-postgres = {version = "^1.0.0", optional = true}
 networkx = "^2.8.2"
 click = "^8.0"
 colorama = "^0.4.4"
 "ruamel.yaml" = "^0.17.20"
 pendulum = "^3.0.0b1"
 PyYAML = "^6.0"
-metricflow-to-zenlytic = "^0.1.3"
+metricflow-to-zenlytic = "^0.1.5"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
-black = "^22.3.0"
+black = "^24.3.0"
 flake8 = "^3.9.2"
 pre-commit = "^2.15.0"
 isort = "^5.9.3"
 pytest-cov = "^2.12.1"
 pytest-mock = "^3.6.1"
+pytest-xdist = "^3.5.0"
+
 
 [tool.poetry.extras]
-snowflake = ["snowflake-connector-python", "pyarrow", "dbt-snowflake"]
-bigquery = ["google-cloud-bigquery", "pyarrow", "dbt-bigquery"]
-redshift = ["redshift-connector", "dbt-redshift"]
-postgres = ["psycopg2-binary", "dbt-postgres"]
-dbt = ["dbt-core", "dbt-extractor"]
-all = ["snowflake-connector-python", "google-cloud-bigquery", "pyarrow", "dbt-core", "dbt-extractor", "dbt-snowflake", "dbt-bigquery", "dbt-redshift", "redshift-connector", "psycopg2-binary", "dbt-postgres"]
+snowflake = ["snowflake-connector-python", "pyarrow"]
+bigquery = ["google-cloud-bigquery", "pyarrow"]
+redshift = ["redshift-connector"]
+postgres = ["psycopg2-binary"]
+all = ["snowflake-connector-python", "google-cloud-bigquery", "pyarrow", "redshift-connector", "psycopg2-binary"]
 
 [tool.black]
 line-length = 110
+preview = true
 
 [tool.isort]
 profile = "black"

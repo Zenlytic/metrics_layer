@@ -1,13 +1,10 @@
-
-
 # Project name
 name: metrics_project
-mode: dbt
+mode: metricflow
 
 dashboard-paths: ['dashboards']
 
 view-paths: ['models']
-
 # If you don't specify model-paths, the metrics layer will use the profile as the connection_name for the Zenlytic
 # In dbt projects it's safe to leave this out because there is only one database connection
 # You'll need to include multiple models if you have more than one database or you want to set access grants

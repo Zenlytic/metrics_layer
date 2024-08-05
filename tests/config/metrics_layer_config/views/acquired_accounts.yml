@@ -8,32 +8,33 @@ model_name: test_model
 
 fields:
   - name: account_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     primary_key: yes
     hidden: yes
-    sql: "${TABLE}.account_id"
+    sql: '${TABLE}.account_id'
 
   - name: created
-    field_type: "dimension_group"
+    field_type: 'dimension_group'
     type: time
-    timeframes: [
-      raw,
-      time,
-      date,
-      week,
-      month,
-      quarter,
-      year
-    ]
-    sql: "${TABLE}.created_at"
+    timeframes: [raw, time, date, week, month, quarter, year]
+    sql: '${TABLE}.created_at'
 
   - name: account_type
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
-    sql: "${TABLE}.type"
+    sql: '${TABLE}.type'
+    searchable: true
 
   - name: number_of_acquired_accounts
     field_type: measure
     type: count
     sql: ${account_id}
+
+  - name: number_of_acquired_accounts_missing
+    field_type: measure
+    type: count
+    sql: ${account_id}
+    filters:
+      - field: account_id
+        value: null

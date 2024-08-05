@@ -5,9 +5,9 @@ import pytest
 
 from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.model.project import Project
+from metrics_layer.core.parse.connections import BaseConnection
 from metrics_layer.core.parse.manifest import Manifest
 from metrics_layer.core.parse.project_reader_base import ProjectReaderBase
-from metrics_layer.core.parse.connections import BaseConnection
 
 BASE_PATH = os.path.dirname(__file__)
 
@@ -41,6 +41,7 @@ accounts_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/
 acquired_accounts_view_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/views/acquired_accounts.yml"
 )
+mrr_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/mrr.yml")
 customer_accounts_view_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/views/customer_accounts.yml"
 )
@@ -67,6 +68,7 @@ view_paths = [
     customer_accounts_view_path,
     other_db_view_path,
     created_workspaces_view_path,
+    mrr_view_path,
 ]
 dashboard_paths = [sales_dashboard_path, sales_dashboard_v2_path]
 
@@ -74,41 +76,82 @@ dashboard_paths = [sales_dashboard_path, sales_dashboard_v2_path]
 @pytest.fixture(scope="function")
 def seed_snowflake_tables_data():
     order_records = [
-        {"COLUMN_NAME": "ORDER_ID", "DATA_TYPE": "FIXED"},
-        {"COLUMN_NAME": "ORDER_CREATED_AT", "DATA_TYPE": "DATE"},
-        {"COLUMN_NAME": "REVENUE", "DATA_TYPE": "FIXED"},
-        {"COLUMN_NAME": "ACQUISITION_DATE", "DATA_TYPE": "TIMESTAMP_NTZ"},
-        {"COLUMN_NAME": "ON_SOCIAL_NETWORK", "DATA_TYPE": "BOOLEAN"},
-        {"COLUMN_NAME": "CAMPAIGN", "DATA_TYPE": "TEXT"},
-        {"COLUMN_NAME": "NEW_VS_REPEAT", "DATA_TYPE": "TEXT"},
-        {"COLUMN_NAME": "PRODUCT", "DATA_TYPE": "TEXT"},
-        {"COLUMN_NAME": "DAY_OF_WEEK", "DATA_TYPE": "TEXT"},
-        {"COLUMN_NAME": "TWITTER", "DATA_TYPE": "TEXT"},
-        {"COLUMN_NAME": "EMAILS_FROM_US_IN_THE_LAST_WEEK", "DATA_TYPE": "TEXT"},
-        {"COLUMN_NAME": "LAST_VIEWED_PAGE", "DATA_TYPE": "TEXT"},
-        {"COLUMN_NAME": "CUSTOMER_ID", "DATA_TYPE": "TEXT"},
-        {"COLUMN_NAME": "TOP_CUSTOMERS", "DATA_TYPE": "TEXT"},
+        {"COMMENT": "I am an order id", "COLUMN_NAME": "ORDER_ID", "DATA_TYPE": "FIXED"},
+        {"COMMENT": None, "COLUMN_NAME": "ORDER_CREATED_AT", "DATA_TYPE": "DATE"},
+        {"COMMENT": None, "COLUMN_NAME": "REVENUE", "DATA_TYPE": "FIXED"},
+        {"COMMENT": None, "COLUMN_NAME": "ACQUISITION_DATE", "DATA_TYPE": "TIMESTAMP_NTZ"},
+        {"COMMENT": None, "COLUMN_NAME": "ON_SOCIAL_NETWORK", "DATA_TYPE": "BOOLEAN"},
+        {"COMMENT": None, "COLUMN_NAME": "CAMPAIGN", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "NEW_VS_REPEAT", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "PRODUCT", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "DAY_OF_WEEK", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "TWITTER", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "EMAILS_FROM_US_IN_THE_LAST_WEEK", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "LAST_VIEWED_PAGE", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "CUSTOMER_ID", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "TOP_CUSTOMERS", "DATA_TYPE": "TEXT"},
     ]
     order_records = [{"TABLE_NAME": "ORDERS", **o} for o in order_records]
     session_records = [
-        {"COLUMN_NAME": "SESSION_ID", "DATA_TYPE": "TEXT"},
-        {"COLUMN_NAME": "SESSION_DATE", "DATA_TYPE": "DATE"},
-        {"COLUMN_NAME": "ADD_TO_CART", "DATA_TYPE": "FIXED"},
-        {"COLUMN_NAME": "CONVERSION", "DATA_TYPE": "REAL"},
-        {"COLUMN_NAME": "@CRoSSell P-roduct:", "DATA_TYPE": "TEXT"},
-        {"COLUMN_NAME": "ACQUISITION_CHANNEL", "DATA_TYPE": "TEXT"},
-        {"COLUMN_NAME": "SOCIAL_NETWORK", "DATA_TYPE": "TEXT"},
-        {"COLUMN_NAME": "CAMPAIGN", "DATA_TYPE": "TEXT"},
-        {"COLUMN_NAME": "NEW_VS_REPEAT", "DATA_TYPE": "TEXT"},
-        {"COLUMN_NAME": "PRODUCT", "DATA_TYPE": "TEXT"},
-        {"COLUMN_NAME": "DAY_OF_WEEK", "DATA_TYPE": "TEXT"},
-        {"COLUMN_NAME": "TWITTER", "DATA_TYPE": "TEXT"},
-        {"COLUMN_NAME": "EMAILS_FROM_US_IN_THE_LAST_WEEK", "DATA_TYPE": "TEXT"},
-        {"COLUMN_NAME": "LAST_VIEWED_PAGE", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "SESSION_ID", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "SESSION_DATE", "DATA_TYPE": "DATE"},
+        {"COMMENT": None, "COLUMN_NAME": "ADD_TO_CART", "DATA_TYPE": "FIXED"},
+        {"COMMENT": None, "COLUMN_NAME": "CONVERSION", "DATA_TYPE": "REAL"},
+        {"COMMENT": None, "COLUMN_NAME": "@CRoSSell P-roduct:", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "ACQUISITION_CHANNEL", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "SOCIAL_NETWORK", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "CAMPAIGN", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "NEW_VS_REPEAT", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "PRODUCT", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "DAY_OF_WEEK", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "TWITTER", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "EMAILS_FROM_US_IN_THE_LAST_WEEK", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "LAST_VIEWED_PAGE", "DATA_TYPE": "TEXT"},
     ]
     session_records = [{"TABLE_NAME": "SESSIONS", **o} for o in session_records]
     all_records = order_records + session_records
     records = [{"TABLE_CATALOG": "DEMO", "TABLE_SCHEMA": "ANALYTICS", **r} for r in all_records]
+    return pd.DataFrame(records)
+
+
+@pytest.fixture(scope="function")
+def seed_databricks_tables_data():
+    order_records = [
+        {"COMMENT": "I am an order id", "COLUMN_NAME": "order_id", "DATA_TYPE": "BIGINT"},
+        {"COMMENT": None, "COLUMN_NAME": "order_created_at", "DATA_TYPE": "TIMESTAMP"},
+        {"COMMENT": None, "COLUMN_NAME": "revenue", "DATA_TYPE": "FLOAT"},
+        {"COMMENT": None, "COLUMN_NAME": "acquisition_date", "DATA_TYPE": "TIMESTAMP_NTZ"},
+        {"COMMENT": None, "COLUMN_NAME": "on_social_network", "DATA_TYPE": "BOOLEAN"},
+        {"COMMENT": None, "COLUMN_NAME": "campaign", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "new_vs_repeat", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "product", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "day_of_week", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "twitter", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "emails_from_us_in_the_last_week", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "last_viewed_page", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "customer_id", "DATA_TYPE": "TEXT"},
+        {"COMMENT": None, "COLUMN_NAME": "top_customers", "DATA_TYPE": "TEXT"},
+    ]
+    order_records = [{"TABLE_NAME": "orders", **o} for o in order_records]
+    session_records = [
+        {"COMMENT": None, "COLUMN_NAME": "session_id", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "session_date", "DATA_TYPE": "DATE"},
+        {"COMMENT": None, "COLUMN_NAME": "add_to_cart", "DATA_TYPE": "INT"},
+        {"COMMENT": None, "COLUMN_NAME": "conversion", "DATA_TYPE": "LONG"},
+        {"COMMENT": None, "COLUMN_NAME": "@CRoSSell P-roduct:", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "acquisition_channel", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "social_network", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "campaign", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "new_vs_repeat", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "product", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "day_of_week", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "twitter", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "emails_from_us_in_the_last_week", "DATA_TYPE": "STRING"},
+        {"COMMENT": None, "COLUMN_NAME": "last_viewed_page", "DATA_TYPE": "STRING"},
+    ]
+    session_records = [{"TABLE_NAME": "sessions", **o} for o in session_records]
+    all_records = order_records + session_records
+    records = [{"TABLE_CATALOG": "demo", "TABLE_SCHEMA": "analytics", **r} for r in all_records]
     return pd.DataFrame(records)
 
 
@@ -420,11 +463,25 @@ def connections():
                 "role": "reporting",
             }
 
+    class db_mock(BaseConnection):
+        name = "testing_databricks"
+        type = "DATABRICKS"
+        database = None
+        schema = None
+
+        def printable_attributes(self):
+            return {
+                "name": "testing_databricks",
+                "host": "blah.cloud.databricks.com",
+                "http_path": "paul/testing/now",
+            }
+
     sf = sf_mock()
     bq = bq_mock()
-    return [sf, bq]
+    db = db_mock()
+    return [sf, bq, db]
 
 
 @pytest.fixture(scope="module")
 def connection(project, connections):
-    return MetricsLayerConnection(project=project, connections=connections)
+    return MetricsLayerConnection(project=project, connections=connections, verbose=True)

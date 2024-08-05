@@ -1,10 +1,12 @@
 from copy import deepcopy
+from typing import List, Union
 
-from metrics_layer.core.exceptions import QueryError, JoinError
-from metrics_layer.core.sql.single_query_resolve import SingleSQLQueryResolver
+from metrics_layer.core.exceptions import JoinError, QueryError
+from metrics_layer.core.model.filter import Filter
+from metrics_layer.core.model.project import Project
 from metrics_layer.core.sql.merged_query_resolve import MergedSQLQueryResolver
 from metrics_layer.core.sql.query_base import QueryKindTypes
-from metrics_layer.core.model.filter import Filter
+from metrics_layer.core.sql.single_query_resolve import SingleSQLQueryResolver
 
 
 class SQLQueryResolver(SingleSQLQueryResolver):
@@ -13,11 +15,11 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         metrics: list,
         dimensions: list = [],
         funnel: dict = {},  # A dict with steps (list) and within (dict)
-        where: str = None,  # Either a list of json or a string
-        having: str = None,  # Either a list of json or a string
-        order_by: str = None,  # Either a list of json or a string
-        project=None,
-        connections=[],
+        where: Union[str, None, List] = None,  # Either a list of json or a string
+        having: Union[str, None, List] = None,  # Either a list of json or a string
+        order_by: Union[str, None, List] = None,  # Either a list of json or a string
+        project: Union[Project, None] = None,
+        connections: List = [],
         **kwargs,
     ):
         self.field_lookup = {}
@@ -46,7 +48,9 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self.kwargs["query_type"] = self._get_query_type(self.connection, self.kwargs)
         connection_schema = self._get_connection_schema(self.connection)
         self.project.set_connection_schema(connection_schema)
+        self.field_id_mapping = {}
         self._resolve_mapped_fields()
+        self.query_type = None
 
     @property
     def is_merged_result(self):
@@ -77,7 +81,12 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                 "function call.\n\nIf you're seeing this and you expected the views to join on a "
                 "primary or foreign key, make sure you have the right identifiers set on the views."
             )
-            e.message = f"{err_msg}\n\n{appended} \n\n" + deepcopy(e.message)
+            error_message = (
+                f"{err_msg}\n\n{appended}\n\n{deepcopy(e.message)}"
+                if self.verbose
+                else f"{deepcopy(e.message)}"
+            )
+            e.message = error_message
             raise e
 
     def _get_single_query(self, semicolon: bool):
@@ -93,6 +102,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             **self.kwargs,
         )
         query = resolver.get_query(semicolon)
+        self.query_type = resolver.query_type
         return query
 
     def _get_merged_result_query(self, semicolon: bool):
@@ -108,6 +118,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             **self.kwargs,
         )
         query = resolver.get_query(semicolon)
+        self.query_type = resolver.query_type
         return query
 
     def _resolve_mapped_fields(self):
@@ -118,10 +129,18 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self._all_fields = (
             self.metrics + self.dimensions + self._where_fields + self._having_fields + self._order_fields
         )
-        for field_name in self._all_fields:
+
+        replace_bools = [True] * len(self._all_fields) + [False] * len(
+            self.kwargs.get("mapping_lookup_dimensions", [])
+        )
+        lookup_only_fields = [
+            d for d in self.kwargs.get("mapping_lookup_dimensions", []) if d not in self._all_fields
+        ]
+        field_ids = self._all_fields + lookup_only_fields
+        for do_replace, field_name in zip(replace_bools, field_ids):
             mapped_field = self.project.get_mapped_field(field_name, model=self.model)
             if mapped_field:
-                self.mapping_lookup[field_name] = mapped_field
+                self.mapping_lookup[field_name] = {**mapped_field, "do_replace": do_replace}
             else:
                 field_obj = self.project.get_field(field_name, model=self.model)
                 self.field_object_lookup[field_name] = field_obj
@@ -134,6 +153,9 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             mergeable_graphs, joinable_graphs = self._join_graphs_by_type(self.field_lookup)
             self._handle_invalid_merged_result(mergeable_graphs, joinable_graphs)
             for name, mapped_field in self.mapping_lookup.items():
+                if not mapped_field.pop("do_replace"):
+                    continue  # Skip fields that are only for lookup
+
                 is_date_mapping = mapped_field["name"] in self.model.special_mapping_values
                 if is_date_mapping and len(self.metrics) >= 1:
                     # Use the first metric to replace the mapped field everywhere
@@ -152,13 +174,34 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                             self.mapping_forces_merged_result = True
                             break
                 elif is_date_mapping and len(self.dimensions) >= 1:
-                    canon_dates = {self._get_field_from_lookup(d).canon_date for d in self.dimensions}
-                    canon_dates = {c for c in canon_dates if c}
+                    canon_dates = set()
+                    for d in self.dimensions:
+                        field = self._get_field_from_lookup(d, only_search_lookup=True)
+                        if field and field.canon_date:
+                            canon_dates.add(field.canon_date)
+
                     if len(canon_dates) >= 1:
-                        canon_date_id = f'{list(canon_dates)[0]}_{mapped_field["name"]}'
-                        replace_with = self.project.get_field(canon_date_id)
+                        # When there is no measure present, we will chose the canon date
+                        # from the dimension that has the most measures
                         if len(canon_dates) > 1:
-                            self.mapping_forces_merged_result = True
+                            views_by_n_measures = {}
+                            for canon_date in canon_dates:
+                                view_name = canon_date.split(".")[0]
+                                measures = [
+                                    f
+                                    for f in self.project.get_view(view_name).fields()
+                                    if f.field_type == "measure"
+                                ]
+                                views_by_n_measures[canon_date] = len(measures)
+                            sorted_canon_dates = list(
+                                sorted(canon_dates, key=lambda x: views_by_n_measures[x], reverse=True)
+                            )
+                        else:
+                            # Sort is not needed if there is only one canon_date
+                            sorted_canon_dates = list(canon_dates)
+
+                        canon_date_id = f'{sorted_canon_dates[0]}_{mapped_field["name"]}'
+                        replace_with = self.project.get_field(canon_date_id)
                     else:
                         replace_with = self.determine_field_to_replace_with(
                             mapped_field, joinable_graphs, mergeable_graphs
@@ -181,9 +224,11 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                     )
                 self._replace_mapped_field(name, replace_with)
 
-    def _get_field_from_lookup(self, field_name: str):
+    def _get_field_from_lookup(self, field_name: str, only_search_lookup: bool = False):
         if field_name in self.field_object_lookup:
             metric_field = self.field_object_lookup[field_name]
+        elif only_search_lookup:
+            return None
         else:
             metric_field = self.project.get_field(field_name, model=self.model)
         return metric_field
@@ -219,22 +264,37 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                 with_one_removed = {k: v for k, v in self.field_lookup.items() if k != key}
                 merged, joined = self._join_graphs_by_type(with_one_removed)
                 if len(merged) != 0 or len(joined) != 0:
-                    raise QueryError(
+                    error_message = (
                         f"The field {key} could not be either joined into the query "
                         "or mapped and merged into the query as a merged result. \n\n"
                         "Check that you specify joins to join it in, or specify a mapping "
                         "for a query with two tables that cannot be merged"
+                        if self.verbose
+                        else (
+                            f"Error: The field {key} could not be joined or mapped and merged into the query."
+                            " Please try to reformat the query. If the error persists, consult the user for"
+                            " further guidance."
+                        )
                     )
+                    raise QueryError(error_message)
             # Otherwise, we have to show this, worse, error message
             all_fields = list(self.field_lookup.keys()) + list(self.mapping_lookup.keys())
-            raise QueryError(
-                f"The query could not be either joined or mapped and merged into a valid query"
+            error_message = (
+                "The query could not be either joined or mapped and merged into a valid query"
                 f" with the fields:\n\n{', '.join(all_fields)}\n\n"
                 "Check that those fields can be joined together or are mapped so they can "
                 "be merged across tables"
+                if self.verbose
+                else (
+                    "Error: The query could not be either joined or mapped and merged into a valid query"
+                    f" with the fields:\n\n{', '.join(all_fields)}\n\n Please try to reformat the query. If"
+                    " the error persists, consult the user for further guidance."
+                )
             )
+            raise QueryError(error_message)
 
     def _replace_mapped_field(self, to_replace: str, field):
+        self.field_id_mapping[to_replace] = field.id()
         if to_replace in self.metrics:
             idx = self.metrics.index(to_replace)
             self.metrics[idx] = field.id()
@@ -342,8 +402,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         seen = set()
         cleaned_filters = []
         for f in filters:
-
-            hashable_filter = tuple(f.items())
+            hashable_filter = tuple((k, v if not isinstance(v, list) else tuple(v)) for k, v in f.items())
             if hashable_filter not in seen:
                 seen.add(hashable_filter)
                 cleaned_filters.append(f)

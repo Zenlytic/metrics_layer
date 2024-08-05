@@ -1,6 +1,26 @@
+from datetime import datetime
+
 import pytest
 
+from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.model.definitions import Definitions
+
+
+@pytest.mark.query
+def test_cumulative_query_field_object(connection):
+    field = connection.project.get_field("total_lifetime_revenue")
+
+    with pytest.raises(QueryError) as exc_info:
+        field.sql_query(query_type="SNOWFLAKE")
+
+    error_message = (
+        "You cannot call sql_query() on cumulative type field orders.total_lifetime_revenue "
+        "because cumulative queries are dependent on the 'FROM' clause to be correct and "
+        "the sql_query() method only returns the aggregation of the individual metric, not "
+        "the whole SQL query. To see the query, use get_sql_query() with the cumulative metric."
+    )
+    assert isinstance(exc_info.value, QueryError)
+    assert str(exc_info.value) == error_message
 
 
 @pytest.mark.query
@@ -24,16 +44,28 @@ def test_cumulative_query_metric_only_one(connection):
 
 
 @pytest.mark.query
-def test_cumulative_query_metric_with_number(connection):
+@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.redshift, Definitions.bigquery])
+def test_cumulative_query_metric_with_number(connection, query_type):
     query = connection.get_sql_query(
         metrics=["average_order_value_custom", "cumulative_aov"],
-        where=[{"field": "orders.order_raw", "expression": "greater_than", "value": "2018-01-02"}],
+        where=[{"field": "orders.order_raw", "expression": "greater_than", "value": datetime(2018, 1, 2)}],
+        query_type=query_type,
     )
-
-    date_spine = "select dateadd(day, seq4(), '2000-01-01') as date from table(generator(rowcount => 365*40))"
+    if query_type == Definitions.bigquery:
+        date_spine = "select date from unnest(generate_date_array('2000-01-01', '2040-01-01')) as date"
+        date_trunc = "CAST(DATE_TRUNC(CAST(orders.order_date AS DATE), DAY) AS TIMESTAMP)"
+        order_by = ""
+        time = "TIMESTAMP('2018-01-02 00:00:00')"
+    else:
+        date_spine = (
+            "select dateadd(day, seq4(), '2000-01-01') as date from table(generator(rowcount => 365*40))"
+        )
+        date_trunc = "DATE_TRUNC('DAY', orders.order_date)"
+        order_by = " ORDER BY orders_average_order_value_custom DESC NULLS LAST"
+        time = "'2018-01-02T00:00:00'"
     correct = (
         f"WITH date_spine AS ({date_spine}) ,subquery_orders_cumulative_aov "
-        "AS (SELECT DATE_TRUNC('DAY', orders.order_date) as orders_order_date,"
+        f"AS (SELECT {date_trunc} as orders_order_date,"
         "orders.id as orders_number_of_orders,orders.revenue as "
         "orders_total_revenue FROM analytics.orders orders) "
         ",aggregated_orders_cumulative_aov AS (SELECT (SUM(orders_total_revenue)) "
@@ -42,7 +74,7 @@ def test_cumulative_query_metric_with_number(connection):
         "orders_order_date<=date_spine.date WHERE date_spine.date<=current_date())"
         " ,base AS (SELECT (SUM(orders.revenue)) "
         "/ (COUNT(orders.id)) as orders_average_order_value_custom FROM analytics.orders "
-        "orders WHERE orders.order_date>'2018-01-02' ORDER BY orders_average_order_value_custom DESC) "
+        f"orders WHERE orders.order_date>{time}{order_by}) "
         "SELECT base.orders_average_order_value_custom as orders_average_order_value_custom,"
         "aggregated_orders_cumulative_aov.orders_average_order_value_custom as "
         "orders_cumulative_aov FROM base LEFT JOIN aggregated_orders_cumulative_aov ON 1=1;"
@@ -121,7 +153,7 @@ def test_cumulative_query_metric_dimension_no_time(connection):
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
         "WHERE customers.region='West' GROUP BY orders.new_vs_repeat "
-        "ORDER BY order_lines_total_item_revenue DESC) "
+        "ORDER BY order_lines_total_item_revenue DESC NULLS LAST) "
         "SELECT base.orders_new_vs_repeat as orders_new_vs_repeat,"
         "aggregated_orders_total_lifetime_revenue.orders_total_revenue "
         "as orders_total_lifetime_revenue FROM base LEFT JOIN "
@@ -152,10 +184,11 @@ def test_cumulative_metric_and_non_cumulative(connection):
         "JOIN subquery_orders_total_lifetime_revenue ON subquery_orders_total_lifetime_revenue"
         ".orders_order_date<=date_spine.date WHERE date_spine.date<=current_date() GROUP BY "
         "orders_new_vs_repeat) ,base AS (SELECT orders.new_vs_repeat as orders_new_vs_repeat,"
-        "COUNT(DISTINCT(customers.customer_id)) as customers_number_of_customers FROM "
+        "NULLIF(COUNT(DISTINCT CASE WHEN  (customers.customer_id)  IS NOT NULL THEN  "
+        "customers.customer_id  ELSE NULL END), 0) as customers_number_of_customers FROM "
         "analytics.orders orders LEFT JOIN analytics.customers customers ON orders.customer_id"
         "=customers.customer_id WHERE customers.region='West' GROUP BY orders.new_vs_repeat "
-        "ORDER BY customers_number_of_customers DESC) SELECT base.orders_new_vs_repeat as "
+        "ORDER BY customers_number_of_customers DESC NULLS LAST) SELECT base.orders_new_vs_repeat as "
         "orders_new_vs_repeat,(aggregated_orders_total_lifetime_revenue.orders_total_revenue) "
         "/ nullif((COUNT(customers_number_of_customers)), 0) as orders_ltr FROM base LEFT JOIN"
         " aggregated_orders_total_lifetime_revenue ON base.orders_new_vs_repeat="
@@ -220,34 +253,53 @@ def test_cumulative_query_metrics_month_time_frame_no_change_where_time_frame(co
 
 
 @pytest.mark.query
-def test_cumulative_query_metrics_and_time(connection):
+@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.redshift, Definitions.bigquery])
+def test_cumulative_query_metrics_and_time(connection, query_type):
     query = connection.get_sql_query(
         metrics=["total_lifetime_revenue", "total_item_revenue"],
         dimensions=["orders.order_date"],
         where=[
-            {"field": "orders.order_month", "expression": "greater_than", "value": "2018-01-02"},
-            {"field": "orders.order_raw", "expression": "less_than", "value": "2019-01-01"},
+            {"field": "orders.order_month", "expression": "greater_than", "value": datetime(2018, 1, 2)},
+            {"field": "orders.order_raw", "expression": "less_than", "value": datetime(2019, 1, 1)},
         ],
         limit=400,
+        query_type=query_type,
     )
-
+    if query_type == Definitions.bigquery:
+        date_spine = "select date from unnest(generate_date_array('2000-01-01', '2040-01-01')) as date"
+        date_trunc = "CAST(DATE_TRUNC(CAST(orders.order_date AS DATE), DAY) AS TIMESTAMP)"
+        spine_date_trunc = "CAST(DATE_TRUNC(CAST(date_spine.date AS DATE), MONTH) AS TIMESTAMP)"
+        month_date_trunc = "CAST(DATE_TRUNC(CAST(orders.order_date AS DATE), MONTH) AS TIMESTAMP)"
+        date_trunc_group = "orders_order_date"
+        order_by = ""
+        time1 = "TIMESTAMP('2018-01-02 00:00:00')"
+        time2 = "TIMESTAMP('2019-01-01 00:00:00')"
+    else:
+        date_spine = (
+            "select dateadd(day, seq4(), '2000-01-01') as date from table(generator(rowcount => 365*40))"
+        )
+        date_trunc_group = date_trunc = "DATE_TRUNC('DAY', orders.order_date)"
+        spine_date_trunc = "DATE_TRUNC('MONTH', date_spine.date)"
+        month_date_trunc = "DATE_TRUNC('MONTH', orders.order_date)"
+        order_by = " ORDER BY order_lines_total_item_revenue DESC NULLS LAST"
+        time1 = "'2018-01-02T00:00:00'"
+        time2 = "'2019-01-01T00:00:00'"
     correct = (
-        "WITH date_spine AS ("
-        "select dateadd(day, seq4(), '2000-01-01') as date from table(generator(rowcount => 365*40))) ,"
+        f"WITH date_spine AS ({date_spine}) ,"
         "subquery_orders_total_lifetime_revenue AS ("
-        "SELECT DATE_TRUNC('DAY', orders.order_date) as orders_order_date,orders.revenue "
+        f"SELECT {date_trunc} as orders_order_date,orders.revenue "
         "as orders_total_revenue FROM analytics.orders orders) ,"
         "aggregated_orders_total_lifetime_revenue AS ("
         "SELECT SUM(orders_total_revenue) as orders_total_revenue,date_spine.date as orders_order_date "
         "FROM date_spine JOIN subquery_orders_total_lifetime_revenue "
         "ON subquery_orders_total_lifetime_revenue.orders_order_date<=date_spine.date "
         "WHERE date_spine.date<=current_date() GROUP BY date_spine.date "
-        "HAVING DATE_TRUNC('MONTH', date_spine.date)>'2018-01-02' AND date_spine.date<'2019-01-01') ,"
-        "base AS (SELECT DATE_TRUNC('DAY', orders.order_date) as orders_order_date,"
+        f"HAVING {spine_date_trunc}>{time1} AND date_spine.date<{time2}) ,"
+        f"base AS (SELECT {date_trunc} as orders_order_date,"
         "SUM(order_lines.revenue) as order_lines_total_item_revenue FROM analytics.order_line_items "
         "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        "WHERE DATE_TRUNC('MONTH', orders.order_date)>'2018-01-02' AND orders.order_date<'2019-01-01' "
-        "GROUP BY DATE_TRUNC('DAY', orders.order_date) ORDER BY order_lines_total_item_revenue DESC) "
+        f"WHERE {month_date_trunc}>{time1} AND orders.order_date<{time2} "
+        f"GROUP BY {date_trunc_group}{order_by}) "
         "SELECT base.orders_order_date as orders_order_date,"
         "aggregated_orders_total_lifetime_revenue.orders_total_revenue "
         "as orders_total_lifetime_revenue,base.order_lines_total_item_revenue "
@@ -318,7 +370,7 @@ def test_cumulative_query_metrics_dimensions_and_time(connection):
         "as orders_order_date,SUM(order_lines.revenue) as order_lines_total_item_revenue "
         "FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
         "ON order_lines.order_unique_id=orders.id GROUP BY orders.new_vs_repeat,"
-        "DATE_TRUNC('DAY', orders.order_date) ORDER BY order_lines_total_item_revenue DESC) "
+        "DATE_TRUNC('DAY', orders.order_date) ORDER BY order_lines_total_item_revenue DESC NULLS LAST) "
         "SELECT base.orders_new_vs_repeat as orders_new_vs_repeat,base.orders_order_date as "
         "orders_order_date,aggregated_orders_total_lifetime_revenue.orders_total_revenue "
         "as orders_total_lifetime_revenue,aggregated_orders_cumulative_customers"

@@ -1,16 +1,19 @@
 import datetime
 from typing import Dict
 
-import sqlparse
-from pypika import Criterion, Table, Field
+import pandas as pd
+from pypika import Criterion, Field, Table
 from pypika.terms import LiteralValue
-from sqlparse.tokens import Error, Name, Punctuation
-from metrics_layer.core.exceptions import QueryError
 
+from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.field import Field as MetricsLayerField
-from metrics_layer.core.model.filter import Filter, MetricsLayerFilterExpressionType, LiteralValueCriterion
+from metrics_layer.core.model.filter import (
+    Filter,
+    LiteralValueCriterion,
+    MetricsLayerFilterExpressionType,
+)
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_errors import ParseError
 
@@ -99,7 +102,20 @@ class MetricsLayerFilter(MetricsLayerBase):
             except ParseError:
                 raise ParseError(f"We could not find field {self.field_name}")
 
-            if self.design.query_type == "BIGQUERY" and isinstance(definition["value"], datetime.datetime):
+            # If the value is a string, it might be a field reference.
+            # If it is a field reference, we need to replace it with the actual
+            # field's sql as a LiteralValue
+            if "value" in definition and isinstance(definition["value"], str):
+                try:
+                    value_field = self.design.get_field(definition["value"])
+                    functional_pk = self.design.functional_pk()
+                    definition["value"] = LiteralValue(value_field.sql_query(self.query_type, functional_pk))
+                except Exception:
+                    pass
+
+            if self.design.query_type == Definitions.bigquery and isinstance(
+                definition["value"], datetime.datetime
+            ):
                 definition["value"] = bigquery_cast(self.field, definition["value"])
 
             if self.field.type == "yesno" and "False" in str(definition["value"]):
@@ -112,6 +128,7 @@ class MetricsLayerFilter(MetricsLayerBase):
         if self.is_literal_filter:
             return LiteralValueCriterion(self.replace_fields_literal_filter())
         functional_pk = self.design.functional_pk()
+
         return self.criterion(self.field.sql_query(self.query_type, functional_pk))
 
     def isin_sql_query(self, cte_alias, field_name, query_generator):
@@ -156,9 +173,13 @@ class MetricsLayerFilter(MetricsLayerBase):
                     value = bigquery_cast(self.field, f["value"])
                 else:
                     value = f["value"]
-                criteria.append(Filter.sql_query(field_sql, f["expression"], value))
+                criteria.append(Filter.sql_query(field_sql, f["expression"], value, self.field.type))
             return Criterion.all(criteria)
-        return Filter.sql_query(field_sql, self.expression_type, self.value)
+        if isinstance(self.field, MetricsLayerField):
+            field_datatype = self.field.type
+        else:
+            field_datatype = "unknown"
+        return Filter.sql_query(field_sql, self.expression_type, self.value, field_datatype)
 
     def cte(self, query_class, design_class):
         if not self.is_group_by:

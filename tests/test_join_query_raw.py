@@ -21,7 +21,7 @@ def test_query_no_join_raw(connection):
 @pytest.mark.query
 def test_query_join_raw_force_group_by_pretty(connection):
     query = connection.get_sql_query(
-        metrics=["total_item_revenue", "line_item_aov"],
+        metrics=["total_item_revenue"],
         dimensions=["order_lines.order_line_id", "channel"],
         force_group_by=True,
         pretty=True,
@@ -29,16 +29,11 @@ def test_query_join_raw_force_group_by_pretty(connection):
 
     correct = """select order_lines.order_line_id as order_lines_order_line_id,
        order_lines.sales_channel as order_lines_channel,
-       SUM(order_lines.revenue) as order_lines_total_item_revenue,
-       (SUM(order_lines.revenue)) / (NULLIF(COUNT(distinct case
-                                                               when (orders.id) is not null then orders.id
-                                                               else null
-                                                           end), 0)) as order_lines_line_item_aov
+       SUM(order_lines.revenue) as order_lines_total_item_revenue
 from analytics.order_line_items order_lines
-left join analytics.orders orders on order_lines.order_unique_id=orders.id
 group by order_lines.order_line_id,
          order_lines.sales_channel
-order by order_lines_total_item_revenue desc;"""
+order by order_lines_total_item_revenue desc nulls last;"""
 
     assert query == correct
 
@@ -56,7 +51,7 @@ def test_query_single_join_non_base_primary_key(connection):
         "SUM(order_lines.revenue) as order_lines_total_item_revenue FROM "
         "analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON "
         "order_lines.order_unique_id=orders.id GROUP BY orders.id,order_lines.sales_channel,"
-        "orders.new_vs_repeat ORDER BY order_lines_total_item_revenue DESC;"
+        "orders.new_vs_repeat ORDER BY order_lines_total_item_revenue DESC NULLS LAST;"
     )
     assert query == correct
 

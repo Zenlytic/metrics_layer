@@ -1,11 +1,17 @@
 import functools
 import json
 from collections import Counter
+from contextlib import contextmanager
+from typing import List, Union
 
-from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
+from metrics_layer.core.exceptions import (
+    AccessDeniedOrDoesNotExistException,
+    QueryError,
+)
+
 from .dashboard import Dashboard
-from .join_graph import JoinGraph
 from .field import Field
+from .join_graph import JoinGraph
 from .model import AccessGrant, Model
 from .view import View
 
@@ -20,12 +26,13 @@ class Project:
         models: list,
         views: list,
         dashboards: list = [],
-        looker_env: str = None,
+        looker_env: Union[None, str] = None,
         connection_lookup: dict = {},
         manifest=None,
+        commit_hash=None,
     ):
         self._models = models
-        self._views = views
+        self._views = self._handle_join_as_duplication(views)
         self._dashboards = dashboards
         self.looker_env = looker_env
         self.connection_lookup = connection_lookup
@@ -34,7 +41,9 @@ class Project:
         self._user = None
         self._connection_schema = None
         self._timezone = None
+        self._required_access_filter_user_attributes = []
         self._join_graph = None
+        self.commit_hash = commit_hash
 
     def __repr__(self):
         text = "models" if len(self._models) != 1 else "model"
@@ -43,6 +52,16 @@ class Project:
     def __hash__(self):
         user_str = "" if not self._user else json.dumps(self._user, sort_keys=True)
         return self._content_hash + hash(user_str)
+
+    def refresh_cache(self):
+        # Clear LRU Caches
+        self.fields.cache_clear()
+        self.get_field.cache_clear()
+        self.get_field_by_name.cache_clear()
+        self.get_field_by_tag.cache_clear()
+
+        # Clear physical caches
+        self._join_graph = None
 
     @functools.cached_property
     def _content_hash(self):
@@ -62,6 +81,37 @@ class Project:
     def set_timezone(self, timezone: str):
         self._timezone = timezone
 
+    def set_required_access_filter_user_attributes(self, user_attribute_names: List[str]):
+        if not isinstance(user_attribute_names, list):
+            raise QueryError("The required_access_filter_user_attributes must be a list of strings")
+        self._required_access_filter_user_attributes = user_attribute_names
+
+    def add_field(self, field: dict, view_name: str, refresh_cache: bool = True):
+        view = next((v for v in self._views if v["name"] == view_name), None)
+        if view is None:
+            raise AccessDeniedOrDoesNotExistException(
+                f"Could not find a view matching the name {view_name}",
+                object_name=view_name,
+                object_type="view",
+            )
+        # If the field already exists, then do not add it
+        if not any(f["name"].lower() == field["name"].lower() for f in view["fields"]):
+            view["fields"].append(field)
+        if refresh_cache:
+            self.refresh_cache()
+
+    def remove_field(self, field_name: str, view_name: str, refresh_cache: bool = True):
+        view = next((v for v in self._views if v["name"] == view_name), None)
+        if view is None:
+            raise AccessDeniedOrDoesNotExistException(
+                f"Could not find a view matching the name {view_name}",
+                object_name=view_name,
+                object_type="view",
+            )
+        view["fields"] = [f for f in view["fields"] if f["name"] != field_name]
+        if refresh_cache:
+            self.refresh_cache()
+
     @property
     def timezone(self):
         if self._timezone:
@@ -79,37 +129,185 @@ class Project:
             self._join_graph = graph
         return self._join_graph
 
+    def _handle_join_as_duplication(self, views: list):
+        join_as_to_create = {}
+        copied_views = json.loads(json.dumps(views))
+        for v in copied_views:
+            for identifier in v.get("identifiers", []):
+                if "join_as" in identifier and identifier["type"] == "primary":
+                    # To assign the join ONLY to the new view, we need to
+                    # remove the identifier from the original view
+                    v["identifiers"] = [i for i in v["identifiers"] if i["name"] != identifier["name"]]
+
+                    # And we need to remove the join_as statement from the
+                    # identifier when we add it to the new view
+                    identifier_to_add = {**identifier}
+                    identifier_to_add.pop("join_as")
+                    if identifier["join_as"] not in join_as_to_create:
+                        view_args = {
+                            "identifiers": [identifier_to_add],
+                            "fields": json.loads(json.dumps(v.get("fields", []))),
+                        }
+                        if "join_as_label" in identifier:
+                            view_args["label"] = identifier["join_as_label"]
+
+                        if "join_as_field_prefix" in identifier:
+                            view_args["field_prefix"] = identifier["join_as_field_prefix"]
+                        elif "join_as_label" in identifier:
+                            view_args["field_prefix"] = identifier["join_as_label"]
+                        else:
+                            view_args["field_prefix"] = identifier["join_as"].replace("_", " ").title()
+
+                        include_metrics = identifier.get("include_metrics", False)
+                        if not include_metrics:
+                            view_args["fields"] = [
+                                f for f in view_args["fields"] if f.get("field_type") != "measure"
+                            ]
+
+                        join_as_to_create[identifier["join_as"]] = {**v, **view_args}
+
+                    else:
+                        if join_as_to_create[identifier["join_as"]]["name"] != v["name"]:
+                            raise QueryError(
+                                "You cannot have join_as with identical names on different views. "
+                                "Please rename your join_as statement on one of your views."
+                            )
+
+        for view_name, view in join_as_to_create.items():
+            copied_views.append({**view, "name": view_name})
+
+        return copied_views
+
+    @contextmanager
+    def replace_objects(self, replaced_objects: list):
+        replaced_views, replaced_models, replaced_dashboards = [], [], []
+        for dict_obj in replaced_objects:
+            if isinstance(dict_obj, dict):
+                if dict_obj.get("type") == "view":
+                    replaced_views.append(dict_obj)
+                elif dict_obj.get("type") == "model":
+                    replaced_models.append(dict_obj)
+                elif dict_obj.get("type") == "dashboard":
+                    replaced_dashboards.append(dict_obj)
+                else:
+                    # We cannot use the object if it is not a view, model or dashboard
+                    pass
+
+        # Replace model files
+        replaced_model_names = set([m["name"] for m in replaced_models])
+        unchanged_models = [m for m in self._models if m["name"] not in replaced_model_names]
+        current_models = json.loads(json.dumps(self._models))
+
+        # Replace view files
+        replaced_view_names = set([v["name"] for v in replaced_views])
+        unchanged_views = [v for v in self._views if v["name"] not in replaced_view_names]
+        current_views = json.loads(json.dumps(self._views))
+
+        # Replace dashboard files
+        replaced_dashboard_names = set([d["name"] for d in replaced_dashboards])
+        unchanged_dashboards = [d for d in self._dashboards if d["name"] not in replaced_dashboard_names]
+        current_dashboards = json.loads(json.dumps(self._dashboards))
+
+        try:
+            self._models = unchanged_models + replaced_models
+            self._views = unchanged_views + replaced_views
+            self._dashboards = unchanged_dashboards + replaced_dashboards
+            self.refresh_cache()
+            yield
+        finally:
+            self._dashboards = current_dashboards
+            self._views = current_views
+            self._models = current_models
+            self.refresh_cache()
+
+    def validate_with_replaced_objects(self, replaced_objects: list):
+        with self.replace_objects(replaced_objects):
+            return self.validate()
+
+    def _error(self, error: str, extra: dict = {}):
+        # For project level errors we cannot attribute a line or column
+        return {**extra, "message": error, "line": None, "column": None}
+
     def validate(self):
         all_errors = []
-
         for model in self.models():
-            all_errors.extend(model.collect_errors())
+            try:
+                all_errors.extend(model.collect_errors())
+            except QueryError as e:
+                # If we have an error building the model, we cannot continue
+                return [self._error(str(e))]
 
-        all_errors.extend(self.join_graph.collect_errors())
+        try:
+            all_errors.extend(self.join_graph.collect_errors())
+        except QueryError as e:
+            # If we have an error building the graph, we cannot continue
+            # and no other errors will be relevant until this is fixed
+            return [self._error(str(e))]
+
         for join_graph in self.join_graph.list_join_graphs():
             try:
                 self.get_field_by_tag(tag_name="customer", join_graphs=(join_graph,))
             except QueryError as e:
                 error_text = str(e).replace(" name ", " tag ").split("\n")[0]
                 error_text += '. Only one field can have the tag "customer" per joinable graph.'
-                all_errors.append(error_text)
+                all_errors.append(self._error(error_text))
             except Exception:
                 pass
+
         for view in self.views():
+            if len(self._required_access_filter_user_attributes) > 0:
+                for user_attribute_name in self._required_access_filter_user_attributes:
+                    if not view.access_filters:
+                        all_errors.append(
+                            self._error(
+                                (
+                                    f"View {view.name} does not have any access filters, but an access filter"
+                                    f" with user attribute {user_attribute_name} is required."
+                                ),
+                                {"view_name": view.name},
+                            )
+                        )
+                    elif all(af["user_attribute"] != user_attribute_name for af in view.access_filters):
+                        all_errors.append(
+                            self._error(
+                                (
+                                    f"View {view.name} does not have an access filter with the required user"
+                                    f" attribute {user_attribute_name}"
+                                ),
+                                {"view_name": view.name},
+                            )
+                        )
+
             try:
                 view.sql_table_name
             except QueryError as e:
-                all_errors.append(str(e))
+                all_errors.append(self._error(str(e) + f" in the view {view.name}", {"view_name": view.name}))
+            try:
+                referenced_fields = view.referenced_fields()
+            except (AccessDeniedOrDoesNotExistException, QueryError) as e:
+                all_errors.append(self._error(str(e) + f" in the view {view.name}", {"view_name": view.name}))
 
-            referenced_fields = view.referenced_fields()
             view_errors = view.collect_errors()
-            all_errors.extend(
-                [
-                    f"Could not locate reference {field} in view {view.name}"
-                    for field in referenced_fields
-                    if isinstance(field, str)
-                ]
-            )
+
+            for field in referenced_fields:
+                if isinstance(field, tuple):
+                    if "Warning: " in field[-1]:
+                        field_name = field[0].name
+                        field_reference = field[-1].replace("Warning: ", "")
+                        prepend = "Warning: "
+                    else:
+                        field_name = field[0].name
+                        field_reference = field[-1]
+                        prepend = ""
+                    all_errors.append(
+                        self._error(
+                            (
+                                f"{prepend}Could not locate reference {field_reference} in field"
+                                f" {field_name} in view {view.name}"
+                            ),
+                            {"view_name": view.name, "field_name": field_name},
+                        )
+                    )
             all_errors.extend(view_errors)
 
         for dashboard in self.dashboards():
@@ -118,7 +316,13 @@ class Project:
 
         all_errors.extend(self._validate_dashboard_names())
 
-        return list(sorted(set(all_errors), key=lambda x: all_errors.index(x)))
+        cleaned_errors, _seen = [], set([])
+        for e in all_errors:
+            if isinstance(e, dict) and e["message"] not in _seen:
+                cleaned_errors.append(e)
+                _seen.add(e["message"])
+
+        return cleaned_errors
 
     def _validate_dashboard_names(self):
         # We need to make sure the unique identifiers for the dashboards are actually unique
@@ -128,7 +332,7 @@ class Project:
         for name, frequency in name_frequency:
             if frequency > 1:
                 msg = f"Dashboard name {name} appears {frequency} times, make sure dashboard names are unique"
-                errors.append(msg)
+                errors.append(self._error(msg))
             else:
                 break
         return errors
@@ -159,10 +363,17 @@ class Project:
         return [Model(m, project=self) for m in self._models]
 
     def get_model(self, model_name: str) -> Model:
-        return next((m for m in self.models() if m.name == model_name), None)
+        try:
+            return next((m for m in self.models() if m.name == model_name))
+        except StopIteration:
+            raise AccessDeniedOrDoesNotExistException(
+                f"Could not find or you do not have access to model {model_name}",
+                object_name=model_name,
+                object_type="model",
+            )
 
     def access_grants(self):
-        return [AccessGrant(g) for m in self.models() for g in m.access_grants]
+        return [AccessGrant(g, model=m) for m in self.models() for g in m.access_grants]
 
     def get_access_grant(self, grant_name: str):
         try:
@@ -198,18 +409,19 @@ class Project:
                 return all(decisions)
         return True
 
-    def _all_views(self, model):
+    def _all_views(self, model, show_hidden: bool = True):
         views = []
         for v in self._views:
             view = View({**v, "model": model}, project=self)
-            if self.can_access_view(view):
+            view_is_visible = show_hidden or view.hidden is False
+            if self.can_access_view(view) and view_is_visible:
                 views.append(view)
         return views
 
-    def views(self, model: Model = None) -> list:
-        return self._all_views(model)
+    def views(self, model: Union[Model, None] = None, show_hidden: bool = True) -> list:
+        return self._all_views(model, show_hidden)
 
-    def get_view(self, view_name: str, model: Model = None) -> View:
+    def get_view(self, view_name: str, model: Union[Model, None] = None) -> View:
         try:
             return next((v for v in self.views(model=model) if v.name == view_name))
         except StopIteration:
@@ -219,7 +431,10 @@ class Project:
                 object_type="view",
             )
 
-    def sets(self, view_name: str = None):
+    def get_joinable_views(self, view_name: str) -> List[str]:
+        return self.join_graph.get_joinable_view_names(view_name)
+
+    def sets(self, view_name: Union[str, None] = None):
         if view_name:
             try:
                 views = [self.get_view(view_name)]
@@ -233,7 +448,7 @@ class Project:
             all_sets.extend(view.list_sets())
         return all_sets
 
-    def get_set(self, set_name: str, view_name: str = None):
+    def get_set(self, set_name: str, view_name: Union[str, None] = None):
         if view_name:
             sets = self.sets(view_name=view_name)
         else:
@@ -243,10 +458,10 @@ class Project:
     @functools.lru_cache(maxsize=None)
     def fields(
         self,
-        view_name: str = None,
+        view_name: Union[str, None] = None,
         show_hidden: bool = True,
         expand_dimension_groups: bool = False,
-        model: Model = None,
+        model: Union[Model, None] = None,
     ) -> list:
         if view_name is None:
             return self._all_fields(show_hidden, expand_dimension_groups, model)

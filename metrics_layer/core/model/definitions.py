@@ -6,7 +6,20 @@ class Definitions:
     druid = "DRUID"
     sql_server = "SQL_SERVER"
     duck_db = "DUCK_DB"
-    supported_warehouses = [snowflake, bigquery, redshift, postgres, druid, sql_server, duck_db]
+    databricks = "DATABRICKS"
+    azure_synapse = "AZURE_SYNAPSE"
+    supported_warehouses = [
+        snowflake,
+        bigquery,
+        redshift,
+        postgres,
+        druid,
+        sql_server,
+        duck_db,
+        databricks,
+        azure_synapse,
+    ]
+    symmetric_aggregates_supported_warehouses = [snowflake, redshift, bigquery, postgres, duck_db]
     supported_warehouses_text = ", ".join(supported_warehouses)
 
     does_not_exist = "__DOES_NOT_EXIST__"

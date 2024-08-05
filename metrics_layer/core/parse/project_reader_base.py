@@ -1,25 +1,50 @@
-import json
 import os
 
 import ruamel.yaml
-import yaml
-
-try:
-    from dbt.cli.main import dbtRunner
-except ImportError:
-
-    class dbtRunner:
-        def __init__(self) -> None:
-            pass
-
-        def invoke(self, args) -> None:
-            cli_args = " ".join(args)
-            os.system(f"dbt {cli_args}")
-
-
-from metrics_layer.core.exceptions import QueryError
 
 from .github_repo import BaseRepo
+
+
+class Str(ruamel.yaml.scalarstring.ScalarString):
+    __slots__ = "lc"
+
+
+class ZenlyticPreservedScalarString(ruamel.yaml.scalarstring.PreservedScalarString):
+    __slots__ = "lc"
+
+
+class ZenlyticDoubleQuotedScalarString(ruamel.yaml.scalarstring.DoubleQuotedScalarString):
+    __slots__ = "lc"
+
+
+class ZenlyticSingleQuotedScalarString(ruamel.yaml.scalarstring.SingleQuotedScalarString):
+    __slots__ = "lc"
+
+
+# This is so we can spy on the line and column of string types for error messages
+class ZenlyticConstructor(ruamel.yaml.constructor.RoundTripConstructor):
+    def construct_scalar(self, node):
+        # type: (Any) -> Any
+        if not isinstance(node, ruamel.yaml.nodes.ScalarNode):
+            raise ruamel.yaml.constructor.ConstructorError(
+                None, None, "expected a scalar node, but found %s" % node.id, node.start_mark
+            )
+
+        if node.style == "|" and isinstance(node.value, str):
+            ret_val = ZenlyticPreservedScalarString(node.value)
+        elif bool(self._preserve_quotes) and isinstance(node.value, str):
+            if node.style == "'":
+                ret_val = ZenlyticSingleQuotedScalarString(node.value)
+            elif node.style == '"':
+                ret_val = ZenlyticDoubleQuotedScalarString(node.value)
+            else:
+                ret_val = Str(node.value)
+        else:
+            ret_val = Str(node.value)
+        ret_val.lc = ruamel.yaml.comments.LineCol()
+        ret_val.lc.line = node.start_mark.line
+        ret_val.lc.col = node.start_mark.column
+        return ret_val
 
 
 class ProjectReaderBase:
@@ -71,63 +96,6 @@ class ProjectReaderBase:
     def dbt_folder(self):
         return self.repo.dbt_path if self.repo.dbt_path else self.repo.folder
 
-    def search_dbt_project(self, pattern: str):
-        return BaseRepo.glob_search(self.dbt_folder, pattern)
-
-    def generate_manifest_json(self, project_dir: str, profiles_dir: str):
-        dumped_profiles_file = False
-        if profiles_dir is None:
-            profiles_dir = project_dir
-            if not os.path.exists(os.path.join(profiles_dir, "profiles.yml")):
-                self._dump_profiles_file(profiles_dir, self.dbt_project["profile"])
-                dumped_profiles_file = True
-
-        self._run_dbt("deps", project_dir=project_dir, profiles_dir=profiles_dir)
-        self._run_dbt("ls", project_dir=project_dir, profiles_dir=profiles_dir)
-
-        if dumped_profiles_file:
-            self._clean_up_profiles_file(profiles_dir)
-
-    def load_manifest_json(self):
-        manifest_path = os.path.join(self.dbt_folder, "target/manifest.json")
-        if not os.path.exists(manifest_path):
-            raise QueryError("could not find a manifest.json file for your dbt project")
-
-        with open(manifest_path, "r") as f:
-            manifest = json.load(f)
-        return manifest
-
-    def _dump_profiles_file(self, project_dir: str, project_name: str):
-        # It doesn't matter the warehouse type here because we're just compiling the models
-        params = {
-            "type": "snowflake",
-            "account": "fake-url.us-east-1",
-            "user": "fake",
-            "password": "fake",
-            "warehouse": "fake",
-            "database": "fake",
-            "schema": "fake",
-        }
-
-        profiles = {
-            project_name: {"target": "temp", "outputs": {"temp": {**params}}},
-            "config": {"send_anonymous_usage_stats": False},
-        }
-        self.dump_yaml_file(profiles, os.path.join(project_dir, "profiles.yml"))
-
-    def _clean_up_profiles_file(self, project_dir: str):
-        profiles_path = os.path.join(project_dir, "profiles.yml")
-        if os.path.exists(profiles_path):
-            os.remove(profiles_path)
-
-    @staticmethod
-    def _run_dbt(cmd: str, project_dir: str, profiles_dir: str):
-        # create CLI args as a list of strings
-        cli_args = ["--no-version-check", cmd, "--project-dir", project_dir, "--profiles-dir", profiles_dir]
-
-        dbt = dbtRunner()
-        dbt.invoke(cli_args)
-
     @staticmethod
     def read_yaml_if_exists(file_path: str):
         if os.path.exists(file_path):
@@ -136,14 +104,33 @@ class ProjectReaderBase:
 
     @staticmethod
     def read_yaml_file(path: str):
+        yaml = ruamel.yaml.YAML(typ="rt")
+        # HOTFIX: this somehow introduced a unicode error on multiline strings with the character
+        # \u0007 (bell) in them. Commenting out the below code is a temporary fix.
+        # yaml.Constructor = ZenlyticConstructor
+        yaml.version = (1, 1)
         with open(path, "r") as f:
-            yaml_dict = yaml.safe_load(f)
+            yaml_dict = yaml.load(f)
         return yaml_dict
 
     @staticmethod
+    def repr_str(representer, data):
+        return representer.represent_str(str(data))
+
+    @staticmethod
     def dump_yaml_file(data: dict, path: str):
+        yaml = ruamel.yaml.YAML(typ="rt")
+        # HOTFIX: this somehow introduced a unicode error on multiline strings with the character
+        # \u0007 (bell) in them. Commenting out the below code is a temporary fix.
+
+        # yaml.Constructor = ZenlyticConstructor
+        # yaml.representer.add_representer(Str, ProjectReaderBase.repr_str)
+        # yaml.representer.add_representer(ZenlyticPreservedScalarString, ProjectReaderBase.repr_str)
+        # yaml.representer.add_representer(ZenlyticDoubleQuotedScalarString, ProjectReaderBase.repr_str)
+        # yaml.representer.add_representer(ZenlyticSingleQuotedScalarString, ProjectReaderBase.repr_str)
+        filtered_data = {k: v for k, v in data.items() if not k.startswith("_")}
         with open(path, "w") as f:
-            ruamel.yaml.dump(data, f, Dumper=ruamel.yaml.RoundTripDumper)
+            yaml.dump(filtered_data, f)
 
     def load(self) -> None:
         raise NotImplementedError()

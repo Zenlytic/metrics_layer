@@ -1,16 +1,17 @@
+from copy import copy
 from typing import Dict, List
 
 from pypika import Criterion, Order, Table
 from pypika.terms import LiteralValue
 
 from metrics_layer.core.exceptions import QueryError
-from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.field import Field
-from metrics_layer.core.model.view import View
 from metrics_layer.core.model.filter import LiteralValueCriterion
+from metrics_layer.core.model.view import View
+from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
-from metrics_layer.core.sql.query_dialect import query_lookup
+from metrics_layer.core.sql.query_dialect import NullSorting, query_lookup
 from metrics_layer.core.sql.query_errors import ArgumentError
 from metrics_layer.core.sql.query_filter import MetricsLayerFilter
 
@@ -75,6 +76,25 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         elif self.query_type in {Definitions.snowflake, Definitions.redshift, Definitions.duck_db}:
             self.order_by_args.append({"field": "__DEFAULT__"})
 
+        # Parse any non-additive dimension on given metrics to collect
+        # them as CTE's for the appropriate filters
+        self.non_additive_ctes = []
+        metrics_in_select = definition.get("metrics", [])
+        metrics_in_having = [h.field.id() for h in self.having_filters if h.field]
+        for metric in metrics_in_select + metrics_in_having:
+            metric_field = self.design.get_field(metric)
+            for ref_field in [metric_field] + metric_field.referenced_fields(metric_field.sql):
+                if non_additive_dimension := ref_field.non_additive_dimension:
+                    cte_alias = ref_field.non_additive_cte_alias()
+                    if cte_alias not in [cte["cte_alias"] for cte in self.non_additive_ctes]:
+                        self.non_additive_ctes.append(
+                            {
+                                **non_additive_dimension,
+                                "alias": ref_field.non_additive_alias(),
+                                "cte_alias": cte_alias,
+                            }
+                        )
+
     def _parse_filter_object(self, filter_object, filter_type: str, access_filter: str = None):
         results = []
         extra_kwargs = dict(filter_type=filter_type, design=self.design)
@@ -102,10 +122,22 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         if isinstance(order_by, str):
             for order_clause in order_by.split(","):
                 if "desc" in order_clause.lower():
-                    field_reference = order_clause.lower().replace("desc", "").strip()
+                    field_reference = (
+                        order_clause.lower()
+                        .replace("desc", "")
+                        .replace("nulls last", "")
+                        .replace("nulls first", "")
+                        .strip()
+                    )
                     results.append({"field": field_reference, "sort": "desc"})
                 else:
-                    field_reference = order_clause.lower().replace("asc", "").strip()
+                    field_reference = (
+                        order_clause.lower()
+                        .replace("asc", "")
+                        .replace("nulls last", "")
+                        .replace("nulls first", "")
+                        .strip()
+                    )
                     results.append({"field": field_reference, "sort": "asc"})
 
         # Handle JSON order_by
@@ -161,6 +193,54 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                 )
             base_query = base_query.where(Criterion.all(group_by_where))
 
+        if self.non_additive_ctes:
+            for definition in sorted(self.non_additive_ctes, key=lambda x: x["alias"]):
+                group_by_dimensions = definition.get("window_groupings", [])
+                if definition.get("window_aware_of_query_dimensions", True):
+                    group_by_dimensions.extend([d.lower() for d in self.dimensions])
+                else:
+                    non_additive_dim = self.design.get_field(definition["name"])
+                    # Only add a dimension if it's a variation of the non additive dimension
+                    dimensions_to_add = [
+                        d for d in self.dimensions if non_additive_dim.name == self.design.get_field(d).name
+                    ]
+                    group_by_dimensions.extend(dimensions_to_add)
+                group_by_dimensions = list(
+                    sorted(set(group_by_dimensions), key=lambda x: group_by_dimensions.index(x))
+                )
+                cte_query = self._non_additive_cte(definition, group_by_dimensions)
+
+                base_query = base_query.with_(Table(cte_query), definition["cte_alias"])
+                # When there are no group by dimensions, we need to join on a dummy join for the case filter
+                if len(group_by_dimensions) == 0:
+                    join_sql = LiteralValueCriterion("1=1")
+                    base_query = base_query.left_join(Table(definition["cte_alias"])).on(join_sql)
+
+                # When there are group by dimensions, we need to join on *all* those dimensions
+                else:
+                    nulls_are_equal = definition.get("nulls_are_equal", False)
+                    condition = []
+                    for dim in group_by_dimensions:
+                        f = self.design.get_field(dim)
+                        field_sql = self.get_sql(f)
+                        if nulls_are_equal and self.query_type != Definitions.snowflake:
+                            condition.append(
+                                f"({field_sql}={definition['cte_alias']}.{f.alias(with_view=True)} OR"
+                                f" ({field_sql} IS NULL AND"
+                                f" {definition['cte_alias']}.{f.alias(with_view=True)} IS NULL))"
+                            )
+                        elif nulls_are_equal and self.query_type == Definitions.snowflake:
+                            condition.append(
+                                f"equal_null({field_sql},"
+                                f" {definition['cte_alias']}.{f.alias(with_view=True)})"
+                            )
+                        else:
+                            condition.append(
+                                f"{field_sql}={definition['cte_alias']}.{f.alias(with_view=True)}"
+                            )
+                    join_sql = LiteralValueCriterion(" and ".join(condition))
+                    base_query = base_query.left_join(Table(definition["cte_alias"])).on(join_sql)
+
         if self.funnel_filters:
             cte_alias = "link_filter_subquery"
             funnel_filter = self.funnel_filters[0]
@@ -174,18 +254,22 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
 
         # Handle order by
         if self.order_by_args and not self.no_group_by:
+            all_fields = self.metrics + self.dimensions
             for arg in self.order_by_args:
                 # If the order isn't specified, then we default to the first measure or dim if no measure
-                if arg["field"] == "__DEFAULT__":
-                    all_fields = self.metrics + self.dimensions
+                if arg["field"] == "__DEFAULT__" and len(all_fields) > 0:
                     first_field = self.design.get_field(all_fields[0])
                     arg["sort"] = "desc" if first_field.field_type == "measure" else "asc"
                     arg["field"] = first_field.alias(with_view=True)
+                elif arg["field"] == "__DEFAULT__" and len(all_fields) == 0:
+                    continue
                 else:
                     field = self.design.get_field(arg["field"])
                     arg["field"] = field.alias(with_view=True)
                 order = Order.desc if arg["sort"] == "desc" else Order.asc
-                base_query = base_query.orderby(LiteralValue(arg["field"]), order=order)
+                base_query = base_query.orderby(
+                    LiteralValue(arg["field"]), order=order, nulls=NullSorting.last
+                )
 
         completed_query = base_query.limit(self.limit)
         if self.return_pypika_query:
@@ -288,6 +372,54 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         else:
             table_expr = Table(view.sql_table_name, alias=view.name)
         return table_expr
+
+    def _non_additive_cte(self, definition: dict, group_by_dimensions: list):
+        field_lookup = {}
+
+        for n in group_by_dimensions:
+            field = self.design.get_field(n)
+            field_lookup[field.id()] = field
+
+        non_additive_dimension = self.design.get_field(definition["name"])
+        # This line is to make the non-additive dimension's view available to the query
+        field_lookup[non_additive_dimension.id()] = non_additive_dimension
+
+        # We also need to make all fields in the where clause available to the query
+        for f in self.where:
+            field = self.design.get_field(f["field"])
+            field_lookup[field.id()] = field
+
+        temp_field_name = definition["window_choice"] + "_" + definition["name"].split(".")[-1]
+        project = copy(self.design.project)
+        project.add_field(
+            {
+                "name": temp_field_name,
+                "field_type": "measure",
+                "type": definition["window_choice"],
+                "sql": "${" + f'{non_additive_dimension.view.name}.{definition["name"].split(".")[-1]}' + "}",
+            },
+            view_name=non_additive_dimension.view.name,
+            refresh_cache=False,
+        )
+        design = MetricsLayerDesign(
+            no_group_by=False,
+            query_type=self.design.query_type,
+            field_lookup=field_lookup,
+            model=self.design.model,
+            project=project,
+        )
+
+        config = {
+            "metrics": [non_additive_dimension.view.name + "." + temp_field_name],
+            "dimensions": group_by_dimensions,
+            "where": self.where,
+            "having": [],
+            "return_pypika_query": True,
+        }
+        generator = MetricsLayerQuery(config, design=design)
+        cte_query = generator.get_query()
+        project.remove_field(temp_field_name, view_name=non_additive_dimension.view.name, refresh_cache=False)
+        return cte_query
 
     # Code for the GROUP BY part of the query
     def get_group_by_columns(self):

@@ -1,9 +1,9 @@
-import json
 import hashlib
-from metrics_layer.core.exceptions import QueryError
+import json
 from collections import defaultdict
 from copy import deepcopy
 
+from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.sql.query_merged_results import MetricsLayerMergedResultsQuery
 from metrics_layer.core.sql.single_query_resolve import SingleSQLQueryResolver
@@ -40,6 +40,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         self.dimensions = dimensions
         self.parse_field_names(where, having, order_by)
         self.model = model
+        self.query_type = None
 
     def get_query(self, semicolon: bool = True):
         self.parse_field_names(self.where, self.having, self.order_by)
@@ -85,6 +86,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             ]
             for k, items in self.mapping_lookup.items()
         }
+        self.query_type = resolver.query_type
         query_config = {
             "merged_metrics": self.merged_metrics,
             "query_metrics": readable_metrics,
@@ -93,12 +95,13 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             "queries_to_join": queries_to_join,
             "join_hashes": list(sorted(readable_join_hashes)),
             "mapping_lookup": readable_mapping_lookup,
-            "query_type": resolver.query_type,
+            "query_type": self.query_type,
             "limit": self.limit,
+            "return_pypika_query": self.return_pypika_query,
             "project": self.project,
         }
         # Druid does not allow semicolons
-        if resolver.query_type == Definitions.druid:
+        if self.query_type == Definitions.druid:
             semicolon = False
 
         merged_result_query = MetricsLayerMergedResultsQuery(query_config)
@@ -119,6 +122,15 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                 self.merged_metrics.append(field)
             else:
                 self.secondary_metrics.append(field)
+
+        secondary_metric_ids = [m.id() for m in self.secondary_metrics]
+        merged_metric_ids = [m.id() for m in self.merged_metrics]
+        for h in self.having:
+            field = self.project.get_field(h["field"])
+            if field.id() not in secondary_metric_ids and not field.is_merged_result:
+                self.secondary_metrics.append(field)
+            elif field.id() not in merged_metric_ids and field.is_merged_result:
+                self.merged_metrics.append(field)
 
         for dimension in self.dimensions:
             self.dimension_fields.append(self.project.get_field(dimension))
@@ -159,14 +171,17 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         self.mapping_lookup = deepcopy(dimension_mapping)
 
         mappings = self.model.get_mappings(dimensions_only=True)
-        for key, map_to in mappings.items():
-            for other_join_hash in used_join_hashes:
-                if self._join_hash_contains_join_graph(other_join_hash, [map_to["to_join_hash"]]):
-                    self.mapping_lookup[key].append(
-                        {"field": map_to["field"], "from_join_hash": other_join_hash}
+        for key, mapping_data in mappings.items():
+            for map_to in mapping_data["references"]:
+                for other_join_hash in used_join_hashes:
+                    if self._join_hash_contains_join_graph(other_join_hash, [map_to["to_join_hash"]]):
+                        self.mapping_lookup[key].append(
+                            {"field": map_to["field"], "from_join_hash": other_join_hash}
+                        )
+                        map_to["from_join_hash"] = other_join_hash
+                    dimension_mapping[key].append(
+                        {"from_join_hash": mapping_data["from_join_hash"], **map_to}
                     )
-                    map_to["from_join_hash"] = other_join_hash
-                dimension_mapping[key].append(deepcopy(map_to))
 
         self.query_dimensions = defaultdict(list)
         for dimension in self.dimensions:
@@ -191,26 +206,37 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                         not_in_metrics = False
                     else:
                         if field_key not in dimension_mapping:
-                            raise QueryError(
+                            error_message = (
                                 f"Could not find mapping from field {field_key} to other views. "
                                 "Please add a mapping to your model definition to allow the mapping "
                                 "if you'd like to use this field in a merged result query."
+                                if self.verbose
+                                else (
+                                    f"Error: Could not find mapping from field {field_key} to other views."
+                                    " Please try to reformat the query. If the error persists, please"
+                                    " consult the user for further guidance."
+                                )
                             )
+                            raise QueryError(error_message)
+                        # If a dimension is NOT available in the same join subgraph as the metric,
+                        # we need to map it to the correct subgraph, and it has to exist in the mapping
                         for mapping_info in dimension_mapping[field_key]:
                             ref_field = self.project.get_field(mapping_info["field"])
-                            if mapping_info["from_join_hash"] in self.query_metrics:
+                            # If the field is in the same subgraph as the metric, attach it if we're in
+                            # the correct loop that matches the join hash in the loop matches the one
+                            # on the dimension
+                            if (
+                                mapping_info["from_join_hash"] in self.query_metrics
+                                and mapping_info["from_join_hash"] == join_hash
+                            ):
                                 self.query_dimensions[mapping_info["from_join_hash"]].append(ref_field)
+                            # If the field is in a different subgraph, attach it to the correct subgraph
+                            # using the mapping that exists going "to" the join hash we're in the loop for
                             else:
                                 canon_date = ref_field.canon_date.replace(".", "_")
-                                existing_join_hashes = (
-                                    join_hash
-                                    for join_hash in used_join_hashes
-                                    if mapping_info["to_join_hash"] in join_hash
-                                )
-                                join_hash = next(existing_join_hashes, None)
-                                default_join_hash = f"{canon_date}__{mapping_info['to_join_hash']}"
-                                key = join_hash if join_hash else default_join_hash
-                                self.query_dimensions[key].append(ref_field)
+                                if mapping_info["to_join_hash"] in join_hash:
+                                    self.query_dimensions[join_hash].append(ref_field)
+                                    break
 
                 if not_in_metrics:
                     field_key = f"{field.view.name}.{field.name}"
@@ -287,7 +313,8 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                 canon_dates.append(ref_field.canon_date)
 
         joinable_sets = []
-        for field in self.secondary_metrics + self.dimension_fields:
+        metrics = [f for field_list in self.query_metrics.values() for f in field_list]
+        for field in metrics + self.dimension_fields:
             joinable_graphs = [j for j in field.join_graphs() if "merged_result" not in j]
             all_joinable = all(any(j in join_set for j in joinable_graphs) for join_set in joinable_sets)
             any_joinable = any(any(j in join_set for j in joinable_graphs) for join_set in joinable_sets)

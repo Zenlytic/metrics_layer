@@ -9,58 +9,48 @@ default_date: session
 row_label: Session
 
 identifiers:
-- name: customer_join
-  type: join
-  reference: customers
-  relationship: many_to_one
-  sql_on: "${customers.customer_id}=${submitted_form.customer_id} AND ${submitted_form.session_date} is not null"
+  - name: customer_join
+    type: join
+    reference: customers
+    relationship: many_to_one
+    join_type: full_outer
+    sql_on: '${customers.customer_id}=${submitted_form.customer_id} AND ${submitted_form.session_date} is not null'
 
+access_filters:
+  - field: submitted_form.session_id
+    user_attribute: products
 
 fields:
   - name: session_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     primary_key: yes
     hidden: yes
-    sql: "${TABLE}.id"
+    sql: '${TABLE}.id'
 
   - name: customer_id
     field_type: dimension
     type: string
     sql: ${TABLE}.customer_id
+    searchable: false
 
   - name: context_os
     field_type: dimension
     type: string
     sql: ${TABLE}.context_os
+    searchable: true
 
   - name: session
-    field_type: "dimension_group"
+    field_type: 'dimension_group'
     type: time
-    timeframes: [
-      raw,
-      time,
-      date,
-      week,
-      month,
-      quarter,
-      year
-    ]
-    sql: "${TABLE}.session_date"
+    timeframes: [raw, time, date, week, month, quarter, year]
+    sql: '${TABLE}.session_date'
 
   - name: sent_at
-    field_type: "dimension_group"
+    field_type: 'dimension_group'
     type: time
-    timeframes: [
-      raw,
-      time,
-      date,
-      week,
-      month,
-      quarter,
-      year
-    ]
-    sql: "${TABLE}.session_date"
+    timeframes: [raw, time, date, week, month, quarter, year]
+    sql: '${TABLE}.sent_at'
 
   - name: number_of_form_submissions
     field_type: measure
@@ -72,3 +62,8 @@ fields:
     type: count_distinct
     canon_date: sent_at
     sql: ${customer_id}
+
+  - name: unique_users_per_form_submission
+    field_type: measure
+    type: number
+    sql: ${unique_users_form_submissions} / ${number_of_form_submissions}

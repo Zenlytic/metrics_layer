@@ -1,14 +1,23 @@
 import datetime
 
 import pytest
+
 from metrics_layer.core import MetricsLayerConnection
-from metrics_layer.core.exceptions import QueryError, JoinError
+from metrics_layer.core.exceptions import JoinError, QueryError
 from metrics_layer.core.model.definitions import Definitions
 
 
 @pytest.mark.query
 @pytest.mark.parametrize(
-    "query_type", [Definitions.snowflake, Definitions.bigquery, Definitions.redshift, Definitions.duck_db]
+    "query_type",
+    [
+        Definitions.snowflake,
+        Definitions.bigquery,
+        Definitions.redshift,
+        Definitions.duck_db,
+        Definitions.postgres,
+        Definitions.databricks,
+    ],
 )
 def test_merged_result_query_additional_metric(connection, query_type):
     query = connection.get_sql_query(
@@ -20,21 +29,38 @@ def test_merged_result_query_additional_metric(connection, query_type):
     )
     cte_1, cte_2 = "order_lines_order__cte_subquery_0", "sessions_session__cte_subquery_1"
     if query_type == Definitions.bigquery:
-        order_date = "CAST(DATE_TRUNC(CAST(order_lines.order_date AS DATE), MONTH) AS TIMESTAMP)"
+        order_date = "CAST(DATE_TRUNC(CAST(order_lines.order_date AS DATE), MONTH) AS DATE)"
         session_date = "CAST(DATE_TRUNC(CAST(sessions.session_date AS DATE), MONTH) AS TIMESTAMP)"
 
         order_by = ""
         session_by = ""
-    elif query_type == Definitions.duck_db:
+    elif query_type in {Definitions.postgres, Definitions.databricks, Definitions.duck_db}:
         order_date = "DATE_TRUNC('MONTH', CAST(order_lines.order_date AS TIMESTAMP))"
         session_date = "DATE_TRUNC('MONTH', CAST(sessions.session_date AS TIMESTAMP))"
-        order_by = " ORDER BY order_lines_total_item_revenue DESC"
-        session_by = " ORDER BY sessions_number_of_sessions DESC"
+        if query_type == Definitions.duck_db:
+            order_by = " ORDER BY order_lines_total_item_revenue DESC NULLS LAST"
+            session_by = " ORDER BY sessions_number_of_sessions DESC NULLS LAST"
+        else:
+            order_by = ""
+            session_by = ""
     else:
         order_date = "DATE_TRUNC('MONTH', order_lines.order_date)"
         session_date = "DATE_TRUNC('MONTH', sessions.session_date)"
-        order_by = " ORDER BY order_lines_total_item_revenue DESC"
-        session_by = " ORDER BY sessions_number_of_sessions DESC"
+        order_by = " ORDER BY order_lines_total_item_revenue DESC NULLS LAST"
+        session_by = " ORDER BY sessions_number_of_sessions DESC NULLS LAST"
+
+    if Definitions.bigquery == query_type:
+        on_statement = f"CAST({cte_1}.order_lines_order_month AS TIMESTAMP)=CAST({cte_2}.sessions_session_month AS TIMESTAMP)"  # noqa
+    else:
+        on_statement = f"{cte_1}.order_lines_order_month={cte_2}.sessions_session_month"
+
+    if query_type == Definitions.redshift:
+        ifnull = "nvl"
+    elif query_type in {Definitions.postgres, Definitions.databricks, Definitions.duck_db}:
+        ifnull = "coalesce"
+    else:
+        ifnull = "ifnull"
+
     correct = (
         f"WITH {cte_1} AS ("
         f"SELECT {order_date} as order_lines_order_month,"
@@ -50,11 +76,11 @@ def test_merged_result_query_additional_metric(connection, query_type):
         f"{session_by}) "
         f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,"
-        f"ifnull({cte_1}.order_lines_order_month, {cte_2}.sessions_session_month) as order_lines_order_month,"
-        f"ifnull({cte_2}.sessions_session_month, {cte_1}.order_lines_order_month) as sessions_session_month,"
+        f"{ifnull}({cte_1}.order_lines_order_month, {cte_2}.sessions_session_month) as order_lines_order_month,"  # noqa
+        f"{ifnull}({cte_2}.sessions_session_month, {cte_1}.order_lines_order_month) as sessions_session_month,"  # noqa
         f"order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
         f"FROM {cte_1} FULL OUTER JOIN {cte_2} "
-        f"ON {cte_1}.order_lines_order_month={cte_2}.sessions_session_month;"
+        f"ON {on_statement};"
     )
     assert query == correct
 
@@ -87,13 +113,13 @@ def test_merged_result_query_only_metric(connection, dim):
         "SUM(order_lines.revenue) as order_lines_total_item_revenue "
         "FROM analytics.order_line_items order_lines "
         f"GROUP BY DATE_TRUNC('MONTH', order_lines.order_date) "
-        "ORDER BY order_lines_total_item_revenue DESC) ,"
+        "ORDER BY order_lines_total_item_revenue DESC NULLS LAST) ,"
         f"{cte_2} AS ("
         f"SELECT DATE_TRUNC('MONTH', sessions.session_date) as sessions_session_month,"
         "COUNT(sessions.id) as sessions_number_of_sessions "
         "FROM analytics.sessions sessions "
         f"GROUP BY DATE_TRUNC('MONTH', sessions.session_date) "
-        "ORDER BY sessions_number_of_sessions DESC) "
+        "ORDER BY sessions_number_of_sessions DESC NULLS LAST) "
         f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,{date_seq},"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
@@ -108,17 +134,33 @@ def test_merged_result_join_graph(connection):
     def _blow_out_by_time_frame(join_graph: str, tf: list):
         return [f"{join_graph}_{tf}" for tf in tf]
 
-    tf = ["date", "day_of_week", "hour_of_day", "month", "quarter", "raw", "time", "week", "year"]
+    tf = [
+        "date",
+        "day_of_week",
+        "day_of_year",
+        "hour_of_day",
+        "month",
+        "month_of_year",
+        "quarter",
+        "raw",
+        "time",
+        "week",
+        "week_of_year",
+        "year",
+    ]
     core_tf = ["raw", "time", "date", "week", "month", "quarter", "year"]
     sub_q_cr = _blow_out_by_time_frame("merged_result_canon_date_core", core_tf)
     sub_q_0_4 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_4", core_tf)
     sub_q_0_2 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_7", core_tf)
     sub_q_0_3 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_3", core_tf)
-    sub_q_0_5 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_9", core_tf)
-    sub_q_0_6 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_6", core_tf)
+    sub_q_0_5 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_5", core_tf)
     sub_q_0_8 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_8", core_tf)
+    sub_q_0_9 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_9", core_tf)
     sub_q_0_10 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_10", core_tf)
+    sub_q_0_11 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_11", core_tf)
     sub_q_0_12 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_12", core_tf)
+    sub_q_0_14 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_14", core_tf)
+    sub_q_0_15 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_15", core_tf)
     sub_q_0_1 = _blow_out_by_time_frame("merged_result_subquery_0_subquery_1", core_tf)
     revenue_set = [
         *sub_q_cr,
@@ -126,10 +168,13 @@ def test_merged_result_join_graph(connection):
         *sub_q_0_2,
         *sub_q_0_3,
         *sub_q_0_5,
-        *sub_q_0_6,
         *sub_q_0_8,
+        *sub_q_0_9,
         *sub_q_0_10,
+        *sub_q_0_11,
         *sub_q_0_12,
+        *sub_q_0_14,
+        *sub_q_0_15,
         *sub_q_0_1,
     ]
     field = connection.get_field("revenue_per_session")
@@ -143,14 +188,17 @@ def test_merged_result_join_graph(connection):
         "subquery_0",
         "merged_result_canon_date_core_date",
         "merged_result_subquery_0_subquery_10_date",
+        "merged_result_subquery_0_subquery_11_date",
         "merged_result_subquery_0_subquery_12_date",
+        "merged_result_subquery_0_subquery_14_date",
+        "merged_result_subquery_0_subquery_15_date",
         "merged_result_subquery_0_subquery_1_date",
         "merged_result_subquery_0_subquery_4_date",
         "merged_result_subquery_0_subquery_7_date",
         "merged_result_subquery_0_subquery_3_date",
-        "merged_result_subquery_0_subquery_9_date",
-        "merged_result_subquery_0_subquery_6_date",
+        "merged_result_subquery_0_subquery_5_date",
         "merged_result_subquery_0_subquery_8_date",
+        "merged_result_subquery_0_subquery_9_date",
     ]
     assert field.join_graphs() == list(sorted(order_lines_date_graphs))
 
@@ -159,14 +207,17 @@ def test_merged_result_join_graph(connection):
         "subquery_0",
         "merged_result_canon_date_core_date",
         "merged_result_subquery_0_subquery_10_date",
+        "merged_result_subquery_0_subquery_11_date",
         "merged_result_subquery_0_subquery_12_date",
+        "merged_result_subquery_0_subquery_14_date",
+        "merged_result_subquery_0_subquery_15_date",
         "merged_result_subquery_0_subquery_1_date",
         "merged_result_subquery_0_subquery_4_date",
         "merged_result_subquery_0_subquery_7_date",
         "merged_result_subquery_0_subquery_3_date",
-        "merged_result_subquery_0_subquery_9_date",
-        "merged_result_subquery_0_subquery_6_date",
+        "merged_result_subquery_0_subquery_5_date",
         "merged_result_subquery_0_subquery_8_date",
+        "merged_result_subquery_0_subquery_9_date",
     ]
     assert field.join_graphs() == list(sorted(order_date_graphs))
     field = connection.get_field("sub_channel")
@@ -187,30 +238,30 @@ def test_merged_result_join_graph(connection):
         "subquery_3",
         "subquery_1",
         "subquery_4",
-        "subquery_8",
-        "subquery_9",
+        "subquery_11",
+        "subquery_12",
         "subquery_10",
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_1", tf),
         *_blow_out_by_time_frame("merged_result_subquery_1_subquery_3", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_1_subquery_4", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_1_subquery_9", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_1_subquery_8", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_1_subquery_12", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_1_subquery_11", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_3", tf),
-        *_blow_out_by_time_frame("merged_result_subquery_0_subquery_9", tf),
-        *_blow_out_by_time_frame("merged_result_subquery_3_subquery_9", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_9", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_8_subquery_9", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_8", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_0_subquery_12", tf),
+        *_blow_out_by_time_frame("merged_result_subquery_12_subquery_3", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_12_subquery_4", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_11_subquery_12", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_11_subquery_3", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_3_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_4", tf),
-        *_blow_out_by_time_frame("merged_result_subquery_0_subquery_8", tf),
+        *_blow_out_by_time_frame("merged_result_subquery_0_subquery_11", tf),
         *_blow_out_by_time_frame("merged_result_subquery_10_subquery_3", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_10_subquery_4", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_10_subquery_8", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_10_subquery_9", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_10_subquery_11", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_10_subquery_12", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_1_subquery_10", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_10", tf),
-        *_blow_out_by_time_frame("merged_result_subquery_3_subquery_8", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_11_subquery_4", core_tf),
     ]
     assert field.join_graphs() == list(sorted(gender_graphs))
 
@@ -220,13 +271,16 @@ def test_merged_result_join_graph(connection):
         *_blow_out_by_time_frame("merged_result_canon_date_core", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_1_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_10_subquery_4", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_11_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_12_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_0_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_3_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_4_subquery_7", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_9", core_tf),
-        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_6", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_5", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_14_subquery_4", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_15_subquery_4", core_tf),
         *_blow_out_by_time_frame("merged_result_subquery_4_subquery_8", core_tf),
+        *_blow_out_by_time_frame("merged_result_subquery_4_subquery_9", core_tf),
     ]
     assert field.join_graphs() == list(sorted(sessions_graphs))
 
@@ -238,27 +292,34 @@ def test_merged_result_join_graph(connection):
 
 
 @pytest.mark.query
-def test_merged_result_query_only_metric_no_dim(connection):
+@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.redshift])
+def test_merged_result_query_only_metric_no_dim(connection, query_type):
     query = connection.get_sql_query(
         metrics=["revenue_per_session"],
         dimensions=[],
         merged_result=True,
         verbose=True,
+        query_type=query_type,
     )
     cte_1, cte_2 = "order_lines_order__cte_subquery_0", "sessions_session__cte_subquery_1"
+
+    if query_type == Definitions.redshift:
+        join_statement = f"{cte_1} CROSS JOIN {cte_2}"
+    else:
+        join_statement = f"{cte_1} FULL OUTER JOIN {cte_2} ON 1=1"
     correct = (
         f"WITH {cte_1} AS ("
         "SELECT SUM(order_lines.revenue) as order_lines_total_item_revenue "
         "FROM analytics.order_line_items order_lines "
-        "ORDER BY order_lines_total_item_revenue DESC) ,"
+        "ORDER BY order_lines_total_item_revenue DESC NULLS LAST) ,"
         f"{cte_2} AS ("
         "SELECT COUNT(sessions.id) as sessions_number_of_sessions "
         "FROM analytics.sessions sessions "
-        "ORDER BY sessions_number_of_sessions DESC) "
+        "ORDER BY sessions_number_of_sessions DESC NULLS LAST) "
         f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
-        f"FROM {cte_1} FULL OUTER JOIN {cte_2} ON 1=1;"
+        f"FROM {join_statement};"
     )
     assert query == correct
 
@@ -275,9 +336,9 @@ def test_merged_result_query_ambig_explore(connection):
     cte_1, cte_2 = "discounts_order__cte_subquery_0", "orders_order__cte_subquery_1"
     correct = (
         f"WITH {cte_1} AS (SELECT SUM(discounts.discount_amt) as discounts_total_discount_amt "
-        "FROM analytics_live.discounts discounts ORDER BY discounts_total_discount_amt DESC) ,"
+        "FROM analytics_live.discounts discounts ORDER BY discounts_total_discount_amt DESC NULLS LAST) ,"
         f"{cte_2} AS (SELECT COUNT(orders.id) as orders_number_of_orders "
-        "FROM analytics.orders orders ORDER BY orders_number_of_orders DESC) "
+        "FROM analytics.orders orders ORDER BY orders_number_of_orders DESC NULLS LAST) "
         f"SELECT {cte_1}.discounts_total_discount_amt as discounts_total_discount_amt,"
         f"{cte_2}.orders_number_of_orders as orders_number_of_orders,"
         "discounts_total_discount_amt / nullif(orders_number_of_orders, 0) "
@@ -315,14 +376,14 @@ def test_merged_result_query_only_metric_with_where(connection):
         "FROM analytics.order_line_items order_lines "
         "WHERE order_lines.order_date>='2022-01-05T00:00:00' "
         f"GROUP BY DATE_TRUNC('MONTH', order_lines.order_date) "
-        f"ORDER BY order_lines_total_item_revenue DESC) ,"
+        f"ORDER BY order_lines_total_item_revenue DESC NULLS LAST) ,"
         f"{cte_2} AS ("
         f"SELECT DATE_TRUNC('MONTH', sessions.session_date) as sessions_session_month,"
         "COUNT(sessions.id) as sessions_number_of_sessions "
         "FROM analytics.sessions sessions "
         "WHERE sessions.session_date>='2022-01-05T00:00:00' "
         f"GROUP BY DATE_TRUNC('MONTH', sessions.session_date) "
-        f"ORDER BY sessions_number_of_sessions DESC) "
+        f"ORDER BY sessions_number_of_sessions DESC NULLS LAST) "
         f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,{date_seq},"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
@@ -365,19 +426,48 @@ def test_merged_result_query_only_metric_with_having(connection):
         "SUM(order_lines.revenue) as order_lines_total_item_revenue "
         "FROM analytics.order_line_items order_lines "
         f"GROUP BY DATE_TRUNC('MONTH', order_lines.order_date) "
-        f"ORDER BY order_lines_total_item_revenue DESC) ,"
+        f"ORDER BY order_lines_total_item_revenue DESC NULLS LAST) ,"
         f"{cte_2} AS ("
         f"SELECT DATE_TRUNC('MONTH', sessions.session_date) as sessions_session_month,"
         "COUNT(sessions.id) as sessions_number_of_sessions "
         "FROM analytics.sessions sessions "
         f"GROUP BY DATE_TRUNC('MONTH', sessions.session_date) "
-        f"ORDER BY sessions_number_of_sessions DESC) "
+        f"ORDER BY sessions_number_of_sessions DESC NULLS LAST) "
         f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,{date_seq},"
         "order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
         f"FROM {cte_1} FULL OUTER JOIN {cte_2} "
         f"ON {cte_1}.order_lines_order_month={cte_2}.sessions_session_month "
         "WHERE order_lines_revenue_per_session>=40 AND sessions_number_of_sessions<5400;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_merged_result_query_metric_with_having_non_selected(connection):
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["sessions.utm_source"],
+        having=[
+            {"field": "number_of_sessions", "expression": "less_than", "value": 5400},
+        ],
+    )
+
+    cte_1, cte_2 = "order_lines_order__cte_subquery_0", "sessions_session__cte_subquery_1"
+
+    correct = (
+        f"WITH {cte_1} AS (SELECT orders.sub_channel as orders_sub_channel,SUM(order_lines.revenue) as"
+        " order_lines_total_item_revenue FROM analytics.order_line_items order_lines LEFT JOIN"
+        " analytics.orders orders ON order_lines.order_unique_id=orders.id GROUP BY orders.sub_channel ORDER"
+        f" BY order_lines_total_item_revenue DESC NULLS LAST) ,{cte_2} AS (SELECT sessions.utm_source as"
+        " sessions_utm_source,COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions"
+        " sessions GROUP BY sessions.utm_source ORDER BY sessions_number_of_sessions DESC NULLS LAST) SELECT"
+        f" {cte_1}.order_lines_total_item_revenue as"
+        " order_lines_total_item_revenue,sessions_session__cte_subquery_1.sessions_number_of_sessions as"
+        f" sessions_number_of_sessions,ifnull({cte_1}.orders_sub_channel, {cte_2}.sessions_utm_source) as"
+        f" orders_sub_channel,ifnull({cte_2}.sessions_utm_source, {cte_1}.orders_sub_channel) as"
+        f" sessions_utm_source FROM {cte_1} FULL OUTER JOIN {cte_2} ON"
+        f" {cte_1}.orders_sub_channel={cte_2}.sessions_utm_source WHERE sessions_number_of_sessions<5400;"
     )
     assert query == correct
 
@@ -402,16 +492,16 @@ def test_merged_result_query_with_non_component(connection):
         "order_lines_order_month,SUM(order_lines.revenue) as order_lines_total_item_revenue "
         "FROM analytics.order_line_items order_lines "
         "GROUP BY DATE_TRUNC('MONTH', order_lines.order_date) "
-        "ORDER BY order_lines_total_item_revenue DESC) ,"
+        "ORDER BY order_lines_total_item_revenue DESC NULLS LAST) ,"
         f"{cte_2} AS (SELECT DATE_TRUNC('MONTH', sessions.session_date) as sessions_session_month,"
         "COUNT(sessions.id) as sessions_number_of_sessions "
         "FROM analytics.sessions sessions GROUP BY DATE_TRUNC('MONTH', sessions.session_date) "
-        "ORDER BY sessions_number_of_sessions DESC) ,"
+        "ORDER BY sessions_number_of_sessions DESC NULLS LAST) ,"
         f"{cte_3} AS (SELECT DATE_TRUNC('MONTH', orders.previous_order_date) as orders_previous_order_month,"
         "AVG(DATEDIFF('DAY', orders.previous_order_date, orders.order_date)) as "
         "orders_average_days_between_orders FROM analytics.orders orders "
         "GROUP BY DATE_TRUNC('MONTH', orders.previous_order_date) "
-        "ORDER BY orders_average_days_between_orders DESC) "
+        "ORDER BY orders_average_days_between_orders DESC NULLS LAST) "
         f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{cte_3}.orders_average_days_between_orders as orders_average_days_between_orders,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,"
@@ -451,17 +541,17 @@ def test_merged_result_query_with_extra_dim(connection):
         "FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "GROUP BY DATE_TRUNC('MONTH', order_lines.order_date),orders.sub_channel "
-        "ORDER BY order_lines_total_item_revenue DESC) ,"
+        "ORDER BY order_lines_total_item_revenue DESC NULLS LAST) ,"
         f"{cte_2} AS (SELECT DATE_TRUNC('MONTH', sessions.session_date) as sessions_session_month,"
         "sessions.utm_source as sessions_utm_source,COUNT(sessions.id) as sessions_number_of_sessions "
         "FROM analytics.sessions sessions GROUP BY DATE_TRUNC('MONTH', sessions.session_date),"
-        "sessions.utm_source ORDER BY sessions_number_of_sessions DESC) ,"
+        "sessions.utm_source ORDER BY sessions_number_of_sessions DESC NULLS LAST) ,"
         f"{cte_3} AS (SELECT DATE_TRUNC('MONTH', orders.previous_order_date) as orders_previous_order_month,"
         "orders.sub_channel as orders_sub_channel,"
         "AVG(DATEDIFF('DAY', orders.previous_order_date, orders.order_date)) as "
         "orders_average_days_between_orders FROM analytics.orders orders "
         "GROUP BY DATE_TRUNC('MONTH', orders.previous_order_date),orders.sub_channel "
-        "ORDER BY orders_average_days_between_orders DESC) "
+        "ORDER BY orders_average_days_between_orders DESC NULLS LAST) "
         f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{cte_3}.orders_average_days_between_orders as orders_average_days_between_orders,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,"
@@ -490,19 +580,19 @@ def test_merged_query_implicit_with_subgraph(connection):
     sessions_cte = "sessions_session__cte_subquery_1"
 
     correct = (
-        f"WITH {orders_cte} AS (SELECT DATE_TRUNC('MONTH', orders.order_date) "
-        f"as orders_order_month,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders "
-        f"orders GROUP BY DATE_TRUNC('MONTH', orders.order_date) ORDER BY orders_number_of_orders DESC) ,"
-        f"{sessions_cte} AS (SELECT DATE_TRUNC('MONTH', sessions.session_date) as "
-        f"sessions_session_month,COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions "
-        f"sessions GROUP BY DATE_TRUNC('MONTH', sessions.session_date) ORDER BY "
-        f"sessions_number_of_sessions DESC) SELECT {orders_cte}.orders_number_of_orders as "
-        f"orders_number_of_orders,{sessions_cte}.sessions_number_of_sessions as "
-        f"sessions_number_of_sessions,ifnull({orders_cte}.orders_order_month, "
-        f"{sessions_cte}.sessions_session_month) as orders_order_month,"
-        f"ifnull({sessions_cte}.sessions_session_month, {orders_cte}.orders_order_month) "
-        f"as sessions_session_month FROM {orders_cte} FULL OUTER JOIN {sessions_cte} "
-        f"ON {orders_cte}.orders_order_month={sessions_cte}.sessions_session_month;"
+        f"WITH {orders_cte} AS (SELECT DATE_TRUNC('MONTH', orders.order_date) as"
+        " orders_order_month,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders GROUP"
+        " BY DATE_TRUNC('MONTH', orders.order_date) ORDER BY orders_number_of_orders DESC NULLS LAST)"
+        f" ,{sessions_cte} AS (SELECT DATE_TRUNC('MONTH', sessions.session_date) as"
+        " sessions_session_month,COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions"
+        " sessions GROUP BY DATE_TRUNC('MONTH', sessions.session_date) ORDER BY sessions_number_of_sessions"
+        f" DESC NULLS LAST) SELECT {orders_cte}.orders_number_of_orders as"
+        f" orders_number_of_orders,{sessions_cte}.sessions_number_of_sessions as"
+        f" sessions_number_of_sessions,ifnull({orders_cte}.orders_order_month,"
+        f" {sessions_cte}.sessions_session_month) as"
+        f" orders_order_month,ifnull({sessions_cte}.sessions_session_month, {orders_cte}.orders_order_month)"
+        f" as sessions_session_month FROM {orders_cte} FULL OUTER JOIN {sessions_cte} ON"
+        f" {orders_cte}.orders_order_month={sessions_cte}.sessions_session_month;"
     )
     assert query == correct
 
@@ -534,13 +624,13 @@ def test_merged_query_implicit_with_subgraph_and_mapping(connection):
         "COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders "
         "WHERE orders.order_date>='2022-01-05T00:00:00' "
         "GROUP BY DATE_TRUNC('MONTH', orders.order_date),orders.sub_channel,orders.campaign "
-        f"ORDER BY orders_number_of_orders DESC) ,{sessions_cte} AS ("
+        f"ORDER BY orders_number_of_orders DESC NULLS LAST) ,{sessions_cte} AS ("
         "SELECT DATE_TRUNC('MONTH', sessions.session_date) as sessions_session_month,"
         "sessions.utm_source as sessions_utm_source,sessions.utm_campaign as "
         "sessions_utm_campaign,COUNT(sessions.id) as sessions_number_of_sessions "
         "FROM analytics.sessions sessions WHERE sessions.session_date>='2022-01-05T00:00:00' "
         "GROUP BY DATE_TRUNC('MONTH', sessions.session_date)"
-        ",sessions.utm_source,sessions.utm_campaign ORDER BY sessions_number_of_sessions DESC) "
+        ",sessions.utm_source,sessions.utm_campaign ORDER BY sessions_number_of_sessions DESC NULLS LAST) "
         f"SELECT {orders_cte}.orders_number_of_orders as orders_number_of_orders,"
         f"{sessions_cte}.sessions_number_of_sessions as sessions_number_of_sessions,"
         f"ifnull({orders_cte}.orders_order_month, {sessions_cte}.sessions_session_month) as orders_order_month,"  # noqa
@@ -575,11 +665,11 @@ def test_merged_query_dimension_mapping_single_metric(connection):
         f"DATE_TRUNC('DAY', orders.order_date) as orders_order_date,orders.campaign as orders_campaign,"
         f"COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders GROUP BY "
         f"orders.sub_channel,DATE_TRUNC('DAY', orders.order_date),orders.campaign ORDER BY "
-        f"orders_number_of_orders DESC) ,{sessions_cte} AS (SELECT sessions.utm_source "
+        f"orders_number_of_orders DESC NULLS LAST) ,{sessions_cte} AS (SELECT sessions.utm_source "
         f"as sessions_utm_source,DATE_TRUNC('DAY', sessions.session_date) as sessions_session_date,"
         f"sessions.utm_campaign as sessions_utm_campaign FROM analytics.sessions sessions GROUP BY "
         f"sessions.utm_source,DATE_TRUNC('DAY', sessions.session_date),sessions.utm_campaign ORDER BY "
-        f"sessions_utm_source ASC) SELECT {orders_cte}.orders_number_of_orders as "
+        f"sessions_utm_source ASC NULLS LAST) SELECT {orders_cte}.orders_number_of_orders as "
         f"orders_number_of_orders,{orders_source} as orders_sub_channel,"
         f"ifnull({orders_cte}.orders_order_date, {sessions_cte}.sessions_session_date) as orders_order_date,"
         f"{orders_campaign} as orders_campaign,{sessions_source} as "
@@ -616,13 +706,13 @@ def test_merged_query_dimension_mapping_no_metric(connection):
     sessions_date = f"ifnull({sessions_cte}.sessions_session_date, {orders_cte}.orders_order_date)"
     correct = (
         f"WITH {orders_cte} AS (SELECT orders.campaign as orders_campaign,"
-        f"DATE_TRUNC('DAY', orders.order_date) as orders_order_date FROM analytics.orders "
-        f"orders WHERE orders.order_date>='2022-01-05T00:00:00' GROUP BY orders.campaign,"
-        f"DATE_TRUNC('DAY', orders.order_date) ORDER BY orders_campaign ASC) ,{sessions_cte} "
-        f"AS (SELECT sessions.utm_campaign as sessions_utm_campaign,DATE_TRUNC('DAY', "
-        f"sessions.session_date) as sessions_session_date FROM analytics.sessions sessions "
-        f"WHERE sessions.session_date>='2022-01-05T00:00:00' GROUP BY sessions.utm_campaign,"
-        f"DATE_TRUNC('DAY', sessions.session_date) ORDER BY sessions_utm_campaign ASC) "
+        "DATE_TRUNC('DAY', orders.order_date) as orders_order_date FROM analytics.orders "
+        "orders WHERE orders.order_date>='2022-01-05T00:00:00' GROUP BY orders.campaign,"
+        f"DATE_TRUNC('DAY', orders.order_date) ORDER BY orders_campaign ASC NULLS LAST) ,{sessions_cte} "
+        "AS (SELECT sessions.utm_campaign as sessions_utm_campaign,DATE_TRUNC('DAY', "
+        "sessions.session_date) as sessions_session_date FROM analytics.sessions sessions "
+        "WHERE sessions.session_date>='2022-01-05T00:00:00' GROUP BY sessions.utm_campaign,"
+        "DATE_TRUNC('DAY', sessions.session_date) ORDER BY sessions_utm_campaign ASC NULLS LAST) "
         f"SELECT {orders_campaign} as orders_campaign,"
         f"{orders_date} as orders_order_date,{sessions_campaign} "
         f"as sessions_utm_campaign,{sessions_date} as "
@@ -648,10 +738,10 @@ def test_merged_query_implicit_no_time(connection):
         f"WITH {orders_cte} AS (SELECT orders.campaign as orders_campaign,"
         f"COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders "
         f"WHERE orders.sub_channel='Iterable' GROUP BY orders.campaign "
-        f"ORDER BY orders_number_of_orders DESC) ,{sessions_cte} AS ("
+        f"ORDER BY orders_number_of_orders DESC NULLS LAST) ,{sessions_cte} AS ("
         f"SELECT sessions.utm_campaign as sessions_utm_campaign "
         f"FROM analytics.sessions sessions WHERE sessions.utm_source='Iterable' "
-        f"GROUP BY sessions.utm_campaign ORDER BY sessions_utm_campaign ASC) "
+        f"GROUP BY sessions.utm_campaign ORDER BY sessions_utm_campaign ASC NULLS LAST) "
         f"SELECT {orders_cte}.orders_number_of_orders as orders_number_of_orders,"
         f"ifnull({orders_cte}.orders_campaign, {sessions_cte}.sessions_utm_campaign) as orders_campaign,"
         f"ifnull({sessions_cte}.sessions_utm_campaign, {orders_cte}.orders_campaign) as sessions_utm_campaign "  # noqa
@@ -672,13 +762,13 @@ def test_merged_query_implicit_with_join(connection):
     sessions_cte = "sessions_session__cte_subquery_1"
     correct = (
         f"WITH {orders_cte} AS (SELECT customers.gender as customers_gender,"
-        f"COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders "
-        f"LEFT JOIN analytics.customers customers ON orders.customer_id=customers.customer_id "
-        f"GROUP BY customers.gender ORDER BY orders_number_of_orders DESC) ,"
+        "COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders "
+        "LEFT JOIN analytics.customers customers ON orders.customer_id=customers.customer_id "
+        "GROUP BY customers.gender ORDER BY orders_number_of_orders DESC NULLS LAST) ,"
         f"{sessions_cte} AS (SELECT customers.gender as customers_gender,"
-        f"COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions sessions "
-        f"LEFT JOIN analytics.customers customers ON sessions.customer_id=customers.customer_id "
-        f"GROUP BY customers.gender ORDER BY sessions_number_of_sessions DESC) "
+        "COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions sessions "
+        "LEFT JOIN analytics.customers customers ON sessions.customer_id=customers.customer_id "
+        "GROUP BY customers.gender ORDER BY sessions_number_of_sessions DESC NULLS LAST) "
         f"SELECT {orders_cte}.orders_number_of_orders as orders_number_of_orders,"
         f"{sessions_cte}.sessions_number_of_sessions as sessions_number_of_sessions,"
         f"ifnull({orders_cte}.customers_gender, "
@@ -703,13 +793,13 @@ def test_merged_query_implicit_with_extra_dim_only(connection):
     sessions_date = f"ifnull({sessions_cte}.sessions_session_date, {orders_cte}.orders_order_date)"
     correct = (
         f"WITH {orders_cte} AS (SELECT DATE_TRUNC('DAY', orders.order_date) as "
-        f"orders_order_date,orders.sub_channel as orders_sub_channel,COUNT(orders.id) as "
-        f"orders_number_of_orders FROM analytics.orders orders GROUP BY DATE_TRUNC('DAY', "
-        f"orders.order_date),orders.sub_channel ORDER BY orders_number_of_orders DESC) ,"
+        "orders_order_date,orders.sub_channel as orders_sub_channel,COUNT(orders.id) as "
+        "orders_number_of_orders FROM analytics.orders orders GROUP BY DATE_TRUNC('DAY', "
+        "orders.order_date),orders.sub_channel ORDER BY orders_number_of_orders DESC NULLS LAST) ,"
         f"{sessions_cte} AS (SELECT DATE_TRUNC('DAY', sessions.session_date) as "
-        f"sessions_session_date,sessions.utm_source as sessions_utm_source FROM analytics.sessions "
-        f"sessions GROUP BY DATE_TRUNC('DAY', sessions.session_date),sessions.utm_source ORDER BY "
-        f"sessions_session_date ASC) SELECT {orders_cte}.orders_number_of_orders as "
+        "sessions_session_date,sessions.utm_source as sessions_utm_source FROM analytics.sessions "
+        "sessions GROUP BY DATE_TRUNC('DAY', sessions.session_date),sessions.utm_source ORDER BY "
+        f"sessions_session_date ASC NULLS LAST) SELECT {orders_cte}.orders_number_of_orders as "
         f"orders_number_of_orders,{orders_date} as orders_order_date,"
         f"{orders_source} as orders_sub_channel,"
         f"{sessions_date} as sessions_session_date,"
@@ -742,16 +832,16 @@ def test_merged_query_implicit_3_way_merge(connection):
     events_date = f"ifnull({events_cte}.events_event_date, ifnull({orders_cte}.orders_order_date, {sessions_cte}.sessions_session_date))"  # noqa
     correct = (
         f"WITH {orders_cte} AS (SELECT DATE_TRUNC('DAY', orders.order_date) as "
-        f"orders_order_date,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders "
-        f"WHERE orders.order_date>='2022-01-05T00:00:00' GROUP BY DATE_TRUNC('DAY', orders.order_date)"
-        f" ORDER BY orders_number_of_orders DESC) ,{sessions_cte} AS (SELECT "
-        f"DATE_TRUNC('DAY', sessions.session_date) as sessions_session_date,COUNT(sessions.id) as "
-        f"sessions_number_of_sessions FROM analytics.sessions sessions WHERE sessions.session_date>="
-        f"'2022-01-05T00:00:00' GROUP BY DATE_TRUNC('DAY', sessions.session_date) ORDER BY "
-        f"sessions_number_of_sessions DESC) ,{events_cte} AS (SELECT DATE_TRUNC('DAY', "
-        f"events.event_date) as events_event_date,COUNT(DISTINCT(events.id)) as events_number_of_events "
-        f"FROM analytics.events events WHERE events.event_date>='2022-01-05T00:00:00' GROUP BY "
-        f"DATE_TRUNC('DAY', events.event_date) ORDER BY events_number_of_events DESC) SELECT "
+        "orders_order_date,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders "
+        "WHERE orders.order_date>='2022-01-05T00:00:00' GROUP BY DATE_TRUNC('DAY', orders.order_date)"
+        f" ORDER BY orders_number_of_orders DESC NULLS LAST) ,{sessions_cte} AS (SELECT "
+        "DATE_TRUNC('DAY', sessions.session_date) as sessions_session_date,COUNT(sessions.id) as "
+        "sessions_number_of_sessions FROM analytics.sessions sessions WHERE sessions.session_date>="
+        "'2022-01-05T00:00:00' GROUP BY DATE_TRUNC('DAY', sessions.session_date) ORDER BY "
+        f"sessions_number_of_sessions DESC NULLS LAST) ,{events_cte} AS (SELECT DATE_TRUNC('DAY', "
+        "events.event_date) as events_event_date,COUNT(DISTINCT(events.id)) as events_number_of_events "
+        "FROM analytics.events events WHERE events.event_date>='2022-01-05T00:00:00' GROUP BY "
+        "DATE_TRUNC('DAY', events.event_date) ORDER BY events_number_of_events DESC NULLS LAST) SELECT "
         f"{events_cte}.events_number_of_events as events_number_of_events,"
         f"{orders_cte}.orders_number_of_orders as orders_number_of_orders,"
         f"{sessions_cte}.sessions_number_of_sessions as sessions_number_of_sessions,"
@@ -783,11 +873,12 @@ def test_merged_query_merged_results_as_sub_reference(connection):
         f"then order_lines.order_id end) as order_lines_number_of_email_purchased_items "
         f"FROM analytics.order_line_items order_lines LEFT JOIN "
         f"analytics.orders orders ON order_lines.order_unique_id=orders.id GROUP BY "
-        f"DATE_TRUNC('MONTH', order_lines.order_date) ORDER BY order_lines_total_item_revenue DESC) ,"
+        f"DATE_TRUNC('MONTH', order_lines.order_date) ORDER BY order_lines_total_item_revenue DESC NULLS"
+        f" LAST) ,"
         f"{sessions_cte} AS (SELECT DATE_TRUNC('MONTH', sessions.session_date) as "
         f"sessions_session_month,COUNT(sessions.id) as sessions_number_of_sessions "
         f"FROM analytics.sessions sessions GROUP BY DATE_TRUNC('MONTH', sessions.session_date) "
-        f"ORDER BY sessions_number_of_sessions DESC) "
+        f"ORDER BY sessions_number_of_sessions DESC NULLS LAST) "
         f"SELECT "
         f"{order_lines_cte}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{order_lines_cte}.order_lines_total_item_costs as order_lines_total_item_costs,"
@@ -823,18 +914,18 @@ def test_merged_query_merged_results_joined_filter(connection):
     sessions_cte = "sessions_session__cte_subquery_1"
     correct = (
         f"WITH {orders_cte} AS (SELECT DATE_TRUNC('DAY', orders.order_date) "
-        f"as orders_order_date,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders "
-        f"orders LEFT JOIN analytics.customers customers ON orders.customer_id=customers.customer_id "
-        f"WHERE customers.region IN ('West','South') AND orders.sub_channel='google' "
-        f"GROUP BY DATE_TRUNC('DAY', orders.order_date) ORDER BY orders_number_of_orders DESC) ,"
+        "as orders_order_date,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders "
+        "orders LEFT JOIN analytics.customers customers ON orders.customer_id=customers.customer_id "
+        "WHERE customers.region IN ('West','South') AND orders.sub_channel='google' "
+        "GROUP BY DATE_TRUNC('DAY', orders.order_date) ORDER BY orders_number_of_orders DESC NULLS LAST) ,"
         f"{sessions_cte} AS (SELECT DATE_TRUNC('DAY', sessions.session_date) as "
-        f"sessions_session_date,COUNT(sessions.id) as sessions_number_of_sessions "
-        f"FROM analytics.sessions sessions LEFT JOIN analytics.customers customers ON "
-        f"sessions.customer_id=customers.customer_id WHERE customers.region IN ('West','South') "
-        f"AND sessions.utm_source='google' GROUP BY DATE_TRUNC('DAY', sessions.session_date) "
-        f"ORDER BY sessions_number_of_sessions DESC) SELECT {orders_cte}."
+        "sessions_session_date,COUNT(sessions.id) as sessions_number_of_sessions "
+        "FROM analytics.sessions sessions LEFT JOIN analytics.customers customers ON "
+        "sessions.customer_id=customers.customer_id WHERE customers.region IN ('West','South') "
+        "AND sessions.utm_source='google' GROUP BY DATE_TRUNC('DAY', sessions.session_date) "
+        f"ORDER BY sessions_number_of_sessions DESC NULLS LAST) SELECT {orders_cte}."
         f"orders_number_of_orders as orders_number_of_orders,{sessions_cte}."
-        f"sessions_number_of_sessions as sessions_number_of_sessions,"
+        "sessions_number_of_sessions as sessions_number_of_sessions,"
         f"ifnull({orders_cte}.orders_order_date, {sessions_cte}.sessions_session_date) "
         f"as orders_order_date,ifnull({sessions_cte}.sessions_session_date, {orders_cte}.orders_order_date) "
         f"as sessions_session_date FROM {orders_cte} FULL OUTER JOIN {sessions_cte} "
@@ -857,14 +948,14 @@ def test_merged_query_merged_results_3_way_third_date_only(connection):
     events_date = f"ifnull({events_cte}.events_event_date, ifnull({orders_cte}.orders_order_date, {sessions_cte}.sessions_session_date))"  # noqa
     correct = (
         f"WITH {orders_cte} AS (SELECT DATE_TRUNC('DAY', orders.order_date) as "
-        f"orders_order_date,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders "
-        f"orders GROUP BY DATE_TRUNC('DAY', orders.order_date) ORDER BY orders_number_of_orders "
-        f"DESC) ,{sessions_cte} AS (SELECT DATE_TRUNC('DAY', sessions.session_date) "
-        f"as sessions_session_date,COUNT(sessions.id) as sessions_number_of_sessions "
-        f"FROM analytics.sessions sessions GROUP BY DATE_TRUNC('DAY', sessions.session_date) "
-        f"ORDER BY sessions_number_of_sessions DESC) ,{events_cte} AS ("
-        f"SELECT DATE_TRUNC('DAY', events.event_date) as events_event_date FROM analytics.events "
-        f"events GROUP BY DATE_TRUNC('DAY', events.event_date) ORDER BY events_event_date ASC) "
+        "orders_order_date,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders "
+        "orders GROUP BY DATE_TRUNC('DAY', orders.order_date) ORDER BY orders_number_of_orders "
+        f"DESC NULLS LAST) ,{sessions_cte} AS (SELECT DATE_TRUNC('DAY', sessions.session_date) "
+        "as sessions_session_date,COUNT(sessions.id) as sessions_number_of_sessions "
+        "FROM analytics.sessions sessions GROUP BY DATE_TRUNC('DAY', sessions.session_date) "
+        f"ORDER BY sessions_number_of_sessions DESC NULLS LAST) ,{events_cte} AS ("
+        "SELECT DATE_TRUNC('DAY', events.event_date) as events_event_date FROM analytics.events "
+        "events GROUP BY DATE_TRUNC('DAY', events.event_date) ORDER BY events_event_date ASC NULLS LAST) "
         f"SELECT {orders_cte}.orders_number_of_orders as orders_number_of_orders,"
         f"{sessions_cte}.sessions_number_of_sessions as sessions_number_of_sessions,"
         f"{events_date} as events_event_date,{orders_date} as orders_order_date,"
@@ -1011,17 +1102,17 @@ def test_4_way_merge_with_joinable_canon_date(connection):
         f"WITH {orders_cte} AS (SELECT DATE_TRUNC('MONTH', orders.order_date) as "
         f"orders_order_month,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders "
         f"orders GROUP BY DATE_TRUNC('MONTH', orders.order_date) ORDER BY orders_number_of_orders "
-        f"DESC) ,{customers_cte} AS (SELECT DATE_TRUNC('MONTH', "
+        f"DESC NULLS LAST) ,{customers_cte} AS (SELECT DATE_TRUNC('MONTH', "
         f"customers.first_order_date) as customers_first_order_month,COUNT(customers.customer_id) "
         f"as customers_number_of_customers FROM analytics.customers customers GROUP BY DATE_TRUNC('MONTH', "
-        f"customers.first_order_date) ORDER BY customers_number_of_customers DESC) ,"
+        f"customers.first_order_date) ORDER BY customers_number_of_customers DESC NULLS LAST) ,"
         f"{order_lines_cte} AS (SELECT DATE_TRUNC('MONTH', order_lines.order_date) "
         f"as order_lines_order_month,SUM(order_lines.revenue) as order_lines_total_item_revenue "
         f"FROM analytics.order_line_items order_lines GROUP BY DATE_TRUNC('MONTH', order_lines.order_date) "
-        f"ORDER BY order_lines_total_item_revenue DESC) ,{events_cte} AS (SELECT "
+        f"ORDER BY order_lines_total_item_revenue DESC NULLS LAST) ,{events_cte} AS (SELECT "
         f"DATE_TRUNC('MONTH', events.event_date) as events_event_month,COUNT(DISTINCT(events.id)) "
         f"as events_number_of_events FROM analytics.events events GROUP BY DATE_TRUNC('MONTH', "
-        f"events.event_date) ORDER BY events_number_of_events DESC) SELECT "
+        f"events.event_date) ORDER BY events_number_of_events DESC NULLS LAST) SELECT "
         f"{customers_cte}.customers_number_of_customers as "
         f"customers_number_of_customers,{events_cte}.events_number_of_events as "
         f"events_number_of_events,{order_lines_cte}.order_lines_total_item_revenue "
@@ -1055,14 +1146,14 @@ def test_query_merge_results_order_issue(connection):
     customers_cte = "customers_first_order__cte_subquery_0"
     correct = (
         f"WITH {customers_cte} AS (SELECT DATE_TRUNC('MONTH', "
-        f"customers.first_order_date) as customers_first_order_month,COUNT(customers.customer_id) as "
-        f"customers_number_of_customers FROM analytics.customers customers WHERE DATE_TRUNC('DAY', "
-        f"customers.first_order_date)>'2022-04-03' GROUP BY DATE_TRUNC('MONTH', customers.first_order_date) "
-        f"ORDER BY customers_number_of_customers DESC) ,{orders_cte} AS ("
-        f"SELECT DATE_TRUNC('MONTH', orders.order_date) as orders_order_month,COUNT(orders.id) as "
-        f"orders_number_of_orders FROM analytics.orders orders "
-        f"WHERE DATE_TRUNC('DAY', orders.order_date)>'2022-04-03' "
-        f"GROUP BY DATE_TRUNC('MONTH', orders.order_date) ORDER BY orders_number_of_orders DESC) "
+        "customers.first_order_date) as customers_first_order_month,COUNT(customers.customer_id) as "
+        "customers_number_of_customers FROM analytics.customers customers WHERE DATE_TRUNC('DAY', "
+        "customers.first_order_date)>'2022-04-03' GROUP BY DATE_TRUNC('MONTH', customers.first_order_date) "
+        f"ORDER BY customers_number_of_customers DESC NULLS LAST) ,{orders_cte} AS ("
+        "SELECT DATE_TRUNC('MONTH', orders.order_date) as orders_order_month,COUNT(orders.id) as "
+        "orders_number_of_orders FROM analytics.orders orders "
+        "WHERE DATE_TRUNC('DAY', orders.order_date)>'2022-04-03' "
+        "GROUP BY DATE_TRUNC('MONTH', orders.order_date) ORDER BY orders_number_of_orders DESC NULLS LAST) "
         f"SELECT {customers_cte}.customers_number_of_customers "
         f"as customers_number_of_customers,{orders_cte}.orders_number_of_orders as "
         f"orders_number_of_orders,ifnull({customers_cte}.customers_first_order_month, "
@@ -1114,13 +1205,14 @@ def test_query_default_date_from_join(connection):
         "orders_order_date,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders "
         "WHERE DATE_TRUNC('DAY', orders.order_date)>='2023-03-29T00:00:00' AND DATE_TRUNC('DAY', "
         "orders.order_date)<='2023-06-26T23:59:59' GROUP BY DATE_TRUNC('DAY', orders.order_date) "
-        "ORDER BY orders_number_of_orders DESC) ,events_event__cte_subquery_0 AS (SELECT DATE_TRUNC('DAY', "
+        "ORDER BY orders_number_of_orders DESC NULLS LAST) ,events_event__cte_subquery_0 AS (SELECT"
+        " DATE_TRUNC('DAY', "
         "events.event_date) as events_event_date,COUNT(DISTINCT(login_events.id)) as "
         "login_events_number_of_login_events FROM analytics.login_events login_events "
         "LEFT JOIN analytics.events events ON login_events.id=events.id WHERE DATE_TRUNC('DAY', "
         "events.event_date)>='2023-03-29T00:00:00' AND DATE_TRUNC('DAY', events.event_date)"
         "<='2023-06-26T23:59:59' GROUP BY DATE_TRUNC('DAY', events.event_date) ORDER BY "
-        "login_events_number_of_login_events DESC) SELECT events_event__cte_subquery_0"
+        "login_events_number_of_login_events DESC NULLS LAST) SELECT events_event__cte_subquery_0"
         ".login_events_number_of_login_events as login_events_number_of_login_events,"
         "orders_order__cte_subquery_1.orders_number_of_orders as orders_number_of_orders,"
         "ifnull(events_event__cte_subquery_0.events_event_date, orders_order__cte_subquery_1.orders_order_date) as events_event_date,"  # noqa
@@ -1140,19 +1232,19 @@ def test_query_mapping_with_a_join(connection):
     correct = (
         "WITH sessions_session__cte_subquery_1 AS (SELECT sessions.session_device as sessions_session_device,"
         "COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions sessions "
-        "GROUP BY sessions.session_device ORDER BY sessions_number_of_sessions DESC) ,"
-        "events_event__cte_subquery_0 AS (SELECT events.device as login_events_device,"
+        "GROUP BY sessions.session_device ORDER BY sessions_number_of_sessions DESC NULLS LAST) ,"
+        "events_event__cte_subquery_0 AS (SELECT events.device as events_device,"
         "COUNT(DISTINCT(login_events.id)) as login_events_number_of_login_events "
         "FROM analytics.login_events login_events LEFT JOIN analytics.events events "
         "ON login_events.id=events.id GROUP BY events.device ORDER BY login_events_number_of_login_events "
-        "DESC) SELECT events_event__cte_subquery_0.login_events_number_of_login_events as "
+        "DESC NULLS LAST) SELECT events_event__cte_subquery_0.login_events_number_of_login_events as "
         "login_events_number_of_login_events,sessions_session__cte_subquery_1.sessions_number_of_sessions "
-        "as sessions_number_of_sessions,ifnull(events_event__cte_subquery_0.login_events_device, "
+        "as sessions_number_of_sessions,ifnull(events_event__cte_subquery_0.events_device, "
         "sessions_session__cte_subquery_1.sessions_session_device) "
-        "as login_events_device,ifnull(sessions_session__cte_subquery_1.sessions_session_device, "
-        "events_event__cte_subquery_0.login_events_device) as sessions_session_device "
+        "as events_device,ifnull(sessions_session__cte_subquery_1.sessions_session_device, "
+        "events_event__cte_subquery_0.events_device) as sessions_session_device "
         "FROM events_event__cte_subquery_0 FULL OUTER JOIN "
-        "sessions_session__cte_subquery_1 ON events_event__cte_subquery_0.login_events_device"
+        "sessions_session__cte_subquery_1 ON events_event__cte_subquery_0.events_device"
         "=sessions_session__cte_subquery_1.sessions_session_device;"
     )
     assert query == correct
@@ -1167,12 +1259,12 @@ def test_query_mapping_with_a_join_inverted_mapping(connection):
     correct = (
         "WITH sessions_session__cte_subquery_1 AS (SELECT sessions.session_device as sessions_session_device,"
         "COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions sessions "
-        "GROUP BY sessions.session_device ORDER BY sessions_number_of_sessions DESC) ,"
+        "GROUP BY sessions.session_device ORDER BY sessions_number_of_sessions DESC NULLS LAST) ,"
         "events_event__cte_subquery_0 AS (SELECT events.device as login_events_device,"
         "COUNT(DISTINCT(login_events.id)) as login_events_number_of_login_events "
         "FROM analytics.login_events login_events LEFT JOIN analytics.events events "
         "ON login_events.id=events.id GROUP BY events.device ORDER BY "
-        "login_events_number_of_login_events DESC) SELECT events_event__cte_subquery_0"
+        "login_events_number_of_login_events DESC NULLS LAST) SELECT events_event__cte_subquery_0"
         ".login_events_number_of_login_events as login_events_number_of_login_events,"
         "sessions_session__cte_subquery_1.sessions_number_of_sessions as sessions_number_of_sessions,"
         "ifnull(events_event__cte_subquery_0.login_events_device, sessions_session__cte_subquery_1.sessions_session_device) as login_events_device,"  # noqa
@@ -1202,18 +1294,18 @@ def test_query_mapping_with_a_join_and_date(connection):
         "WITH sessions_session__cte_subquery_1 AS (SELECT sessions.session_device as sessions_session_device,"
         "COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions sessions "
         "WHERE DATE_TRUNC('DAY', sessions.session_date)<='2023-06-26T23:59:59' "
-        "GROUP BY sessions.session_device ORDER BY sessions_number_of_sessions DESC) ,"
-        "events_event__cte_subquery_0 AS (SELECT events.device as login_events_device,"
+        "GROUP BY sessions.session_device ORDER BY sessions_number_of_sessions DESC NULLS LAST) ,"
+        "events_event__cte_subquery_0 AS (SELECT events.device as events_device,"
         "COUNT(DISTINCT(login_events.id)) as login_events_number_of_login_events FROM analytics.login_events "
         "login_events LEFT JOIN analytics.events events ON login_events.id=events.id "
         "WHERE DATE_TRUNC('DAY', events.event_date)<='2023-06-26T23:59:59' GROUP BY events.device "
-        "ORDER BY login_events_number_of_login_events DESC) SELECT events_event__cte_subquery_0"
+        "ORDER BY login_events_number_of_login_events DESC NULLS LAST) SELECT events_event__cte_subquery_0"
         ".login_events_number_of_login_events as login_events_number_of_login_events,"
         "sessions_session__cte_subquery_1.sessions_number_of_sessions as sessions_number_of_sessions,"
-        "ifnull(events_event__cte_subquery_0.login_events_device, sessions_session__cte_subquery_1.sessions_session_device) as login_events_device,"  # noqa
-        "ifnull(sessions_session__cte_subquery_1.sessions_session_device, events_event__cte_subquery_0.login_events_device) as sessions_session_device "  # noqa
+        "ifnull(events_event__cte_subquery_0.events_device, sessions_session__cte_subquery_1.sessions_session_device) as events_device,"  # noqa
+        "ifnull(sessions_session__cte_subquery_1.sessions_session_device, events_event__cte_subquery_0.events_device) as sessions_session_device "  # noqa
         "FROM events_event__cte_subquery_0 FULL OUTER JOIN sessions_session__cte_subquery_1 "
-        "ON events_event__cte_subquery_0.login_events_device=sessions_session__cte_subquery_1"
+        "ON events_event__cte_subquery_0.events_device=sessions_session__cte_subquery_1"
         ".sessions_session_device;"
     )
     assert query == correct
@@ -1237,24 +1329,24 @@ def test_query_subquery_with_substring_in_name(connection):
     cte_2 = "aa_acquired_accounts_created__cte_subquery_0"
     correct = (
         f"WITH {cte_1} AS (SELECT DATE_TRUNC('MONTH', "
-        f"z_customer_accounts.created_at) as z_customer_accounts_created_month,"
-        f"z_customer_accounts.account_type as z_customer_accounts_type_of_account,"
-        f"COUNT(z_customer_accounts.account_id || z_customer_accounts.customer_id) as "
-        f"z_customer_accounts_number_of_account_customer_connections FROM analytics.customer_accounts "
-        f"z_customer_accounts WHERE DATE_TRUNC('DAY', z_customer_accounts.created_at)"
-        f"<='2023-06-26T23:59:59' GROUP BY DATE_TRUNC('MONTH', z_customer_accounts.created_at),"
-        f"z_customer_accounts.account_type ORDER BY z_customer_accounts_number_of_account_"
-        f"customer_connections DESC) ,{cte_2} AS (SELECT DATE_TRUNC('MONTH', "
-        f"aa_acquired_accounts.created_at) as aa_acquired_accounts_created_month,"
-        f"aa_acquired_accounts.type as aa_acquired_accounts_account_type,"
-        f"COUNT(aa_acquired_accounts.account_id) as aa_acquired_accounts_number_of_acquired_accounts "
-        f"FROM analytics.accounts aa_acquired_accounts WHERE DATE_TRUNC('DAY', "
-        f"aa_acquired_accounts.created_at)<='2023-06-26T23:59:59' GROUP BY DATE_TRUNC('MONTH', "
-        f"aa_acquired_accounts.created_at),aa_acquired_accounts.type ORDER BY "
-        f"aa_acquired_accounts_number_of_acquired_accounts DESC) SELECT "
+        "z_customer_accounts.created_at) as z_customer_accounts_created_month,"
+        "z_customer_accounts.account_type as z_customer_accounts_type_of_account,"
+        "COUNT(z_customer_accounts.account_id || z_customer_accounts.customer_id) as "
+        "z_customer_accounts_number_of_account_customer_connections FROM analytics.customer_accounts "
+        "z_customer_accounts WHERE DATE_TRUNC('DAY', z_customer_accounts.created_at)"
+        "<='2023-06-26T23:59:59' GROUP BY DATE_TRUNC('MONTH', z_customer_accounts.created_at),"
+        "z_customer_accounts.account_type ORDER BY z_customer_accounts_number_of_account_"
+        f"customer_connections DESC NULLS LAST) ,{cte_2} AS (SELECT DATE_TRUNC('MONTH', "
+        "aa_acquired_accounts.created_at) as aa_acquired_accounts_created_month,"
+        "aa_acquired_accounts.type as aa_acquired_accounts_account_type,"
+        "COUNT(aa_acquired_accounts.account_id) as aa_acquired_accounts_number_of_acquired_accounts "
+        "FROM analytics.accounts aa_acquired_accounts WHERE DATE_TRUNC('DAY', "
+        "aa_acquired_accounts.created_at)<='2023-06-26T23:59:59' GROUP BY DATE_TRUNC('MONTH', "
+        "aa_acquired_accounts.created_at),aa_acquired_accounts.type ORDER BY "
+        "aa_acquired_accounts_number_of_acquired_accounts DESC NULLS LAST) SELECT "
         f"{cte_2}.aa_acquired_accounts_number_of_acquired_accounts as "
         f"aa_acquired_accounts_number_of_acquired_accounts,{cte_1}."
-        f"z_customer_accounts_number_of_account_customer_connections as z_customer_accounts_"
+        "z_customer_accounts_number_of_account_customer_connections as z_customer_accounts_"
         f"number_of_account_customer_connections,ifnull({cte_2}.aa_acquired_accounts_created_month, "
         f"{cte_1}.z_customer_accounts_created_month) as aa_acquired_accounts_created_month,ifnull("
         f"{cte_2}.aa_acquired_accounts_account_type, {cte_1}.z_customer_accounts_type_of_account) "
@@ -1265,5 +1357,111 @@ def test_query_subquery_with_substring_in_name(connection):
         f"FROM {cte_2} FULL OUTER JOIN {cte_1} ON {cte_2}.aa_acquired_accounts_created_month"
         f"={cte_1}.z_customer_accounts_created_month and {cte_2}.aa_acquired_accounts_account_type"
         f"={cte_1}.z_customer_accounts_type_of_account;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_number_metric_with_non_matching_canon_dates(connection):
+    query = connection.get_sql_query(
+        metrics=["unique_users_per_form_submission"],
+        dimensions=["date"],
+        where=[
+            {
+                "field": "date",
+                "expression": "less_or_equal_than",
+                "value": datetime.datetime(2023, 6, 26, 23, 59, 59),
+            },
+        ],
+    )
+
+    cte_1 = "submitted_form_sent_at__cte_subquery_0"
+    cte_2 = "submitted_form_session__cte_subquery_1"
+    correct = (
+        f"WITH {cte_1} AS (SELECT DATE_TRUNC('DAY', "
+        "submitted_form.sent_at) as submitted_form_sent_at_date,"
+        "COUNT(DISTINCT(submitted_form.customer_id)) as submitted_form_unique_users_form_submissions "
+        "FROM analytics.submitted_form submitted_form WHERE DATE_TRUNC('DAY', "
+        "submitted_form.sent_at)<='2023-06-26T23:59:59' "
+        "GROUP BY DATE_TRUNC('DAY', submitted_form.sent_at) "
+        "ORDER BY submitted_form_unique_users_form_submissions DESC NULLS LAST) ,"
+        f"{cte_2} AS (SELECT DATE_TRUNC('DAY', "
+        "submitted_form.session_date) as submitted_form_session_date,"
+        "COUNT(submitted_form.id) as submitted_form_number_of_form_submissions "
+        "FROM analytics.submitted_form submitted_form WHERE DATE_TRUNC('DAY', "
+        "submitted_form.session_date)<='2023-06-26T23:59:59' GROUP BY DATE_TRUNC('DAY', "
+        "submitted_form.session_date) ORDER BY submitted_form_number_of_form_submissions DESC NULLS LAST) "
+        f"SELECT {cte_1}.submitted_form_unique_users_form_submissions "
+        f"as submitted_form_unique_users_form_submissions,{cte_2}."
+        "submitted_form_number_of_form_submissions as submitted_form_number_of_form_submissions,"
+        f"ifnull({cte_1}.submitted_form_sent_at_date, "
+        f"{cte_2}.submitted_form_session_date) as "
+        f"submitted_form_sent_at_date,ifnull({cte_2}."
+        f"submitted_form_session_date, {cte_1}."
+        "submitted_form_sent_at_date) as submitted_form_session_date,"
+        "submitted_form_unique_users_form_submissions / submitted_form_number_of_form_submissions "
+        f"as submitted_form_unique_users_per_form_submission FROM {cte_1} "
+        f"FULL OUTER JOIN {cte_2} ON {cte_1}"
+        f".submitted_form_sent_at_date={cte_2}.submitted_form_session_date;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_number_metric_with_non_matching_canon_dates_join_graphs(connection):
+    field = connection.project.get_field("unique_users_per_form_submission")
+    join_hash = connection.project.join_graph.join_graph_hash(field.view.name)
+    join_graphs = field.join_graphs()
+    assert join_hash in join_graphs
+
+
+@pytest.mark.query
+def test_query_merge_results_no_metric_date(connection):
+    query = connection.get_sql_query(
+        metrics=[],
+        dimensions=["date", "customers.customer_id", "orders.order_id"],
+        where=[
+            {
+                "field": "date",
+                "expression": "greater_than",
+                "value": "2023-02-01",
+            },
+        ],
+    )
+
+    correct = (
+        "SELECT DATE_TRUNC('DAY', orders.order_date) as orders_order_date,"
+        "customers.customer_id as customers_customer_id,orders.id as orders_order_id "
+        "FROM analytics.orders orders LEFT JOIN analytics.customers customers "
+        "ON orders.customer_id=customers.customer_id WHERE DATE_TRUNC('DAY', orders.order_date)>'2023-02-01' "
+        "GROUP BY DATE_TRUNC('DAY', orders.order_date),customers.customer_id,orders.id "
+        "ORDER BY orders_order_date ASC NULLS LAST;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_mapping_triple(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_sessions", "number_of_events"], dimensions=["device"]
+    )
+
+    correct = (
+        "WITH sessions_session__cte_subquery_1 AS (SELECT sessions.session_device as "
+        "sessions_session_device,COUNT(sessions.id) as sessions_number_of_sessions "
+        "FROM analytics.sessions sessions GROUP BY sessions.session_device ORDER BY "
+        "sessions_number_of_sessions DESC NULLS LAST) ,events_event__cte_subquery_0 AS ("
+        "SELECT events.device as events_device,COUNT(DISTINCT(events.id)) as "
+        "events_number_of_events FROM analytics.events events GROUP BY events.device "
+        "ORDER BY events_number_of_events DESC NULLS LAST) SELECT events_event__cte_subquery_0."
+        "events_number_of_events as events_number_of_events,sessions_session__cte_subquery_1"
+        ".sessions_number_of_sessions as sessions_number_of_sessions,ifnull("
+        "events_event__cte_subquery_0.events_device, sessions_session__cte_subquery_1."
+        "sessions_session_device) as "
+        "events_device,ifnull(sessions_session__cte_subquery_1.sessions_session_device, "
+        "events_event__cte_subquery_0.events_device) "
+        "as sessions_session_device FROM events_event__cte_subquery_0 "
+        "FULL OUTER JOIN sessions_session__cte_subquery_1 ON events_event__cte_subquery_0."
+        "events_device=sessions_session__cte_subquery_1.sessions_session_device;"
     )
     assert query == correct

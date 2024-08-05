@@ -1,7 +1,7 @@
 import pytest
 
-from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.exceptions import QueryError
+from metrics_layer.core.model.definitions import Definitions
 
 
 @pytest.mark.query
@@ -230,9 +230,12 @@ def test_orders_funnel_query_complex_conditions(connection):
         "<base.orders_order_raw WHERE base.order_lines_channel='Organic' AND base.orders_new_vs_repeat"
         "='Repeat' AND DATEDIFF('WEEK', step_1.step_1_time, base.orders_order_raw) <= 2) ,"
         "result_cte AS ((SELECT 'Step 1' as step,1 as step_order,"
-        "COUNT(DISTINCT(customers_number_of_customers)) as customers_number_of_customers,"
+        "NULLIF(COUNT(DISTINCT CASE WHEN  (customers_number_of_customers)  IS NOT NULL THEN  "
+        "customers_customer_id  ELSE NULL END), 0) as customers_number_of_customers,"
         f"{revenue_calc} as order_lines_total_item_revenue FROM step_1) "
-        "UNION ALL (SELECT 'Step 2' as step,2 as step_order,COUNT(DISTINCT(customers_number_of_customers))"
+        "UNION ALL (SELECT 'Step 2' as step,2 as step_order,NULLIF(COUNT(DISTINCT CASE WHEN  "
+        "(customers_number_of_customers)  IS NOT NULL THEN  "
+        "customers_customer_id  ELSE NULL END), 0)"
         f" as customers_number_of_customers,{revenue_calc} as "
         "order_lines_total_item_revenue FROM step_2)) "
         "SELECT * FROM result_cte WHERE order_lines_total_item_revenue>320;"
@@ -289,7 +292,7 @@ def test_orders_basic_query_with_funnel_filter(connection):
         "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
         "WHERE customers.customer_id IN (SELECT DISTINCT customers_customer_id FROM link_filter_subquery) "
-        "GROUP BY customers.region ORDER BY orders_number_of_orders DESC;"
+        "GROUP BY customers.region ORDER BY orders_number_of_orders DESC NULLS LAST;"
     )
     assert query == correct
 

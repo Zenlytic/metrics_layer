@@ -1,4 +1,5 @@
 import datetime
+
 import pytest
 
 from metrics_layer.core.exceptions import QueryError
@@ -12,7 +13,7 @@ def test_mapping_date_only(connection):
     correct = (
         "SELECT DATE_TRUNC('DAY', orders.order_date) as orders_order_date "
         "FROM analytics.orders orders GROUP BY DATE_TRUNC('DAY', "
-        "orders.order_date) ORDER BY orders_order_date ASC;"
+        "orders.order_date) ORDER BY orders_order_date ASC NULLS LAST;"
     )
     assert query == correct
 
@@ -23,13 +24,15 @@ def test_mapping_dimension_only(connection):
 
     correct = (
         "SELECT sessions.utm_source as sessions_utm_source FROM analytics.sessions "
-        "sessions GROUP BY sessions.utm_source ORDER BY sessions_utm_source ASC;"
+        "sessions GROUP BY sessions.utm_source ORDER BY sessions_utm_source ASC NULLS LAST;"
     )
     assert query == correct
 
 
 @pytest.mark.query
-@pytest.mark.parametrize("time_grain", ["date", "week", "month", "quarter", "year"])
+@pytest.mark.parametrize(
+    "time_grain", ["date", "day_of_year", "week", "week_of_year", "month", "month_of_year", "quarter", "year"]
+)
 def test_mapping_metric_mapped_date_and_filter(connection, time_grain):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
@@ -46,10 +49,16 @@ def test_mapping_metric_mapped_date_and_filter(connection, time_grain):
 
     if time_grain == "date":
         date_part = "DATE_TRUNC('DAY', orders.order_date)"
+    elif time_grain == "day_of_year":
+        date_part = "EXTRACT(DOY FROM orders.order_date)"
     elif time_grain == "week":
         date_part = "DATE_TRUNC('WEEK', CAST(orders.order_date AS DATE))"
+    elif time_grain == "week_of_year":
+        date_part = "EXTRACT(WEEK FROM orders.order_date)"
     elif time_grain == "month":
         date_part = "DATE_TRUNC('MONTH', orders.order_date)"
+    elif time_grain == "month_of_year":
+        date_part = "TO_CHAR(CAST(orders.order_date AS TIMESTAMP), 'Mon')"
     elif time_grain == "quarter":
         date_part = "DATE_TRUNC('QUARTER', orders.order_date)"
     elif time_grain == "year":
@@ -59,7 +68,7 @@ def test_mapping_metric_mapped_date_and_filter(connection, time_grain):
         f"SELECT {date_part} as orders_order_{time_grain},"
         "COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders "
         "WHERE DATE_TRUNC('DAY', orders.order_date)>='2022-01-05T00:00:00' "
-        f"GROUP BY {date_part} ORDER BY orders_number_of_orders DESC;"
+        f"GROUP BY {date_part} ORDER BY orders_number_of_orders DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -67,7 +76,7 @@ def test_mapping_metric_mapped_date_and_filter(connection, time_grain):
 @pytest.mark.query
 def test_mapping_multiple_metric_same_canon_date_mapped_date_and_filter(connection):
     query = connection.get_sql_query(
-        metrics=["line_item_aov", "gross_revenue"],
+        metrics=["number_of_email_purchased_items", "gross_revenue"],
         dimensions=["date"],
         where=[
             {
@@ -80,13 +89,12 @@ def test_mapping_multiple_metric_same_canon_date_mapped_date_and_filter(connecti
     )
     correct = (
         "SELECT DATE_TRUNC('DAY', order_lines.order_date) as order_lines_order_date,"
-        "(SUM(order_lines.revenue)) / (NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  "
-        "IS NOT NULL THEN  orders.id  ELSE NULL END), 0)) as order_lines_line_item_aov,"
+        "COUNT(case when order_lines.sales_channel='Email' then order_lines.order_id end) "
+        "as order_lines_number_of_email_purchased_items,"
         "SUM(order_lines.revenue) as order_lines_total_item_revenue FROM analytics.order_line_items "
-        "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id"
-        "=orders.id WHERE DATE_TRUNC('DAY', order_lines.order_date)>='2022-01-05T00:00:00' "
+        "order_lines WHERE DATE_TRUNC('DAY', order_lines.order_date)>='2022-01-05T00:00:00' "
         "GROUP BY DATE_TRUNC('DAY', order_lines.order_date) "
-        "ORDER BY order_lines_line_item_aov DESC;"
+        "ORDER BY order_lines_number_of_email_purchased_items DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -118,13 +126,13 @@ def test_mapping_multiple_metric_different_canon_date_merged_mapped_date_and_fil
         "orders_order_date,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders "
         "orders WHERE DATE_TRUNC('DAY', orders.order_date)>='2022-01-05T00:00:00' AND "
         "DATE_TRUNC('DAY', orders.order_date)<'2023-03-05T00:00:00' "
-        "GROUP BY DATE_TRUNC('DAY', orders.order_date) ORDER BY orders_number_of_orders DESC) ,"
+        "GROUP BY DATE_TRUNC('DAY', orders.order_date) ORDER BY orders_number_of_orders DESC NULLS LAST) ,"
         f"{sessions_cte} AS (SELECT DATE_TRUNC('DAY', sessions.session_date) "
         "as sessions_session_date,COUNT(sessions.id) as sessions_number_of_sessions "
         "FROM analytics.sessions sessions WHERE DATE_TRUNC('DAY', sessions.session_date)"
         ">='2022-01-05T00:00:00' AND DATE_TRUNC('DAY', sessions.session_date)<'2023-03-05T00:00:00' "
         "GROUP BY DATE_TRUNC('DAY', sessions.session_date) "
-        f"ORDER BY sessions_number_of_sessions DESC) SELECT {orders_cte}."
+        f"ORDER BY sessions_number_of_sessions DESC NULLS LAST) SELECT {orders_cte}."
         f"orders_number_of_orders as orders_number_of_orders,{sessions_cte}."
         f"sessions_number_of_sessions as sessions_number_of_sessions,ifnull({orders_cte}."
         f"orders_order_date, {sessions_cte}.sessions_session_date) as orders_order_date,"
@@ -160,19 +168,19 @@ def test_mapping_multiple_metric_different_canon_date_joinable_mapped_date_dim_a
     order_lines_cte = "order_lines_order__cte_subquery_0"
     correct = (
         f"WITH {orders_cte} AS (SELECT orders.sub_channel as orders_sub_channel,"
-        f"DATE_TRUNC('DAY', orders.order_date) as orders_order_date,COUNT(orders.id) as "
-        f"orders_number_of_orders FROM analytics.orders orders WHERE DATE_TRUNC('DAY', "
-        f"orders.order_date)>='2022-01-05T00:00:00' AND DATE_TRUNC('DAY', orders.order_date)"
-        f"<'2023-03-05T00:00:00' GROUP BY orders.sub_channel,DATE_TRUNC('DAY', orders.order_date) "
-        f"ORDER BY orders_number_of_orders DESC) ,"
+        "DATE_TRUNC('DAY', orders.order_date) as orders_order_date,COUNT(orders.id) as "
+        "orders_number_of_orders FROM analytics.orders orders WHERE DATE_TRUNC('DAY', "
+        "orders.order_date)>='2022-01-05T00:00:00' AND DATE_TRUNC('DAY', orders.order_date)"
+        "<'2023-03-05T00:00:00' GROUP BY orders.sub_channel,DATE_TRUNC('DAY', orders.order_date) "
+        "ORDER BY orders_number_of_orders DESC NULLS LAST) ,"
         f"{order_lines_cte} AS ("
-        f"SELECT orders.sub_channel as orders_sub_channel,DATE_TRUNC('DAY', order_lines.order_date) "
-        f"as order_lines_order_date,SUM(order_lines.revenue) as order_lines_total_item_revenue "
-        f"FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
-        f"ON order_lines.order_unique_id=orders.id WHERE DATE_TRUNC('DAY', "
-        f"order_lines.order_date)>='2022-01-05T00:00:00' AND DATE_TRUNC('DAY', "
-        f"order_lines.order_date)<'2023-03-05T00:00:00' GROUP BY orders.sub_channel,"
-        f"DATE_TRUNC('DAY', order_lines.order_date) ORDER BY order_lines_total_item_revenue DESC) "
+        "SELECT orders.sub_channel as orders_sub_channel,DATE_TRUNC('DAY', order_lines.order_date) "
+        "as order_lines_order_date,SUM(order_lines.revenue) as order_lines_total_item_revenue "
+        "FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
+        "ON order_lines.order_unique_id=orders.id WHERE DATE_TRUNC('DAY', "
+        "order_lines.order_date)>='2022-01-05T00:00:00' AND DATE_TRUNC('DAY', "
+        "order_lines.order_date)<'2023-03-05T00:00:00' GROUP BY orders.sub_channel,"
+        "DATE_TRUNC('DAY', order_lines.order_date) ORDER BY order_lines_total_item_revenue DESC NULLS LAST) "
         f"SELECT {order_lines_cte}.order_lines_total_item_revenue as "
         f"order_lines_total_item_revenue,{orders_cte}.orders_number_of_orders "
         f"as orders_number_of_orders,ifnull({order_lines_cte}.orders_sub_channel, "
@@ -220,7 +228,7 @@ def test_mapping_mapped_metric_joined_dim(connection, query_type):
         semi = ""
     else:
         avg_query = (
-            "(COALESCE(CAST((SUM(DISTINCT "
+            f"(COALESCE(CAST((SUM(DISTINCT "
             f"(CAST(FLOOR(COALESCE(customers.customer_ltv, 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) "
             f"+ (TO_NUMBER(MD5(customers.customer_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)"
             f"::NUMERIC(38, 0)) - SUM(DISTINCT (TO_NUMBER(MD5(customers.customer_id), "
@@ -229,23 +237,23 @@ def test_mapping_mapped_metric_joined_dim(connection, query_type):
             f"(customers.customer_ltv)  IS NOT NULL THEN  customers.customer_id  ELSE NULL END), 0))"
         )
         count_query = (
-            "NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL THEN  orders.id  " "ELSE NULL END), 0)"
+            "NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL THEN  orders.id  ELSE NULL END), 0)"
         )
         orders_date_ref = "orders.order_date"
         customers_date_ref = "customers.first_order_date"
-        order_by_count = " ORDER BY orders_number_of_orders DESC"
-        order_by_avg = " ORDER BY customers_average_customer_ltv DESC"
+        order_by_count = " ORDER BY orders_number_of_orders DESC NULLS LAST"
+        order_by_avg = " ORDER BY customers_average_customer_ltv DESC NULLS LAST"
         semi = ";"
     correct = (
         f"WITH {orders_cte} AS (SELECT order_lines.sales_channel as order_lines_channel,"
         f"{count_query} as orders_number_of_orders FROM analytics.order_line_items order_lines "
-        f"LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id WHERE "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id WHERE "
         f"DATE_TRUNC('DAY', {orders_date_ref})>='2022-01-05T00:00:00' GROUP BY "
         f"order_lines.sales_channel{order_by_count}) ,"
         f"{customers_cte} AS (SELECT "
         f"order_lines.sales_channel as order_lines_channel,{avg_query} as customers_average_customer_ltv "
         "FROM analytics.order_line_items order_lines "
-        f"LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
+        "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
         f"WHERE DATE_TRUNC('DAY', {customers_date_ref})>='2022-01-05T00:00:00' "
         f"GROUP BY order_lines.sales_channel{order_by_avg}) "
         f"SELECT {customers_cte}.customers_average_customer_ltv "
@@ -281,7 +289,7 @@ def test_mapping_mapped_metric_mapped_date_and_filter(connection):
         "ON order_lines.order_unique_id=orders.id WHERE DATE_TRUNC('DAY', "
         "order_lines.order_date)>='2022-01-05T00:00:00' AND orders.new_vs_repeat='New' "
         "GROUP BY DATE_TRUNC('DAY', order_lines.order_date) "
-        "ORDER BY order_lines_total_item_revenue DESC;"
+        "ORDER BY order_lines_total_item_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -307,7 +315,7 @@ def test_mapping_metric_mapped_dim(connection):
         "FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
         "ON order_lines.order_unique_id=orders.id WHERE order_lines.order_date"
         ">='2022-01-05T00:00:00' GROUP BY orders.sub_channel "
-        "ORDER BY orders_number_of_orders DESC;"
+        "ORDER BY orders_number_of_orders DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -325,7 +333,7 @@ def test_mapped_metric_mapped_dim(connection):
         "order_lines_total_item_revenue FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "WHERE orders.sub_channel='google' GROUP BY orders.sub_channel "
-        "ORDER BY order_lines_total_item_revenue DESC;"
+        "ORDER BY order_lines_total_item_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -337,7 +345,7 @@ def test_mapped_metric_non_mapped_dim(connection):
     correct = (
         "SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) "
         "as order_lines_total_item_revenue FROM analytics.order_line_items order_lines "
-        "GROUP BY order_lines.sales_channel ORDER BY order_lines_total_item_revenue DESC;"
+        "GROUP BY order_lines.sales_channel ORDER BY order_lines_total_item_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -357,7 +365,7 @@ def test_mapped_metric_mapped_dim_having(connection):
         "as orders_number_of_orders FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "GROUP BY orders.sub_channel HAVING SUM(order_lines.revenue)>200 "
-        "ORDER BY order_lines_total_item_revenue ASC,orders_sub_channel DESC;"
+        "ORDER BY order_lines_total_item_revenue ASC NULLS LAST,orders_sub_channel DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -373,12 +381,12 @@ def test_mapped_metric_mapped_merged_results(connection):
     order_lines_source = f"ifnull({order_lines_cte}.orders_sub_channel, {sessions_cte}.sessions_utm_source)"
     correct = (
         f"WITH {order_lines_cte} AS (SELECT orders.sub_channel as orders_sub_channel,"
-        f"SUM(order_lines.revenue) as order_lines_total_item_revenue FROM analytics.order_line_items "
-        f"order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        f"GROUP BY orders.sub_channel ORDER BY order_lines_total_item_revenue DESC) ,"
+        "SUM(order_lines.revenue) as order_lines_total_item_revenue FROM analytics.order_line_items "
+        "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
+        "GROUP BY orders.sub_channel ORDER BY order_lines_total_item_revenue DESC NULLS LAST) ,"
         f"{sessions_cte} AS (SELECT sessions.utm_source as sessions_utm_source,"
-        f"COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions sessions "
-        f"GROUP BY sessions.utm_source ORDER BY sessions_number_of_sessions DESC) "
+        "COUNT(sessions.id) as sessions_number_of_sessions FROM analytics.sessions sessions "
+        "GROUP BY sessions.utm_source ORDER BY sessions_number_of_sessions DESC NULLS LAST) "
         f"SELECT {order_lines_cte}.order_lines_total_item_revenue as "
         f"order_lines_total_item_revenue,{sessions_cte}.sessions_number_of_sessions "
         f"as sessions_number_of_sessions,{order_lines_source} as "
@@ -404,8 +412,8 @@ def test_mapped_metric_incorrect_error_message_on_mapped_filter(connection):
 
     correct_error = (
         f"The field number_of_sessions could not be either joined into the query or mapped "
-        "and merged into the query as a merged result. \n\nCheck that you specify joins to join it "
-        "in, or specify a mapping for a query with two tables that cannot be merged"
+        f"and merged into the query as a merged result. \n\nCheck that you specify joins to join it "
+        f"in, or specify a mapping for a query with two tables that cannot be merged"
     )
     assert exc_info.value
     assert str(exc_info.value) == correct_error
@@ -422,8 +430,8 @@ def test_mapped_metric_incorrect_error_message_on_mapped_filter(connection):
 
     correct_error = (
         f"The query could not be either joined or mapped and merged into a valid query with the fields:"
-        "\n\nnumber_of_orders, number_of_sessions, sessions.session_id, new_vs_repeat, source\n\n"
-        "Check that those fields can be joined together or are mapped so they can be merged across tables"
+        f"\n\nnumber_of_orders, number_of_sessions, sessions.session_id, new_vs_repeat, source\n\n"
+        f"Check that those fields can be joined together or are mapped so they can be merged across tables"
     )
     assert exc_info.value
     assert str(exc_info.value) == correct_error
@@ -445,7 +453,7 @@ def test_dim_only_joinable_date_chooses_right_mapping_date(connection):
         "orders.sub_channel as orders_sub_channel,orders.campaign as orders_campaign "
         "FROM analytics.orders orders WHERE DATE_TRUNC('DAY', orders.order_date)>='2023-05-05' "
         "AND DATE_TRUNC('DAY', orders.order_date)<='2023-08-02' GROUP BY orders.customer_id,"
-        "orders.account_id,orders.sub_channel,orders.campaign ORDER BY orders_customer_id ASC;"
+        "orders.account_id,orders.sub_channel,orders.campaign ORDER BY orders_customer_id ASC NULLS LAST;"
     )
     assert query == correct
 
@@ -468,19 +476,19 @@ def test_mapping_defer_to_metric_canon_date_not_dim_only(connection):
         "FROM analytics.clicked_on_page clicked_on_page WHERE DATE_TRUNC('DAY', "
         "clicked_on_page.session_date)>='2023-05-05' GROUP BY DATE_TRUNC('DAY', "
         "clicked_on_page.session_date),clicked_on_page.context_os ORDER BY "
-        "clicked_on_page_number_of_clicks DESC) ,"
+        "clicked_on_page_number_of_clicks DESC NULLS LAST) ,"
         "submitted_form_sent_at__cte_subquery_1 AS (SELECT DATE_TRUNC('DAY', "
-        "submitted_form.session_date) as submitted_form_sent_at_date,"
+        "submitted_form.sent_at) as submitted_form_sent_at_date,"
         "submitted_form.context_os as submitted_form_context_os,"
         "COUNT(DISTINCT(submitted_form.customer_id)) as submitted_form_unique_users_form_submissions "
         "FROM analytics.submitted_form submitted_form WHERE DATE_TRUNC('DAY', "
-        "submitted_form.session_date)>='2023-05-05' GROUP BY DATE_TRUNC('DAY', "
-        "submitted_form.session_date),submitted_form.context_os ORDER BY "
-        "submitted_form_unique_users_form_submissions DESC) SELECT "
+        "submitted_form.sent_at)>='2023-05-05' GROUP BY DATE_TRUNC('DAY', "
+        "submitted_form.sent_at),submitted_form.context_os ORDER BY "
+        "submitted_form_unique_users_form_submissions DESC NULLS LAST) SELECT "
         f"{cte_1}.clicked_on_page_number_of_clicks "
         f"as clicked_on_page_number_of_clicks,{cte_2}"
-        f".submitted_form_unique_users_form_submissions as "
-        f"submitted_form_unique_users_form_submissions,"
+        ".submitted_form_unique_users_form_submissions as "
+        "submitted_form_unique_users_form_submissions,"
         f"ifnull({cte_1}.clicked_on_page_session_date, {cte_2}.submitted_form_sent_at_date) "
         f"as clicked_on_page_session_date,ifnull({cte_1}.clicked_on_page_context_os, "
         f"{cte_2}.submitted_form_context_os) as clicked_on_page_context_os,"

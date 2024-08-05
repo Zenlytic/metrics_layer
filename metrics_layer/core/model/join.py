@@ -1,18 +1,42 @@
-from copy import deepcopy
+from copy import copy
+from typing import TYPE_CHECKING
 
-from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException, QueryError
+from metrics_layer.core.exceptions import (
+    AccessDeniedOrDoesNotExistException,
+    QueryError,
+)
+
 from .base import MetricsLayerBase, SQLReplacement
 from .field import Field
 from .set import Set
 
+if TYPE_CHECKING:
+    from metrics_layer.core.model.project import Project
+
+
+class ZenlyticJoinType:
+    left_outer = "left_outer"
+    inner = "inner"
+    full_outer = "full_outer"
+    cross = "cross"
+    options = [left_outer, inner, full_outer, cross]
+
+
+class ZenlyticJoinRelationship:
+    many_to_one = "many_to_one"
+    one_to_one = "one_to_one"
+    one_to_many = "one_to_many"
+    many_to_many = "many_to_many"
+    options = [many_to_one, one_to_one, one_to_many, many_to_many]
+
 
 class Join(MetricsLayerBase, SQLReplacement):
-    def __init__(self, definition: dict = {}, project=None) -> None:
-        self.project = project
+    def __init__(self, definition: dict, project) -> None:
+        self.project: Project = project
         if "type" not in definition:
-            definition["type"] = "left_outer"
+            definition["type"] = ZenlyticJoinType.left_outer
         if "relationship" not in definition:
-            definition["relationship"] = "many_to_one"
+            definition["relationship"] = ZenlyticJoinRelationship.many_to_one
 
         self.validate(definition)
         super().__init__(definition)
@@ -59,6 +83,10 @@ class Join(MetricsLayerBase, SQLReplacement):
                 ", please pass only one of: sql_on, foreign_key"
             )
 
+    def _error(self, element, error, extra: dict = {}):
+        line, column = self.line_col(element)
+        return {**extra, "message": error, "line": line, "column": column}
+
     def collect_errors(self):
         errors = []
         if self.foreign_key:
@@ -71,8 +99,13 @@ class Join(MetricsLayerBase, SQLReplacement):
                     )
                 except Exception:
                     errors.append(
-                        f"Could not find field {self.foreign_key} in {self.name} "
-                        f"referencing view {view_name}"
+                        self._error(
+                            self.foreign_key,
+                            (
+                                f"Could not find field {self.foreign_key} in {self.name} referencing view"
+                                f" {view_name}"
+                            ),
+                        )
                     )
             return errors
 
@@ -81,18 +114,27 @@ class Join(MetricsLayerBase, SQLReplacement):
 
             for field in fields_to_replace:
                 _, view_name, column_name = Field.field_name_parts(field)
+                if view_name is None:
+                    errors.append(
+                        self._error(self.sql_on, f"Could not find view for field {field} in {self.name}")
+                    )
+                    continue
+
                 try:
                     view = self.project.get_view(view_name)
                 except Exception:
                     err_msg = f"Could not find view {view_name} in {self.name}"
-                    errors.append(err_msg)
+                    errors.append(self._error(self.sql_on, err_msg))
                     continue
 
                 try:
                     self.project.get_field(column_name, view_name=view.name)
                 except Exception:
                     errors.append(
-                        f"Could not find field {column_name} in {self.name} referencing view {view_name}"
+                        self._error(
+                            self.sql_on,
+                            f"Could not find field {column_name} in {self.name} referencing view {view_name}",
+                        )
                     )
 
         return errors
@@ -133,11 +175,13 @@ class Join(MetricsLayerBase, SQLReplacement):
         return list(set(joins))
 
     def get_replaced_sql_on(self, sql: str, query_type: str):
-        sql_on = deepcopy(sql)
+        sql_on = copy(sql)
         fields_to_replace = self.fields_to_replace(sql_on)
-
         for field in fields_to_replace:
             _, view_name, column_name = Field.field_name_parts(field)
+            if view_name is None:
+                return
+
             view = self.project.get_view(view_name)
 
             if view is None:
@@ -174,7 +218,7 @@ class Join(MetricsLayerBase, SQLReplacement):
 
     def join_fields(self, show_hidden: bool, expand_dimension_groups: bool, show_excluded: bool):
         try:
-            view = self.project.get_view(self.from_, explore=self.explore)
+            view = self.project.get_view(self.from_)
         except AccessDeniedOrDoesNotExistException:
             # If the user does not have access to the view, there are obviously no fields to show them
             return []

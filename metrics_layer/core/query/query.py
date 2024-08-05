@@ -1,11 +1,12 @@
 import sqlparse
 
 from metrics_layer.core.convert import MQLConverter
+from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.parse import ProjectLoader
 from metrics_layer.core.parse.connections import BaseConnection
 from metrics_layer.core.sql import QueryRunner, SQLQueryResolver
+from metrics_layer.core.sql.arbitrary_merge_resolve import ArbitraryMergedQueryResolver
 from metrics_layer.core.sql.query_errors import ParseError
-from metrics_layer.core.exceptions import QueryError
 
 
 class DBConnectionError(Exception):
@@ -118,6 +119,7 @@ class MetricsLayerConnection:
         having: list = [],
         order_by: list = [],
         sql: str = None,
+        merged_queries: list = [],
         **kwargs,
     ):
         if sql:
@@ -126,7 +128,7 @@ class MetricsLayerConnection:
             )
             connection = converter.connection
             query = converter.get_query()
-        else:
+        elif metrics or dimensions:
             resolver = SQLQueryResolver(
                 metrics=metrics,
                 dimensions=dimensions,
@@ -140,6 +142,25 @@ class MetricsLayerConnection:
             )
             connection = resolver.connection
             query = resolver.get_query()
+        elif len(merged_queries) > 0:
+            # This kwarg is meaningless in the context of the merged query resolver
+            # But it can mess up sub queries if it's not popped here
+            kwargs.pop("merged_result", None)
+            resolver = ArbitraryMergedQueryResolver(
+                merged_queries=merged_queries,
+                where=where,
+                having=having,
+                order_by=order_by,
+                project=self.project,
+                connections=self.connections,
+                **{**self.kwargs, **kwargs},
+            )
+            connection = resolver.connection
+            query = resolver.get_query()
+        else:
+            raise QueryError(
+                'No metrics or dimensions specified. Please provide either "metrics" or "dimensions"'
+            )
 
         if kwargs.get("pretty", False):
             query = self.pretty_sql(query)

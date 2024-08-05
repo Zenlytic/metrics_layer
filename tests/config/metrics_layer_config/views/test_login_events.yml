@@ -9,22 +9,23 @@ default_date: events.event
 row_label: Event
 
 identifiers:
-- name: event_id
-  type: foreign
-  sql: ${event_id}
+  - name: event_id
+    type: foreign
+    sql: ${event_id}
 
 fields:
   - name: event_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     primary_key: yes
     hidden: yes
-    sql: "${TABLE}.id"
+    sql: '${TABLE}.id'
 
   - name: device
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     sql: ${events.device}
+    searchable: false
 
   - name: number_of_login_events
     field_type: measure

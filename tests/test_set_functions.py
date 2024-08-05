@@ -37,11 +37,15 @@ def test_sets(connection):
     assert _set.field_names() == [
         "orders.customer_id",
         "orders.account_id",
+        "orders.anon_id",
         "orders.do_not_use",
         "orders.order_raw",
         "orders.order_date",
+        "orders.order_day_of_year",
         "orders.order_week",
+        "orders.order_week_of_year",
         "orders.order_month",
+        "orders.order_month_of_year",
         "orders.order_quarter",
         "orders.order_year",
         "orders.order_day_of_week",
@@ -65,6 +69,7 @@ def test_sets(connection):
         "orders.number_of_orders",
         "orders.average_days_between_orders",
         "orders.total_revenue",
+        "orders.total_non_merchant_revenue",
         "orders.total_lifetime_revenue",
         "orders.cumulative_customers",
         "orders.cumulative_customers_no_change_grain",
@@ -79,10 +84,10 @@ def test_sets(connection):
 
 @pytest.mark.project
 def test_drill_fields(connection):
-    field = connection.project.get_field("orders.number_of_orders")
+    field = connection.project.get_field("orders.new_vs_repeat")
 
     drill_field_names = field.drill_fields
-    assert field.id() == "orders.number_of_orders"
+    assert field.id() == "orders.new_vs_repeat"
     assert drill_field_names == [
         "orders.order_id",
         "orders.customer_id",

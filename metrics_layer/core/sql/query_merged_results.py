@@ -1,9 +1,11 @@
 from collections import defaultdict
+
 from pypika import AliasedQuery, Criterion
 
-from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
+from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.filter import LiteralValueCriterion
-from metrics_layer.core.sql.query_dialect import query_lookup, if_null_lookup
+from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
+from metrics_layer.core.sql.query_dialect import if_null_lookup, query_lookup
 
 
 class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
@@ -22,10 +24,14 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
         complete_query = base_cte_query.select(*select)
 
         if self.having:
-            where = self.get_where_from_having(project=self.project)
+            where = self.get_where_with_aliases(self.having, project=self.project)
             complete_query = complete_query.where(Criterion.all(where))
 
-        sql = str(complete_query.limit(self.limit))
+        completed_query = complete_query.limit(self.limit)
+        if self.return_pypika_query:
+            return completed_query
+
+        sql = str(completed_query)
         if semicolon:
             sql += ";"
         return sql
@@ -39,13 +45,18 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
             if i == 0:
                 base_cte_query = base_cte_query.from_(AliasedQuery(join_hash))
             else:
-                criteria = self._build_join_criteria(self.join_hashes[0], join_hash)
-                base_cte_query = base_cte_query.outer_join(AliasedQuery(join_hash)).on(criteria)
+                no_dimensions = all(len(v) == 0 for v in self.query_dimensions.values())
+                # We have to do this because Redshift doesn't support a full outer join
+                # of two CTE's without dimensions using 1=1
+                if self.query_type == Definitions.redshift and no_dimensions:
+                    base_cte_query = base_cte_query.join(AliasedQuery(join_hash)).cross()
+                else:
+                    criteria = self._build_join_criteria(self.join_hashes[0], join_hash, no_dimensions)
+                    base_cte_query = base_cte_query.outer_join(AliasedQuery(join_hash)).on(criteria)
 
         return base_cte_query
 
-    def _build_join_criteria(self, first_query_alias, second_query_alias):
-        no_dimensions = all(len(v) == 0 for v in self.query_dimensions.values())
+    def _build_join_criteria(self, first_query_alias, second_query_alias, no_dimensions: bool):
         # No dimensions to join on, the query results must be just one number each
         if no_dimensions:
             return LiteralValueCriterion("1=1")
@@ -56,7 +67,14 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
             second_field = self.query_dimensions[second_query_alias][i]
             first_alias_and_id = f"{first_query_alias}.{first_field.alias(with_view=True)}"
             second_alias_and_id = f"{second_query_alias}.{second_field.alias(with_view=True)}"
-            join_criteria.append(f"{first_alias_and_id}={second_alias_and_id}")
+            # We need to add casting for differing datatypes on dimension groups for BigQuery
+            if Definitions.bigquery == self.query_type and first_field.datatype != second_field.datatype:
+                join_logic = (
+                    f"CAST({first_alias_and_id} AS TIMESTAMP)=CAST({second_alias_and_id} AS TIMESTAMP)"
+                )
+            else:
+                join_logic = f"{first_alias_and_id}={second_alias_and_id}"
+            join_criteria.append(join_logic)
 
         return LiteralValueCriterion(" and ".join(join_criteria))
 
@@ -89,6 +107,7 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
                     )
 
         dimension_sql = {}
+        all_dimension_ids = [field.id() for fields in self.query_dimensions.values() for field in fields]
         for join_hash, field_set in sorted(self.query_dimensions.items()):
             for field in field_set:
                 alias = field.alias(with_view=True)
@@ -99,8 +118,11 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
                     dimension_sql[alias] = f"{if_null_func}({dimension_sql[alias]}, {join_hash}.{alias})"
 
                 if field.id() in mapping_lookup:
+                    present_fields = [
+                        f for f in mapping_lookup[field.id()] if f["field"] in all_dimension_ids
+                    ]
                     if_null_func = if_null_lookup[self.query_type]
-                    nested_sql = self.nested_if_null(mapping_lookup[field.id()], if_null_func)
+                    nested_sql = self.nested_if_null(present_fields, if_null_func)
                     dimension_sql[alias] = f"{if_null_func}({join_hash}.{alias}, {nested_sql})"
 
         for alias, sql in dimension_sql.items():

@@ -1,13 +1,20 @@
-from .base import MetricsLayerBase
+from typing import TYPE_CHECKING, Union
+
 from metrics_layer.core.exceptions import QueryError
+
+from .base import MetricsLayerBase
+
+if TYPE_CHECKING:
+    from metrics_layer.core.model.project import Project
 
 
 class Set(MetricsLayerBase):
-    def __init__(self, definition: dict = {}, project=None, explore=None) -> None:
+    valid_properties = ["name", "fields", "view_name"]
+
+    def __init__(self, definition: dict, project) -> None:
         self.validate(definition)
 
-        self.project = project
-        self.explore = explore
+        self.project: Project = project
         super().__init__(definition)
 
     def validate(self, definition: dict):
@@ -15,6 +22,53 @@ class Set(MetricsLayerBase):
         for k in required_keys:
             if k not in definition:
                 raise QueryError(f"Set missing required key {k}")
+
+    def _error(self, element, error, extra: dict = {}):
+        line, column = self.line_col(element)
+        error = {**extra, "message": error, "line": line, "column": column}
+        if self.view_name:
+            error["view_name"] = self.view_name
+        return error
+
+    def collect_errors(self):
+        errors = []
+        if not self.valid_name(self.name):
+            errors.append(self._error(self.name, self.name_error("set", self.name)))
+
+        if "view_name" in self._definition and self.valid_name(self.view_name):
+            try:
+                self.project.get_view(self.view_name)
+            except Exception as e:
+                errors.append(self._error(self.view_name, f"In the Set {self.name} " + str(e)))
+
+        if not isinstance(self.fields, list):
+            errors.append(
+                self._error(
+                    self._definition["fields"],
+                    f"The fields property, {self.fields} must be a list in the Set {self.name}",
+                )
+            )
+        else:
+            try:
+                field_names = self.field_names()
+            except Exception:
+                # These errors are handled in the view in which the set is defined
+                field_names = []
+
+            for field in field_names:
+                try:
+                    self.project.get_field(field)
+                except Exception as e:
+                    errors.append(
+                        self._error(self._definition["fields"], f"In the Set {self.name} " + str(e))
+                    )
+
+        errors.extend(
+            self.invalid_property_error(
+                self._definition, self.valid_properties, "set", self.name, error_func=self._error
+            )
+        )
+        return errors
 
     def field_names(self):
         all_field_names, names_to_exclude = [], []
@@ -62,7 +116,7 @@ class Set(MetricsLayerBase):
             return []
         return _set.field_names()
 
-    def _get_view_name(self, view_name: str, field_name: str):
+    def _get_view_name(self, view_name: Union[None, str], field_name: str):
         if view_name:
             return view_name
         elif view_name is None and self.view_name:

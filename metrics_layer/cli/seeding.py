@@ -1,5 +1,9 @@
 import os
 import re
+from typing import List, Union
+
+import pandas as pd
+
 from metrics_layer.core.model.definitions import Definitions
 
 
@@ -55,9 +59,9 @@ class SeedMetricsLayer:
             "CHAR": "string",
             "CHARACTER": "string",
             "STRING": "string",
-            "TEXT": "string",
             "BINARY": "string",
             "VARBINARY": "string",
+            "NUMBER": "number",
         }
 
         self._redshift_type_lookup = {
@@ -75,6 +79,22 @@ class SeedMetricsLayer:
             "REAL": "number",
             "DECIMAL": "number",
             "BIGINT": "number",
+        }
+        self._databricks_type_lookup = {
+            "TIME": "timestamp",
+            "TIMESTAMP": "timestamp",
+            "TIMESTAMP_NTZ": "timestamp",
+            "DATE": "date",
+            "STRING": "string",
+            "BOOLEAN": "yesno",
+            "DOUBLE": "number",
+            "FLOAT": "number",
+            "DECIMAL": "number",
+            "LONG": "number",
+            "INT": "number",
+            "SMALLINT": "number",
+            "BIGINT": "number",
+            "TINYINT": "number",
         }
         self._druid_type_lookup = {
             "CHAR": "string",
@@ -105,7 +125,6 @@ class SeedMetricsLayer:
             "double precision": "number",
             "numeric": "number",
             "float": "number",
-            "real": "number",
             "money": "number",
         }
         self._sql_server_type_lookup = {
@@ -140,7 +159,7 @@ class SeedMetricsLayer:
             "STRING": "string",
         }
 
-    def seed(self):
+    def seed(self, auto_tag_searchable_fields: bool = False):
         from metrics_layer.core.parse import ProjectDumper, ProjectLoader
 
         if self.connection.type not in Definitions.supported_warehouses:
@@ -150,15 +169,25 @@ class SeedMetricsLayer:
         columns_query = self.columns_query()
         data = self.run_query(columns_query)
         data.columns = [c.upper() for c in data.columns]
+
+        if self.connection.type in {Definitions.snowflake, Definitions.databricks}:
+            table_query = self.table_query()
+            table_data = self.run_query(table_query)
+            table_data.columns = [c.upper() for c in table_data.columns]
+        else:
+            table_data = pd.DataFrame()
         print(f"Got information on all tables and views in {self.location_description}")
 
         # We need to filter down the whole result to just the chosen schema and table (if applicable)
         if self.schema:
             data = data[data["TABLE_SCHEMA"].str.lower() == self.schema.lower()].copy()
+            if not table_data.empty:
+                table_data = table_data[table_data["TABLE_SCHEMA"].str.lower() == self.schema.lower()].copy()
 
         if self.table:
             data = data[data["TABLE_NAME"].str.lower() == self.table.lower()].copy()
-
+            if not table_data.empty:
+                table_data = table_data[table_data["TABLE_NAME"].str.lower() == self.table.lower()].copy()
         folder = self._location()
         loader = ProjectLoader(folder)
         project = loader.load()
@@ -170,9 +199,21 @@ class SeedMetricsLayer:
         views, tables = [], data["TABLE_NAME"].unique()
         for i, table_name in enumerate(tables):
             column_df = data[data["TABLE_NAME"].str.lower() == table_name.lower()].copy()
+            if not table_data.empty:
+                table_comment = table_data[table_data["TABLE_NAME"].str.lower() == table_name.lower()][
+                    "COMMENT"
+                ].values[0]
+            else:
+                table_comment = None
             schema_name = column_df["TABLE_SCHEMA"].values[0]
-            view = self.make_view(column_df, model_name, table_name, schema_name)
-
+            view = self.make_view(
+                column_df,
+                model_name,
+                table_name,
+                schema_name,
+                table_comment,
+                auto_tag_searchable_fields=auto_tag_searchable_fields,
+            )
             if self.table:
                 progress = ""
             else:
@@ -218,15 +259,30 @@ class SeedMetricsLayer:
         }
         return [model]
 
-    def make_view(self, column_data, model_name: str, table_name: str, schema_name: str):
+    def make_view(
+        self,
+        column_data,
+        model_name: str,
+        table_name: str,
+        schema_name: str,
+        table_comment: str = None,
+        auto_tag_searchable_fields: bool = True,
+    ):
         view_name = self.clean_name(table_name)
-        fields = self.make_fields(column_data)
+        fields = self.make_fields(
+            column_data,
+            schema_name=schema_name,
+            table_name=table_name,
+            auto_tag_searchable_fields=auto_tag_searchable_fields,
+        )
         if self.connection.type in {
             Definitions.snowflake,
             Definitions.redshift,
             Definitions.postgres,
             Definitions.sql_server,
+            Definitions.azure_synapse,
             Definitions.duck_db,
+            Definitions.databricks,
         }:
             sql_table_name = f"{schema_name}.{table_name}"
             if self._database_is_not_default:
@@ -246,13 +302,26 @@ class SeedMetricsLayer:
             "default_date": next((f["name"] for f in fields if f["field_type"] == "dimension_group"), None),
             "fields": fields,
         }
+        if table_comment:
+            view["description"] = table_comment
         if view["default_date"] is None:
             view.pop("default_date")
         return view
 
-    def make_fields(self, column_data: str):
+    def make_fields(self, column_data, schema_name: str, table_name: str, auto_tag_searchable_fields: bool):
+        if auto_tag_searchable_fields:
+            if schema_name is None:
+                raise ValueError("schema_name is required to auto tag searchable fields")
+            if table_name is None:
+                raise ValueError("table_name is required to auto tag searchable fields")
+
         fields = []
-        for _, row in column_data[["COLUMN_NAME", "DATA_TYPE"]].iterrows():
+        searchable_field_candidates = []
+        if self.connection.type in {Definitions.snowflake, Definitions.databricks}:
+            data_to_iterate = column_data[["COLUMN_NAME", "DATA_TYPE", "COMMENT"]]
+        else:
+            data_to_iterate = column_data[["COLUMN_NAME", "DATA_TYPE"]]
+        for _, row in data_to_iterate.iterrows():
             name = self.clean_name(row["COLUMN_NAME"])
             if self.connection.type == Definitions.snowflake:
                 metrics_layer_type = self._snowflake_type_lookup.get(row["DATA_TYPE"], "string")
@@ -264,35 +333,156 @@ class SeedMetricsLayer:
                 metrics_layer_type = self._bigquery_type_lookup.get(row["DATA_TYPE"], "string")
             elif self.connection.type == Definitions.druid:
                 metrics_layer_type = self._druid_type_lookup.get(row["DATA_TYPE"], "string")
-            elif self.connection.type == Definitions.sql_server:
+            elif self.connection.type in {Definitions.sql_server, Definitions.azure_synapse}:
                 metrics_layer_type = self._sql_server_type_lookup.get(row["DATA_TYPE"], "string")
+            elif self.connection.type == Definitions.databricks:
+                metrics_layer_type = self._databricks_type_lookup.get(row["DATA_TYPE"], "string")
             else:
                 raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
-            sql = "${TABLE}." + row["COLUMN_NAME"]
+            # Add quotes for certain db only because we've seen issues with column names with special chars
+            if self.connection.type in {
+                Definitions.druid,
+                Definitions.snowflake,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
+                column_name = '"' + row["COLUMN_NAME"] + '"'
+            else:
+                column_name = row["COLUMN_NAME"]
+            sql = "${TABLE}." + column_name
 
             field = {"name": name, "sql": sql}
+
+            if "COMMENT" in row and row["COMMENT"] is not None:
+                field["description"] = row["COMMENT"]
 
             if metrics_layer_type in {"timestamp", "date", "datetime"}:
                 field["field_type"] = "dimension_group"
                 field["type"] = "time"
-                field["timeframes"] = ["raw", "date", "week", "month", "quarter", "year"]
+                field["timeframes"] = [
+                    "raw",
+                    "date",
+                    "day_of_year",
+                    "week",
+                    "week_of_year",
+                    "month",
+                    "month_of_year",
+                    "quarter",
+                    "year",
+                ]
                 field["datatype"] = metrics_layer_type
+            elif metrics_layer_type == "string" and auto_tag_searchable_fields:
+                field["field_type"] = "dimension"
+                field["type"] = "string"
+                searchable_field_candidates.append(row["COLUMN_NAME"])
             else:
                 field["field_type"] = "dimension"
                 field["type"] = metrics_layer_type
             fields.append(field)
+        if searchable_field_candidates:
+            column_cardinalities_query = self.column_cardinalities_query(
+                column_names=searchable_field_candidates, schema_name=schema_name, table_name=table_name
+            )
+            column_cardinalities = self.run_query(query=column_cardinalities_query)
+
+            # Get the column names that have a cardinality of less than 100
+            # Note: running the query doesn't preserve the column name cases
+            searchable_column_names = [
+                col.lower().rsplit("_cardinality", 1)[0]
+                for col in column_cardinalities.columns
+                if column_cardinalities.loc[0, col] < 100
+            ]
+
+            for field in fields:
+                if field["sql"].split(".", 1)[1].lower().replace('"', "") in searchable_column_names:
+                    field["searchable"] = True
+                elif field["field_type"] == "dimension" and field["type"] == "string":
+                    field["searchable"] = False
+
         return fields
 
+    def column_cardinalities_query(
+        self,
+        column_names: List[str],
+        schema_name: str,
+        table_name: str,
+        custom_sql_base: Union[str, None] = None,
+        quote: bool = True,
+        alias_mappings: Union[dict, None] = None,
+    ) -> str:
+        cardinality_queries = []
+        for column_name in column_names:
+            if alias_mappings is not None and column_name in alias_mappings:
+                column_name_alias = alias_mappings[column_name]
+            else:
+                column_name_alias = column_name
+            if self.connection.type in (Definitions.snowflake, Definitions.duck_db, Definitions.druid):
+                quote_column_name = f'"{column_name}"' if quote else column_name
+                query = f'APPROX_COUNT_DISTINCT( {quote_column_name} ) as "{column_name_alias}_cardinality"'  # noqa: E501
+            elif self.connection.type in {Definitions.redshift, Definitions.postgres}:
+                quote_column_name = f'"{column_name}"' if quote else column_name
+                query = (
+                    f'COUNT(DISTINCT {quote_column_name} ) as "{column_name_alias}_cardinality"'  # noqa: E501
+                )
+            elif self.connection.type in {Definitions.sql_server, Definitions.azure_synapse}:
+                quote_column_name = f'"{column_name}"' if quote else column_name
+                query = f'COUNT(DISTINCT cast({quote_column_name} as VARCHAR(MAX))) as "{column_name_alias}_cardinality"'  # noqa: E501
+            elif self.connection.type == Definitions.bigquery:
+                quote_column_name = f"`{column_name}`" if quote else column_name
+                query = (
+                    f"APPROX_COUNT_DISTINCT( TO_JSON_STRING({quote_column_name}) ) as"
+                    f" `{column_name_alias}_cardinality`"
+                )
+            elif self.connection.type == Definitions.databricks:
+                quote_column_name = f"`{column_name}`" if quote else column_name
+                query = f"APPROX_COUNT_DISTINCT( {quote_column_name} ) as `{column_name_alias}_cardinality`"
+            else:
+                raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
+            cardinality_queries.append(query)
+
+        query = f"SELECT {', '.join(cardinality_queries)}"
+
+        if custom_sql_base:
+            query += f" FROM {custom_sql_base}"
+        elif self.connection.type in {
+            Definitions.snowflake,
+            Definitions.duck_db,
+            Definitions.druid,
+            Definitions.redshift,
+            Definitions.postgres,
+            Definitions.sql_server,
+            Definitions.azure_synapse,
+            Definitions.databricks,
+        }:
+            query += f" FROM {self.database}.{schema_name}.{table_name}"
+        elif self.connection.type == Definitions.druid:
+            query += f"FROM {schema_name}.{table_name}"
+        elif self.connection.type == Definitions.bigquery:
+            query += f" FROM `{self.database}`.`{schema_name}`.`{table_name}`"
+
+        return query + ";" if self.connection.type != Definitions.druid else query
+
     def columns_query(self):
-        query = "SELECT table_catalog, table_schema, table_name, column_name, data_type FROM "
+        if self.connection.type in {Definitions.snowflake, Definitions.databricks}:
+            comment_statement = ", comment as comment"
+        else:
+            comment_statement = ""
+        query = (
+            f"SELECT table_catalog, table_schema, table_name, column_name, data_type{comment_statement} FROM "
+        )
         if self.database and self.connection.type in {
             Definitions.snowflake,
             Definitions.redshift,
             Definitions.postgres,
             Definitions.sql_server,
+            Definitions.azure_synapse,
             Definitions.duck_db,
+            Definitions.databricks,
         }:
-            query += f"{self.database}.INFORMATION_SCHEMA.COLUMNS"
+            if self.connection.type == Definitions.databricks and self.database is None:
+                query += f"INFORMATION_SCHEMA.COLUMNS"
+            else:
+                query += f"{self.database}.INFORMATION_SCHEMA.COLUMNS"
         elif self.connection.type == Definitions.druid:
             query = (
                 "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE "
@@ -306,6 +496,17 @@ class SeedMetricsLayer:
             )
         else:
             raise ValueError("You must specify at least a database for seeding")
+
+        # Apply where clause if we are seeding a single table
+        if self.table and self.schema:
+            query += f" WHERE TABLE_SCHEMA = '{self.schema}' AND TABLE_NAME = '{self.table}'"
+        elif not self.table and self.schema:
+            query += f" WHERE TABLE_SCHEMA = '{self.schema}'"
+
+        # Snowflake had a metadata error when not using the limit statement, so we add this
+        if self.connection.type == Definitions.snowflake:
+            # 10k columns is a reasonable max for a single table
+            return query + " LIMIT 10000;"
         return query + ";" if self.connection.type != Definitions.druid else query
 
     def table_query(self):
@@ -314,7 +515,8 @@ class SeedMetricsLayer:
                 "SELECT table_catalog as table_database, table_schema as table_schema, "
                 "table_name as table_name, table_owner as table_owner, table_type as table_type, "
                 "bytes as table_size, created as table_created, last_altered as table_last_modified, "
-                f"row_count as table_row_count FROM {self.database}.INFORMATION_SCHEMA.TABLES"
+                "row_count as table_row_count, comment as comment "
+                f"FROM {self.database}.INFORMATION_SCHEMA.TABLES"
             )
         elif self.connection.type in {Definitions.druid}:
             query = (
@@ -327,6 +529,7 @@ class SeedMetricsLayer:
             Definitions.redshift,
             Definitions.postgres,
             Definitions.sql_server,
+            Definitions.azure_synapse,
             Definitions.duck_db,
         }:
             query = (
@@ -334,6 +537,13 @@ class SeedMetricsLayer:
                 "table_name as table_name, table_type as table_type "
                 f"FROM {self.database}.INFORMATION_SCHEMA.TABLES "
                 "WHERE table_schema not in ('pg_catalog', 'information_schema')"
+            )
+        elif self.connection.type == Definitions.databricks:
+            database_str = f"{self.database}." if self.database else ""
+            query = (
+                "SELECT table_catalog as table_database, table_schema as table_schema, "
+                "table_name as table_name, table_type as table_type, "
+                f"comment as comment FROM {database_str}INFORMATION_SCHEMA.TABLES"
             )
         elif self.database and self.schema and self.connection.type == Definitions.bigquery:
             query = (
@@ -368,7 +578,7 @@ class SeedMetricsLayer:
             else:
                 raise ValueError(
                     f"Could not determine the connection to use, "
-                    "please pass the connection name with the --connection arg"
+                    f"please pass the connection name with the --connection arg"
                 )
         return connection
 
@@ -469,123 +679,3 @@ class SeedMetricsLayer:
     def clean_name(txt: str):
         alphanumeric_string = re.sub(r"[^a-zA-Z0-9\s_]", "", txt)
         return alphanumeric_string.lower().strip().replace(" ", "_")
-
-
-class dbtSeed(SeedMetricsLayer):
-    def seed(self, profiles_dir: str = "LOCAL"):
-        self.load_manifest(profiles_dir)
-
-        # We need to filter down the whole result to just the chosen schema and table (if applicable)
-        if self.table:
-            dbt_tables = self.manifest.models(table=self.table)
-        else:
-            dbt_tables = self.manifest.models(schema=self.schema)
-
-        columns_query = self.columns_query()
-        data = self.run_query(columns_query)
-        data.columns = [c.upper() for c in data.columns]
-        print(f"Got information on all tables and views in {self.location_description}")
-
-        # We need to filter down the whole result to just the chosen schema and table (if applicable)
-        data = self.filter_data(data, dbt_tables)
-
-        # Each iteration represents either a single table or a single view
-        views, tables = [], data["TABLE_NAME"].unique()
-        for i, table_name in enumerate(tables):
-            column_df = data[data["TABLE_NAME"].str.lower() == table_name.lower()].copy()
-            view = {}
-            view = self.make_view(column_df, table_name)
-
-            if self.table:
-                progress = ""
-            else:
-                progress = f"({i + 1} / {len(tables)})"
-            print(f"Got information on {table_name} {progress}")
-            views.append(view)
-
-        # Show error for views not found but found in dbt
-        view_names = [m["name"] for v in views for m in v["models"]]
-        for dbt_table_name in dbt_tables:
-            if self._table_name(dbt_table_name).lower() not in view_names:
-                print(
-                    f"Could not find table {dbt_table_name} referenced in "
-                    f"dbt model in {self.location_description}"
-                )
-        for view in views:
-            self.write_view(view)
-
-    def write_view(self, view: dict):
-        from metrics_layer.core.parse import ProjectDumper
-
-        save_path = view.pop("save_path")
-        ProjectDumper.dump_yaml_file(view, save_path)
-
-    def make_view(self, column_data, table_name: str):
-        dbt_model = self.manifest.get_model(table_name.lower())
-        view_name = dbt_model["alias"]
-        fields = self.make_fields(column_data)
-        default_date = next(
-            (f["name"] for f in fields if f.get("meta", {}).get("datatype") is not None), None
-        )
-        metrics = []
-        model_meta = {"default_date": default_date, "identifiers": []}
-        if model_meta["default_date"] is None:
-            model_meta.pop("default_date")
-
-        description = "TODO - Describe the function of the table. Update the identifiers to add joins"
-        model = {"name": view_name, "description": description, "meta": model_meta, "columns": fields}
-
-        save_dir = os.path.join(dbt_model["root_path"], os.path.dirname(dbt_model["original_file_path"]))
-        save_path = os.path.join(save_dir, f"__{view_name}.yml")
-        view = {"version": 2, "save_path": save_path, "models": [model], "metrics": metrics}
-        return view
-
-    def make_fields(self, column_data: str):
-        fields = []
-        for _, row in column_data[["COLUMN_NAME", "DATA_TYPE"]].iterrows():
-            name = self.clean_name(row["COLUMN_NAME"])
-            if self.connection.type == Definitions.snowflake:
-                metrics_layer_type = self._snowflake_type_lookup.get(row["DATA_TYPE"], "string")
-            elif self.connection.type == Definitions.redshift:
-                metrics_layer_type = self._redshift_type_lookup.get(row["DATA_TYPE"], "string")
-            elif self.connection.type in {Definitions.postgres, Definitions.duck_db}:
-                metrics_layer_type = self._postgres_type_lookup.get(row["DATA_TYPE"], "string")
-            elif self.connection.type == Definitions.bigquery:
-                metrics_layer_type = self._bigquery_type_lookup.get(row["DATA_TYPE"], "string")
-            else:
-                raise ValueError(f"Unknown connection type {self.connection.type}")
-
-            field = {"name": name, "description": f"The {name} for this table", "is_dimension": True}
-
-            if metrics_layer_type in {"timestamp", "date"}:
-                field.pop("is_dimension")
-                field["meta"] = {"datatype": metrics_layer_type}
-            fields.append(field)
-        return fields
-
-    def filter_data(self, data, tables: list):
-        table_names = [self._table_name(t).lower() for t in tables]
-        if len(table_names) == 0:
-            raise ValueError(f"No tables (that is, models) found in the dbt project")
-
-        schema_matches = data["TABLE_SCHEMA"].str.lower() == self.schema.lower()
-        table_names_match = data["TABLE_NAME"].str.lower().isin(table_names)
-        return data[schema_matches & table_names_match].copy()
-
-    def load_manifest(self, profiles_dir):
-        from metrics_layer.core.parse.github_repo import LocalRepo
-        from metrics_layer.core.parse import dbtProjectReader, ProjectLoader
-        from metrics_layer.core.parse.manifest import Manifest
-
-        local_repo = LocalRepo(self._location())
-        reader = dbtProjectReader(local_repo)
-
-        if profiles_dir == "LOCAL":
-            profiles_dir = os.path.dirname(ProjectLoader.profiles_path())
-        reader.generate_manifest_json(reader.dbt_folder, profiles_dir)
-        self.manifest = Manifest(reader.load_manifest_json())
-        return self.manifest
-
-    @staticmethod
-    def _table_name(full_table_name: str):
-        return full_table_name.split(".")[-1]

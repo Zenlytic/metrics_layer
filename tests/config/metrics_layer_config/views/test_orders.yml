@@ -7,24 +7,24 @@ required_access_grants: [test_access_grant_department_view]
 model_name: test_model
 
 default_date: order
-row_label: "Order"
+row_label: 'Order'
 
 identifiers:
-- name: order_id
-  type: primary
-  sql: ${order_id}
-- name: order_discount_join
-  type: join
-  relationship: one_to_many
-  reference: 'discounts'
-  sql_on: ${orders.order_id}=${discounts.order_id}
-- name: customer_id
-  type: foreign
-  sql: ${customer_id}
-- name: account_id
-  type: foreign
-  sql: ${account_id}
-  
+  - name: order_id
+    type: primary
+    sql: ${order_id}
+  - name: order_discount_join
+    type: join
+    relationship: one_to_many
+    reference: 'discounts'
+    sql_on: ${orders.order_id}=${discounts.order_id}
+  - name: customer_id
+    type: foreign
+    sql: ${customer_id}
+  - name: account_id
+    type: foreign
+    sql: ${account_id}
+
 access_filters:
   - field: customers.region
     user_attribute: owned_region
@@ -33,104 +33,113 @@ access_filters:
 
 fields:
   - name: order_id
-    field_type: "dimension"
+    field_type: 'dimension'
+    type: string
     primary_key: yes
     hidden: yes
-    sql: "${TABLE}.id"
+    sql: '${TABLE}.id'
     group_label: "ID's"
 
   - name: customer_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     hidden: yes
-    sql: "${TABLE}.customer_id"
+    sql: '${TABLE}.customer_id'
     group_label: "ID's"
 
   - name: account_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     hidden: yes
-    sql: "${TABLE}.account_id"
+    sql: '${TABLE}.account_id'
     group_label: "ID's"
 
+  - name: anon_id
+    field_type: 'dimension'
+    type: number
+    sql: '${TABLE}.anon_id'
+
   - name: do_not_use
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
-    sql: "${TABLE}.for_set_testing"
+    sql: '${TABLE}.for_set_testing'
+    searchable: false
 
   - name: order
-    field_type: "dimension_group"
+    field_type: 'dimension_group'
     type: time
-    timeframes: [
-      raw,
-      time,
-      date,
-      week,
-      month,
-      quarter,
-      year,
-      day_of_week,
-      hour_of_day
-    ]
-    sql: "${TABLE}.order_date"
+    timeframes:
+      [
+        raw,
+        time,
+        date,
+        day_of_year,
+        week,
+        week_of_year,
+        month,
+        month_of_year,
+        quarter,
+        year,
+        day_of_week,
+        hour_of_day,
+      ]
+    sql: '${TABLE}.order_date'
 
   - name: previous_order
-    field_type: "dimension_group"
+    field_type: 'dimension_group'
     type: time
-    timeframes: [
-      raw,
-      time,
-      date,
-      week,
-      month,
-      quarter,
-      year
-    ]
-    sql: "${TABLE}.previous_order_date"
+    timeframes: [raw, time, date, week, month, quarter, year]
+    sql: '${TABLE}.previous_order_date'
 
   - name: between_orders
     field_type: dimension_group
     type: duration
-    intervals: ["hour", "day", "week", "month", "quarter", "year"]
+    intervals: ['hour', 'day', 'week', 'month', 'quarter', 'year']
     sql_start: ${previous_order_raw}
     sql_end: ${order_raw}
-    label": "between this and last order"
+    label: 'between this and last order'
 
   - name: revenue_dimension
-    field_type: "dimension"
+    field_type: 'dimension'
     type: number
-    sql: "${TABLE}.revenue"
+    sql: '${TABLE}.revenue'
 
   - name: revenue_in_cents
-    field_type: "dimension"
+    field_type: 'dimension'
     type: number
     sql: ${revenue_dimension} * 100
 
   - name: sub_channel
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
-    sql: "${TABLE}.sub_channel"
+    sql: '${TABLE}.sub_channel'
+    searchable: true
 
   - name: warehouse_location
     field_type: dimension
     type: string
     sql: ${TABLE}.warehouselocation
+    searchable: true
 
   - name: campaign
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
-    sql: "${TABLE}.campaign"
+    sql: '${TABLE}.campaign'
+    searchable: true
 
   - name: new_vs_repeat
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
-    sql: "${TABLE}.new_vs_repeat"
+    sql: '${TABLE}.new_vs_repeat'
+    searchable: true
+    drill_fields: [test_set*, new_vs_repeat]
 
   - name: number_of_orders
     field_type: measure
-    drill_fields: [test_set*, new_vs_repeat]
     type: count
-    sql: "${order_id}"
+    sql: '${order_id}'
+    canon_date: null
+    filters: []
 
   - name: average_days_between_orders
     field_type: measure
@@ -140,9 +149,17 @@ fields:
 
   - name: total_revenue
     required_access_grants: [test_access_grant_department_field]
-    field_type: "measure"
+    field_type: 'measure'
     type: sum
     sql: ${revenue_dimension}
+
+  - name: total_non_merchant_revenue
+    field_type: measure
+    type: sum
+    sql: ${TABLE}.revenue
+    filters:
+      - field: anon_id
+        value: -9, -3, -22, -9082
 
   - name: total_lifetime_revenue
     field_type: measure
@@ -178,29 +195,30 @@ fields:
     sql: ${total_lifetime_revenue} / nullif(${customers.number_of_customers}, 0)
 
   - name: total_modified_revenue
-    field_type: "measure"
+    field_type: 'measure'
     type: sum
     sql: "case when ${TABLE}.order_id not like 'Z%'
-           and ${TABLE}.order_id not like 'QW%'
-           and length(${TABLE}.order_id)>=12
-           then ${TABLE}.revenue else 0 end"
+      and ${TABLE}.order_id not like 'QW%'
+      and length(${TABLE}.order_id)>=12
+      then ${TABLE}.revenue else 0 end"
 
   - name: average_order_value
-    field_type: "measure"
+    field_type: 'measure'
     type: average
-    sql: "${TABLE}.revenue"
+    sql: '${TABLE}.revenue'
 
   - name: average_order_value_custom
-    field_type: "measure"
+    field_type: 'measure'
     type: number
-    sql: "${total_revenue} / ${number_of_orders}"
+    sql: '${total_revenue} / ${number_of_orders}'
 
   - name: new_order_count
-    field_type: "measure"
+    field_type: 'measure'
     type: count
+    sql: ${orders.order_id}
     filters:
       - field: new_vs_repeat
-        value: "New"
+        value: 'New'
 
 sets:
   - name: test_set

@@ -1,6 +1,7 @@
 import os
 from copy import copy
 
+import pandas as pd
 import pytest
 from click.testing import CliRunner
 
@@ -41,6 +42,8 @@ def test_cli_init(mocker, monkeypatch):
     "query_type,profile,target,database_override",
     [
         (Definitions.snowflake, None, None, None),
+        (Definitions.databricks, None, None, None),
+        (Definitions.databricks, None, None, "segment_events"),
         (Definitions.bigquery, None, None, None),
         (Definitions.postgres, None, None, None),
         (Definitions.postgres, None, None, "segment_events"),
@@ -48,6 +51,7 @@ def test_cli_init(mocker, monkeypatch):
         (Definitions.redshift, None, None, None),
         (Definitions.druid, None, None, None),
         (Definitions.sql_server, None, None, None),
+        (Definitions.azure_synapse, None, None, None),
     ],
 )
 def test_cli_seed_metrics_layer(
@@ -64,14 +68,29 @@ def test_cli_seed_metrics_layer(
     seed_postgres_tables_data,
     seed_druid_tables_data,
     seed_sql_server_tables_data,
+    seed_databricks_tables_data,
 ):
     mocker.patch("os.mkdir")
     yaml_dump_called = 0
 
     def query_runner_mock(slf, query):
         print(query)
-        if query_type == Definitions.snowflake:
+        if query_type == Definitions.snowflake and ".COLUMNS" in query:
             return seed_snowflake_tables_data
+        elif query_type == Definitions.snowflake and ".TABLES" in query:
+            return pd.DataFrame(
+                [
+                    {"TABLE_SCHEMA": "ANALYTICS", "TABLE_NAME": "ORDERS", "COMMENT": "orders table, bro"},
+                    {"TABLE_SCHEMA": "ANALYTICS", "TABLE_NAME": "SESSIONS", "COMMENT": None},
+                ]
+            )
+        elif query_type == Definitions.databricks and ".TABLES" in query:
+            return pd.DataFrame(
+                [
+                    {"TABLE_SCHEMA": "analytics", "TABLE_NAME": "orders", "COMMENT": "orders table, bro"},
+                    {"TABLE_SCHEMA": "analytics", "TABLE_NAME": "sessions", "COMMENT": None},
+                ]
+            )
         elif query_type == Definitions.redshift:
             return seed_redshift_tables_data
         elif query_type == Definitions.postgres:
@@ -80,8 +99,10 @@ def test_cli_seed_metrics_layer(
             return seed_bigquery_tables_data
         elif query_type == Definitions.druid:
             return seed_druid_tables_data
-        elif query_type == Definitions.sql_server:
+        elif query_type in {Definitions.sql_server, Definitions.azure_synapse}:
             return seed_sql_server_tables_data
+        elif query_type == Definitions.databricks:
+            return seed_databricks_tables_data
         raise ValueError("Query error, does not match expected")
 
     def yaml_dump_assert(slf, data, file):
@@ -98,33 +119,77 @@ def test_cli_seed_metrics_layer(
 
         elif data["type"] == "view" and data["name"] == "orders":
             assert data["model_name"] == "base_model"
+            if query_type in {Definitions.snowflake, Definitions.databricks}:
+                assert data["description"] == "orders table, bro"
             if query_type in {Definitions.snowflake, Definitions.redshift}:
                 assert data["sql_table_name"] == "ANALYTICS.ORDERS"
             if query_type in {Definitions.druid}:
                 assert data["sql_table_name"] == "druid.orders"
             elif query_type == Definitions.bigquery:
                 assert data["sql_table_name"] == "`analytics.analytics.orders`"
-            elif query_type in {Definitions.postgres, Definitions.sql_server} and database_override is None:
+            elif (
+                query_type
+                in {
+                    Definitions.postgres,
+                    Definitions.azure_synapse,
+                    Definitions.sql_server,
+                    Definitions.databricks,
+                }
+                and database_override is None
+            ):
                 assert data["sql_table_name"] == "analytics.orders"
-            elif query_type in {Definitions.postgres, Definitions.sql_server} and database_override:
+            elif (
+                query_type
+                in {
+                    Definitions.postgres,
+                    Definitions.azure_synapse,
+                    Definitions.sql_server,
+                    Definitions.databricks,
+                }
+                and database_override
+            ):
                 assert data["sql_table_name"] == "segment_events.analytics.orders"
             assert "row_label" not in data
 
+            order_id = next((f for f in data["fields"] if f["name"] == "order_id"))
             date = next((f for f in data["fields"] if f["name"] == "order_created_at"))
             new = next((f for f in data["fields"] if f["name"] == "new_vs_repeat"))
             num = next((f for f in data["fields"] if f["name"] == "revenue"))
             social = next((f for f in data["fields"] if f["name"] == "on_social_network"))
             acq_date = next((f for f in data["fields"] if f["name"] == "acquisition_date"))
 
+            if query_type in {Definitions.snowflake, Definitions.databricks}:
+                assert order_id["description"] == "I am an order id"
+
             assert social["type"] == "yesno"
-            assert social["sql"] == "${TABLE}.ON_SOCIAL_NETWORK"
+            if query_type == Definitions.databricks:
+                assert social["sql"] == "${TABLE}.on_social_network"
+            elif query_type in {
+                Definitions.snowflake,
+                Definitions.druid,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
+                assert social["sql"] == '${TABLE}."ON_SOCIAL_NETWORK"'
+            else:
+                assert social["sql"] == "${TABLE}.ON_SOCIAL_NETWORK"
 
             assert acq_date["type"] == "time"
-            if query_type == Definitions.sql_server:
+            if query_type in {Definitions.sql_server, Definitions.azure_synapse}:
                 assert acq_date["datatype"] == "datetime"
             else:
                 assert acq_date["datatype"] == "timestamp"
-            assert acq_date["sql"] == "${TABLE}.ACQUISITION_DATE"
+            if query_type == Definitions.databricks:
+                assert acq_date["sql"] == "${TABLE}.acquisition_date"
+            elif query_type in {
+                Definitions.snowflake,
+                Definitions.druid,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
+                assert acq_date["sql"] == '${TABLE}."ACQUISITION_DATE"'
+            else:
+                assert acq_date["sql"] == "${TABLE}.ACQUISITION_DATE"
 
             assert date["type"] == "time"
             if query_type in {
@@ -133,18 +198,53 @@ def test_cli_seed_metrics_layer(
                 Definitions.postgres,
                 Definitions.druid,
                 Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert date["datatype"] == "date"
             else:
                 assert date["datatype"] == "timestamp"
-            assert date["timeframes"] == ["raw", "date", "week", "month", "quarter", "year"]
-            assert date["sql"] == "${TABLE}.ORDER_CREATED_AT"
+            assert date["timeframes"] == [
+                "raw",
+                "date",
+                "day_of_year",
+                "week",
+                "week_of_year",
+                "month",
+                "month_of_year",
+                "quarter",
+                "year",
+            ]
+            if query_type in {
+                Definitions.snowflake,
+                Definitions.druid,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
+                assert date["sql"] == '${TABLE}."ORDER_CREATED_AT"'
+            else:
+                assert date["sql"].upper() == "${TABLE}.ORDER_CREATED_AT"
 
             assert new["type"] == "string"
-            assert new["sql"] == "${TABLE}.NEW_VS_REPEAT"
+            if query_type in {
+                Definitions.snowflake,
+                Definitions.druid,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
+                assert new["sql"] == '${TABLE}."NEW_VS_REPEAT"'
+            else:
+                assert new["sql"].upper() == "${TABLE}.NEW_VS_REPEAT"
 
             assert num["type"] == "number"
-            assert num["sql"] == "${TABLE}.REVENUE"
+            if query_type in {
+                Definitions.snowflake,
+                Definitions.druid,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
+                assert num["sql"] == '${TABLE}."REVENUE"'
+            else:
+                assert num["sql"].upper() == "${TABLE}.REVENUE"
 
             assert len(data["fields"]) == 14
             assert all(f["field_type"] != "measure" for f in data["fields"])
@@ -153,9 +253,27 @@ def test_cli_seed_metrics_layer(
                 assert data["sql_table_name"] == "ANALYTICS.SESSIONS"
             elif query_type == Definitions.bigquery:
                 assert data["sql_table_name"] == "`analytics.analytics.sessions`"
-            elif query_type in {Definitions.postgres, Definitions.sql_server} and database_override is None:
+            elif (
+                query_type
+                in {
+                    Definitions.postgres,
+                    Definitions.sql_server,
+                    Definitions.azure_synapse,
+                    Definitions.databricks,
+                }
+                and database_override is None
+            ):
                 assert data["sql_table_name"] == "analytics.sessions"
-            elif query_type in {Definitions.postgres, Definitions.sql_server} and database_override:
+            elif (
+                query_type
+                in {
+                    Definitions.postgres,
+                    Definitions.sql_server,
+                    Definitions.azure_synapse,
+                    Definitions.databricks,
+                }
+                and database_override
+            ):
                 assert data["sql_table_name"] == "segment_events.analytics.sessions"
             assert "row_label" not in data
 
@@ -165,7 +283,15 @@ def test_cli_seed_metrics_layer(
             cross_sell = next((f for f in data["fields"] if f["name"] == "crossell_product"))
 
             assert cross_sell["name"] == "crossell_product"
-            assert cross_sell["sql"] == "${TABLE}.@CRoSSell P-roduct:"
+            if query_type in {
+                Definitions.snowflake,
+                Definitions.druid,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
+                assert cross_sell["sql"] == '${TABLE}."@CRoSSell P-roduct:"'
+            else:
+                assert cross_sell["sql"] == "${TABLE}.@CRoSSell P-roduct:"
 
             assert date["type"] == "time"
             if query_type in {
@@ -174,18 +300,54 @@ def test_cli_seed_metrics_layer(
                 Definitions.postgres,
                 Definitions.druid,
                 Definitions.sql_server,
+                Definitions.azure_synapse,
+                Definitions.databricks,
             }:
                 assert date["datatype"] == "date"
             else:
                 assert date["datatype"] == "timestamp"
-            assert date["timeframes"] == ["raw", "date", "week", "month", "quarter", "year"]
-            assert date["sql"] == "${TABLE}.SESSION_DATE"
+            assert date["timeframes"] == [
+                "raw",
+                "date",
+                "day_of_year",
+                "week",
+                "week_of_year",
+                "month",
+                "month_of_year",
+                "quarter",
+                "year",
+            ]
+            if query_type in {
+                Definitions.snowflake,
+                Definitions.druid,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
+                assert date["sql"] == '${TABLE}."SESSION_DATE"'
+            else:
+                assert date["sql"].upper() == "${TABLE}.SESSION_DATE"
 
             assert pk["type"] == "string"
-            assert pk["sql"] == "${TABLE}.SESSION_ID"
+            if query_type in {
+                Definitions.snowflake,
+                Definitions.druid,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
+                assert pk["sql"] == '${TABLE}."SESSION_ID"'
+            else:
+                assert pk["sql"].upper() == "${TABLE}.SESSION_ID"
 
             assert num["type"] == "number"
-            assert num["sql"] == "${TABLE}.CONVERSION"
+            if query_type in {
+                Definitions.snowflake,
+                Definitions.druid,
+                Definitions.duck_db,
+                Definitions.postgres,
+            }:
+                assert num["sql"] == '${TABLE}."CONVERSION"'
+            else:
+                assert num["sql"].upper() == "${TABLE}.CONVERSION"
 
             assert len(data["fields"]) == 14
             assert all(f["field_type"] != "measure" for f in data["fields"])
@@ -272,7 +434,7 @@ def test_cli_validate(connection, fresh_project, mocker):
     project = fresh_project
     project._views[1]["default_date"] = "sessions.session_date"
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
-    sorted_fields[19]["name"] = "rev_broken_dim"
+    sorted_fields[20]["name"] = "rev_broken_dim"
     project._views[1]["fields"] = sorted_fields
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
@@ -282,11 +444,84 @@ def test_cli_validate(connection, fresh_project, mocker):
     result = runner.invoke(validate)
 
     # assert result.exit_code == 0
+    assert (
+        result.output
+        == "Found 7 errors in the project:\n\n"
+        "\nCould not locate reference revenue_dimension in field total_item_costs in view order_lines\n\n"
+        "\nField total_item_costs in view order_lines contains invalid field reference revenue_dimension.\n\n"
+        "\nCould not locate reference revenue_dimension in field revenue_in_cents in view orders\n\n"
+        "\nCould not locate reference revenue_dimension in field total_revenue in view orders\n\n"
+        "\nDefault date sessions.session_date in view orders is not joinable to the view orders\n\n"
+        "\nField revenue_in_cents in view orders contains invalid field reference revenue_dimension.\n\n"
+        "\nField total_revenue in view orders contains invalid field reference revenue_dimension.\n\n"
+    )
+
+
+@pytest.mark.cli
+def test_cli_validate_broken_canon_date(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    project._views[2]["fields"][-3]["canon_date"] = "does_not_exist"
+    project.refresh_cache()
+    project.join_graph
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert (
+        result.output
+        == "Found 1 error in the project:\n\n"
+        "\nCanon date customers.does_not_exist is unreachable in field total_sessions.\n\n"
+    )
+
+
+@pytest.mark.cli
+def test_cli_validate_personal_field(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    project._views[2]["fields"][2]["is_personal_field"] = True
+    project._views[2]["fields"][2].pop("type")
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert (
+        result.output
+        == "Found 2 errors in the project:\n\n\nWarning: Field cancelled in view customers is missing the"
+        " required key 'type'.\n\n\nWarning: Field cancelled in view customers has an invalid type None."
+        " Valid types for dimension groups are: ['time', 'duration']\n\n"
+    )
+
+
+@pytest.mark.cli
+def test_cli_validate_personal_field_view_level_error(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    project._views[2]["fields"][2]["is_personal_field"] = True
+    project._views[2]["fields"][2]["sql"] = "${some_crazy_ref}"
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
     assert result.output == (
-        "Found 3 errors in the project:\n\n"
-        "\nCould not locate reference revenue_dimension in view order_lines\n\n"
-        "\nCould not locate reference revenue_dimension in view orders\n\n"
-        "\nDefault date sessions.session_date is unreachable in view orders\n\n"
+        "Found 2 errors in the project:\n\n"
+        "\nWarning: Could not locate reference some_crazy_ref in field cancelled in view customers\n\n"  # noqa
+        "\nWarning: Field cancelled in view customers contains invalid field reference some_crazy_ref.\n\n"  # noqa
     )
 
 
@@ -336,7 +571,7 @@ def test_cli_validate_access_grants_setup(connection, fresh_project, mocker):
     assert result.exit_code == 0
     assert result.output == (
         "Found 1 error in the project:\n\n"
-        "\nThe view orders has an access filter that is incorrectly specified as a dictionary instead of a list, to specify it correctly check the documentation for access filters at https://docs.zenlytic.com\n\n"  # noqa
+        "\nThe view orders has an access filter, {'user_attribute': 'department', 'allowed_values': ['finance']} that is incorrectly specified as a when it should be a list, to specify it correctly check the documentation for access filters at https://docs.zenlytic.com/docs/data_modeling/access_grants#access-filters\n\n"  # noqa
     )
 
 
@@ -357,7 +592,7 @@ def test_cli_validate_warnings_for_no_date_on_metrics(connection, fresh_project,
     assert result.exit_code == 0
     assert result.output == (
         "Found 1 error in the project:\n\n"
-        "\nField discount_per_order is a merged result metric (measure), but does not have a date associated with it. Associate a date with the metric (measure) by setting either the canon_date property on the measure itself or the default_date property on the view the measure is in. Merged results are not possible without associated dates.\n\n"  # noqa
+        "\nField discount_per_order in view discounts is a merged result metric (measure), but does not have a date associated with it. Associate a date with the metric (measure) by setting either the canon_date property on the measure itself or the default_date property on the view the measure is in. Merged results are not possible without associated dates.\n\n"  # noqa
     )
 
 
@@ -379,29 +614,6 @@ def test_cli_validate_default_date_is_dim_group(connection, fresh_project, mocke
     assert result.output == (
         "Found 1 error in the project:\n\n"
         "\nDefault date discount_code is not of field_type: dimension_group and type: time in view discounts\n\n"  # noqa
-    )
-
-
-@pytest.mark.cli
-def test_cli_validate_no_type_dim_group_measure(connection, fresh_project, mocker):
-    # Break something so validation fails
-    project = fresh_project
-
-    project._views[2]["fields"][2].pop("type")
-    project._views[2]["fields"][3].pop("type")
-
-    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
-    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
-
-    runner = CliRunner()
-    result = runner.invoke(validate)
-
-    assert result.exit_code == 0
-    assert result.output == (
-        "Found 2 errors in the project:\n\n"
-        "\nField cancelled is a dimension_group, but does not have a type associated with it. You must set a type for this dimension_group.\n\n"  # noqa
-        "\nField number_of_customers is a measure, but does not have a type associated with it. You must set a type for this measure.\n\n"  # noqa
     )
 
 
@@ -431,7 +643,7 @@ def test_cli_validate_filter_with_no_field(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
 
-    project._views[2]["fields"][-2]["filters"][0] = {"is_churned": None, "value": False}
+    project._views[2]["fields"][-3]["filters"][0] = {"is_churned": None, "value": False}
 
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
@@ -442,9 +654,13 @@ def test_cli_validate_filter_with_no_field(connection, fresh_project, mocker):
     result = runner.invoke(validate)
 
     assert result.exit_code == 0
-    assert result.output == (
-        "Found 1 error in the project:\n\n"
-        "\nField total_sessions has a filter {'is_churned': None, 'value': False} that is missing the key value.\n\n"  # noqa
+    assert (
+        result.output
+        == "Found 3 errors in the project:\n\n\nField total_sessions filter in View customers is missing the"
+        " required field property\n\n\nField total_sessions filter in View customers has an invalid value"
+        " property. Valid values can be found here in the docs:"
+        " https://docs.zenlytic.com/docs/data_modeling/field_filter\n\n\nProperty is_churned is present"
+        " on Field Filter in field total_sessions in view customers, but it is not a valid property.\n\n"
     )
 
 
@@ -482,8 +698,8 @@ def test_cli_validate_names(connection, fresh_project, mocker):
     project = fresh_project
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
 
-    sorted_fields[1]["name"] = "an invalid @name\\"
-    sorted_fields[4]["timeframes"] = ["date", "month", "year"]
+    sorted_fields[2]["name"] = "an invalid @name\\"
+    sorted_fields[5]["timeframes"] = ["date", "month", "year"]
     project._views[1]["fields"] = sorted_fields
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
@@ -494,10 +710,11 @@ def test_cli_validate_names(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 3 errors in the project:\n\n"
-        "\nCould not locate reference days_between_orders in view orders\n\n"
+        "Found 4 errors in the project:\n\n"
+        "\nCould not locate reference days_between_orders in field an invalid @name\\ in view orders\n\n"
         "\nField name: an invalid @name\\ is invalid. Please reference the naming conventions (only letters, numbers, or underscores)\n\n"  # noqa
-        "\nField between_orders is of type duration, but has property timeframes when it should have property intervals\n\n"  # noqa
+        "\nField an invalid @name\ in view orders contains invalid field reference days_between_orders.\n\n"
+        "\nField between_orders in view orders is of type duration, but has property timeframes when it should have property intervals\n\n"  # noqa
     )
 
 
@@ -514,9 +731,10 @@ def test_cli_validate_model_name_in_view(connection, fresh_project, mocker):
     result = runner.invoke(validate)
 
     assert result.exit_code == 0
-    assert result.output == (
-        "Found 1 error in the project:\n\n"
-        "\nCould not find a model in view orders. Use the model_name property to specify the model.\n\n"
+    assert (
+        result.output
+        == "Found 1 error in the project:\n\n"
+        "\nCould not find a model in the view orders. Use the model_name property to specify the model.\n\n"
     )
 
 
@@ -524,7 +742,7 @@ def test_cli_validate_model_name_in_view(connection, fresh_project, mocker):
 def test_cli_validate_two_customer_tags(connection, fresh_project, mocker):
     # Break something so validation fails
     sorted_fields = sorted(fresh_project._views[1]["fields"], key=lambda x: x["name"])
-    sorted_fields[6]["tags"] = ["customer"]
+    sorted_fields[7]["tags"] = ["customer"]
     conn = MetricsLayerConnection(project=fresh_project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
@@ -533,10 +751,12 @@ def test_cli_validate_two_customer_tags(connection, fresh_project, mocker):
     result = runner.invoke(validate)
 
     assert result.exit_code == 0
-    assert result.output == (
-        "Found 1 error in the project:\n\n"
-        "\nMultiple fields found for the tag customer - those fields were ['orders.cumulative_aov',"
-        " 'customers.customer_id']. Only one field can have the tag \"customer\" per joinable graph.\n\n"
+    assert (
+        result.output
+        == "Found 2 errors in the project:\n\n\nMultiple fields found for the tag customer - those fields"
+        " were ['orders.cumulative_aov', 'customers.customer_id']. Only one field can have the tag"
+        ' "customer" per joinable graph.\n\n\nProperty tags is present on Field cumulative_aov in view'
+        " orders, but it is not a valid property.\n\n"
     )
 
 
@@ -555,9 +775,10 @@ def test_cli_dashboard_model_does_not_exist(connection, fresh_project, mocker):
     result = runner.invoke(validate)
 
     assert result.exit_code == 0
-    assert result.output == (
-        "Found 1 error in the project:\n\n"
-        "\nCould not find model missing_model referenced in dashboard sales_dashboard.\n\n"
+    assert (
+        result.output
+        == "Found 1 error in the project:\n\n"
+        "\nCould not find or you do not have access to model missing_model in dashboard sales_dashboard\n\n"
     )
 
 
@@ -576,8 +797,9 @@ def test_cli_canon_date_inaccessible(connection, fresh_project, mocker):
     result = runner.invoke(validate)
 
     assert result.exit_code == 0
-    assert result.output == (
-        "Found 1 error in the project:\n\n"
+    assert (
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nCanon date orders.missing_field is unreachable in field total_revenue.\n\n"
     )
 
@@ -599,8 +821,10 @@ def test_cli_dimension_group_timeframes(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 1 error in the project:\n\n"
-        "\nField order is of type time and has timeframe value of 'timestamp' which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second', 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'month_of_year', 'hour_of_day', 'day_of_week', 'day_of_month'])\n\n"  # noqa
+        "Found 3 errors in the project:\n\n"
+        "\nIn the Set test_set2 Field order_time not found in view orders, please check that this field exists AND that you have access to it. \n\nIf this is a dimension group specify the group parameter, if not already specified, for example, with a dimension group named 'order' with timeframes: [raw, date, month] specify 'order_raw' or 'order_date' or 'order_month'\n\n"  # noqa
+        "\nIn the Set test_set_composed Field order_time not found in view orders, please check that this field exists AND that you have access to it. \n\nIf this is a dimension group specify the group parameter, if not already specified, for example, with a dimension group named 'order' with timeframes: [raw, date, month] specify 'order_raw' or 'order_date' or 'order_month'\n\n"  # noqa
+        "\nField order in view orders is of type time and has timeframe value of 'timestamp' which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second', 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'fiscal_month', 'fiscal_quarter', 'fiscal_year', 'week_index', 'week_of_year', 'week_of_month', 'month_of_year', 'month_of_year_index', 'fiscal_month_index', 'fiscal_month_of_year_index', 'month_name', 'month_index', 'quarter_of_year', 'fiscal_quarter_of_year', 'hour_of_day', 'day_of_week', 'day_of_month', 'day_of_year'])\n\n"  # noqa
     )
 
 
@@ -621,7 +845,138 @@ def test_cli_looker_parameter(connection, fresh_project, mocker):
     assert result.exit_code == 0
     assert result.output == (
         "Found 1 error in the project:\n\n"
-        "\nField orders.total_revenue contains invalid SQL for Zenlytic. Remove any Looker parameter references from the SQL.\n\n"  # noqa
+        "\nField total_revenue in view orders contains invalid SQL in property sql. Remove any Looker parameter references from the SQL.\n\n"  # noqa
+    )
+
+
+@pytest.mark.cli
+def test_cli_invalid_join_sql_syntax(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    fresh_project._views[1]["identifiers"][0]["sql"] = "{order_id}"
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert result.output == (
+        "Found 1 error in the project:\n\n"
+        '\nWarning: Identifier order_id in view orders is missing "${", are you sure you are using the reference syntax correctly?\n\n'  # noqa
+    )
+
+
+@pytest.mark.cli
+def test_cli_duplicate_field_names(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    project._views[2]["fields"][2]["name"] = "number_of_customers"
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert (
+        result.output
+        == "Found 1 error in the project:\n\n"
+        "\nDuplicate field names in view customers: number_of_customers\n\n"
+    )
+
+
+@pytest.mark.cli
+def test_cli_duplicate_view_names(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    fresh_project._views[0]["name"] = "orders"
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert (
+        result.output
+        == "Found 1 error in the project:\n\n\nDuplicate view names found in your project for the name"
+        " orders. Please make sure all view names are unique (note: join_as on identifiers will create a"
+        " view under its that name and the name must be unique).\n\n"
+    )
+
+
+@pytest.mark.cli
+def test_cli_duplicate_join_as_names(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    fresh_project._views[0]["identifiers"][0]["join_as"] = "parent_account"
+    fresh_project = fresh_project.__init__(fresh_project._models, fresh_project._views)
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    assert result.exit_code == 0
+    assert (
+        result.output
+        == "Found 1 error in the project:\n\n\nDuplicate view names found in your project for the name"
+        " parent_account. Please make sure all view names are unique (note: join_as on identifiers will"
+        " create a view under its that name and the name must be unique).\n\n"
+    )
+
+
+@pytest.mark.cli
+def test_cli_validate_required_access_filters(connection, fresh_project, mocker):
+    # Break something so validation fails
+    project = fresh_project
+    project.set_required_access_filter_user_attributes(["products"])
+
+    conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
+    mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
+
+    runner = CliRunner()
+    result = runner.invoke(validate)
+
+    print(result)
+    assert result.exit_code == 0
+    assert (
+        result.output
+        == "Found 19 errors in the project:\n\n\nView order_lines does not have any access filters, but an"
+        " access filter with user attribute products is required.\n\n\nView orders does not have an access"
+        " filter with the required user attribute products\n\n\nView customers does not have any access"
+        " filters, but an access filter with user attribute products is required.\n\n\nView discounts does"
+        " not have any access filters, but an access filter with user attribute products is"
+        " required.\n\n\nView discount_detail does not have any access filters, but an access filter with"
+        " user attribute products is required.\n\n\nView country_detail does not have any access filters,"
+        " but an access filter with user attribute products is required.\n\n\nView sessions does not have"
+        " any access filters, but an access filter with user attribute products is required.\n\n\nView"
+        " events does not have any access filters, but an access filter with user attribute products is"
+        " required.\n\n\nView login_events does not have any access filters, but an access filter with"
+        " user attribute products is required.\n\n\nView traffic does not have any access filters, but an"
+        " access filter with user attribute products is required.\n\n\nView clicked_on_page does not have"
+        " any access filters, but an access filter with user attribute products is required.\n\n\nView"
+        " accounts does not have any access filters, but an access filter with user attribute products is"
+        " required.\n\n\nView aa_acquired_accounts does not have any access filters, but an access filter"
+        " with user attribute products is required.\n\n\nView z_customer_accounts does not have any access"
+        " filters, but an access filter with user attribute products is required.\n\n\nView"
+        " other_db_traffic does not have any access filters, but an access filter with user attribute"
+        " products is required.\n\n\nView created_workspace does not have any access filters, but an"
+        " access filter with user attribute products is required.\n\n\nView mrr does not have any access"
+        " filters, but an access filter with user attribute products is required.\n\n\nView child_account"
+        " does not have any access filters, but an access filter with user attribute products is"
+        " required.\n\n\nView parent_account does not have any access filters, but an access filter with"
+        " user attribute products is required.\n\n"
     )
 
 
@@ -629,7 +984,7 @@ def test_cli_looker_parameter(connection, fresh_project, mocker):
 def test_cli_debug(connection, mocker):
     def query_runner_mock(query, connection, run_pre_queries=True):
         assert query == "select 1 as id;"
-        assert connection.name in {"testing_snowflake", "testing_bigquery"}
+        assert connection.name in {"testing_snowflake", "testing_bigquery", "testing_databricks"}
         assert not run_pre_queries
         return True
 
@@ -661,8 +1016,12 @@ def test_cli_debug(connection, mocker):
         "  name: testing_bigquery\n"
         "  type: BIGQUERY\n"
         "  project_id: fake-proj-id\n"
+        "  name: testing_databricks\n"
+        "  host: blah.cloud.databricks.com\n"
+        "  http_path: paul/testing/now\n"
         "\nConnection testing_snowflake test: OK connection ok\n"
         "\nConnection testing_bigquery test: OK connection ok\n"
+        "\nConnection testing_databricks test: OK connection ok\n"
     )
 
     non_workstation_dependent_output = "\n".join(result.output.split("\n")[3:])
@@ -693,8 +1052,11 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
 
     result_lookup = {
         "models": "Found 2 models:\n\ntest_model\nnew_model\n",
-        "connections": "Found 2 connections:\n\ntesting_snowflake\ntesting_bigquery\n",
-        "views": "Found 17 views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\n",  # noqa
+        "connections": "Found 3 connections:\n\ntesting_snowflake\ntesting_bigquery\ntesting_databricks\n",
+        "views": (  # noqa
+            "Found 20"
+            " views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nmrr\nchild_account\nparent_account\n"  # noqa
+        ),
         "fields": "Found 2 fields:\n\ndiscount_promo_name\ndiscount_usd\n",
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
         "metrics": "Found 2 metrics:\n\ntotal_discount_amt\ndiscount_per_order\n",  # noqa
@@ -760,9 +1122,10 @@ def test_cli_show(connection, mocker, name, extra_args):
             "Attributes in field order_id:\n\n"
             "  name: order_id\n"
             "  field_type: dimension\n"
+            "  type: string\n"
             "  group_label: ID's\n"
-            "  hidden: yes\n"
-            "  primary_key: yes\n"
+            "  hidden: True\n"
+            "  primary_key: True\n"
             "  sql: ${TABLE}.id\n"
         ),
         "order_date": (

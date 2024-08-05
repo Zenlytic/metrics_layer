@@ -1,8 +1,16 @@
-from copy import deepcopy
+import json
+from typing import TYPE_CHECKING
 
-from metrics_layer.core.exceptions import QueryError
+from metrics_layer.core.exceptions import (
+    AccessDeniedOrDoesNotExistException,
+    QueryError,
+)
+
 from .base import MetricsLayerBase
 from .filter import Filter
+
+if TYPE_CHECKING:
+    from metrics_layer.core.model.project import Project
 
 
 class DashboardLayouts:
@@ -10,8 +18,8 @@ class DashboardLayouts:
 
 
 class DashboardElement(MetricsLayerBase):
-    def __init__(self, definition: dict = {}, dashboard=None, project=None) -> None:
-        self.project = project
+    def __init__(self, definition: dict, dashboard, project) -> None:
+        self.project: Project = project
         self.dashboard = dashboard
         self.validate(definition)
         super().__init__(definition)
@@ -31,7 +39,7 @@ class DashboardElement(MetricsLayerBase):
                 raise QueryError(f"Dashboard Element missing required key {k}")
 
     def to_dict(self):
-        definition = deepcopy(self._definition)
+        definition = json.loads(json.dumps(self._definition))
         definition["metrics"] = self.metrics
         definition["filters"] = self.parsed_filters(json_safe=True)
         return definition
@@ -57,26 +65,36 @@ class DashboardElement(MetricsLayerBase):
         to_add = {"week_start_day": self.get_model().week_start_day, "timezone": self.project.timezone}
         return [f for raw in self._raw_filters() for f in Filter({**raw, **to_add}).filter_dict(json_safe)]
 
+    def _error(self, element, error, extra: dict = {}):
+        return self.dashboard._error(element, error, extra)
+
     def collect_errors(self):
         errors = []
 
         try:
             self.get_model()
-        except QueryError as e:
-            errors.append(str(e))
+        except (AccessDeniedOrDoesNotExistException, QueryError) as e:
+            errors.append(
+                self._error(self._definition.get("model"), str(e) + " in dashboard " + self.dashboard.name)
+            )
 
-        for field in self.metrics + self.slice_by:
+        for field in self.metrics:
             if not self._function_executes(self.project.get_field, field):
                 err_msg = f"Could not find field {field} referenced in dashboard {self.dashboard.name}"
-                errors.append(err_msg)
+                errors.append(self._error(self._definition.get("metrics"), err_msg))
+
+        for field in self.slice_by:
+            if not self._function_executes(self.project.get_field, field):
+                err_msg = f"Could not find field {field} referenced in dashboard {self.dashboard.name}"
+                errors.append(self._error(self._definition.get("slice_by"), err_msg))
 
         for f in self._raw_filters():
-            if not self._function_executes(self.project.get_field, f["field"]):
+            if not self._function_executes(self.project.get_field, f.get("field")):
                 err_msg = (
-                    f"Could not find field {f['field']} referenced"
+                    f"Could not find field {f.get('field')} referenced"
                     f" in a filter in dashboard {self.dashboard.name}"
                 )
-                errors.append(err_msg)
+                errors.append(self._error(self._definition.get("filters"), err_msg))
         return errors
 
     @staticmethod
@@ -89,14 +107,14 @@ class DashboardElement(MetricsLayerBase):
 
 
 class Dashboard(MetricsLayerBase):
-    def __init__(self, definition: dict = {}, project=None) -> None:
+    def __init__(self, definition: dict, project) -> None:
         if definition.get("name") is not None:
             definition["name"] = definition["name"].lower()
 
         if definition.get("layout") is None:
             definition["layout"] = DashboardLayouts.grid
 
-        self.project = project
+        self.project: Project = project
         self.validate(definition)
         super().__init__(definition)
 
@@ -113,10 +131,14 @@ class Dashboard(MetricsLayerBase):
                 raise QueryError(f"Dashboard missing required key {k}")
 
     def to_dict(self):
-        definition = deepcopy(self._definition)
+        definition = json.loads(json.dumps(self._definition))
         definition["elements"] = [e.to_dict() for e in self.elements()]
         definition["filters"] = self.parsed_filters(json_safe=True)
         return definition
+
+    def _error(self, element, error, extra: dict = {}):
+        line, column = self.line_col(element)
+        return {**extra, "dashboard_name": self.name, "message": error, "line": line, "column": column}
 
     def collect_errors(self):
         errors = []
@@ -125,7 +147,7 @@ class Dashboard(MetricsLayerBase):
                 self.project.get_field(f["field"])
             except Exception:
                 err_msg = f"Could not find field {f['field']} referenced in a filter in dashboard {self.name}"
-                errors.append(err_msg)
+                errors.append(self._error(self._definition["filters"], err_msg))
 
         for element in self.elements():
             errors.extend(element.collect_errors())
@@ -153,7 +175,8 @@ class Dashboard(MetricsLayerBase):
         for f in self._raw_filters():
             clean_filters = Filter({**f, **info}).filter_dict(json_safe)
             for clean_filter in clean_filters:
-                all_filters.append(clean_filter)
+                if clean_filter != {}:
+                    all_filters.append(clean_filter)
         return all_filters
 
     def elements(self):

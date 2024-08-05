@@ -1,12 +1,18 @@
-import networkx
+import json
+from collections import defaultdict
+from copy import copy
 from itertools import combinations, product
 
+import networkx
+
+from metrics_layer.core.exceptions import (
+    AccessDeniedOrDoesNotExistException,
+    QueryError,
+)
 from metrics_layer.core.model.definitions import Definitions
-from metrics_layer.core.exceptions import QueryError
-from collections import defaultdict
-from copy import deepcopy
+
 from .base import SQLReplacement
-from .join import Join
+from .join import Join, ZenlyticJoinRelationship, ZenlyticJoinType
 
 
 class IdentifierTypes:
@@ -14,11 +20,18 @@ class IdentifierTypes:
     foreign = "foreign"
     join = "join"
 
+    options = [primary, foreign, join]
+
 
 class JoinGraph(SQLReplacement):
     def __init__(self, project) -> None:
         self.project = project
-        self._join_preference = ["one_to_one", "many_to_one", "one_to_many", "many_to_many"]
+        self._join_preference = [
+            ZenlyticJoinRelationship.one_to_one,
+            ZenlyticJoinRelationship.many_to_one,
+            ZenlyticJoinRelationship.one_to_many,
+            ZenlyticJoinRelationship.many_to_many,
+        ]
         self._merged_result_graph = None
         self._graph = None
         self._field_memo = {}
@@ -69,6 +82,18 @@ class JoinGraph(SQLReplacement):
             self._weak_graph_memo[view_name] = join_graph_hashes
         return self._weak_graph_memo[view_name]
 
+    def get_joinable_view_names(self, view_name: str):
+        graph = self.project.join_graph.graph
+        sorted_components = self._strongly_connected_components(graph)
+
+        joinable_views = []
+        for components in sorted_components:
+            subgraph_nodes = self._subgraph_nodes_from_components(graph, components)
+            if view_name in subgraph_nodes:
+                joinable_views.extend(list(subgraph_nodes))
+
+        return [v for v in sorted(list(set(joinable_views))) if v != view_name]
+
     def _strongly_connected_components(self, graph):
         components = networkx.strongly_connected_components(graph)
         # Sort the sub-components graphs alphabetically
@@ -115,7 +140,15 @@ class JoinGraph(SQLReplacement):
         identifier_map, primary_keys = self._identifier_map()
         self.composite_keys = self._composite_keys(primary_keys)
         reference_map = self._reference_map()
+        views_seen = set()
         for view in self.project.views():
+            if view.name in views_seen:
+                raise QueryError(
+                    f"Duplicate view names found in your project for the name {view.name}."
+                    " Please make sure all view names are unique (note: join_as on identifiers "
+                    "will create a view under its that name and the name must be unique)."
+                )
+            views_seen.add(view.name)
             graph.add_node(view.name)
             if view.name in reference_map:
                 # Add all explicit "join" type references
@@ -126,7 +159,6 @@ class JoinGraph(SQLReplacement):
                 only_join = identifier.get("only_join", [])
                 # Add all identifier matches across other views
                 for join_view_name in identifier_map.get(identifier["name"], []):
-
                     if join_view_name != view.name and self._allowed_join(only_join, join_view_name):
                         join_view = self.project.get_view(join_view_name)
                         join_identifier = join_view.get_identifier(identifier["name"])
@@ -180,7 +212,7 @@ class JoinGraph(SQLReplacement):
         self._add_mappings_to_merged_result(
             graph,
             mappings,
-            must_exist_in=join_group_hashes,
+            must_exist_in=list(join_group_hashes),
             root_nodes=existing_root_nodes,
             measures_only=True,
         )
@@ -221,12 +253,18 @@ class JoinGraph(SQLReplacement):
             join_group_hashes.add(join_hash)
             if not use_condition or (use_condition and join_hash in must_be_in):
                 measure_id = measure.id()
-                canon_date = self._get_field_with_memo(measure.canon_date, by_name=True)
-                for timeframe in canon_date.timeframes:
-                    canon_date.dimension_group = timeframe
-                    root_node_name = join_root + "_" + timeframe
-                    graph.add_edges_from([(root_node_name, canon_date.id()), (root_node_name, measure_id)])
-                    existing_root_nodes.add(root_node_name)
+                try:
+                    canon_date = self._get_field_with_memo(measure.canon_date, by_name=True)
+                    for timeframe in canon_date.timeframes:
+                        canon_date.dimension_group = timeframe
+                        root_node_name = join_root + "_" + timeframe
+                        graph.add_edges_from(
+                            [(root_node_name, canon_date.id()), (root_node_name, measure_id)]
+                        )
+                        existing_root_nodes.add(root_node_name)
+                except AccessDeniedOrDoesNotExistException:
+                    # In the event that the canon_date doesn't exist anymore, don't break everything
+                    pass
         return sorted(list(existing_root_nodes)), join_group_hashes
 
     def _add_mappings_to_merged_result(
@@ -237,12 +275,13 @@ class JoinGraph(SQLReplacement):
                 continue
             if measures_only and mapping["field_type"] != "measure":
                 continue
-            to_field = mapping["field"]
-            if mapping["from_join_hash"] in must_exist_in and mapping["to_join_hash"] in must_exist_in:
-                from_ = self._get_field_with_memo(from_field).id()
-                to_ = self._get_field_with_memo(to_field).id()
-                for node in root_nodes:
-                    graph.add_edges_from([(node, from_), (node, to_)])
+            for reference in mapping["references"]:
+                to_field = reference["field"]
+                if mapping["from_join_hash"] in must_exist_in and reference["to_join_hash"] in must_exist_in:
+                    from_ = self._get_field_with_memo(from_field).id()
+                    to_ = self._get_field_with_memo(to_field).id()
+                    for node in root_nodes:
+                        graph.add_edges_from([(node, from_), (node, to_)])
 
     def _get_field_with_memo(self, field_name: str, by_name: bool = False):
         if field_name not in self._field_memo:
@@ -288,7 +327,7 @@ class JoinGraph(SQLReplacement):
         for view in self.project.views():
             for identifier in view.identifiers:
                 if identifier["type"] == IdentifierTypes.join:
-                    join_identifier = deepcopy(identifier)
+                    join_identifier = json.loads(json.dumps(identifier))
                     join_identifier["relationship"] = self._invert_relationship(
                         join_identifier["relationship"]
                     )
@@ -306,7 +345,7 @@ class JoinGraph(SQLReplacement):
 
     def _identifier_to_join(self, first_identifier, first_view_name, second_identifier, second_view_name):
         relationship = self._derive_relationship(first_identifier, second_identifier)
-        join_type = "left_outer"
+        join_type = ZenlyticJoinType.left_outer
         first_clause = self._identifier_join_clause(first_identifier, first_view_name)
         second_clause = self._identifier_join_clause(second_identifier, second_view_name)
         sql_on = f"{first_clause}={second_clause}"
@@ -315,21 +354,23 @@ class JoinGraph(SQLReplacement):
 
     def _identifier_join_clause(self, identifier: dict, view_name: str):
         if "sql" in identifier:
-            cleaned_sql = deepcopy(identifier["sql"])
-            for field_name in self.fields_to_replace(identifier["sql"]):
+            cleaned_sql = copy(str(identifier["sql"]))
+            for field_name in self.fields_to_replace(str(identifier["sql"])):
                 to_replace = "${" + field_name + "}"
                 if field_name != "TABLE" and "." not in field_name:
                     cleaned_reference = "${" + f"{view_name}.{field_name}" + "}"
                     cleaned_sql = cleaned_sql.replace(to_replace, cleaned_reference)
+                if field_name == "TABLE":
+                    cleaned_sql = cleaned_sql.replace(to_replace, view_name)
             clause = cleaned_sql
         else:
             clause = "${" + f"{view_name}.{identifier['name']}" + "}"
         return clause
 
     def _verify_identifier_join(self, join: dict):
-        clean_join = deepcopy(join)
-        clean_join["type"] = join.get("type", "left_outer")
-        clean_join["relationship"] = join.get("relationship", "many_to_one")
+        clean_join = json.loads(json.dumps(join))
+        clean_join["type"] = join.get("type", ZenlyticJoinType.left_outer)
+        clean_join["relationship"] = join.get("relationship", ZenlyticJoinRelationship.many_to_one)
         clean_join["sql_on"] = join["sql_on"]
         clean_join["weight"] = self._edge_weight(clean_join["relationship"])
         return clean_join
@@ -339,13 +380,13 @@ class JoinGraph(SQLReplacement):
         base_type = identifier["type"]
         join_type = join_identifier["type"]
         if base_type == IdentifierTypes.foreign and join_type == IdentifierTypes.primary:
-            return "many_to_one"
+            return ZenlyticJoinRelationship.many_to_one
         elif base_type == IdentifierTypes.primary and join_type == IdentifierTypes.primary:
-            return "one_to_one"
+            return ZenlyticJoinRelationship.one_to_one
         elif base_type == IdentifierTypes.primary and join_type == IdentifierTypes.foreign:
-            return "one_to_many"
+            return ZenlyticJoinRelationship.one_to_many
         elif base_type == IdentifierTypes.foreign and join_type == IdentifierTypes.foreign:
-            return "many_to_many"
+            return ZenlyticJoinRelationship.many_to_many
         else:
             raise QueryError(
                 "This join type cannot be determined from the identifier properties. "
@@ -356,20 +397,20 @@ class JoinGraph(SQLReplacement):
     @staticmethod
     def _invert_relationship(relationship: str):
         mapping = {
-            "many_to_one": "one_to_many",
-            "one_to_many": "many_to_one",
-            "many_to_many": "many_to_many",
-            "one_to_one": "one_to_one",
+            ZenlyticJoinRelationship.many_to_one: ZenlyticJoinRelationship.one_to_many,
+            ZenlyticJoinRelationship.one_to_many: ZenlyticJoinRelationship.many_to_one,
+            ZenlyticJoinRelationship.many_to_many: ZenlyticJoinRelationship.many_to_many,
+            ZenlyticJoinRelationship.one_to_one: ZenlyticJoinRelationship.one_to_one,
         }
         return mapping[relationship]
 
     @staticmethod
     def _edge_weight(relationship: str):
         mapping = {
-            "many_to_one": 2,
-            "one_to_many": 3,
-            "many_to_many": 4,
-            "one_to_one": 1,
+            ZenlyticJoinRelationship.many_to_one: 2,
+            ZenlyticJoinRelationship.one_to_many: 3,
+            ZenlyticJoinRelationship.many_to_many: 4,
+            ZenlyticJoinRelationship.one_to_one: 1,
         }
         return mapping[relationship]
 
@@ -379,4 +420,4 @@ class JoinGraph(SQLReplacement):
 
     @staticmethod
     def _is_fanout(relationship: str):
-        return relationship in {"one_to_many", "many_to_many"}
+        return relationship in {ZenlyticJoinRelationship.one_to_many, ZenlyticJoinRelationship.many_to_many}

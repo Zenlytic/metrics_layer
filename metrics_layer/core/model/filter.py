@@ -1,16 +1,21 @@
 import re
 from datetime import datetime
 from enum import Enum
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import pendulum
-from pypika.terms import LiteralValue
-from pypika.functions import Lower
 from pypika import Criterion
+from pypika.functions import Lower
+from pypika.terms import LiteralValue
 
 from metrics_layer.core.exceptions import QueryError
 
 from .base import MetricsLayerBase
+from .week_start_day_types import WeekStartDayTypes
+
+if TYPE_CHECKING:
+    from metrics_layer.core.model.view import View
 
 
 class LiteralValueCriterion(Criterion):
@@ -104,13 +109,13 @@ class Filter(MetricsLayerBase):
     week_start_day_default = pendulum.MONDAY
     week_end_day_default = pendulum.SUNDAY
     week_start_day_lookup = {
-        "monday": pendulum.MONDAY,
-        "tuesday": pendulum.TUESDAY,
-        "wednesday": pendulum.WEDNESDAY,
-        "thursday": pendulum.THURSDAY,
-        "friday": pendulum.FRIDAY,
-        "saturday": pendulum.SATURDAY,
-        "sunday": pendulum.SUNDAY,
+        WeekStartDayTypes.monday: pendulum.MONDAY,
+        WeekStartDayTypes.tuesday: pendulum.TUESDAY,
+        WeekStartDayTypes.wednesday: pendulum.WEDNESDAY,
+        WeekStartDayTypes.thursday: pendulum.THURSDAY,
+        WeekStartDayTypes.friday: pendulum.FRIDAY,
+        WeekStartDayTypes.saturday: pendulum.SATURDAY,
+        WeekStartDayTypes.sunday: pendulum.SUNDAY,
     }
 
     def __init__(self, definition: dict = {}) -> None:
@@ -133,7 +138,7 @@ class Filter(MetricsLayerBase):
 
     @staticmethod
     def _clean_filter_dict(filter_dict: dict, json_safe: bool):
-        if json_safe:
+        if json_safe and "expression" in filter_dict:
             filter_dict["expression"] = filter_dict["expression"].value
         return filter_dict
 
@@ -175,6 +180,7 @@ class Filter(MetricsLayerBase):
             return date
         return Filter._date_to_string(date)
 
+    @staticmethod
     def _add_to_end_date(date, lag: int, date_part: str):
         plural_date_part = FilterInterval.plural(date_part)
         singular_date_part = FilterInterval.singular(date_part)
@@ -188,6 +194,27 @@ class Filter(MetricsLayerBase):
     def parse_date_condition(date_condition: str, tz: str) -> list:
         if tz is None:
             tz = "UTC"
+
+        if " until " in str(date_condition):
+            first, second = date_condition.split(" until ")
+
+            start_expression = MetricsLayerFilterExpressionType.GreaterOrEqualThan
+            parsed_first = Filter.parse_date_condition(first, tz)
+            if parsed_first is None:
+                start_value = Filter._parse_date_string(first)
+                first_filter = (start_expression, start_value)
+            else:
+                first_filter = parsed_first[0]
+
+            end_expression = MetricsLayerFilterExpressionType.LessOrEqualThan
+            parsed_second = Filter.parse_date_condition(second, tz)
+            if parsed_second is None:
+                end_value = Filter._parse_date_string(second)
+                second_filter = (end_expression, end_value)
+            else:
+                second_filter = parsed_second[-1]
+
+            return [first_filter, second_filter]
 
         if date_condition == "today":
             expression = MetricsLayerFilterExpressionType.GreaterOrEqualThan
@@ -317,6 +344,10 @@ class Filter(MetricsLayerBase):
         # TODO more advanced parsing similar to
         # ref: https://docs.looker.com/reference/field-params/filters
 
+        # If the value is an empty dict, we should return None because the filters will be skipped
+        if str(value) == "":
+            return {}
+
         _symbol_to_filter_type_lookup = {
             "<=": MetricsLayerFilterExpressionType.LessOrEqualThan,
             ">=": MetricsLayerFilterExpressionType.GreaterOrEqualThan,
@@ -334,8 +365,13 @@ class Filter(MetricsLayerBase):
         first_word = str(value).split(" ")[0]
         first_two_words = " ".join(str(value).split(" ")[:2])
 
+        # Handle field to field comparison
+        if isinstance(value, LiteralValue):
+            expression = MetricsLayerFilterExpressionType.EqualTo
+            cleaned_value = value
+
         # Handle null conditional
-        if value == "NULL":
+        elif value == "NULL" or value is None:
             expression = MetricsLayerFilterExpressionType.IsNull
             cleaned_value = None
 
@@ -442,7 +478,7 @@ class Filter(MetricsLayerBase):
         return date_obj.strftime("%Y-%m-%dT%H:%M:%S")
 
     @staticmethod
-    def translate_looker_filters_to_sql(sql: str, filters: list):
+    def translate_looker_filters_to_sql(sql: str, filters: list, view: "View", else_0: bool = False):
         case_sql = "case when "
         conditions = []
         for f in filters:
@@ -450,6 +486,15 @@ class Filter(MetricsLayerBase):
             if not all(k in f for k in ["field", "value"]):
                 continue
 
+            if "." not in f["field"]:
+                field_id = f'{view.name}.{f["field"]}'
+            else:
+                field_id = f["field"]
+            try:
+                field = view.project.get_field(field_id)
+                field_datatype = field.type
+            except Exception:
+                field_datatype = "unknown"
             filter_dict = Filter._filter_dict(
                 f["field"], f["value"], f.get("week_start_day"), f.get("timezone")
             )
@@ -459,23 +504,33 @@ class Filter(MetricsLayerBase):
                 filter_list = filter_dict
 
             for filter_obj in filter_list:
-                field_reference = "${" + f["field"] + "}"
-                condition_value = Filter.sql_query(
-                    field_reference, filter_obj["expression"], filter_obj["value"]
-                )
-                condition = f"{condition_value}"
-                conditions.append(condition)
+                if filter_obj != {}:
+                    field_reference = "${" + f["field"] + "}"
+                    condition_value = Filter.sql_query(
+                        field_reference, filter_obj["expression"], filter_obj["value"], field_datatype
+                    )
+                    condition = f"{condition_value}"
+                    conditions.append(condition)
 
         # Add the filter conditions AND'd together
         case_sql += " and ".join(conditions)
         # Add the result from the sql arg + imply NULL for anything not hitting the filter condition
-        case_sql += f" then {sql} end"
+        if else_0:
+            case_sql += f" then {sql} else 0 end"
+        else:
+            case_sql += f" then {sql} end"
 
         return case_sql
 
     @staticmethod
-    def sql_query(sql_to_compare: str, expression_type: str, value):
+    def sql_query(sql_to_compare: str, expression_type: str, value, field_datatype: str):
         field = LiteralValue(sql_to_compare)
+        if (
+            expression_type
+            in {MetricsLayerFilterExpressionType.IsIn, MetricsLayerFilterExpressionType.IsNotIn}
+            and field_datatype == "number"
+        ):
+            value = [pd.to_numeric(v) for v in value]
         criterion_strategies = {
             MetricsLayerFilterExpressionType.LessThan: lambda f: f < value,
             MetricsLayerFilterExpressionType.LessOrEqualThan: lambda f: f <= value,

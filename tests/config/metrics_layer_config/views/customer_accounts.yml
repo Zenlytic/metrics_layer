@@ -4,62 +4,54 @@ name: z_customer_accounts
 
 sql_table_name: analytics.customer_accounts
 model_name: test_model
-
-identifiers: 
-- name: account_id
-  type: foreign
-  sql: ${account_id}
-- name: customer_id
-  type: foreign
-  sql: ${customer_id}
-- name: customer_account
-  type: primary
-  identifiers:
-    - name: account_id
-    - name: customer_id
-    
+default_date: created
+identifiers:
+  - name: account_id
+    type: foreign
+    sql: ${account_id}
+  - name: customer_id
+    type: foreign
+    sql: ${customer_id}
+  - name: customer_account
+    type: primary
+    identifiers:
+      - name: account_id
+      - name: customer_id
 
 fields:
   - name: unique_key
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     hidden: yes
     primary_key: yes
     sql: ${TABLE}.account_id || ${TABLE}.customer_id
 
   - name: account_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     hidden: yes
-    sql: "${TABLE}.account_id"
+    sql: '${TABLE}.account_id'
 
   - name: customer_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     hidden: yes
-    sql: "${TABLE}.customer_id"
+    sql: '${TABLE}.customer_id'
 
   - name: created
-    field_type: "dimension_group"
+    field_type: 'dimension_group'
     type: time
-    timeframes: [
-      raw,
-      time,
-      date,
-      week,
-      month,
-      quarter,
-      year
-    ]
-    sql: "${TABLE}.created_at"
+    timeframes: [raw, time, date, week, month, quarter, year]
+    sql: '${TABLE}.created_at'
 
   - name: type_of_account
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
-    sql: "${TABLE}.account_type"
+    sql: '${TABLE}.account_type'
+    searchable: true
 
   - name: number_of_account_customer_connections
     field_type: measure
-    canon_date: created
+    canon_date: ${created}
     type: count
     sql: ${unique_key}
