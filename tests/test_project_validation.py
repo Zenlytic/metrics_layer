@@ -1322,7 +1322,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 "Valid value_format_names are: ['decimal_0', 'decimal_1', 'decimal_2', "
                 "'decimal_pct_0', 'decimal_pct_1', 'decimal_pct_2', 'percent_0', 'percent_1', "
                 "'percent_2', 'eur', 'eur_0', 'eur_1', 'eur_2', 'usd', 'usd_0', 'usd_1', "
-                "'usd_2', 'string']"
+                "'usd_2', 'string', 'image_url']"
             ],
         ),
         (
@@ -1334,7 +1334,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 "Valid value_format_names are: ['decimal_0', 'decimal_1', 'decimal_2', "
                 "'decimal_pct_0', 'decimal_pct_1', 'decimal_pct_2', 'percent_0', 'percent_1', "
                 "'percent_2', 'eur', 'eur_0', 'eur_1', 'eur_2', 'usd', 'usd_0', 'usd_1', "
-                "'usd_2', 'string']"
+                "'usd_2', 'string', 'image_url']"
             ],
         ),
         (
