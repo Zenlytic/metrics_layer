@@ -1018,9 +1018,12 @@ class Field(MetricsLayerBase, SQLReplacement):
                     f"DATE_TRUNC('QUARTER', {self._fiscal_offset_to_timestamp(s, qt)})"
                 ),
                 "fiscal_year": lambda s, qt: f"DATE_TRUNC('YEAR', {self._fiscal_offset_to_timestamp(s, qt)})",
-                "week_index": lambda s, qt: f"EXTRACT(WEEK FROM {s})",
-                "week_of_month": lambda s, qt: (  # noqa
-                    f"EXTRACT(WEEK FROM {s}) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH', {s})) + 1"
+                "week_index": lambda s, qt: (
+                    f"EXTRACT(WEEK FROM {self._week_dimension_group_time_sql(s, qt)})"
+                ),
+                "week_of_month": lambda s, qt: (
+                    f"EXTRACT(WEEK FROM {self._week_dimension_group_time_sql(s,qt)}) - EXTRACT(WEEK FROM"
+                    f" DATE_TRUNC('MONTH', {self._week_dimension_group_time_sql(s,qt)})) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM {s})",
                 "fiscal_month_of_year_index": lambda s, qt: (
@@ -1056,10 +1059,13 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "fiscal_year": lambda s, qt: (
                     f"DATE_TRUNC('YEAR', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
                 ),
-                "week_index": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP))",
-                "week_of_month": lambda s, qt: (  # noqa
-                    f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
-                    f" CAST({s} AS TIMESTAMP))) + 1"
+                "week_index": lambda s, qt: (
+                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP))"
+                ),
+                "week_of_month": lambda s, qt: (
+                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP)) -"
+                    " EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
+                    f" CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP))) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP))",
                 "fiscal_month_of_year_index": lambda s, qt: (
@@ -1095,10 +1101,13 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "fiscal_year": lambda s, qt: (
                     f"DATE_TRUNC('YEAR', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
                 ),
-                "week_index": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP))",
+                "week_index": lambda s, qt: (
+                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP))"
+                ),
                 "week_of_month": lambda s, qt: (  # noqa
-                    f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
-                    f" CAST({s} AS TIMESTAMP))) + 1"
+                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP)) -"
+                    " EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
+                    f" CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP))) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP))",
                 "fiscal_month_of_year_index": lambda s, qt: (
@@ -1134,10 +1143,13 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "fiscal_year": lambda s, qt: (
                     f"DATE_TRUNC('YEAR', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
                 ),
-                "week_index": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP))",
-                "week_of_month": lambda s, qt: (  # noqa
-                    f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
-                    f" CAST({s} AS TIMESTAMP))) + 1"
+                "week_index": lambda s, qt: (
+                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP))"
+                ),
+                "week_of_month": lambda s, qt: (
+                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP)) -"
+                    " EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
+                    f" CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP))) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP))",
                 "fiscal_month_of_year_index": lambda s, qt: (
@@ -1185,10 +1197,13 @@ class Field(MetricsLayerBase, SQLReplacement):
                     f"DATEADD(YEAR, DATEDIFF(YEAR, 0, CAST({self._fiscal_offset_to_timestamp(s, qt)} AS"
                     " DATE)), 0)"
                 ),
-                "week_index": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS DATE))",
-                "week_of_month": lambda s, qt: (  # noqa
-                    f"EXTRACT(WEEK FROM CAST({s} AS DATE)) - EXTRACT(WEEK FROM DATEADD(MONTH, DATEDIFF(MONTH,"
-                    f" 0, CAST({s} AS DATE)), 0)) + 1"
+                "week_index": lambda s, qt: (
+                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS DATE))"
+                ),
+                "week_of_month": lambda s, qt: (
+                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS DATE)) -"
+                    " EXTRACT(WEEK FROM DATEADD(MONTH, DATEDIFF(MONTH, 0,"
+                    f" CAST({self._week_dimension_group_time_sql(s,qt)} AS DATE)), 0)) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS DATE))",
                 "fiscal_month_of_year_index": lambda s, qt: (
@@ -1239,9 +1254,10 @@ class Field(MetricsLayerBase, SQLReplacement):
                     f"CAST(DATE_TRUNC(CAST({self._fiscal_offset_to_timestamp(s, qt)} AS DATE), YEAR) AS"
                     f" {self.datatype.upper()})"
                 ),
-                "week_index": lambda s, qt: f"EXTRACT(WEEK FROM {s})",
+                "week_index": lambda s, qt: f"EXTRACT(WEEK FROM {self._week_dimension_group_time_sql(s,qt)})",
                 "week_of_month": lambda s, qt: (
-                    f"EXTRACT(WEEK FROM {s}) - EXTRACT(WEEK FROM DATE_TRUNC(CAST({s} AS DATE), MONTH)) + 1"
+                    f"EXTRACT(WEEK FROM {self._week_dimension_group_time_sql(s,qt)}) - EXTRACT(WEEK FROM"
+                    f" DATE_TRUNC(CAST({self._week_dimension_group_time_sql(s,qt)} AS DATE), MONTH)) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM {s})",
                 "fiscal_month_of_year_index": lambda s, qt: (
