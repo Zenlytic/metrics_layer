@@ -203,6 +203,16 @@ def test_validation_field_with_fully_qualified_results(connection, field_name, p
         ("label", None, ["The label property, None must be a string in the model test_model"]),
         ("label", "My Model!", []),
         (
+            "fiscal_month_offset",
+            "3 months",
+            ["The fiscal_month_offset property, 3 months must be an integer in the model test_model"],
+        ),
+        (
+            "fiscal_month_offset",
+            2,
+            [],
+        ),
+        (
             "week_start_day",
             "sundae",
             [
@@ -1061,6 +1071,48 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
             "marketing_channel",
             ["The fields_for_analysis property, marketing_channel must be a list in the view order_lines"],
         ),
+        (
+            "extra",
+            [],
+            ["View order_lines has an invalid extra []. The extra must be a dictionary."],
+        ),
+        ("extra", {"random": "key"}, []),
+        (
+            "hidden",
+            "yes",
+            [
+                "View order_lines has an invalid hidden value of yes. hidden must"
+                " be a boolean (true or false)."
+            ],
+        ),
+        (
+            "description",
+            (
+                "This is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description. "
+                "Second, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Third, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Fourth, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Fifth, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Sixth, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+            ),
+            [
+                "View order_lines has a description that is too long (1550 characters)."
+                " Descriptions must be 1024 characters or less. It will be truncated to the "
+                "first 1024 characters."
+            ],
+        ),
     ],
 )
 def test_validation_with_replaced_view_properties(connection, name, value, errors):
@@ -1094,6 +1146,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 "field_type": "dimension",
                 "type": "string",
                 "sql": "${TABLE}.order_line_id",
+                "hidden": True,
             },
             [
                 (
@@ -1111,7 +1164,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
         (
             None,
             "__ADD__",
-            {"name": "date", "field_type": "dimension", "type": "string", "sql": "${TABLE}.date"},
+            {"name": "date", "field_type": "dimension", "type": "number", "sql": "${TABLE}.date"},
             ["Field name: date in view order_lines is a reserved word and cannot be used as a field name."],
         ),
         (
@@ -1129,7 +1182,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "__POP__",
             [
                 "Field missing required key 'name' The field passed was {'field_type': "
-                "'dimension', 'type': 'string', 'sql': \"CASE\\n--- parent "
+                "'dimension', 'type': 'string', 'searchable': True, 'sql': \"CASE\\n--- parent "
                 "channel\\nWHEN ${channel} ilike '%social%' then 'Social'\\nELSE 'Not "
                 "Social'\\nEND\\n\"} in the view order_lines in the model test_model"
             ],
@@ -1140,9 +1193,9 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "__POP__",
             [
                 "Field 'parent_channel' missing required key 'field_type' The field passed was {'name':"
-                " 'parent_channel', 'type': 'string', 'sql': \"CASE\\n--- parent channel\\nWHEN ${channel}"
-                " ilike '%social%' then 'Social'\\nELSE 'Not Social'\\nEND\\n\"} in the view order_lines in"
-                " the model test_model"
+                " 'parent_channel', 'type': 'string', 'searchable': True, 'sql': \"CASE\\n--- parent"
+                " channel\\nWHEN ${channel} ilike '%social%' then 'Social'\\nELSE 'Not Social'\\nEND\\n\"} in"
+                " the view order_lines in the model test_model"
             ],
         ),
         (
@@ -1150,8 +1203,14 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "field_type",
             "metric",
             [
-                "Field parent_channel in view order_lines has an invalid field_type metric. Valid field_types"
-                " are: ['dimension', 'dimension_group', 'measure']"
+                (
+                    "Field parent_channel in view order_lines has an invalid field_type metric. Valid"
+                    " field_types are: ['dimension', 'dimension_group', 'measure']"
+                ),
+                (
+                    "Property searchable is present on Field parent_channel in view order_lines, "
+                    "but it is not a valid property."
+                ),
             ],
         ),
         (
@@ -1307,8 +1366,9 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "filters",
             {"field": "order_id", "value": 1},
             [
-                "Field total_item_costs in view order_lines has an invalid filters {'field': "
-                "'order_id', 'value': 1}. The filters must be a list of dictionaries."
+                "Field total_item_costs in view order_lines has an invalid filters {'field': 'order_id',"
+                " 'value': 1}. The filters must be a list of filters, not an individual filter. In yaml"
+                " syntax use the '-' character to denote a list element."
             ],
         ),
         (
@@ -1464,10 +1524,11 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 (
                     "Field order in view order_lines is of type time and has timeframe value of 'timestamp'"
                     " which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second',"
-                    " 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'week_index',"
-                    " 'week_of_year', 'week_of_month', 'month_of_year', 'month_of_year_index', 'month_name',"
-                    " 'month_index', 'quarter_of_year', 'hour_of_day', 'day_of_week', 'day_of_month',"
-                    " 'day_of_year'])"
+                    " 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'fiscal_month',"
+                    " 'fiscal_quarter', 'fiscal_year', 'week_index', 'week_of_year', 'week_of_month',"
+                    " 'month_of_year', 'month_of_year_index', 'fiscal_month_index',"
+                    " 'fiscal_month_of_year_index', 'month_name', 'month_index', 'quarter_of_year',"
+                    " 'fiscal_quarter_of_year', 'hour_of_day', 'day_of_week', 'day_of_month', 'day_of_year'])"
                 ),
             ],
         ),
@@ -1574,7 +1635,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "total_item_costs",
             "sql",
             "${TABL}.mycol",
-            ["Could not locate reference tabl in field total_item_costs in view order_lines"],
+            [
+                "Could not locate reference tabl in field total_item_costs in view order_lines",
+                "Field total_item_costs in view order_lines contains invalid field reference tabl.",
+            ],
         ),
         ("total_item_costs", "sql", "${TABLE}.mycol", []),
         ("total_item_costs", "sql", "${order_date}", []),
@@ -1619,7 +1683,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "waiting",
             "sql_end",
             "${TABL}.mycol",
-            ["Could not locate reference tabl in field waiting in view order_lines"],
+            [
+                "Could not locate reference tabl in field waiting in view order_lines",
+                "Field waiting in view order_lines contains invalid field reference tabl.",
+            ],
         ),
         ("waiting", "sql_end", "${TABLE}.mycol", []),
         ("waiting", "sql_end", "${order_date}", []),
@@ -1803,6 +1870,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             [
                 "Could not locate reference order_lines.fake in field total_item_costs in view order_lines",
                 (
+                    "Field total_item_costs in view order_lines contains invalid field reference "
+                    "order_lines.fake."
+                ),
+                (
                     "Field total_item_costs in view order_lines has an invalid "
                     "non_additive_dimension. The field order_lines.fake referenced in "
                     "non_additive_dimension does not exist."
@@ -1840,6 +1911,15 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
         (
             "total_item_costs",
             "non_additive_dimension",
+            {"name": "order_raw", "window_choice": "max", "nulls_are_equal": 2},
+            [
+                "Field total_item_costs in view order_lines has an invalid "
+                "non_additive_dimension. nulls_are_equal must be a boolean."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "non_additive_dimension",
             {"name": "order_raw", "window_choice": "max", "window_groupings": "account"},
             [
                 "Field total_item_costs in view order_lines has an invalid "
@@ -1852,6 +1932,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             {"name": "order_raw", "window_choice": "max", "window_groupings": ["fake"]},
             [
                 "Could not locate reference order_lines.fake in field total_item_costs in view order_lines",
+                (
+                    "Field total_item_costs in view order_lines contains invalid field reference "
+                    "order_lines.fake."
+                ),
                 (
                     "Field total_item_costs in view order_lines has an invalid "
                     "non_additive_dimension. The field order_lines.fake "
@@ -2052,8 +2136,47 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 "else": "Not on sale",
             },
             [
-                "Warning:: Field parent_channel in view order_lines is using a case "
+                "Warning: Field parent_channel in view order_lines is using a case "
                 "statement, which is deprecated. Please use the sql property instead."
+            ],
+        ),
+        (
+            "parent_channel",
+            "searchable",
+            "__POP__",
+            [
+                "Field parent_channel in view order_lines does not have required 'searchable' "
+                "property set to either true or false. This property is required for "
+                "dimensions of type string that are not hidden."
+            ],
+        ),
+        (
+            "revenue_per_session",
+            "sql",
+            "${sessions.number_of_sess} * ${total_item_revenue} / nullif(${total_item_revenue}, 0)",
+            [
+                "Field revenue_per_session in view order_lines contains invalid field "
+                "reference sessions.number_of_sess."
+            ],
+        ),
+        (
+            "parent_channel",
+            "description",
+            (
+                "This is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description. "
+                "Second, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Third, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+            ),
+            [
+                "Field parent_channel in view order_lines has a description that is too long (772"
+                " characters). Descriptions must be 512 characters or less. It will be truncated to the first"
+                " 512 characters."
             ],
         ),
     ],

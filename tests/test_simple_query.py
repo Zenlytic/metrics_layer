@@ -13,6 +13,7 @@ simple_model = {
     "type": "model",
     "name": "core",
     "connection": "testing_snowflake",
+    "fiscal_month_offset": 1,
     "week_start_day": "sunday",
     "explores": [{"name": "simple_explore", "from": "simple"}],
 }
@@ -72,6 +73,12 @@ simple_view = {
                 "month",
                 "quarter",
                 "year",
+                "fiscal_month",
+                "fiscal_quarter",
+                "fiscal_year",
+                "fiscal_month_of_year_index",
+                "fiscal_month_index",
+                "fiscal_quarter_of_year",
                 "week_index",
                 "week_of_year",
                 "week_of_month",
@@ -150,7 +157,7 @@ def test_simple_query_dynamic_schema():
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-        "{} simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC;"
+        "{} simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
 
     class sf_mock(BaseConnection):
@@ -186,7 +193,9 @@ def test_simple_query(connections):
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
     )
-    correct += "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC;"
+    correct += (
+        "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC NULLS LAST;"
+    )
     assert query == correct
 
 
@@ -200,7 +209,26 @@ def test_simple_query_dimension_filter(connections):
         "SELECT case when LOWER(simple.sales_channel) LIKE LOWER('%organic%') then simple.sales_channel end"
         " as simple_organic_channels,SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple"
         " GROUP BY case when LOWER(simple.sales_channel) LIKE LOWER('%organic%') then simple.sales_channel"
-        " end ORDER BY simple_total_revenue DESC;"
+        " end ORDER BY simple_total_revenue DESC NULLS LAST;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_simple_query_field_to_field_filter(connections):
+    project = Project(models=[simple_model], views=[simple_view])
+    conn = MetricsLayerConnection(project=project, connections=connections)
+    query = conn.get_sql_query(
+        metrics=["total_revenue"],
+        dimensions=["organic_channels"],
+        where=[{"field": "new_vs_repeat", "expression": "greater_than", "value": "simple.group"}],
+    )
+
+    correct = (
+        "SELECT case when LOWER(simple.sales_channel) LIKE LOWER('%organic%') then simple.sales_channel end"
+        " as simple_organic_channels,SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple"
+        " WHERE simple.new_vs_repeat>simple.group_name GROUP BY case when LOWER(simple.sales_channel) LIKE"
+        " LOWER('%organic%') then simple.sales_channel end ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -238,7 +266,7 @@ def test_simple_query_min_max(connections, metric, query_type):
     group_by = "simple.sales_channel"
     semi = ";"
     if query_type in {Definitions.snowflake, Definitions.redshift, Definitions.duck_db}:
-        order_by = f" ORDER BY simple_{agg.lower()}_revenue DESC"
+        order_by = f" ORDER BY simple_{agg.lower()}_revenue DESC NULLS LAST"
     else:
         order_by = ""
 
@@ -277,7 +305,7 @@ def test_simple_query_count_distinct(connections, query_type):
     group_by = "simple.sales_channel"
     semi = ";"
     if query_type in {Definitions.snowflake, Definitions.redshift, Definitions.duck_db}:
-        order_by = f" ORDER BY simple_unique_groups DESC"
+        order_by = f" ORDER BY simple_unique_groups DESC NULLS LAST"
     else:
         order_by = ""
 
@@ -302,7 +330,7 @@ def test_simple_query_single_metric(connections):
 
     correct = (
         "SELECT SUM(simple.revenue) as simple_total_revenue "
-        "FROM analytics.orders simple ORDER BY simple_total_revenue DESC;"
+        "FROM analytics.orders simple ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -315,7 +343,7 @@ def test_simple_query_single_dimension(connections):
 
     correct = (
         "SELECT simple.sales_channel as simple_channel FROM analytics.orders simple "
-        "GROUP BY simple.sales_channel ORDER BY simple_channel ASC;"
+        "GROUP BY simple.sales_channel ORDER BY simple_channel ASC NULLS LAST;"
     )
     assert query == correct
 
@@ -332,7 +360,7 @@ def test_simple_query_limit(connections, query_type):
     if Definitions.snowflake == query_type:
         correct = (
             "SELECT simple.sales_channel as simple_channel FROM analytics.orders simple "
-            "GROUP BY simple.sales_channel ORDER BY simple_channel ASC LIMIT 10;"
+            "GROUP BY simple.sales_channel ORDER BY simple_channel ASC NULLS LAST LIMIT 10;"
         )
     elif query_type in {Definitions.sql_server, Definitions.azure_synapse}:
         correct = (
@@ -351,7 +379,7 @@ def test_simple_query_count(connections):
     query = conn.get_sql_query(metrics=["count"], dimensions=["channel"])
 
     correct = "SELECT simple.sales_channel as simple_channel,COUNT(*) as simple_count FROM "
-    correct += "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_count DESC;"
+    correct += "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_count DESC NULLS LAST;"
     assert query == correct
 
 
@@ -362,7 +390,7 @@ def test_simple_query_alias_keyword(connections):
     query = conn.get_sql_query(metrics=["count"], dimensions=["group"])
 
     correct = "SELECT simple.group_name as simple_group,COUNT(*) as simple_count FROM "
-    correct += "analytics.orders simple GROUP BY simple.group_name ORDER BY simple_count DESC;"
+    correct += "analytics.orders simple GROUP BY simple.group_name ORDER BY simple_count DESC NULLS LAST;"
     assert query == correct
 
 
@@ -439,7 +467,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
             f"AS {ttype}) AS TIMESTAMP))>='{start}' AND DATE_TRUNC('DAY', "
             f"CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS {ttype}) AS TIMESTAMP))<='{end}'"  # noqa
         )
-        order_by = " ORDER BY simple_total_revenue DESC"
+        order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
     elif query_type == Definitions.databricks:
         if field == "previous_order":
             result_lookup = {"date": "DATE_TRUNC('DAY', CAST(simple.previous_order_date AS TIMESTAMP))"}
@@ -486,7 +514,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
             f"CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP))<='{end}'"  # noqa
         )
         if query_type == Definitions.duck_db:
-            order_by = " ORDER BY simple_total_revenue DESC"
+            order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
         else:
             order_by = ""
     elif query_type == Definitions.bigquery:
@@ -564,6 +592,12 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month", Definitions.snowflake),
         ("quarter", Definitions.snowflake),
         ("year", Definitions.snowflake),
+        ("fiscal_month", Definitions.snowflake),
+        ("fiscal_quarter", Definitions.snowflake),
+        ("fiscal_year", Definitions.snowflake),
+        ("fiscal_month_of_year_index", Definitions.snowflake),
+        ("fiscal_month_index", Definitions.snowflake),
+        ("fiscal_quarter_of_year", Definitions.snowflake),
         ("week_index", Definitions.snowflake),
         ("week_of_year", Definitions.snowflake),
         ("week_of_month", Definitions.snowflake),
@@ -585,6 +619,12 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month", Definitions.databricks),
         ("quarter", Definitions.databricks),
         ("year", Definitions.databricks),
+        ("fiscal_month", Definitions.databricks),
+        ("fiscal_quarter", Definitions.databricks),
+        ("fiscal_year", Definitions.databricks),
+        ("fiscal_month_of_year_index", Definitions.databricks),
+        ("fiscal_month_index", Definitions.databricks),
+        ("fiscal_quarter_of_year", Definitions.databricks),
         ("week_index", Definitions.databricks),
         ("week_of_month", Definitions.databricks),
         ("month_of_year_index", Definitions.databricks),
@@ -603,6 +643,12 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month", Definitions.druid),
         ("quarter", Definitions.druid),
         ("year", Definitions.druid),
+        ("fiscal_month", Definitions.druid),
+        ("fiscal_quarter", Definitions.druid),
+        ("fiscal_year", Definitions.druid),
+        ("fiscal_month_of_year_index", Definitions.druid),
+        ("fiscal_month_index", Definitions.druid),
+        ("fiscal_quarter_of_year", Definitions.druid),
         ("week_index", Definitions.druid),
         ("week_of_month", Definitions.druid),
         ("month_of_year_index", Definitions.druid),
@@ -621,6 +667,12 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month", Definitions.sql_server),
         ("quarter", Definitions.sql_server),
         ("year", Definitions.sql_server),
+        ("fiscal_month", Definitions.sql_server),
+        ("fiscal_quarter", Definitions.sql_server),
+        ("fiscal_year", Definitions.sql_server),
+        ("fiscal_month_of_year_index", Definitions.sql_server),
+        ("fiscal_month_index", Definitions.sql_server),
+        ("fiscal_quarter_of_year", Definitions.sql_server),
         ("week_index", Definitions.sql_server),
         ("week_of_month", Definitions.sql_server),
         ("month_of_year_index", Definitions.sql_server),
@@ -639,6 +691,12 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month", Definitions.azure_synapse),
         ("quarter", Definitions.azure_synapse),
         ("year", Definitions.azure_synapse),
+        ("fiscal_month", Definitions.azure_synapse),
+        ("fiscal_quarter", Definitions.azure_synapse),
+        ("fiscal_year", Definitions.azure_synapse),
+        ("fiscal_month_of_year_index", Definitions.azure_synapse),
+        ("fiscal_month_index", Definitions.azure_synapse),
+        ("fiscal_quarter_of_year", Definitions.azure_synapse),
         ("week_index", Definitions.azure_synapse),
         ("week_of_month", Definitions.azure_synapse),
         ("month_of_year_index", Definitions.azure_synapse),
@@ -657,6 +715,12 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month", Definitions.redshift),
         ("quarter", Definitions.redshift),
         ("year", Definitions.redshift),
+        ("fiscal_month", Definitions.redshift),
+        ("fiscal_quarter", Definitions.redshift),
+        ("fiscal_year", Definitions.redshift),
+        ("fiscal_month_of_year_index", Definitions.redshift),
+        ("fiscal_month_index", Definitions.redshift),
+        ("fiscal_quarter_of_year", Definitions.redshift),
         ("week_index", Definitions.redshift),
         ("week_of_month", Definitions.redshift),
         ("month_of_year_index", Definitions.redshift),
@@ -675,6 +739,12 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month", Definitions.postgres),
         ("quarter", Definitions.postgres),
         ("year", Definitions.postgres),
+        ("fiscal_month", Definitions.postgres),
+        ("fiscal_quarter", Definitions.postgres),
+        ("fiscal_year", Definitions.postgres),
+        ("fiscal_month_of_year_index", Definitions.postgres),
+        ("fiscal_month_index", Definitions.postgres),
+        ("fiscal_quarter_of_year", Definitions.postgres),
         ("week_index", Definitions.postgres),
         ("week_of_month", Definitions.postgres),
         ("month_of_year_index", Definitions.postgres),
@@ -693,6 +763,12 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month", Definitions.duck_db),
         ("quarter", Definitions.duck_db),
         ("year", Definitions.duck_db),
+        ("fiscal_month", Definitions.duck_db),
+        ("fiscal_quarter", Definitions.duck_db),
+        ("fiscal_year", Definitions.duck_db),
+        ("fiscal_month_of_year_index", Definitions.duck_db),
+        ("fiscal_month_index", Definitions.duck_db),
+        ("fiscal_quarter_of_year", Definitions.duck_db),
         ("week_index", Definitions.duck_db),
         ("week_of_month", Definitions.duck_db),
         ("month_of_year_index", Definitions.duck_db),
@@ -711,6 +787,12 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month", Definitions.bigquery),
         ("quarter", Definitions.bigquery),
         ("year", Definitions.bigquery),
+        ("fiscal_month", Definitions.bigquery),
+        ("fiscal_quarter", Definitions.bigquery),
+        ("fiscal_year", Definitions.bigquery),
+        ("fiscal_month_of_year_index", Definitions.bigquery),
+        ("fiscal_month_index", Definitions.bigquery),
+        ("fiscal_quarter_of_year", Definitions.bigquery),
         ("week_index", Definitions.bigquery),
         ("week_of_month", Definitions.bigquery),
         ("month_of_year_index", Definitions.bigquery),
@@ -743,6 +825,12 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "month": "DATE_TRUNC('MONTH', simple.order_date)",
             "quarter": "DATE_TRUNC('QUARTER', simple.order_date)",
             "year": "DATE_TRUNC('YEAR', simple.order_date)",
+            "fiscal_month": "DATE_TRUNC('MONTH', DATEADD(MONTH, 1, simple.order_date))",
+            "fiscal_quarter": "DATE_TRUNC('QUARTER', DATEADD(MONTH, 1, simple.order_date))",
+            "fiscal_year": "DATE_TRUNC('YEAR', DATEADD(MONTH, 1, simple.order_date))",
+            "fiscal_month_of_year_index": f"EXTRACT(MONTH FROM DATEADD(MONTH, 1, simple.order_date))",
+            "fiscal_month_index": f"EXTRACT(MONTH FROM DATEADD(MONTH, 1, simple.order_date))",
+            "fiscal_quarter_of_year": "EXTRACT(QUARTER FROM DATEADD(MONTH, 1, simple.order_date))",
             "week_index": f"EXTRACT(WEEK FROM simple.order_date)",
             "week_of_year": f"EXTRACT(WEEK FROM simple.order_date)",
             "week_of_month": (  # noqa
@@ -754,7 +842,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "month_of_year": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')",
             "month_name": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')",
             "quarter_of_year": "EXTRACT(QUARTER FROM simple.order_date)",
-            "hour_of_day": "HOUR(CAST(simple.order_date AS TIMESTAMP))",
+            "hour_of_day": "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))",
             "day_of_week": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Dy')",
             "day_of_month": "EXTRACT(DAY FROM simple.order_date)",
             "day_of_year": "EXTRACT(DOY FROM simple.order_date)",
@@ -762,7 +850,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         if query_type == Definitions.redshift:
             result_lookup["month_of_year"] = "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')"
             result_lookup["month_name"] = "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')"
-        order_by = " ORDER BY simple_total_revenue DESC"
+        order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
 
     elif query_type in {Definitions.sql_server, Definitions.azure_synapse}:
         result_lookup = {
@@ -778,6 +866,21 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "month": "DATEADD(MONTH, DATEDIFF(MONTH, 0, CAST(simple.order_date AS DATE)), 0)",
             "quarter": "DATEADD(QUARTER, DATEDIFF(QUARTER, 0, CAST(simple.order_date AS DATE)), 0)",
             "year": "DATEADD(YEAR, DATEDIFF(YEAR, 0, CAST(simple.order_date AS DATE)), 0)",
+            "fiscal_month": (
+                "DATEADD(MONTH, DATEDIFF(MONTH, 0, CAST(DATEADD(MONTH, 1, simple.order_date) AS DATE)), 0)"
+            ),
+            "fiscal_quarter": (
+                "DATEADD(QUARTER, DATEDIFF(QUARTER, 0, CAST(DATEADD(MONTH, 1, simple.order_date) AS"
+                " DATE)), 0)"
+            ),
+            "fiscal_year": (
+                "DATEADD(YEAR, DATEDIFF(YEAR, 0, CAST(DATEADD(MONTH, 1, simple.order_date) AS DATE)), 0)"
+            ),
+            "fiscal_month_of_year_index": (
+                f"EXTRACT(MONTH FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS DATE))"
+            ),
+            "fiscal_month_index": "EXTRACT(MONTH FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS DATE))",
+            "fiscal_quarter_of_year": "DATEPART(QUARTER, CAST(DATEADD(MONTH, 1, simple.order_date) AS DATE))",
             "week_index": f"EXTRACT(WEEK FROM CAST(simple.order_date AS DATE))",
             "week_of_month": (  # noqa
                 f"EXTRACT(WEEK FROM CAST(simple.order_date AS DATE)) - EXTRACT(WEEK FROM DATEADD(MONTH,"
@@ -807,6 +910,20 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "month": "DATE_TRUNC('MONTH', CAST(simple.order_date AS TIMESTAMP))",
             "quarter": "DATE_TRUNC('QUARTER', CAST(simple.order_date AS TIMESTAMP))",
             "year": "DATE_TRUNC('YEAR', CAST(simple.order_date AS TIMESTAMP))",
+            "fiscal_month": "DATE_TRUNC('MONTH', CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))",  # noqa
+            "fiscal_quarter": (  # noqa
+                "DATE_TRUNC('QUARTER', CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
+            ),
+            "fiscal_year": "DATE_TRUNC('YEAR', CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))",  # noqa
+            "fiscal_month_of_year_index": (  # noqa
+                f"EXTRACT(MONTH FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
+            ),
+            "fiscal_month_index": (  # noqa
+                f"EXTRACT(MONTH FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
+            ),
+            "fiscal_quarter_of_year": (  # noqa
+                "EXTRACT(QUARTER FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
+            ),
             "week_index": f"EXTRACT(WEEK FROM CAST(simple.order_date AS TIMESTAMP))",
             "week_of_month": (  # noqa
                 f"EXTRACT(WEEK FROM CAST(simple.order_date AS TIMESTAMP)) - EXTRACT(WEEK FROM"
@@ -821,11 +938,29 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "day_of_year": "EXTRACT('DOY' FROM CAST(simple.order_date AS TIMESTAMP))",
         }
         if query_type == Definitions.duck_db:
-            order_by = " ORDER BY simple_total_revenue DESC"
+            order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
         else:
             order_by = ""
 
         if query_type == Definitions.databricks:
+            result_lookup[
+                "fiscal_month"
+            ] = "DATE_TRUNC('MONTH', CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            result_lookup[
+                "fiscal_quarter"
+            ] = "DATE_TRUNC('QUARTER', CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            result_lookup[
+                "fiscal_year"
+            ] = "DATE_TRUNC('YEAR', CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            result_lookup[
+                "fiscal_month_of_year_index"
+            ] = f"EXTRACT(MONTH FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            result_lookup[
+                "fiscal_month_index"
+            ] = f"EXTRACT(MONTH FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            result_lookup[
+                "fiscal_quarter_of_year"
+            ] = "EXTRACT(QUARTER FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
             result_lookup["month_of_year"] = "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'MMM')"
             result_lookup["hour_of_day"] = "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))"
             result_lookup["day_of_week"] = "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'E')"
@@ -856,6 +991,23 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "month": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), MONTH) AS TIMESTAMP)",
             "quarter": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), QUARTER) AS TIMESTAMP)",
             "year": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), YEAR) AS TIMESTAMP)",
+            "fiscal_month": (
+                "CAST(DATE_TRUNC(CAST(DATE_ADD(simple.order_date, INTERVAL 1 MONTH) AS DATE), MONTH) AS"
+                " TIMESTAMP)"
+            ),
+            "fiscal_quarter": (
+                "CAST(DATE_TRUNC(CAST(DATE_ADD(simple.order_date, INTERVAL 1 MONTH) AS DATE), QUARTER) AS"
+                " TIMESTAMP)"
+            ),
+            "fiscal_year": (
+                "CAST(DATE_TRUNC(CAST(DATE_ADD(simple.order_date, INTERVAL 1 MONTH) AS DATE), YEAR) AS"
+                " TIMESTAMP)"
+            ),
+            "fiscal_month_of_year_index": (
+                f"EXTRACT(MONTH FROM DATE_ADD(simple.order_date, INTERVAL 1 MONTH))"
+            ),
+            "fiscal_month_index": f"EXTRACT(MONTH FROM DATE_ADD(simple.order_date, INTERVAL 1 MONTH))",
+            "fiscal_quarter_of_year": "EXTRACT(QUARTER FROM DATE_ADD(simple.order_date, INTERVAL 1 MONTH))",
             "week_index": f"EXTRACT(WEEK FROM simple.order_date)",
             "week_of_month": (  # noqa
                 f"EXTRACT(WEEK FROM simple.order_date) - EXTRACT(WEEK FROM DATE_TRUNC(CAST(simple.order_date"
@@ -997,7 +1149,7 @@ def test_simple_query_dimension_group_interval(connections, interval: str, query
             "quarter": "DATEDIFF('QUARTER', simple.view_date, simple.order_date)",
             "year": "DATEDIFF('YEAR', simple.view_date, simple.order_date)",
         }
-        order_by = " ORDER BY simple_total_revenue DESC"
+        order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
     elif query_type == Definitions.druid:
         result_lookup = {
             "second": "TIMESTAMPDIFF(SECOND, simple.view_date, simple.order_date)",
@@ -1099,7 +1251,7 @@ def test_simple_query_two_group_by(connections):
     correct = (
         "SELECT simple.sales_channel as simple_channel,simple.new_vs_repeat as simple_new_vs_repeat,"
         "SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple "
-        "GROUP BY simple.sales_channel,simple.new_vs_repeat ORDER BY simple_total_revenue DESC;"
+        "GROUP BY simple.sales_channel,simple.new_vs_repeat ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -1117,7 +1269,7 @@ def test_simple_query_two_metric(connections):
         "SELECT simple.sales_channel as simple_channel,simple.new_vs_repeat as simple_new_vs_repeat,"
         "SUM(simple.revenue) as simple_total_revenue,AVG(simple.revenue) as simple_average_order_value FROM "
         "analytics.orders simple GROUP BY simple.sales_channel,simple.new_vs_repeat "
-        "ORDER BY simple_total_revenue DESC;"
+        "ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -1132,7 +1284,7 @@ def test_simple_query_custom_dimension(connections):
         "SELECT (CASE WHEN simple.sales_channel != 'fraud' THEN TRUE ELSE FALSE END) as "
         "simple_is_valid_order,SUM(simple.revenue) as simple_total_revenue "
         "FROM analytics.orders simple GROUP BY (CASE WHEN simple.sales_channel "
-        "!= 'fraud' THEN TRUE ELSE FALSE END) ORDER BY simple_total_revenue DESC;"
+        "!= 'fraud' THEN TRUE ELSE FALSE END) ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -1144,9 +1296,9 @@ def test_simple_query_custom_metric(connections):
     query = conn.get_sql_query(metrics=["revenue_per_aov"], dimensions=["channel"])
 
     correct = (
-        "SELECT simple.sales_channel as simple_channel,CASE WHEN (AVG(simple.revenue)) = 0 THEN "
-        "0 ELSE (SUM(simple.revenue)) / (AVG(simple.revenue)) END as simple_revenue_per_aov FROM "
-        "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_revenue_per_aov DESC;"
+        "SELECT simple.sales_channel as simple_channel,CASE WHEN (AVG(simple.revenue)) = 0 THEN 0 ELSE"
+        " (SUM(simple.revenue)) / (AVG(simple.revenue)) END as simple_revenue_per_aov FROM analytics.orders"
+        " simple GROUP BY simple.sales_channel ORDER BY simple_revenue_per_aov DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -1211,7 +1363,7 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
     }:
         order_by = ""
     else:
-        order_by = " ORDER BY simple_total_revenue DESC"
+        order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
 
     semi = ";"
     if query_type == Definitions.druid:
@@ -1295,7 +1447,7 @@ def test_simple_query_convert_tz_alias_no(connections):
     correct = (
         "SELECT DATE_TRUNC('DAY', simple.order_date) as simple_order_date,"
         "SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple "
-        "GROUP BY DATE_TRUNC('DAY', simple.order_date) ORDER BY simple_total_revenue DESC;"
+        "GROUP BY DATE_TRUNC('DAY', simple.order_date) ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -1348,7 +1500,7 @@ def test_simple_query_with_where_dict(connections, field_name, filter_type, valu
     )
 
     if query_type == Definitions.snowflake:
-        order_by = " ORDER BY simple_total_revenue DESC"
+        order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
         semi = ";"
     elif query_type == Definitions.druid:
         order_by = ""
@@ -1416,7 +1568,7 @@ def test_simple_query_with_where_literal(connections):
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
         "analytics.orders simple WHERE simple.sales_channel != 'Email' GROUP BY simple.sales_channel "
-        "ORDER BY simple_total_revenue DESC;"
+        "ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -1461,7 +1613,7 @@ def test_simple_query_with_having_dict(connections, filter_type):
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
         f"analytics.orders simple GROUP BY simple.sales_channel HAVING {full_expr} "
-        "ORDER BY simple_total_revenue DESC;"
+        "ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -1477,25 +1629,63 @@ def test_simple_query_with_having_literal(connections):
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
         "analytics.orders simple GROUP BY simple.sales_channel HAVING (SUM(simple.revenue)) > 12 "
-        "ORDER BY simple_total_revenue DESC;"
+        "ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
 
-@pytest.mark.query
-def test_simple_query_with_order_by_dict(connections):
+@pytest.mark.queryy
+@pytest.mark.parametrize(
+    "query_type",
+    [
+        Definitions.snowflake,
+        Definitions.bigquery,
+        Definitions.redshift,
+        Definitions.postgres,
+        Definitions.druid,
+        Definitions.sql_server,
+        Definitions.duck_db,
+        Definitions.databricks,
+        Definitions.azure_synapse,
+    ],
+)
+def test_simple_query_with_order_by_dict(connections, query_type):
     project = Project(models=[simple_model], views=[simple_view])
     conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(
-        metrics=["total_revenue", "average_order_value"],
+        metrics=["total_revenue", "average_order_value", "max_revenue"],
         dimensions=["channel"],
-        order_by=[{"field": "total_revenue", "sort": "asc"}, {"field": "average_order_value"}],
+        order_by=[
+            {"field": "total_revenue", "sort": "asc"},
+            {"field": "average_order_value"},
+            {"field": "max_revenue", "sort": "desc"},
+        ],
+        query_type=query_type,
     )
 
+    if query_type == Definitions.bigquery:
+        group_by = "simple_channel"
+    else:
+        group_by = "simple.sales_channel"
+
+    semi = ";" if query_type not in {Definitions.druid} else ""
+    if query_type in {
+        Definitions.snowflake,
+        Definitions.redshift,
+        Definitions.duck_db,
+        Definitions.postgres,
+        Definitions.databricks,
+        Definitions.bigquery,
+    }:
+        nulls_last = " NULLS LAST"
+    else:
+        nulls_last = ""
     correct = (
-        "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue,"
-        "AVG(simple.revenue) as simple_average_order_value FROM analytics.orders simple "
-        "GROUP BY simple.sales_channel ORDER BY simple_total_revenue ASC,simple_average_order_value ASC;"
+        "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as"
+        " simple_total_revenue,AVG(simple.revenue) as simple_average_order_value,MAX(simple.revenue) as"
+        f" simple_max_revenue FROM analytics.orders simple GROUP BY {group_by} ORDER BY"
+        f" simple_total_revenue ASC{nulls_last},simple_average_order_value ASC{nulls_last},simple_max_revenue"
+        f" DESC{nulls_last}{semi}"
     )
     assert query == correct
 
@@ -1510,7 +1700,7 @@ def test_simple_query_with_order_by_literal(connections):
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-        "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue ASC;"
+        "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue ASC NULLS LAST;"
     )
     assert query == correct
 
@@ -1528,8 +1718,8 @@ def test_simple_query_with_all(connections):
     )
 
     correct = (
-        "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-        "analytics.orders simple WHERE simple.sales_channel<>'Email' "
-        "GROUP BY simple.sales_channel HAVING SUM(simple.revenue)>12 ORDER BY simple_total_revenue ASC;"
+        "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM"
+        " analytics.orders simple WHERE simple.sales_channel<>'Email' GROUP BY simple.sales_channel HAVING"
+        " SUM(simple.revenue)>12 ORDER BY simple_total_revenue ASC NULLS LAST;"
     )
     assert query == correct

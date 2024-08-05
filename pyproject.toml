@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "metrics_layer"
-version = "0.12.17"
+version = "0.12.29"
 description = "The open source metrics layer."
 authors = ["Paul Blankley <paul@zenlytic.com>"]
 keywords = ["Metrics Layer", "Business Intelligence", "Analytics"]
@@ -16,6 +16,7 @@ GitPython = ">=3.1.20"
 sqlparse = ">=0.4.1"
 PyPika = "^0.48.8"
 pandas = "^1.5.2"
+numpy = "^1.24.4"
 redshift-connector = {version = ">=2.0.917", optional = true}
 snowflake-connector-python = {version = ">=3.5.0", optional = true}
 pyarrow = {version = ">=10", optional = true}

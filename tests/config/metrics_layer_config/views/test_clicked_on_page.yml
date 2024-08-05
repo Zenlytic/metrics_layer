@@ -9,44 +9,37 @@ default_date: session
 row_label: Session
 
 identifiers:
-- name: customer_join
-  type: join
-  reference: customers
-  relationship: many_to_one
-  sql_on: "${customers.customer_id}=${clicked_on_page.customer_id} AND ${clicked_on_page.session_date} is not null"
-
+  - name: customer_join
+    type: join
+    reference: customers
+    relationship: many_to_one
+    sql_on: '${customers.customer_id}=${clicked_on_page.customer_id} AND ${clicked_on_page.session_date} is not null'
 
 fields:
   - name: session_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     primary_key: yes
     hidden: yes
-    sql: "${TABLE}.id"
+    sql: '${TABLE}.id'
 
   - name: customer_id
     field_type: dimension
     type: string
     sql: ${TABLE}.customer_id
+    searchable: true
 
   - name: context_os
     field_type: dimension
     type: string
     sql: ${TABLE}.context_os
+    searchable: true
 
   - name: session
-    field_type: "dimension_group"
+    field_type: 'dimension_group'
     type: time
-    timeframes: [
-      raw,
-      time,
-      date,
-      week,
-      month,
-      quarter,
-      year
-    ]
-    sql: "${TABLE}.session_date"
+    timeframes: [raw, time, date, week, month, quarter, year]
+    sql: '${TABLE}.session_date'
 
   - name: number_of_clicks
     field_type: measure

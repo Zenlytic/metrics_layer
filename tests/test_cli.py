@@ -434,7 +434,7 @@ def test_cli_validate(connection, fresh_project, mocker):
     project = fresh_project
     project._views[1]["default_date"] = "sessions.session_date"
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
-    sorted_fields[19]["name"] = "rev_broken_dim"
+    sorted_fields[20]["name"] = "rev_broken_dim"
     project._views[1]["fields"] = sorted_fields
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
@@ -446,11 +446,14 @@ def test_cli_validate(connection, fresh_project, mocker):
     # assert result.exit_code == 0
     assert (
         result.output
-        == "Found 4 errors in the project:\n\n"
+        == "Found 7 errors in the project:\n\n"
         "\nCould not locate reference revenue_dimension in field total_item_costs in view order_lines\n\n"
+        "\nField total_item_costs in view order_lines contains invalid field reference revenue_dimension.\n\n"
         "\nCould not locate reference revenue_dimension in field revenue_in_cents in view orders\n\n"
         "\nCould not locate reference revenue_dimension in field total_revenue in view orders\n\n"
         "\nDefault date sessions.session_date in view orders is not joinable to the view orders\n\n"
+        "\nField revenue_in_cents in view orders contains invalid field reference revenue_dimension.\n\n"
+        "\nField total_revenue in view orders contains invalid field reference revenue_dimension.\n\n"
     )
 
 
@@ -458,7 +461,7 @@ def test_cli_validate(connection, fresh_project, mocker):
 def test_cli_validate_broken_canon_date(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
-    project._views[2]["fields"][-2]["canon_date"] = "does_not_exist"
+    project._views[2]["fields"][-3]["canon_date"] = "does_not_exist"
     project.refresh_cache()
     project.join_graph
 
@@ -516,8 +519,9 @@ def test_cli_validate_personal_field_view_level_error(connection, fresh_project,
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 1 error in the project:\n\n"
+        "Found 2 errors in the project:\n\n"
         "\nWarning: Could not locate reference some_crazy_ref in field cancelled in view customers\n\n"  # noqa
+        "\nWarning: Field cancelled in view customers contains invalid field reference some_crazy_ref.\n\n"  # noqa
     )
 
 
@@ -639,7 +643,7 @@ def test_cli_validate_filter_with_no_field(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
 
-    project._views[2]["fields"][-2]["filters"][0] = {"is_churned": None, "value": False}
+    project._views[2]["fields"][-3]["filters"][0] = {"is_churned": None, "value": False}
 
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
@@ -694,8 +698,8 @@ def test_cli_validate_names(connection, fresh_project, mocker):
     project = fresh_project
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
 
-    sorted_fields[1]["name"] = "an invalid @name\\"
-    sorted_fields[4]["timeframes"] = ["date", "month", "year"]
+    sorted_fields[2]["name"] = "an invalid @name\\"
+    sorted_fields[5]["timeframes"] = ["date", "month", "year"]
     project._views[1]["fields"] = sorted_fields
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
@@ -706,9 +710,10 @@ def test_cli_validate_names(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 3 errors in the project:\n\n"
+        "Found 4 errors in the project:\n\n"
         "\nCould not locate reference days_between_orders in field an invalid @name\\ in view orders\n\n"
         "\nField name: an invalid @name\\ is invalid. Please reference the naming conventions (only letters, numbers, or underscores)\n\n"  # noqa
+        "\nField an invalid @name\ in view orders contains invalid field reference days_between_orders.\n\n"
         "\nField between_orders in view orders is of type duration, but has property timeframes when it should have property intervals\n\n"  # noqa
     )
 
@@ -737,7 +742,7 @@ def test_cli_validate_model_name_in_view(connection, fresh_project, mocker):
 def test_cli_validate_two_customer_tags(connection, fresh_project, mocker):
     # Break something so validation fails
     sorted_fields = sorted(fresh_project._views[1]["fields"], key=lambda x: x["name"])
-    sorted_fields[6]["tags"] = ["customer"]
+    sorted_fields[7]["tags"] = ["customer"]
     conn = MetricsLayerConnection(project=fresh_project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
@@ -819,7 +824,7 @@ def test_cli_dimension_group_timeframes(connection, fresh_project, mocker):
         "Found 3 errors in the project:\n\n"
         "\nIn the Set test_set2 Field order_time not found in view orders, please check that this field exists AND that you have access to it. \n\nIf this is a dimension group specify the group parameter, if not already specified, for example, with a dimension group named 'order' with timeframes: [raw, date, month] specify 'order_raw' or 'order_date' or 'order_month'\n\n"  # noqa
         "\nIn the Set test_set_composed Field order_time not found in view orders, please check that this field exists AND that you have access to it. \n\nIf this is a dimension group specify the group parameter, if not already specified, for example, with a dimension group named 'order' with timeframes: [raw, date, month] specify 'order_raw' or 'order_date' or 'order_month'\n\n"  # noqa
-        "\nField order in view orders is of type time and has timeframe value of 'timestamp' which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second', 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'week_index', 'week_of_year', 'week_of_month', 'month_of_year', 'month_of_year_index', 'month_name', 'month_index', 'quarter_of_year', 'hour_of_day', 'day_of_week', 'day_of_month', 'day_of_year'])\n\n"  # noqa
+        "\nField order in view orders is of type time and has timeframe value of 'timestamp' which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second', 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'fiscal_month', 'fiscal_quarter', 'fiscal_year', 'week_index', 'week_of_year', 'week_of_month', 'month_of_year', 'month_of_year_index', 'fiscal_month_index', 'fiscal_month_of_year_index', 'month_name', 'month_index', 'quarter_of_year', 'fiscal_quarter_of_year', 'hour_of_day', 'day_of_week', 'day_of_month', 'day_of_year'])\n\n"  # noqa
     )
 
 

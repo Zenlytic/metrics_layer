@@ -3,8 +3,9 @@ from pypika.terms import LiteralValue
 
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.filter import LiteralValueCriterion
+from metrics_layer.core.model.join import ZenlyticJoinType
 from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
-from metrics_layer.core.sql.query_dialect import query_lookup
+from metrics_layer.core.sql.query_dialect import NullSorting, query_lookup
 
 
 class MetricsLayerMergedQueries(MetricsLayerQueryBase):
@@ -50,7 +51,9 @@ class MetricsLayerMergedQueries(MetricsLayerQueryBase):
                     self._raise_query_error_from_cte(field.id(capitalize_alias=True))
 
                 order = Order.desc if order_clause.get("sort", "asc").lower() == "desc" else Order.asc
-                complete_query = complete_query.orderby(LiteralValue(order_by_alias), order=order)
+                complete_query = complete_query.orderby(
+                    LiteralValue(order_by_alias), order=order, nulls=NullSorting.last
+                )
 
         sql = str(complete_query.limit(self.limit))
         if semicolon:
@@ -74,7 +77,13 @@ class MetricsLayerMergedQueries(MetricsLayerQueryBase):
                 base_cte_query = base_cte_query.join(AliasedQuery(query["cte_alias"])).cross()
             else:
                 criteria = self._build_join_criteria(query["join_fields"], base_cte_alias, query["cte_alias"])
-                base_cte_query = base_cte_query.join(AliasedQuery(query["cte_alias"])).on(criteria)
+                zenlytic_join_type = query.get("join_type")
+                if zenlytic_join_type is None:
+                    zenlytic_join_type = ZenlyticJoinType.left_outer
+                join_type = self.pypika_join_type_lookup(zenlytic_join_type)
+                base_cte_query = base_cte_query.join(AliasedQuery(query["cte_alias"]), how=join_type).on(
+                    criteria
+                )
 
         return base_cte_query
 

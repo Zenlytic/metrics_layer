@@ -11,7 +11,7 @@ from metrics_layer.core.model.filter import LiteralValueCriterion
 from metrics_layer.core.model.view import View
 from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
-from metrics_layer.core.sql.query_dialect import query_lookup
+from metrics_layer.core.sql.query_dialect import NullSorting, query_lookup
 from metrics_layer.core.sql.query_errors import ArgumentError
 from metrics_layer.core.sql.query_filter import MetricsLayerFilter
 
@@ -79,7 +79,9 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         # Parse any non-additive dimension on given metrics to collect
         # them as CTE's for the appropriate filters
         self.non_additive_ctes = []
-        for metric in definition.get("metrics", []):
+        metrics_in_select = definition.get("metrics", [])
+        metrics_in_having = [h.field.id() for h in self.having_filters if h.field]
+        for metric in metrics_in_select + metrics_in_having:
             metric_field = self.design.get_field(metric)
             for ref_field in [metric_field] + metric_field.referenced_fields(metric_field.sql):
                 if non_additive_dimension := ref_field.non_additive_dimension:
@@ -120,10 +122,22 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         if isinstance(order_by, str):
             for order_clause in order_by.split(","):
                 if "desc" in order_clause.lower():
-                    field_reference = order_clause.lower().replace("desc", "").strip()
+                    field_reference = (
+                        order_clause.lower()
+                        .replace("desc", "")
+                        .replace("nulls last", "")
+                        .replace("nulls first", "")
+                        .strip()
+                    )
                     results.append({"field": field_reference, "sort": "desc"})
                 else:
-                    field_reference = order_clause.lower().replace("asc", "").strip()
+                    field_reference = (
+                        order_clause.lower()
+                        .replace("asc", "")
+                        .replace("nulls last", "")
+                        .replace("nulls first", "")
+                        .strip()
+                    )
                     results.append({"field": field_reference, "sort": "asc"})
 
         # Handle JSON order_by
@@ -183,7 +197,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
             for definition in sorted(self.non_additive_ctes, key=lambda x: x["alias"]):
                 group_by_dimensions = definition.get("window_groupings", [])
                 if definition.get("window_aware_of_query_dimensions", True):
-                    group_by_dimensions.extend(self.dimensions)
+                    group_by_dimensions.extend([d.lower() for d in self.dimensions])
                 else:
                     non_additive_dim = self.design.get_field(definition["name"])
                     # Only add a dimension if it's a variation of the non additive dimension
@@ -200,17 +214,32 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                 # When there are no group by dimensions, we need to join on a dummy join for the case filter
                 if len(group_by_dimensions) == 0:
                     join_sql = LiteralValueCriterion("1=1")
-                    base_query = base_query.join(Table(definition["cte_alias"])).on(join_sql)
+                    base_query = base_query.left_join(Table(definition["cte_alias"])).on(join_sql)
 
                 # When there are group by dimensions, we need to join on *all* those dimensions
                 else:
+                    nulls_are_equal = definition.get("nulls_are_equal", False)
                     condition = []
                     for dim in group_by_dimensions:
                         f = self.design.get_field(dim)
                         field_sql = self.get_sql(f)
-                        condition.append(f"{field_sql}={definition['cte_alias']}.{f.alias(with_view=True)}")
+                        if nulls_are_equal and self.query_type != Definitions.snowflake:
+                            condition.append(
+                                f"({field_sql}={definition['cte_alias']}.{f.alias(with_view=True)} OR"
+                                f" ({field_sql} IS NULL AND"
+                                f" {definition['cte_alias']}.{f.alias(with_view=True)} IS NULL))"
+                            )
+                        elif nulls_are_equal and self.query_type == Definitions.snowflake:
+                            condition.append(
+                                f"equal_null({field_sql},"
+                                f" {definition['cte_alias']}.{f.alias(with_view=True)})"
+                            )
+                        else:
+                            condition.append(
+                                f"{field_sql}={definition['cte_alias']}.{f.alias(with_view=True)}"
+                            )
                     join_sql = LiteralValueCriterion(" and ".join(condition))
-                    base_query = base_query.join(Table(definition["cte_alias"])).on(join_sql)
+                    base_query = base_query.left_join(Table(definition["cte_alias"])).on(join_sql)
 
         if self.funnel_filters:
             cte_alias = "link_filter_subquery"
@@ -238,7 +267,9 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                     field = self.design.get_field(arg["field"])
                     arg["field"] = field.alias(with_view=True)
                 order = Order.desc if arg["sort"] == "desc" else Order.asc
-                base_query = base_query.orderby(LiteralValue(arg["field"]), order=order)
+                base_query = base_query.orderby(
+                    LiteralValue(arg["field"]), order=order, nulls=NullSorting.last
+                )
 
         completed_query = base_query.limit(self.limit)
         if self.return_pypika_query:

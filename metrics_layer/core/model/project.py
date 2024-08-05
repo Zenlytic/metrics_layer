@@ -409,16 +409,17 @@ class Project:
                 return all(decisions)
         return True
 
-    def _all_views(self, model):
+    def _all_views(self, model, show_hidden: bool = True):
         views = []
         for v in self._views:
             view = View({**v, "model": model}, project=self)
-            if self.can_access_view(view):
+            view_is_visible = show_hidden or view.hidden is False
+            if self.can_access_view(view) and view_is_visible:
                 views.append(view)
         return views
 
-    def views(self, model: Union[Model, None] = None) -> list:
-        return self._all_views(model)
+    def views(self, model: Union[Model, None] = None, show_hidden: bool = True) -> list:
+        return self._all_views(model, show_hidden)
 
     def get_view(self, view_name: str, model: Union[Model, None] = None) -> View:
         try:

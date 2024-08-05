@@ -17,7 +17,7 @@ from .definitions import Definitions
 from .filter import Filter
 from .set import Set
 
-SQL_KEYWORDS = {"order", "group", "by", "as", "from", "select", "on", "with"}
+SQL_KEYWORDS = {"order", "group", "by", "as", "from", "select", "on", "with", "drop", "table"}
 VALID_TIMEFRAMES = [
     "raw",
     "time",
@@ -29,14 +29,20 @@ VALID_TIMEFRAMES = [
     "month",
     "quarter",
     "year",
+    "fiscal_month",
+    "fiscal_quarter",
+    "fiscal_year",
     "week_index",
     "week_of_year",
     "week_of_month",
     "month_of_year",
     "month_of_year_index",
+    "fiscal_month_index",
+    "fiscal_month_of_year_index",
     "month_name",
     "month_index",
     "quarter_of_year",
+    "fiscal_quarter_of_year",
     "hour_of_day",
     "day_of_week",
     "day_of_month",
@@ -282,7 +288,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                     "for the view. You can do this by adding the tag 'primary_key: true' to the "
                     "necessary dimension"
                 )
-            # You cannot apply a filter to a field that is the same name as the field itself (this doesn't make sense)
+            # You cannot apply a filter to a field that is the same name
+            # as the field itself (this doesn't make sense)
             filters_to_apply = [f for f in definition.get("filters", []) if f.get("field") != self.name]
 
             else_0 = False
@@ -309,7 +316,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                             }
                         ]
             definition["sql"] = Filter.translate_looker_filters_to_sql(
-                definition["sql"], filters_to_apply, else_0=else_0
+                definition["sql"], filters_to_apply, self.view, else_0=else_0
             )
 
         if (
@@ -409,7 +416,11 @@ class Field(MetricsLayerBase, SQLReplacement):
             # then we need to make it a merged result.
             referenced_canon_dates = set()
             for reference in self.referenced_fields(self.sql):
-                if reference.field_type == ZenlyticFieldType.measure and reference.type != "cumulative":
+                if (
+                    not isinstance(reference, str)
+                    and reference.field_type == ZenlyticFieldType.measure
+                    and reference.type != "cumulative"
+                ):
                     referenced_canon_dates.add(reference.canon_date)
 
             return len(referenced_canon_dates) > 1
@@ -423,7 +434,11 @@ class Field(MetricsLayerBase, SQLReplacement):
             # then we need to make it not joinable
             referenced_canon_date_views = list()
             for reference in self.referenced_fields(self.sql):
-                if reference.field_type == ZenlyticFieldType.measure and reference.type != "cumulative":
+                if (
+                    not isinstance(reference, str)
+                    and reference.field_type == ZenlyticFieldType.measure
+                    and reference.type != "cumulative"
+                ):
                     if reference.canon_date:
                         canon_date_view_name, _ = reference.canon_date.split(".")
                         weak_hashes = self.view.project.join_graph.weak_join_graph_hashes(
@@ -580,7 +595,9 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def _get_sql_distinct_key(self, sql_distinct_key: str, query_type: str, alias_only: bool):
         if self.filters:
-            clean_sql_distinct_key = Filter.translate_looker_filters_to_sql(sql_distinct_key, self.filters)
+            clean_sql_distinct_key = Filter.translate_looker_filters_to_sql(
+                sql_distinct_key, self.filters, self.view
+            )
         else:
             clean_sql_distinct_key = sql_distinct_key
         return self._replace_sql_query(clean_sql_distinct_key, query_type, alias_only=alias_only)
@@ -617,8 +634,10 @@ class Field(MetricsLayerBase, SQLReplacement):
                 f"Symmetric aggregates are not supported in {query_type}. "
                 "Use the 'sum' type instead of 'sum_distinct'."
             )
-        elif query_type in {Definitions.snowflake, Definitions.redshift}:
+        elif query_type == Definitions.snowflake:
             return self._sum_symmetric_aggregate_snowflake(sql, primary_key_sql, alias_only, factor)
+        elif query_type == Definitions.redshift:
+            return self._sum_symmetric_aggregate_redshift(sql, primary_key_sql, alias_only, factor)
         elif query_type in {Definitions.postgres, Definitions.duck_db}:
             return self._sum_symmetric_aggregate_postgres(sql, primary_key_sql, alias_only, factor)
         elif query_type == Definitions.bigquery:
@@ -648,16 +667,34 @@ class Field(MetricsLayerBase, SQLReplacement):
         self, sql: str, primary_key_sql: str, alias_only: bool, factor: int = 1_000_000
     ):
         if not primary_key_sql:
-            raw_primary_key_sql = self.view.primary_key.sql_query(
-                Definitions.snowflake, alias_only=alias_only
-            )
+            raw_primary_key_sql = self.view.primary_key.sql_query(Definitions.postgres, alias_only=alias_only)
             primary_key_sql = self._get_sql_distinct_key(
-                raw_primary_key_sql, Definitions.snowflake, alias_only
+                raw_primary_key_sql, Definitions.postgres, alias_only
             )
 
         adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS DECIMAL(38,0)))"
 
         pk_sum = f"(HASHTEXTEXTENDED({primary_key_sql}, 0))::NUMERIC(38, 0)"
+
+        sum_with_pk_backout = f"SUM(DISTINCT {adjusted_sum} + {pk_sum}) - SUM(DISTINCT {pk_sum})"
+
+        backed_out_cast = f"COALESCE(CAST(({sum_with_pk_backout}) AS DOUBLE PRECISION)"
+
+        result = f"{backed_out_cast} / CAST(({factor}*1.0) AS DOUBLE PRECISION), 0)"
+        return result
+
+    def _sum_symmetric_aggregate_redshift(
+        self, sql: str, primary_key_sql: str, alias_only: bool, factor: int = 1_000_000
+    ):
+        if not primary_key_sql:
+            raw_primary_key_sql = self.view.primary_key.sql_query(Definitions.redshift, alias_only=alias_only)
+            primary_key_sql = self._get_sql_distinct_key(
+                raw_primary_key_sql, Definitions.redshift, alias_only
+            )
+
+        adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS DECIMAL(38,0)))"
+
+        pk_sum = f"(FARMFINGERPRINT64({primary_key_sql}))::NUMERIC(38, 0)"
 
         sum_with_pk_backout = f"SUM(DISTINCT {adjusted_sum} + {pk_sum}) - SUM(DISTINCT {pk_sum})"
 
@@ -996,14 +1033,27 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "month": lambda s, qt: f"DATE_TRUNC('MONTH', {s})",
                 "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', {s})",
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', {s})",
+                "fiscal_month": lambda s, qt: (
+                    f"DATE_TRUNC('MONTH', {self._fiscal_offset_to_timestamp(s, qt)})"
+                ),
+                "fiscal_quarter": lambda s, qt: (
+                    f"DATE_TRUNC('QUARTER', {self._fiscal_offset_to_timestamp(s, qt)})"
+                ),
+                "fiscal_year": lambda s, qt: f"DATE_TRUNC('YEAR', {self._fiscal_offset_to_timestamp(s, qt)})",
                 "week_index": lambda s, qt: f"EXTRACT(WEEK FROM {s})",
                 "week_of_month": lambda s, qt: (  # noqa
                     f"EXTRACT(WEEK FROM {s}) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH', {s})) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM {s})",
+                "fiscal_month_of_year_index": lambda s, qt: (
+                    f"EXTRACT(MONTH FROM {self._fiscal_offset_to_timestamp(s, qt)})"
+                ),
                 "month_of_year": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Mon')",
                 "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM {s})",
-                "hour_of_day": lambda s, qt: f"HOUR(CAST({s} AS TIMESTAMP))",
+                "fiscal_quarter_of_year": lambda s, qt: (
+                    f"EXTRACT(QUARTER FROM {self._fiscal_offset_to_timestamp(s, qt)})"
+                ),
+                "hour_of_day": lambda s, qt: f"EXTRACT(HOUR FROM CAST({s} AS TIMESTAMP))",
                 "day_of_week": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Dy')",
                 "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM {s})",
                 "day_of_year": lambda s, qt: f"EXTRACT(DOY FROM {s})",
@@ -1019,14 +1069,29 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "month": lambda s, qt: f"DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))",
                 "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', CAST({s} AS TIMESTAMP))",
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
+                "fiscal_month": lambda s, qt: (
+                    f"DATE_TRUNC('MONTH', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
+                "fiscal_quarter": lambda s, qt: (
+                    f"DATE_TRUNC('QUARTER', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
+                "fiscal_year": lambda s, qt: (
+                    f"DATE_TRUNC('YEAR', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
                 "week_index": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP))",
                 "week_of_month": lambda s, qt: (  # noqa
                     f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
                     f" CAST({s} AS TIMESTAMP))) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP))",
+                "fiscal_month_of_year_index": lambda s, qt: (
+                    f"EXTRACT(MONTH FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
                 "month_of_year": lambda s, qt: f"DATE_FORMAT(CAST({s} AS TIMESTAMP), 'MMM')",
                 "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP))",
+                "fiscal_quarter_of_year": lambda s, qt: (
+                    f"EXTRACT(QUARTER FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
                 "hour_of_day": lambda s, qt: f"EXTRACT(HOUR FROM CAST({s} AS TIMESTAMP))",
                 "day_of_week": lambda s, qt: f"DATE_FORMAT(CAST({s} AS TIMESTAMP), 'E')",
                 "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM CAST({s} AS TIMESTAMP))",
@@ -1043,14 +1108,29 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "month": lambda s, qt: f"DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))",
                 "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', CAST({s} AS TIMESTAMP))",
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
+                "fiscal_month": lambda s, qt: (
+                    f"DATE_TRUNC('MONTH', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
+                "fiscal_quarter": lambda s, qt: (
+                    f"DATE_TRUNC('QUARTER', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
+                "fiscal_year": lambda s, qt: (
+                    f"DATE_TRUNC('YEAR', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
                 "week_index": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP))",
                 "week_of_month": lambda s, qt: (  # noqa
                     f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
                     f" CAST({s} AS TIMESTAMP))) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP))",
+                "fiscal_month_of_year_index": lambda s, qt: (
+                    f"EXTRACT(MONTH FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
                 "month_of_year": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Mon')",
                 "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP))",
+                "fiscal_quarter_of_year": lambda s, qt: (
+                    f"EXTRACT(QUARTER FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
                 "hour_of_day": lambda s, qt: f"EXTRACT('HOUR' FROM CAST({s} AS TIMESTAMP))",
                 "day_of_week": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Dy')",
                 "day_of_month": lambda s, qt: f"EXTRACT('DAY' FROM CAST({s} AS TIMESTAMP))",
@@ -1067,12 +1147,24 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "month": lambda s, qt: f"DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))",
                 "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', CAST({s} AS TIMESTAMP))",
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
+                "fiscal_month": lambda s, qt: (
+                    f"DATE_TRUNC('MONTH', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
+                "fiscal_quarter": lambda s, qt: (
+                    f"DATE_TRUNC('QUARTER', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
+                "fiscal_year": lambda s, qt: (
+                    f"DATE_TRUNC('YEAR', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
                 "week_index": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP))",
                 "week_of_month": lambda s, qt: (  # noqa
                     f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
                     f" CAST({s} AS TIMESTAMP))) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP))",
+                "fiscal_month_of_year_index": lambda s, qt: (
+                    f"EXTRACT(MONTH FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
                 "month_of_year": lambda s, qt: (  # noqa
                     f"CASE EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP)) WHEN 1 THEN 'Jan' WHEN 2 THEN 'Feb'"
                     " WHEN 3 THEN 'Mar' WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun' WHEN 7 THEN"
@@ -1080,6 +1172,9 @@ class Field(MetricsLayerBase, SQLReplacement):
                     " 12 THEN 'Dec' ELSE 'Invalid Month' END"
                 ),
                 "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP))",
+                "fiscal_quarter_of_year": lambda s, qt: (
+                    f"EXTRACT(QUARTER FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
                 "hour_of_day": lambda s, qt: f"EXTRACT(HOUR FROM CAST({s} AS TIMESTAMP))",
                 "day_of_week": lambda s, qt: (  # noqa
                     f"CASE EXTRACT(DOW FROM CAST({s} AS TIMESTAMP)) WHEN 1 THEN 'Mon' WHEN 2 THEN 'Tue' WHEN"
@@ -1100,14 +1195,32 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "month": lambda s, qt: f"DATEADD(MONTH, DATEDIFF(MONTH, 0, CAST({s} AS DATE)), 0)",
                 "quarter": lambda s, qt: f"DATEADD(QUARTER, DATEDIFF(QUARTER, 0, CAST({s} AS DATE)), 0)",
                 "year": lambda s, qt: f"DATEADD(YEAR, DATEDIFF(YEAR, 0, CAST({s} AS DATE)), 0)",
+                "fiscal_month": lambda s, qt: (
+                    f"DATEADD(MONTH, DATEDIFF(MONTH, 0, CAST({self._fiscal_offset_to_timestamp(s, qt)} AS"
+                    " DATE)), 0)"
+                ),
+                "fiscal_quarter": lambda s, qt: (
+                    f"DATEADD(QUARTER, DATEDIFF(QUARTER, 0, CAST({self._fiscal_offset_to_timestamp(s, qt)} AS"
+                    " DATE)), 0)"
+                ),
+                "fiscal_year": lambda s, qt: (
+                    f"DATEADD(YEAR, DATEDIFF(YEAR, 0, CAST({self._fiscal_offset_to_timestamp(s, qt)} AS"
+                    " DATE)), 0)"
+                ),
                 "week_index": lambda s, qt: f"EXTRACT(WEEK FROM CAST({s} AS DATE))",
                 "week_of_month": lambda s, qt: (  # noqa
                     f"EXTRACT(WEEK FROM CAST({s} AS DATE)) - EXTRACT(WEEK FROM DATEADD(MONTH, DATEDIFF(MONTH,"
                     f" 0, CAST({s} AS DATE)), 0)) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS DATE))",
+                "fiscal_month_of_year_index": lambda s, qt: (
+                    f"EXTRACT(MONTH FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS DATE))"
+                ),
                 "month_of_year": lambda s, qt: f"LEFT(DATENAME(MONTH, CAST({s} AS DATE)), 3)",
                 "quarter_of_year": lambda s, qt: f"DATEPART(QUARTER, CAST({s} AS DATE))",
+                "fiscal_quarter_of_year": lambda s, qt: (
+                    f"DATEPART(QUARTER, CAST({self._fiscal_offset_to_timestamp(s, qt)} AS DATE))"
+                ),
                 "hour_of_day": lambda s, qt: f"DATEPART(HOUR, CAST({s} AS DATETIME))",
                 "day_of_week": lambda s, qt: f"LEFT(DATENAME(WEEKDAY, CAST({s} AS DATE)), 3)",
                 "day_of_month": lambda s, qt: f"DATEPART(DAY, CAST({s} AS DATE))",
@@ -1136,13 +1249,31 @@ class Field(MetricsLayerBase, SQLReplacement):
                     f"CAST(DATE_TRUNC(CAST({s} AS DATE), QUARTER) AS {self.datatype.upper()})"
                 ),
                 "year": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} AS DATE), YEAR) AS {self.datatype.upper()})",
+                "fiscal_month": lambda s, qt: (
+                    f"CAST(DATE_TRUNC(CAST({self._fiscal_offset_to_timestamp(s, qt)} AS DATE), MONTH) AS"
+                    f" {self.datatype.upper()})"
+                ),
+                "fiscal_quarter": lambda s, qt: (
+                    f"CAST(DATE_TRUNC(CAST({self._fiscal_offset_to_timestamp(s, qt)} AS DATE), QUARTER) AS"
+                    f" {self.datatype.upper()})"
+                ),
+                "fiscal_year": lambda s, qt: (
+                    f"CAST(DATE_TRUNC(CAST({self._fiscal_offset_to_timestamp(s, qt)} AS DATE), YEAR) AS"
+                    f" {self.datatype.upper()})"
+                ),
                 "week_index": lambda s, qt: f"EXTRACT(WEEK FROM {s})",
-                "week_of_month": lambda s, qt: (  # noqa
+                "week_of_month": lambda s, qt: (
                     f"EXTRACT(WEEK FROM {s}) - EXTRACT(WEEK FROM DATE_TRUNC(CAST({s} AS DATE), MONTH)) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM {s})",
+                "fiscal_month_of_year_index": lambda s, qt: (
+                    f"EXTRACT(MONTH FROM {self._fiscal_offset_to_timestamp(s, qt)})"
+                ),
                 "month_of_year": lambda s, qt: f"FORMAT_DATETIME('%B', CAST({s} as DATETIME))",
                 "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM {s})",
+                "fiscal_quarter_of_year": lambda s, qt: (
+                    f"EXTRACT(QUARTER FROM {self._fiscal_offset_to_timestamp(s, qt)})"
+                ),
                 "hour_of_day": lambda s, qt: f"CAST({s} AS STRING FORMAT 'HH24')",
                 "day_of_week": lambda s, qt: f"CAST({s} AS STRING FORMAT 'DAY')",
                 "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM {s})",
@@ -1159,6 +1290,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         for _, lookup in meta_lookup.items():
             lookup["month_name"] = lookup["month_of_year"]
             lookup["month_index"] = lookup["month_of_year_index"]
+            lookup["fiscal_month_index"] = lookup["fiscal_month_of_year_index"]
             lookup["week_of_year"] = lookup["week_index"]
 
         if self.view.project.timezone and self.convert_timezone:
@@ -1184,6 +1316,27 @@ class Field(MetricsLayerBase, SQLReplacement):
             return sql
         else:
             raise QueryError(f"Unable to apply timezone to sql for query type {query_type}")
+
+    def _fiscal_offset_to_timestamp(self, sql: str, query_type: str):
+        offset_in_months = self.view.model.fiscal_month_offset
+        if offset_in_months == 0:
+            return sql
+        elif query_type in {
+            Definitions.snowflake,
+            Definitions.redshift,
+            Definitions.databricks,
+            Definitions.sql_server,
+            Definitions.azure_synapse,
+        }:
+            return f"DATEADD(MONTH, {offset_in_months}, {sql})"
+        elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.druid}:
+            return f"{sql} + INTERVAL '{offset_in_months}' MONTH"
+        elif query_type == Definitions.bigquery:
+            return f"DATE_ADD({sql}, INTERVAL {offset_in_months} MONTH)"
+        else:
+            raise QueryError(
+                f"Unable to find a valid method for running fiscal offset with query type {query_type}"
+            )
 
     def _week_dimension_group_time_sql(self, sql: str, query_type: str):
         # Monday is the default date for warehouses
@@ -1324,6 +1477,22 @@ class Field(MetricsLayerBase, SQLReplacement):
                 )
             )
 
+        # This value is pulled from the DESCRIPTION_MAX_CHARS constant in Zenlytic
+        description_max_chars = 512
+        if "description" in self._definition and isinstance(self.description, str):
+            if len(self.description) > description_max_chars:
+                errors.append(
+                    self._error(
+                        self._definition["description"],
+                        (
+                            f"Field {self.name} in view {self.view.name} has a description that is too long"
+                            f" ({len(self.description)} characters). Descriptions must be"
+                            f" {description_max_chars} characters or less. It will be truncated to the first"
+                            f" {description_max_chars} characters."
+                        ),
+                    )
+                )
+
         if "zoe_description" in self._definition and not isinstance(self.zoe_description, str):
             errors.append(
                 self._error(
@@ -1334,6 +1503,18 @@ class Field(MetricsLayerBase, SQLReplacement):
                     ),
                 )
             )
+        if "zoe_description" in self._definition and isinstance(self.zoe_description, str):
+            if len(self.zoe_description) > description_max_chars:
+                errors.append(
+                    self._error(
+                        self._definition["zoe_description"],
+                        (
+                            f"Field {self.name} in view {self.view.name} has a zoe_description that is too"
+                            f" long. Descriptions must be {description_max_chars} characters or less. It will"
+                            f" be truncated to the first {description_max_chars} characters."
+                        ),
+                    )
+                )
 
         if (
             "value_format_name" in self._definition
@@ -1378,7 +1559,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                     self._definition["filters"],
                     (
                         f"Field {self.name} in view {self.view.name} has an invalid filters {self.filters}."
-                        " The filters must be a list of dictionaries."
+                        " The filters must be a list of filters, not an individual filter. In yaml syntax"
+                        " use the '-' character to denote a list element."
                     ),
                 )
             )
@@ -1502,6 +1684,23 @@ class Field(MetricsLayerBase, SQLReplacement):
                         ),
                     )
                 )
+            if (
+                str(self.field_type) == ZenlyticFieldType.dimension
+                and str(self.type) == ZenlyticType.string
+                and not self.hidden
+                and "searchable" not in self._definition
+            ):
+                errors.append(
+                    self._error(
+                        self._definition.get("searchable"),
+                        (
+                            f"Field {self.name} in view {self.view.name} does not have required 'searchable'"
+                            " property set to either true or false. This property is required for"
+                            " dimensions of type string that are not hidden."
+                        ),
+                        extra={"is_auto_fixable": True},
+                    )
+                )
             if "primary_key" in self._definition and not isinstance(self.primary_key, bool):
                 errors.append(
                     self._error(
@@ -1529,7 +1728,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                     self._error(
                         self._definition.get("case"),
                         (
-                            f"{warning_prefix}: Field {self.name} in view {self.view.name} is using a case"
+                            f"{warning_prefix} Field {self.name} in view {self.view.name} is using a case"
                             " statement, which is deprecated. Please use the sql property instead."
                         ),
                     )
@@ -2106,6 +2305,17 @@ class Field(MetricsLayerBase, SQLReplacement):
                                 ),
                             )
                         )
+                    if not isinstance(self.non_additive_dimension.get("nulls_are_equal", False), bool):
+                        errors.append(
+                            self._error(
+                                self._definition["non_additive_dimension"]["nulls_are_equal"],
+                                (
+                                    f"Field {self.name} in view {self.view.name} has an invalid"
+                                    " non_additive_dimension."
+                                    " nulls_are_equal must be a boolean."
+                                ),
+                            )
+                        )
                     if not isinstance(self.non_additive_dimension.get("window_groupings", []), list):
                         errors.append(
                             self._error(
@@ -2150,7 +2360,13 @@ class Field(MetricsLayerBase, SQLReplacement):
                     errors.extend(
                         self.invalid_property_error(
                             self.non_additive_dimension,
-                            ["name", "window_choice", "window_aware_of_query_dimensions", "window_groupings"],
+                            [
+                                "name",
+                                "window_choice",
+                                "window_aware_of_query_dimensions",
+                                "nulls_are_equal",
+                                "window_groupings",
+                            ],
                             "non additive dimension",
                             f"in field {self.name} in view {self.view.name}",
                             error_func=self._error,
@@ -2180,16 +2396,6 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def collect_sql_errors(self, sql: str, property_name: str, error_func):
         errors = []
-        if not isinstance(sql, str):
-            errors.append(
-                error_func(
-                    sql,
-                    (
-                        f"Field {self.name} in view {self.view.name} has an invalid {property_name} {sql}."
-                        f" {property_name} must be a string."
-                    ),
-                )
-            )
         if sql and sql == "${" + self.name + "}":
             error_text = (
                 f"Field {self.name} references itself in its '{property_name}' property. You need to"
@@ -2198,13 +2404,20 @@ class Field(MetricsLayerBase, SQLReplacement):
             )
             errors.append(error_func(sql, error_text))
 
-        # TODO improve this with sql parse or sql glot
-        if self.get_referenced_sql_query(strings_only=False) is None:
+        refs = self.get_referenced_sql_query(strings_only=False)
+        if refs is None:
             error_text = (
                 f"Field {self.name} in view {self.view.name} contains invalid SQL in property"
                 f" {property_name}. Remove any Looker parameter references from the SQL."
             )
             errors.append(error_func(sql, error_text))
+        else:
+            for ref in refs:
+                if isinstance(ref, str):
+                    error_text = (
+                        f"Field {self.name} in view {self.view.name} contains invalid field reference {ref}."
+                    )
+                    errors.append(error_func(sql, error_text))
         return errors
 
     def get_referenced_sql_query(self, strings_only=True):
@@ -2457,8 +2670,26 @@ class Field(MetricsLayerBase, SQLReplacement):
                 f"Could not find a model in view {self.view.name}, "
                 "please pass the model or set the model_name argument in the view"
             )
+        # We need to pick the most restricted join graph based on all other
+        # views referenced in the SQL of this field.
+        sql_references = self.get_referenced_sql_query(strings_only=False)
+        referenced_views = set([self.view.name])
 
-        base = self.view.project.join_graph.weak_join_graph_hashes(self.view.name)
+        # First, we get the views that are referenced, and put them in a set.
+        if sql_references is not None:
+            for ref in sql_references:
+                if isinstance(ref, Field):
+                    referenced_views.add(ref.view.name)
+
+        # Then, we get the weakly connected references to EACH view that is referenced in the SQL
+        base_collection = []
+        for view_name in referenced_views:
+            base_collection.append(set(self.view.project.join_graph.weak_join_graph_hashes(view_name)))
+
+        # Finally, we get intersection of the set of the weakly connected references
+        # to EACH view that is referenced in the SQL, to get the most restricted
+        # join graph that can actually be joined to this field
+        base = list(set.intersection(*base_collection))
 
         if self.is_cumulative():
             return base
