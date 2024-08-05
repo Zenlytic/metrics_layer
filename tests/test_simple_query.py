@@ -831,11 +831,12 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "fiscal_month_of_year_index": f"EXTRACT(MONTH FROM DATEADD(MONTH, 1, simple.order_date))",
             "fiscal_month_index": f"EXTRACT(MONTH FROM DATEADD(MONTH, 1, simple.order_date))",
             "fiscal_quarter_of_year": "EXTRACT(QUARTER FROM DATEADD(MONTH, 1, simple.order_date))",
-            "week_index": f"EXTRACT(WEEK FROM simple.order_date)",
-            "week_of_year": f"EXTRACT(WEEK FROM simple.order_date)",
-            "week_of_month": (  # noqa
-                f"EXTRACT(WEEK FROM simple.order_date) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
-                f" simple.order_date)) + 1"
+            "week_index": f"EXTRACT(WEEK FROM DATE_TRUNC('WEEK', CAST(simple.order_date AS DATE) + 1) - 1)",
+            "week_of_year": f"EXTRACT(WEEK FROM DATE_TRUNC('WEEK', CAST(simple.order_date AS DATE) + 1) - 1)",
+            "week_of_month": (
+                f"EXTRACT(WEEK FROM DATE_TRUNC('WEEK', CAST(simple.order_date AS DATE) + 1) - 1) -"
+                f" EXTRACT(WEEK FROM DATE_TRUNC('MONTH', DATE_TRUNC('WEEK', CAST(simple.order_date AS DATE) +"
+                f" 1) - 1)) + 1"
             ),
             "month_of_year_index": f"EXTRACT(MONTH FROM simple.order_date)",
             "month_index": f"EXTRACT(MONTH FROM simple.order_date)",
@@ -881,10 +882,15 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             ),
             "fiscal_month_index": "EXTRACT(MONTH FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS DATE))",
             "fiscal_quarter_of_year": "DATEPART(QUARTER, CAST(DATEADD(MONTH, 1, simple.order_date) AS DATE))",
-            "week_index": f"EXTRACT(WEEK FROM CAST(simple.order_date AS DATE))",
-            "week_of_month": (  # noqa
-                f"EXTRACT(WEEK FROM CAST(simple.order_date AS DATE)) - EXTRACT(WEEK FROM DATEADD(MONTH,"
-                f" DATEDIFF(MONTH, 0, CAST(simple.order_date AS DATE)), 0)) + 1"
+            "week_index": (
+                f"EXTRACT(WEEK FROM CAST(DATEADD(DAY, -1, DATEADD(WEEK, DATEDIFF(WEEK, 0, DATEADD(DAY, 1,"
+                f" CAST(simple.order_date AS DATE))), 0)) AS DATE))"
+            ),
+            "week_of_month": (
+                f"EXTRACT(WEEK FROM CAST(DATEADD(DAY, -1, DATEADD(WEEK, DATEDIFF(WEEK, 0, DATEADD(DAY, 1,"
+                f" CAST(simple.order_date AS DATE))), 0)) AS DATE)) - EXTRACT(WEEK FROM DATEADD(MONTH,"
+                f" DATEDIFF(MONTH, 0, CAST(DATEADD(DAY, -1, DATEADD(WEEK, DATEDIFF(WEEK, 0, DATEADD(DAY, 1,"
+                f" CAST(simple.order_date AS DATE))), 0)) AS DATE)), 0)) + 1"
             ),
             "month_of_year_index": f"EXTRACT(MONTH FROM CAST(simple.order_date AS DATE))",
             "month_of_year": "LEFT(DATENAME(MONTH, CAST(simple.order_date AS DATE)), 3)",
@@ -924,10 +930,15 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "fiscal_quarter_of_year": (  # noqa
                 "EXTRACT(QUARTER FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
             ),
-            "week_index": f"EXTRACT(WEEK FROM CAST(simple.order_date AS TIMESTAMP))",
+            "week_index": (
+                f"EXTRACT(WEEK FROM CAST(DATE_TRUNC('WEEK', CAST(simple.order_date AS TIMESTAMP) + INTERVAL"
+                f" '1' DAY) - INTERVAL '1' DAY AS TIMESTAMP))"
+            ),
             "week_of_month": (  # noqa
-                f"EXTRACT(WEEK FROM CAST(simple.order_date AS TIMESTAMP)) - EXTRACT(WEEK FROM"
-                f" DATE_TRUNC('MONTH', CAST(simple.order_date AS TIMESTAMP))) + 1"
+                f"EXTRACT(WEEK FROM CAST(DATE_TRUNC('WEEK', CAST(simple.order_date AS TIMESTAMP) + INTERVAL"
+                f" '1' DAY) - INTERVAL '1' DAY AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
+                f" CAST(DATE_TRUNC('WEEK', CAST(simple.order_date AS TIMESTAMP) + INTERVAL '1' DAY) -"
+                f" INTERVAL '1' DAY AS TIMESTAMP))) + 1"
             ),
             "month_of_year_index": f"EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP))",
             "month_of_year": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')",
@@ -1008,10 +1019,15 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             ),
             "fiscal_month_index": f"EXTRACT(MONTH FROM DATE_ADD(simple.order_date, INTERVAL 1 MONTH))",
             "fiscal_quarter_of_year": "EXTRACT(QUARTER FROM DATE_ADD(simple.order_date, INTERVAL 1 MONTH))",
-            "week_index": f"EXTRACT(WEEK FROM simple.order_date)",
+            "week_index": (
+                f"EXTRACT(WEEK FROM CAST(DATE_TRUNC(CAST(simple.order_date AS DATE) + 1, WEEK) - 1 AS"
+                f" TIMESTAMP))"
+            ),
             "week_of_month": (  # noqa
-                f"EXTRACT(WEEK FROM simple.order_date) - EXTRACT(WEEK FROM DATE_TRUNC(CAST(simple.order_date"
-                f" AS DATE), MONTH)) + 1"
+                f"EXTRACT(WEEK FROM CAST(DATE_TRUNC(CAST(simple.order_date AS DATE) + 1, WEEK) - 1 AS"
+                f" TIMESTAMP)) - EXTRACT(WEEK FROM"
+                f" DATE_TRUNC(CAST(CAST(DATE_TRUNC(CAST(simple.order_date AS DATE) + 1, WEEK) - 1 AS"
+                f" TIMESTAMP) AS DATE), MONTH)) + 1"
             ),
             "month_of_year_index": f"EXTRACT(MONTH FROM simple.order_date)",
             "month_of_year": "FORMAT_DATETIME('%B', CAST(simple.order_date as DATETIME))",
@@ -1033,6 +1049,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         f"GROUP BY {date_result if query_type != Definitions.bigquery else f'simple_order_{group}'}"
         f"{order_by}{semi}"
     )
+    print(query)
     assert query == correct
 
     correct_label = f"Order Created {group.replace('_', ' ').title()}"
