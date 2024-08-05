@@ -109,7 +109,7 @@ def test_dashboard_filter_timezone(fresh_project):
     element_parsed_filters = last_element.parsed_filters()
 
     # These are 24 hours apart so this test should always fail if we get the wrong timezone
-    to_sub = 1 if pendulum.now("Pacific/Apia").day_of_week != 1 else 0
+    to_sub = 1 if pendulum.now("Pacific/Apia").day_of_week != 0 else 0
     start = pendulum.now("Pacific/Apia").start_of("week").strftime(date_format)
     end = pendulum.now("Pacific/Apia").subtract(days=to_sub).end_of("day").strftime(date_format)
     wrong_end = pendulum.now("Pacific/Niue").subtract(days=to_sub).end_of("day").strftime(date_format)
@@ -127,7 +127,7 @@ def test_dashboard_filter_timezone(fresh_project):
         assert parsed_filters[1]["value"] != wrong_end
 
 
-@pytest.mark.query
+@pytest.mark.queryy
 @pytest.mark.parametrize(
     "raw_filter_dict",
     [
@@ -332,7 +332,7 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         .strftime(date_format),
         "2021-02-03 until this month": pendulum.now("UTC").end_of("month").strftime(date_format),
         "week to date": pendulum.now("UTC")
-        .subtract(days=1 if pendulum.now("UTC").day_of_week != 1 else 0)
+        .subtract(days=1 if pendulum.now("UTC").day_of_week != 0 else 0)
         .end_of("day")
         .strftime(date_format),
         "month to date": pendulum.now("UTC")
@@ -351,7 +351,7 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         .start_of("week")
         .add(
             days=(pendulum.now("UTC") - pendulum.now("UTC").start_of("week")).days - 1
-            if pendulum.now("UTC").day_of_week != 1
+            if pendulum.now("UTC").day_of_week != 0
             else 0
         )
         .end_of("day")
@@ -361,7 +361,7 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         .start_of("week")
         .add(
             days=(pendulum.now("UTC") - pendulum.now("UTC").start_of("week")).days - 1
-            if pendulum.now("UTC").day_of_week != 1
+            if pendulum.now("UTC").day_of_week != 0
             else 0
         )
         .end_of("day")
@@ -371,7 +371,7 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         .start_of("month")
         .add(
             days=(pendulum.now("UTC") - pendulum.now("UTC").start_of("month")).days - 1
-            if pendulum.now("UTC").day != 1
+            if pendulum.now("UTC").day != 0
             else 0
         )
         .end_of("day")
