@@ -77,7 +77,7 @@ VALID_VALUE_FORMAT_NAMES = [
     "usd_1",
     "usd_2",
     "string",
-    "image_url",
+    "image_from_url",
     "date",
     "week",
     "month",
