@@ -1,9 +1,10 @@
 import json
 import os
-from argparse import ArgumentError
 from copy import deepcopy
+from typing import Any
 
 from metrics_layer.core.model.definitions import Definitions
+from metrics_layer.core.sql.query_errors import ArgumentError
 
 
 class MetricsLayerConnectionError(Exception):
@@ -20,6 +21,7 @@ class ConnectionType:
     duck_db = Definitions.duck_db
     databricks = Definitions.databricks
     azure_synapse = Definitions.azure_synapse
+    trino = Definitions.trino
 
 
 class BaseConnection:
@@ -232,6 +234,51 @@ class DuckDBConnection(RedshiftConnection):
         self.schema = schema
 
 
+class TrinoConnection(BaseConnection):
+    def __init__(
+        self,
+        name: str,
+        host: str,
+        user: str,
+        database: str,
+        schema: str = None,
+        scheme: str = "http",
+        auth: Any = None,
+        port: int = 8080,
+        **kwargs,
+    ) -> None:
+        self.type = ConnectionType.druid
+        self.name = name
+        self.host = host
+        self.user = user
+        self.port = port
+        self.auth = auth
+        self.scheme = scheme
+        self.database = database
+        self.schema = schema
+
+    def to_dict(self):
+        base = {
+            "name": self.name,
+            "host": self.host,
+            "port": self.port,
+            "scheme": self.scheme,
+            "type": self.type,
+        }
+        if self.user:
+            base["user"] = self.user
+        if self.auth:
+            base["auth"] = self.auth
+        return base
+
+    def printable_attributes(self):
+        attributes = deepcopy(self.to_dict())
+        attributes.pop("password")
+        attributes["name"] = self.name
+        sort_order = ["name", "type", "host", "port", "user", "database", "scheme"]
+        return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
+
+
 class DruidConnection(BaseConnection):
     def __init__(
         self,
@@ -401,4 +448,5 @@ connection_class_lookup = {
     ConnectionType.azure_synapse: AzureSynapseConnection,
     ConnectionType.duck_db: DuckDBConnection,
     ConnectionType.databricks: DatabricksConnection,
+    ConnectionType.trino: TrinoConnection,
 }

@@ -50,6 +50,7 @@ def test_cli_init(mocker, monkeypatch):
         (Definitions.postgres, "alternative_demo", "alternative_target", None),
         (Definitions.redshift, None, None, None),
         (Definitions.druid, None, None, None),
+        (Definitions.trino, None, None, None),
         (Definitions.sql_server, None, None, None),
         (Definitions.azure_synapse, None, None, None),
     ],
@@ -67,6 +68,7 @@ def test_cli_seed_metrics_layer(
     seed_redshift_tables_data,
     seed_postgres_tables_data,
     seed_druid_tables_data,
+    seed_trino_tables_data,
     seed_sql_server_tables_data,
     seed_databricks_tables_data,
 ):
@@ -99,6 +101,8 @@ def test_cli_seed_metrics_layer(
             return seed_bigquery_tables_data
         elif query_type == Definitions.druid:
             return seed_druid_tables_data
+        elif query_type == Definitions.trino:
+            return seed_trino_tables_data
         elif query_type in {Definitions.sql_server, Definitions.azure_synapse}:
             return seed_sql_server_tables_data
         elif query_type == Definitions.databricks:
@@ -134,6 +138,7 @@ def test_cli_seed_metrics_layer(
                     Definitions.azure_synapse,
                     Definitions.sql_server,
                     Definitions.databricks,
+                    Definitions.trino,
                 }
                 and database_override is None
             ):
@@ -169,6 +174,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.trino,
             }:
                 assert social["sql"] == '${TABLE}."ON_SOCIAL_NETWORK"'
             else:
@@ -186,6 +192,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.trino,
             }:
                 assert acq_date["sql"] == '${TABLE}."ACQUISITION_DATE"'
             else:
@@ -199,6 +206,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
+                Definitions.trino,
             }:
                 assert date["datatype"] == "date"
             else:
@@ -219,6 +227,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.trino,
             }:
                 assert date["sql"] == '${TABLE}."ORDER_CREATED_AT"'
             else:
@@ -230,6 +239,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.trino,
             }:
                 assert new["sql"] == '${TABLE}."NEW_VS_REPEAT"'
             else:
@@ -241,6 +251,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.trino,
             }:
                 assert num["sql"] == '${TABLE}."REVENUE"'
             else:
@@ -260,6 +271,7 @@ def test_cli_seed_metrics_layer(
                     Definitions.sql_server,
                     Definitions.azure_synapse,
                     Definitions.databricks,
+                    Definitions.trino,
                 }
                 and database_override is None
             ):
@@ -288,6 +300,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.trino,
             }:
                 assert cross_sell["sql"] == '${TABLE}."@CRoSSell P-roduct:"'
             else:
@@ -302,6 +315,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.sql_server,
                 Definitions.azure_synapse,
                 Definitions.databricks,
+                Definitions.trino,
             }:
                 assert date["datatype"] == "date"
             else:
@@ -322,6 +336,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.trino,
             }:
                 assert date["sql"] == '${TABLE}."SESSION_DATE"'
             else:
@@ -333,6 +348,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.trino,
             }:
                 assert pk["sql"] == '${TABLE}."SESSION_ID"'
             else:
@@ -344,6 +360,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.trino,
             }:
                 assert num["sql"] == '${TABLE}."CONVERSION"'
             else:
