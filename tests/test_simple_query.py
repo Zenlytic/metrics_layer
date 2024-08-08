@@ -1651,7 +1651,7 @@ def test_simple_query_with_having_literal(connections):
     assert query == correct
 
 
-@pytest.mark.queryy
+@pytest.mark.query
 @pytest.mark.parametrize(
     "query_type",
     [
