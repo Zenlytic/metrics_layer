@@ -127,7 +127,7 @@ def test_dashboard_filter_timezone(fresh_project):
         assert parsed_filters[1]["value"] != wrong_end
 
 
-@pytest.mark.queryy
+@pytest.mark.query
 @pytest.mark.parametrize(
     "raw_filter_dict",
     [

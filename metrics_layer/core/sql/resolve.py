@@ -1,3 +1,4 @@
+from collections import defaultdict
 from copy import deepcopy
 from typing import List, Union
 
@@ -212,11 +213,87 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                     )
                 self._replace_mapped_field(name, replace_with)
         else:
-            for i, (name, mapped_field) in enumerate(self.mapping_lookup.items()):
-                if i == 0:
+            # This is the scenario where we only have mappings and no other fields in the query
+
+            # First, we need to get all join graphs for all fields involved in the mappings.
+            # Since we have no "real" fields, we have no basis for required join graphs we
+            # must match, yet. This gives us the raw material to derive which join graphs
+            # overlap in the mappings.
+            check = defaultdict(list)
+            for name, mapped_field in self.mapping_lookup.items():
+                for field_id in mapped_field["fields"]:
+                    ref_field = self.project.get_field(field_id)
+                    check[name].append((field_id, ref_field.join_graphs()))
+
+            # Next, we iterate over all mappings and check if there is a valid join path
+            # between all fields in the mappings.
+            validity = defaultdict(dict)
+            # This is done my comparing a single mapping (name), then...
+            for name, field_info in check.items():
+                # Looking at all fields that are present in that mapping name, and
+                # comparing them to all other fields in all other mappings
+                for field_id, join_graphs in field_info:
+                    passed, points = 0, 0
+                    for other_name, other_field_info in check.items():
+                        if name != other_name:
+                            for other_field_id, other_join_graphs in other_field_info:
+                                if field_id != other_field_id:
+                                    # If the fields are joinable or mergeable, then we can form a
+                                    # valid query, and we can count them as 'passed'
+                                    if set(join_graphs).intersection(set(other_join_graphs)):
+                                        passed += 1
+                                        # It's not enough just to pass though. There are some things we prefer,
+                                        # when there is no solid direction on which fields to choose.
+
+                                        # 1. We prefer when fields are in the same view
+                                        points += (
+                                            1 if field_id.split(".")[0] == other_field_id.split(".")[0] else 0
+                                        )
+
+                                        # 2. We prefer when fields can be joined over when they can only be merged
+                                        joinable_first = [j for j in join_graphs if "merged_result" not in j]
+                                        joinable_second = [
+                                            j for j in other_join_graphs if "merged_result" not in j
+                                        ]
+                                        if set(joinable_first).intersection(set(joinable_second)):
+                                            points += 1
+                                        # Once we have determined a field pair is valid,
+                                        # we can stop checking other fields under that mapping name
+                                        break
+
+                    # If at least one field in each of the other mapping names has 'passed' the check,
+                    # then we can consider this mapping name as valid, and assign it the points
+                    if passed == len(check) - 1:
+                        validity[name][field_id] = points
+
+            # If this exists and we have more than one mapping present
+            if validity and len(self.mapping_lookup) > 1:
+                replaced_mapping = None
+                all_items = [
+                    (name, *item) for name, field_info in validity.items() for item in field_info.items()
+                ]
+                # Sort the mappings by points, and then by field_id (so it is consistent in
+                # the event fields have the same points), and replace the highest ranking one
+                # and set its join graphs as the active ones all other mappings must adhere to.
+                for name, field_id, points in sorted(all_items, key=lambda x: (x[-1], x[1]), reverse=True):
+                    replaced_mapping = name
+                    replace_with = self.project.get_field(field_id)
+                    self.field_lookup[name] = replace_with.join_graphs()
+                    break
+
+                self._replace_mapped_field(name, replace_with)
+            # In the event there is only one mapping, just pick the first field in the options
+            elif len(self.mapping_lookup) == 1:
+                for name, mapped_field in self.mapping_lookup.items():
+                    replaced_mapping = name
                     replace_with = self.project.get_field(mapped_field["fields"][0])
                     self.field_lookup[name] = replace_with.join_graphs()
-                else:
+                self._replace_mapped_field(name, replace_with)
+            else:
+                raise QueryError("No valid join path found for mapped fields")
+
+            for name, mapped_field in self.mapping_lookup.items():
+                if name != replaced_mapping:
                     mergeable_graphs, joinable_graphs = self._join_graphs_by_type(self.field_lookup)
                     self._handle_invalid_merged_result(mergeable_graphs, joinable_graphs)
                     replace_with = self.determine_field_to_replace_with(

@@ -1,4 +1,5 @@
 import datetime
+from copy import copy
 
 import pytest
 
@@ -499,4 +500,28 @@ def test_mapping_defer_to_metric_canon_date_not_dim_only(connection):
         f"clicked_on_page_session_date={cte_2}.submitted_form_sent_at_date "
         f"and {cte_1}.clicked_on_page_context_os={cte_2}.submitted_form_context_os;"
     )
+    assert query == correct
+
+
+@pytest.mark.query
+@pytest.mark.parametrize("dims", [["date", "context_os"], ["context_os", "date"]])
+def test_mapping_order_intolerance_in_dims(connection, dims):
+    input_dims = copy(dims)
+    query = connection.get_sql_query(metrics=[], dimensions=dims)
+
+    if input_dims[0] == "date":
+        correct = (
+            "SELECT DATE_TRUNC('DAY', submitted_form.session_date) as"
+            " submitted_form_session_date,submitted_form.context_os as submitted_form_context_os FROM"
+            " analytics.submitted_form submitted_form GROUP BY DATE_TRUNC('DAY',"
+            " submitted_form.session_date),submitted_form.context_os ORDER BY submitted_form_session_date ASC"
+            " NULLS LAST;"
+        )
+    else:
+        correct = (
+            "SELECT submitted_form.context_os as submitted_form_context_os,DATE_TRUNC('DAY',"
+            " submitted_form.session_date) as submitted_form_session_date FROM analytics.submitted_form"
+            " submitted_form GROUP BY submitted_form.context_os,DATE_TRUNC('DAY',"
+            " submitted_form.session_date) ORDER BY submitted_form_context_os ASC NULLS LAST;"
+        )
     assert query == correct
