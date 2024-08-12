@@ -397,7 +397,7 @@ def test_dashboard_filter_processing(connection, raw_filter_dict, dt):
             .start_of("month")
             .add(
                 days=(pendulum.now("UTC") - pendulum.now("UTC").start_of("month")).days - 1
-                if pendulum.now("UTC").day != 0
+                if pendulum.now("UTC").day != 1
                 else 0
             )
             .end_of("day")
