@@ -306,12 +306,7 @@ class Filter(MetricsLayerBase):
             # We need to figure out how many days are between now and the start of the period
             start_of_period = Filter._start_date(lag=0, date_part=date_part, tz=tz, return_date=True)
             time_change = Filter._today(tz=tz) - start_of_period
-            if date_part == "year" and time_change.days == 0:
-                lag = -1
-            elif time_change.days > 0:
-                lag = time_change.days - 1
-            else:
-                lag = 0
+            lag = time_change.days - 1 if time_change.days > 0 else 0
             end_date = Filter._add_to_end_date(start_date, lag=lag, date_part="day")
             result.append((end_expression, Filter._date_to_string(end_date)))
 
