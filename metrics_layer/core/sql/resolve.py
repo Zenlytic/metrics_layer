@@ -299,7 +299,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                     replace_with = self.determine_field_to_replace_with(
                         mapped_field, joinable_graphs, mergeable_graphs
                     )
-                self._replace_mapped_field(name, replace_with)
+                    self._replace_mapped_field(name, replace_with)
 
     def _get_field_from_lookup(self, field_name: str, only_search_lookup: bool = False):
         if field_name in self.field_object_lookup:
