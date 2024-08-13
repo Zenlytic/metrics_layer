@@ -371,7 +371,12 @@ def test_dashboard_filter_processing(connection, raw_filter_dict, dt):
             )
             .end_of("day")
             .strftime(date_format),
-            "year to date": pendulum.now("UTC").subtract(days=1).end_of("day").strftime(date_format),
+            "year to date": pendulum.now("UTC")
+            .subtract(
+                days=1 if pendulum.now("UTC").date() != pendulum.now("UTC").start_of("year").date() else 0
+            )
+            .end_of("day")
+            .strftime(date_format),
             "last week to date": pendulum.now("UTC")
             .subtract(weeks=1)
             .start_of("week")
@@ -405,7 +410,11 @@ def test_dashboard_filter_processing(connection, raw_filter_dict, dt):
             "1 year ago to date": pendulum.now("UTC")
             .subtract(years=1)
             .start_of("year")
-            .add(days=(pendulum.now("UTC") - pendulum.now("UTC").start_of("year")).days - 1)
+            .add(
+                days=(pendulum.now("UTC") - pendulum.now("UTC").start_of("year")).days - 1
+                if pendulum.now("UTC").date() != pendulum.now("UTC").start_of("year").date()
+                else 0
+            )
             .end_of("day")
             .strftime(date_format),
             "1 year ago for 3 months": pendulum.now("UTC")
