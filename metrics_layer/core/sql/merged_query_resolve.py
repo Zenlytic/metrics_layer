@@ -101,7 +101,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             "project": self.project,
         }
         # Druid does not allow semicolons
-        if self.query_type == Definitions.druid:
+        if self.query_type in Definitions.no_semicolon_warehouses:
             semicolon = False
 
         merged_result_query = MetricsLayerMergedResultsQuery(query_config)

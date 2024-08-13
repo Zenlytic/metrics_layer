@@ -779,6 +779,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.bigquery,
             Definitions.sql_server,
             Definitions.azure_synapse,
+            Definitions.trino,
         }:
             raise QueryError(
                 f"Median is not supported in {query_type}. Please choose another "
@@ -919,6 +920,16 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "months": lambda start, end: f"DATEDIFF('MONTH', {start}, {end})",
                 "quarters": lambda start, end: f"DATEDIFF('QUARTER', {start}, {end})",
                 "years": lambda start, end: f"DATEDIFF('YEAR', {start}, {end})",
+            },
+            Definitions.trino: {
+                "seconds": lambda start, end: f"DATE_DIFF('SECOND', {start}, {end})",
+                "minutes": lambda start, end: f"DATE_DIFF('MINUTE', {start}, {end})",
+                "hours": lambda start, end: f"DATE_DIFF('HOUR', {start}, {end})",
+                "days": lambda start, end: f"DATE_DIFF('DAY', {start}, {end})",
+                "weeks": lambda start, end: f"DATE_DIFF('WEEK', {start}, {end})",
+                "months": lambda start, end: f"DATE_DIFF('MONTH', {start}, {end})",
+                "quarters": lambda start, end: f"DATE_DIFF('QUARTER', {start}, {end})",
+                "years": lambda start, end: f"DATE_DIFF('YEAR', {start}, {end})",
             },
             Definitions.postgres: {
                 "seconds": lambda start, end: (  # noqa
@@ -1124,6 +1135,48 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "day_of_month": lambda s, qt: f"EXTRACT('DAY' FROM CAST({s} AS TIMESTAMP))",
                 "day_of_year": lambda s, qt: f"EXTRACT('DOY' FROM CAST({s} AS TIMESTAMP))",
             },
+            Definitions.trino: {
+                "raw": lambda s, qt: s,
+                "time": lambda s, qt: f"CAST({s} AS TIMESTAMP)",
+                "second": lambda s, qt: f"DATE_TRUNC('SECOND', CAST({s} AS TIMESTAMP))",
+                "minute": lambda s, qt: f"DATE_TRUNC('MINUTE', CAST({s} AS TIMESTAMP))",
+                "hour": lambda s, qt: f"DATE_TRUNC('HOUR', CAST({s} AS TIMESTAMP))",
+                "date": lambda s, qt: f"DATE_TRUNC('DAY', CAST({s} AS TIMESTAMP))",
+                "week": self._week_dimension_group_time_sql,
+                "month": lambda s, qt: f"DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))",
+                "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', CAST({s} AS TIMESTAMP))",
+                "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
+                "fiscal_month": lambda s, qt: (
+                    f"DATE_TRUNC('MONTH', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
+                "fiscal_quarter": lambda s, qt: (
+                    f"DATE_TRUNC('QUARTER', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
+                "fiscal_year": lambda s, qt: (
+                    f"DATE_TRUNC('YEAR', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
+                "week_index": lambda s, qt: (
+                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP))"
+                ),
+                "week_of_month": lambda s, qt: (  # noqa
+                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP)) -"
+                    " EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
+                    f" CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP))) + 1"
+                ),
+                "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP))",
+                "fiscal_month_of_year_index": lambda s, qt: (
+                    f"EXTRACT(MONTH FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
+                "month_of_year": lambda s, qt: f"FORMAT_DATETIME(CAST({s} AS TIMESTAMP), 'MMM')",
+                "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP))",
+                "fiscal_quarter_of_year": lambda s, qt: (
+                    f"EXTRACT(QUARTER FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                ),
+                "hour_of_day": lambda s, qt: f"EXTRACT(HOUR FROM CAST({s} AS TIMESTAMP))",
+                "day_of_week": lambda s, qt: f"FORMAT_DATETIME(CAST({s} AS TIMESTAMP), 'EEE')",
+                "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM CAST({s} AS TIMESTAMP))",
+                "day_of_year": lambda s, qt: f"EXTRACT(DOY FROM CAST({s} AS TIMESTAMP))",
+            },
             Definitions.druid: {
                 "raw": lambda s, qt: s,
                 "time": lambda s, qt: f"CAST({s} AS TIMESTAMP)",
@@ -1301,7 +1354,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"CAST(DATETIME(CAST({sql} AS TIMESTAMP), '{timezone}') AS {self.datatype.upper()})"
         elif query_type == Definitions.redshift:
             return f"CAST(CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP) AS {self.datatype.upper()})"  # noqa
-        elif query_type in {Definitions.postgres, Definitions.duck_db}:
+        elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.trino}:
             return f"CAST(CAST({sql} AS TIMESTAMP) at time zone 'utc' at time zone '{timezone}' AS {self.datatype.upper()})"  # noqa
         elif query_type in {Definitions.druid, Definitions.sql_server, Definitions.azure_synapse}:
             print(
@@ -1324,7 +1377,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.azure_synapse,
         }:
             return f"DATEADD(MONTH, {offset_in_months}, {sql})"
-        elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.druid}:
+        elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.druid, Definitions.trino}:
             return f"{sql} + INTERVAL '{offset_in_months}' MONTH"
         elif query_type == Definitions.bigquery:
             return f"DATE_ADD({sql}, INTERVAL {offset_in_months} MONTH)"
@@ -1364,6 +1417,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.druid,
             Definitions.duck_db,
             Definitions.databricks,
+            Definitions.trino,
         }:
             if offset is None:
                 return f"DATE_TRUNC('WEEK', CAST({sql} AS TIMESTAMP))"

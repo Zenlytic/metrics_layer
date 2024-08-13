@@ -824,6 +824,7 @@ def test_join_graph_raise_unjoinable_error(connection):
     [
         Definitions.snowflake,
         Definitions.druid,
+        Definitions.trino,
         Definitions.redshift,
         Definitions.bigquery,
         Definitions.sql_server,

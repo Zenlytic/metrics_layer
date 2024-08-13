@@ -95,7 +95,7 @@ class ArbitraryMergedQueryResolver(SingleSQLQueryResolver):
             }
         )
         # Druid does not allow semicolons
-        if resolver.query_type == Definitions.druid:
+        if resolver.query_type in Definitions.no_semicolon_warehouses:
             semicolon = False
 
         query = merged_queries_resolver.get_query(semicolon=semicolon)

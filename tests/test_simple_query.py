@@ -251,6 +251,8 @@ def test_simple_query_field_to_field_filter(connections):
         ("min_revenue", Definitions.redshift),
         ("max_revenue", Definitions.postgres),
         ("min_revenue", Definitions.postgres),
+        ("max_revenue", Definitions.trino),
+        ("min_revenue", Definitions.trino),
         ("max_revenue", Definitions.bigquery),
         ("min_revenue", Definitions.bigquery),
         ("max_revenue", Definitions.duck_db),
@@ -270,7 +272,7 @@ def test_simple_query_min_max(connections, metric, query_type):
     else:
         order_by = ""
 
-    if query_type == Definitions.druid:
+    if query_type in Definitions.no_semicolon_warehouses:
         semi = ""
 
     if query_type == Definitions.bigquery:
@@ -293,6 +295,7 @@ def test_simple_query_min_max(connections, metric, query_type):
         (Definitions.azure_synapse),
         (Definitions.redshift),
         (Definitions.postgres),
+        (Definitions.trino),
         (Definitions.bigquery),
         (Definitions.duck_db),
     ],
@@ -309,7 +312,7 @@ def test_simple_query_count_distinct(connections, query_type):
     else:
         order_by = ""
 
-    if query_type == Definitions.druid:
+    if query_type in Definitions.no_semicolon_warehouses:
         semi = ""
 
     if query_type == Definitions.bigquery:
@@ -400,6 +403,9 @@ def test_simple_query_alias_keyword(connections):
         ("order", "date", Definitions.snowflake),
         ("order", "week", Definitions.snowflake),
         ("previous_order", "date", Definitions.snowflake),
+        ("order", "date", Definitions.trino),
+        ("order", "week", Definitions.trino),
+        ("previous_order", "date", Definitions.trino),
         ("order", "date", Definitions.databricks),
         ("order", "week", Definitions.databricks),
         ("previous_order", "date", Definitions.databricks),
@@ -439,7 +445,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         query_type=query_type,
     )
 
-    semi = ";"
+    semi = ";" if query_type not in Definitions.no_semicolon_warehouses else ""
     date_format = "%Y-%m-%dT%H:%M:%S"
     start = pendulum.now("America/New_York").start_of("month").strftime(date_format)
     if pendulum.now("America/New_York").day == 1:
@@ -489,9 +495,9 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
             f"CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS TIMESTAMP) AS TIMESTAMP))<='{end}'"  # noqa
         )
         order_by = ""
-    elif query_type in {Definitions.postgres, Definitions.duck_db}:
+    elif query_type in {Definitions.postgres, Definitions.trino, Definitions.duck_db}:
         if field == "previous_order":
-            if query_type == Definitions.duck_db:
+            if query_type in {Definitions.duck_db, Definitions.trino}:
                 result_lookup = {"date": "DATE_TRUNC('DAY', CAST(simple.previous_order_date AS TIMESTAMP))"}
             else:
                 result_lookup = {"date": "DATE_TRUNC('DAY', simple.previous_order_date)"}
@@ -754,6 +760,30 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("day_of_week", Definitions.postgres),
         ("day_of_month", Definitions.postgres),
         ("day_of_year", Definitions.postgres),
+        ("time", Definitions.trino),
+        ("second", Definitions.trino),
+        ("minute", Definitions.trino),
+        ("hour", Definitions.trino),
+        ("date", Definitions.trino),
+        ("week", Definitions.trino),
+        ("month", Definitions.trino),
+        ("quarter", Definitions.trino),
+        ("year", Definitions.trino),
+        ("fiscal_month", Definitions.trino),
+        ("fiscal_quarter", Definitions.trino),
+        ("fiscal_year", Definitions.trino),
+        ("fiscal_month_of_year_index", Definitions.trino),
+        ("fiscal_month_index", Definitions.trino),
+        ("fiscal_quarter_of_year", Definitions.trino),
+        ("week_index", Definitions.trino),
+        ("week_of_month", Definitions.trino),
+        ("month_of_year_index", Definitions.trino),
+        ("month_of_year", Definitions.trino),
+        ("quarter_of_year", Definitions.trino),
+        ("hour_of_day", Definitions.trino),
+        ("day_of_week", Definitions.trino),
+        ("day_of_month", Definitions.trino),
+        ("day_of_year", Definitions.trino),
         ("time", Definitions.duck_db),
         ("second", Definitions.duck_db),
         ("minute", Definitions.duck_db),
@@ -813,7 +843,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
     )
     field = project.get_field(f"order_{group}")
 
-    semi = ";"
+    semi = ";" if query_type not in Definitions.no_semicolon_warehouses else ""
     if query_type in {Definitions.snowflake, Definitions.redshift}:
         result_lookup = {
             "time": "CAST(simple.order_date AS TIMESTAMP)",
@@ -902,7 +932,13 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         }
         order_by = ""
 
-    elif query_type in {Definitions.postgres, Definitions.databricks, Definitions.druid, Definitions.duck_db}:
+    elif query_type in {
+        Definitions.trino,
+        Definitions.postgres,
+        Definitions.databricks,
+        Definitions.druid,
+        Definitions.duck_db,
+    }:
         result_lookup = {
             "time": "CAST(simple.order_date AS TIMESTAMP)",
             "second": "DATE_TRUNC('SECOND', CAST(simple.order_date AS TIMESTAMP))",
@@ -948,6 +984,13 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "day_of_month": "EXTRACT('DAY' FROM CAST(simple.order_date AS TIMESTAMP))",
             "day_of_year": "EXTRACT('DOY' FROM CAST(simple.order_date AS TIMESTAMP))",
         }
+        if query_type == Definitions.trino:
+            result_lookup["month_of_year"] = "FORMAT_DATETIME(CAST(simple.order_date AS TIMESTAMP), 'MMM')"
+            result_lookup["hour_of_day"] = "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))"
+            result_lookup["day_of_week"] = "FORMAT_DATETIME(CAST(simple.order_date AS TIMESTAMP), 'EEE')"
+            result_lookup["day_of_month"] = "EXTRACT(DAY FROM CAST(simple.order_date AS TIMESTAMP))"
+            result_lookup["day_of_year"] = "EXTRACT(DOY FROM CAST(simple.order_date AS TIMESTAMP))"
+
         if query_type == Definitions.duck_db:
             order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
         else:
@@ -1115,6 +1158,14 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         ("month", Definitions.postgres),
         ("quarter", Definitions.postgres),
         ("year", Definitions.postgres),
+        ("second", Definitions.trino),
+        ("minute", Definitions.trino),
+        ("hour", Definitions.trino),
+        ("day", Definitions.trino),
+        ("week", Definitions.trino),
+        ("month", Definitions.trino),
+        ("quarter", Definitions.trino),
+        ("year", Definitions.trino),
         ("second", Definitions.duck_db),
         ("minute", Definitions.duck_db),
         ("hour", Definitions.duck_db),
@@ -1167,6 +1218,19 @@ def test_simple_query_dimension_group_interval(connections, interval: str, query
             "year": "DATEDIFF('YEAR', simple.view_date, simple.order_date)",
         }
         order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
+    elif query_type == Definitions.trino:
+        result_lookup = {
+            "second": "DATE_DIFF('SECOND', simple.view_date, simple.order_date)",
+            "minute": "DATE_DIFF('MINUTE', simple.view_date, simple.order_date)",
+            "hour": "DATE_DIFF('HOUR', simple.view_date, simple.order_date)",
+            "day": "DATE_DIFF('DAY', simple.view_date, simple.order_date)",
+            "week": "DATE_DIFF('WEEK', simple.view_date, simple.order_date)",
+            "month": "DATE_DIFF('MONTH', simple.view_date, simple.order_date)",
+            "quarter": "DATE_DIFF('QUARTER', simple.view_date, simple.order_date)",
+            "year": "DATE_DIFF('YEAR', simple.view_date, simple.order_date)",
+        }
+        order_by = ""
+        semi = ""
     elif query_type == Definitions.druid:
         result_lookup = {
             "second": "TIMESTAMPDIFF(SECOND, simple.view_date, simple.order_date)",
@@ -1659,6 +1723,7 @@ def test_simple_query_with_having_literal(connections):
         Definitions.bigquery,
         Definitions.redshift,
         Definitions.postgres,
+        Definitions.trino,
         Definitions.druid,
         Definitions.sql_server,
         Definitions.duck_db,
@@ -1685,12 +1750,13 @@ def test_simple_query_with_order_by_dict(connections, query_type):
     else:
         group_by = "simple.sales_channel"
 
-    semi = ";" if query_type not in {Definitions.druid} else ""
+    semi = ";" if query_type not in {Definitions.druid, Definitions.trino} else ""
     if query_type in {
         Definitions.snowflake,
         Definitions.redshift,
         Definitions.duck_db,
         Definitions.postgres,
+        Definitions.trino,
         Definitions.databricks,
         Definitions.bigquery,
     }:
