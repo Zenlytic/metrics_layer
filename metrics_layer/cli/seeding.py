@@ -368,6 +368,7 @@ class SeedMetricsLayer:
                 Definitions.snowflake,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.redshift,
             }:
                 column_name = '"' + row["COLUMN_NAME"] + '"'
             else:
