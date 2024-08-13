@@ -1,0 +1,6 @@
+# This file ignores itself to prevent Git from tracking dynamic updates! See note below.
+# To stage changes anyway, add the `-f` flag to `git add`.
+.gitignore
+
+# Paths to downloaded data model repositories are dynamically added to the end of this
+# file. This prevents Git from tracking them.
