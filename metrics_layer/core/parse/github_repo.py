@@ -1,37 +1,14 @@
 import os
-import pathlib
 import shutil
 from glob import glob
-from tempfile import NamedTemporaryFile
+import pathlib
+import yaml
 
 import git
-import yaml
 
 from metrics_layer.core import utils
 
 BASE_PATH = os.path.dirname(__file__)
-
-
-class _GitIgnore:
-    _path = pathlib.Path(".gitignore")
-
-    @classmethod
-    def add_repo(cls, folder: str):
-        with cls._path.open("a") as file:
-            file.write(f"{folder}\n")
-
-    @classmethod
-    def remove_repo(cls, folder: str):
-        with cls._path.open() as file:
-            lines = file.readlines()
-
-        with NamedTemporaryFile("w", delete=False) as tempfile:
-            # Write to a temporary file instead of directly to the original file. This
-            # effectively makes the multiple writes atomic; if any of the writes fail,
-            # the original file is not modified.
-            tempfile.writelines(line for line in lines if line != f"{folder}\n")
-
-        cls._path = pathlib.Path(tempfile.name).replace(cls._path)
 
 
 class BaseRepo:
@@ -115,7 +92,6 @@ class GithubRepo(BaseRepo):
 
     def fetch(self, private_key: str = None):
         self.git_repo, branch_options, self._file_path = self.fetch_github_repo(private_key)
-        _GitIgnore.add_repo(self.folder)
         self.dbt_path = self.get_dbt_path()
         self.branch_options = branch_options
 
@@ -125,7 +101,6 @@ class GithubRepo(BaseRepo):
 
         if os.path.exists(folder) and os.path.isdir(folder):
             shutil.rmtree(folder)
-            _GitIgnore.remove_repo(folder)
 
     def create_branch(self, branch_name: str, private_key: str = None):
         self._ssh_wrapped(self.__create_branch, branch_name=branch_name, private_key=private_key)
@@ -211,7 +186,6 @@ class GithubRepo(BaseRepo):
     def _fetch_github_repo_https(repo_url: str, repo_destination: str, branch: str):
         if os.path.exists(repo_destination) and os.path.isdir(repo_destination):
             shutil.rmtree(repo_destination)
-            _GitIgnore.remove_repo(f"{repo_destination}/")
         repo = git.Repo.clone_from(repo_url, to_path=repo_destination, branch=branch)
         branch_options = GithubRepo._fetch_branch_options(repo, branch)
         return repo, branch_options
