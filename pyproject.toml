@@ -40,6 +40,7 @@ isort = "^5.9.3"
 pytest-cov = "^2.12.1"
 pytest-mock = "^3.6.1"
 pytest-xdist = "^3.5.0"
+pendulum = {version = "^3.0.0", extras = ["test"]}
 
 
 [tool.poetry.extras]
