@@ -175,6 +175,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.trino,
+                Definitions.redshift,
             }:
                 assert social["sql"] == '${TABLE}."ON_SOCIAL_NETWORK"'
             else:
@@ -193,6 +194,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.trino,
+                Definitions.redshift,
             }:
                 assert acq_date["sql"] == '${TABLE}."ACQUISITION_DATE"'
             else:
@@ -228,6 +230,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.trino,
+                Definitions.redshift,
             }:
                 assert date["sql"] == '${TABLE}."ORDER_CREATED_AT"'
             else:
@@ -240,6 +243,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.trino,
+                Definitions.redshift,
             }:
                 assert new["sql"] == '${TABLE}."NEW_VS_REPEAT"'
             else:
@@ -252,6 +256,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.trino,
+                Definitions.redshift,
             }:
                 assert num["sql"] == '${TABLE}."REVENUE"'
             else:
@@ -301,6 +306,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.trino,
+                Definitions.redshift,
             }:
                 assert cross_sell["sql"] == '${TABLE}."@CRoSSell P-roduct:"'
             else:
@@ -337,6 +343,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.trino,
+                Definitions.redshift,
             }:
                 assert date["sql"] == '${TABLE}."SESSION_DATE"'
             else:
@@ -349,6 +356,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.trino,
+                Definitions.redshift,
             }:
                 assert pk["sql"] == '${TABLE}."SESSION_ID"'
             else:
@@ -361,6 +369,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.trino,
+                Definitions.redshift,
             }:
                 assert num["sql"] == '${TABLE}."CONVERSION"'
             else:
