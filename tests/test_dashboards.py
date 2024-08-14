@@ -11,7 +11,7 @@ _THIS_YEAR = _NOW.end_of("year").diff(_NOW.start_of("year"))
 def _generate_dt_params():
     yield pytest.param(_NOW, marks=pytest.mark.primary_dt)
     for dt in _THIS_YEAR.range("days"):
-        yield pytest.param(dt, marks=pytest.mark.extra_dt)
+        yield pytest.param(dt, marks=pytest.mark.slow)
 
 
 def test_dashboard_located(connection):
@@ -67,7 +67,7 @@ def test_dashboard_to_dict(connection):
     assert first_element["slice_by"] == ["orders.new_vs_repeat", "order_lines.product_name"]
 
 
-@pytest.mark.query
+@pytest.mark.filters
 @pytest.mark.parametrize("dt", _generate_dt_params())
 def test_dashboard_filter_week_start(fresh_project, dt):
     with pendulum.travel_to(dt):
@@ -104,7 +104,7 @@ def test_dashboard_filter_week_start(fresh_project, dt):
             assert parsed_filters[1]["value"] == correct[1]["value"]
 
 
-@pytest.mark.query
+@pytest.mark.filters
 @pytest.mark.parametrize("dt", _generate_dt_params())
 def test_dashboard_filter_timezone(fresh_project, dt):
     with pendulum.travel_to(dt):
@@ -140,7 +140,7 @@ def test_dashboard_filter_timezone(fresh_project, dt):
             assert parsed_filters[1]["value"] != wrong_end
 
 
-@pytest.mark.query
+@pytest.mark.filters
 @pytest.mark.parametrize(
     "raw_filter_dict",
     [
