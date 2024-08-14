@@ -32,7 +32,7 @@ jobs:
 
       - name: Test with pytest
         run: |
-          pytest -m extra_dt --cov=metrics_layer/ --cov-report=xml
+          pytest --runslow --cov=metrics_layer/ --cov-report=xml
 
       - name: Report on code coverage
         uses: codecov/codecov-action@v4

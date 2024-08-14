@@ -1020,11 +1020,10 @@ class Field(MetricsLayerBase, SQLReplacement):
                 ),
                 "fiscal_year": lambda s, qt: f"DATE_TRUNC('YEAR', {self._fiscal_offset_to_timestamp(s, qt)})",
                 "week_index": lambda s, qt: (
-                    f"EXTRACT(WEEK FROM {self._week_dimension_group_time_sql(s, qt)})"
+                    f"EXTRACT(WEEK FROM {self._apply_week_start_day_offset_only(s, qt)})"
                 ),
                 "week_of_month": lambda s, qt: (
-                    f"EXTRACT(WEEK FROM {self._week_dimension_group_time_sql(s,qt)}) - EXTRACT(WEEK FROM"
-                    f" DATE_TRUNC('MONTH', {self._week_dimension_group_time_sql(s,qt)})) + 1"
+                    f"EXTRACT(WEEK FROM {s}) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH', {s})) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM {s})",
                 "fiscal_month_of_year_index": lambda s, qt: (
@@ -1061,12 +1060,11 @@ class Field(MetricsLayerBase, SQLReplacement):
                     f"DATE_TRUNC('YEAR', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
                 ),
                 "week_index": lambda s, qt: (
-                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP))"
+                    f"EXTRACT(WEEK FROM CAST({self._apply_week_start_day_offset_only(s, qt)} AS TIMESTAMP))"
                 ),
                 "week_of_month": lambda s, qt: (
-                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP)) -"
-                    " EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
-                    f" CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP))) + 1"
+                    f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
+                    f" CAST({s} AS TIMESTAMP))) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP))",
                 "fiscal_month_of_year_index": lambda s, qt: (
@@ -1103,12 +1101,11 @@ class Field(MetricsLayerBase, SQLReplacement):
                     f"DATE_TRUNC('YEAR', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
                 ),
                 "week_index": lambda s, qt: (
-                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP))"
+                    f"EXTRACT(WEEK FROM CAST({self._apply_week_start_day_offset_only(s, qt)} AS TIMESTAMP))"
                 ),
-                "week_of_month": lambda s, qt: (  # noqa
-                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP)) -"
-                    " EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
-                    f" CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP))) + 1"
+                "week_of_month": lambda s, qt: (
+                    f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
+                    f" CAST({s} AS TIMESTAMP))) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP))",
                 "fiscal_month_of_year_index": lambda s, qt: (
@@ -1145,12 +1142,11 @@ class Field(MetricsLayerBase, SQLReplacement):
                     f"DATE_TRUNC('YEAR', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
                 ),
                 "week_index": lambda s, qt: (
-                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP))"
+                    f"EXTRACT(WEEK FROM CAST({self._apply_week_start_day_offset_only(s,qt)} AS TIMESTAMP))"
                 ),
                 "week_of_month": lambda s, qt: (
-                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP)) -"
-                    " EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
-                    f" CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP))) + 1"
+                    f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
+                    f" CAST({s} AS TIMESTAMP))) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP))",
                 "fiscal_month_of_year_index": lambda s, qt: (
@@ -1199,12 +1195,11 @@ class Field(MetricsLayerBase, SQLReplacement):
                     " DATE)), 0)"
                 ),
                 "week_index": lambda s, qt: (
-                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS DATE))"
+                    f"EXTRACT(WEEK FROM CAST({self._apply_week_start_day_offset_only(s,qt)} AS DATE))"
                 ),
                 "week_of_month": lambda s, qt: (
-                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS DATE)) -"
-                    " EXTRACT(WEEK FROM DATEADD(MONTH, DATEDIFF(MONTH, 0,"
-                    f" CAST({self._week_dimension_group_time_sql(s,qt)} AS DATE)), 0)) + 1"
+                    f"EXTRACT(WEEK FROM CAST({s} AS DATE)) - EXTRACT(WEEK FROM DATEADD(MONTH, DATEDIFF(MONTH,"
+                    f" 0, CAST({s} AS DATE)), 0)) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS DATE))",
                 "fiscal_month_of_year_index": lambda s, qt: (
@@ -1255,10 +1250,11 @@ class Field(MetricsLayerBase, SQLReplacement):
                     f"CAST(DATE_TRUNC(CAST({self._fiscal_offset_to_timestamp(s, qt)} AS DATE), YEAR) AS"
                     f" {self.datatype.upper()})"
                 ),
-                "week_index": lambda s, qt: f"EXTRACT(WEEK FROM {self._week_dimension_group_time_sql(s,qt)})",
+                "week_index": lambda s, qt: (
+                    f"EXTRACT(WEEK FROM {self._apply_week_start_day_offset_only(s,qt)})"
+                ),
                 "week_of_month": lambda s, qt: (
-                    f"EXTRACT(WEEK FROM {self._week_dimension_group_time_sql(s,qt)}) - EXTRACT(WEEK FROM"
-                    f" DATE_TRUNC(CAST({self._week_dimension_group_time_sql(s,qt)} AS DATE), MONTH)) + 1"
+                    f"EXTRACT(WEEK FROM {s}) - EXTRACT(WEEK FROM DATE_TRUNC(CAST({s} AS DATE), MONTH)) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM {s})",
                 "fiscal_month_of_year_index": lambda s, qt: (
@@ -1376,6 +1372,44 @@ class Field(MetricsLayerBase, SQLReplacement):
             if offset is None:
                 return f"DATEADD(WEEK, DATEDIFF(WEEK, 0, {casted}), 0)"
             return f"DATEADD(DAY, -{offset}, DATEADD(WEEK, DATEDIFF(WEEK, 0, DATEADD(DAY, {offset}, {casted})), 0))"  # noqa
+        else:
+            raise QueryError(f"Unable to find a valid method for running week with query type {query_type}")
+
+    def _apply_week_start_day_offset_only(self, sql: str, query_type: str):
+        # Monday is the default date for warehouses
+        week_start_day = self.view.week_start_day
+        offset_lookup = {
+            "sunday": 1,
+            "saturday": 2,
+            "friday": 3,
+            "thursday": 4,
+            "wednesday": 5,
+            "tuesday": 6,
+        }
+        # monday will result in None here which means no offsets will be applied
+        offset = offset_lookup.get(week_start_day, None)
+        casted = f"CAST({sql} AS DATE)"
+        if query_type in {Definitions.snowflake, Definitions.redshift}:
+            if offset is None:
+                return f"DATE_TRUNC('DAY', {casted})"
+            return f"DATE_TRUNC('DAY', {casted} + {offset})"
+        elif query_type in {
+            Definitions.postgres,
+            Definitions.druid,
+            Definitions.duck_db,
+            Definitions.databricks,
+        }:
+            if offset is None:
+                return f"DATE_TRUNC('DAY', CAST({sql} AS TIMESTAMP))"
+            return f"DATE_TRUNC('DAY', CAST({sql} AS TIMESTAMP) + INTERVAL '{offset}' DAY)"
+        elif query_type == Definitions.bigquery:
+            if offset is None:
+                return f"DATE_TRUNC({casted}, DAY)"
+            return f"DATE_TRUNC({casted} + {offset}, DAY)"
+        elif query_type in {Definitions.sql_server, Definitions.azure_synapse}:
+            if offset is None:
+                return f"CAST({casted} AS DATETIME)"
+            return f"CAST(DATEADD(DAY, {offset}, {casted}) AS DATETIME)"  # noqa
         else:
             raise QueryError(f"Unable to find a valid method for running week with query type {query_type}")
 
