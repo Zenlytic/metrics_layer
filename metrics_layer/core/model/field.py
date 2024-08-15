@@ -18,6 +18,9 @@ from .filter import Filter
 from .set import Set
 
 SQL_KEYWORDS = {"order", "group", "by", "as", "from", "select", "on", "with", "drop", "table"}
+VALID_NUMERIC_GEOGRAPHIC_ROLES = ["latitude", "longitude"]
+VALID_STRING_GEOGRAPHIC_ROLES = ["city", "county", "country", "post_code", "state"]
+VALID_GEOGRAPHIC_ROLES = VALID_STRING_GEOGRAPHIC_ROLES + VALID_NUMERIC_GEOGRAPHIC_ROLES
 VALID_TIMEFRAMES = [
     "raw",
     "time",
@@ -207,6 +210,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "link",
                 "canon_date",
                 "case",
+                "geographic_role",
             ]
             return shared_properties + dimension_only
         elif self.field_type == ZenlyticFieldType.dimension_group:
@@ -1767,6 +1771,57 @@ class Field(MetricsLayerBase, SQLReplacement):
                         ),
                     )
                 )
+            if "geographic_role" in self._definition and not isinstance(self.geographic_role, str):
+                errors.append(
+                    self._error(
+                        self._definition.get("geographic_role"),
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid geographic_role"
+                            f" {self.geographic_role}. geographic_role must be a string."
+                        ),
+                    )
+                )
+            elif "geographic_role" in self._definition:
+                if self.geographic_role not in VALID_GEOGRAPHIC_ROLES:
+                    errors.append(
+                        self._error(
+                            self._definition.get("geographic_role"),
+                            (
+                                f"Field {self.name} in view {self.view.name} has an invalid geographic_role"
+                                f" {self.geographic_role}. Valid geographic_roles are:"
+                                f" {VALID_GEOGRAPHIC_ROLES}"
+                            ),
+                        )
+                    )
+                elif (
+                    str(self.type) == ZenlyticType.string
+                    and self.geographic_role not in VALID_STRING_GEOGRAPHIC_ROLES
+                ):
+                    errors.append(
+                        self._error(
+                            self._definition.get("geographic_role"),
+                            (
+                                f"Field {self.name} in view {self.view.name} has an invalid geographic_role"
+                                f" {self.geographic_role}. Valid geographic_roles for dimensions of type"
+                                f" string are: {VALID_STRING_GEOGRAPHIC_ROLES}"
+                            ),
+                        )
+                    )
+                elif (
+                    str(self.type) == ZenlyticType.number
+                    and self.geographic_role not in VALID_NUMERIC_GEOGRAPHIC_ROLES
+                ):
+                    errors.append(
+                        self._error(
+                            self._definition.get("geographic_role"),
+                            (
+                                f"Field {self.name} in view {self.view.name} has an invalid geographic_role"
+                                f" {self.geographic_role}. Valid geographic_roles for dimensions of type"
+                                f" number are: {VALID_NUMERIC_GEOGRAPHIC_ROLES}"
+                            ),
+                        )
+                    )
+
             if (
                 str(self.field_type) == ZenlyticFieldType.dimension
                 and str(self.type) == ZenlyticType.string

@@ -2179,6 +2179,66 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 " 512 characters."
             ],
         ),
+        (
+            "revenue_per_session",
+            "geographic_role",
+            "latitude",
+            [
+                "Property geographic_role is present on Field revenue_per_session in view "
+                "order_lines, but it is not a valid property."
+            ],
+        ),
+        (
+            "parent_channel",
+            "geographic_role",
+            -1,
+            [
+                "Field parent_channel in view order_lines has an invalid geographic_role -1. "
+                "geographic_role must be a string."
+            ],
+        ),
+        (
+            "parent_channel",
+            "geographic_role",
+            "latitude",
+            [
+                "Field parent_channel in view order_lines has an invalid geographic_role "
+                "latitude. Valid geographic_roles for dimensions of type string are: ['city', "
+                "'county', 'country', 'post_code', 'state']"
+            ],
+        ),
+        (
+            "inventory_qty",
+            "geographic_role",
+            "country",
+            [
+                "Field inventory_qty in view order_lines has an invalid geographic_role "
+                "country. Valid geographic_roles for dimensions of type number are: "
+                "['latitude', 'longitude']"
+            ],
+        ),
+        (
+            "parent_channel",
+            "geographic_role",
+            "zip_code",
+            [
+                "Field parent_channel in view order_lines has an invalid geographic_role "
+                "zip_code. Valid geographic_roles are: ['city', 'county', 'country', "
+                "'post_code', 'state', 'latitude', 'longitude']"
+            ],
+        ),
+        (
+            "inventory_qty",
+            "geographic_role",
+            "longitude",
+            [],
+        ),
+        (
+            "parent_channel",
+            "geographic_role",
+            "post_code",
+            [],
+        ),
     ],
 )
 def test_validation_with_replaced_field_properties(connection, field_name, property_name, value, errors):
