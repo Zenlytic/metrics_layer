@@ -1350,7 +1350,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         elif query_type == Definitions.redshift:
             return f"CAST(CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP) AS {self.datatype.upper()})"  # noqa
         elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.trino}:
-            return f"CAST(CAST({sql} AS TIMESTAMP) at time zone 'utc' at time zone '{timezone}' AS {self.datatype.upper()})"  # noqa
+            return f"CAST(CAST({sql} AS TIMESTAMP) at time zone 'UTC' at time zone '{timezone}' AS {self.datatype.upper()})"  # noqa
         elif query_type in {Definitions.druid, Definitions.sql_server, Definitions.azure_synapse}:
             print(
                 f"Warning: {query_type.title()} does not support timezone conversion. "

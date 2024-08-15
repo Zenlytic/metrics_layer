@@ -375,7 +375,7 @@ def test_query_merged_queries_dim_group(connection, query_type):
         product_group = "order_lines_product_name"
         lines_order_by = ""
         orders_order_by = ""
-        time = "DATE('2018-01-02 00:00:00')"
+        time = "CAST('2018-01-02 00:00:00' AS DATE)"
         condition = (
             "CAST(merged_query_0.orders_order_date AS TIMESTAMP)=CAST(merged_query_1.order_lines_order_date"
             " AS TIMESTAMP)"

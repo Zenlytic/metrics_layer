@@ -505,20 +505,27 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         else:
             result_lookup = {
                 "date": (  # noqa
-                    "DATE_TRUNC('DAY', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at"
+                    "DATE_TRUNC('DAY', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'UTC' at"
                     " time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP))"
                 ),
                 "week": (  # noqa
-                    "DATE_TRUNC('WEEK', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at"
+                    "DATE_TRUNC('WEEK', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'UTC' at"
                     " time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP) + INTERVAL '1' DAY) - INTERVAL"
                     " '1' DAY"
                 ),
             }
-        where = (
-            "WHERE DATE_TRUNC('DAY', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) "  # noqa
-            f"AS TIMESTAMP))>='{start}' AND DATE_TRUNC('DAY', "
-            f"CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'utc' at time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP))<='{end}'"  # noqa
-        )
+        if query_type == Definitions.trino:
+            where = (
+                "WHERE DATE_TRUNC('DAY', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'UTC' at time zone 'America/New_York' AS TIMESTAMP) "  # noqa
+                f"AS TIMESTAMP))>=CAST('{start}' AS TIMESTAMP) AND DATE_TRUNC('DAY', "
+                f"CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'UTC' at time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP))<=CAST('{end}' AS TIMESTAMP)"  # noqa
+            )
+        else:
+            where = (
+                "WHERE DATE_TRUNC('DAY', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'UTC' at time zone 'America/New_York' AS TIMESTAMP) "  # noqa
+                f"AS TIMESTAMP))>='{start}' AND DATE_TRUNC('DAY', "
+                f"CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'UTC' at time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP))<='{end}'"  # noqa
+            )
         if query_type == Definitions.duck_db:
             order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
         else:
@@ -536,8 +543,8 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         }
         where = (
             "WHERE CAST(DATETIME(CAST(simple.order_date AS TIMESTAMP), 'America/New_York')"
-            f" AS TIMESTAMP)>=TIMESTAMP('{start}') AND CAST(DATETIME(CAST(simple.order_date "
-            f"AS TIMESTAMP), 'America/New_York') AS TIMESTAMP)<=TIMESTAMP('{end}')"
+            f" AS TIMESTAMP)>=CAST('{start}' AS TIMESTAMP) AND CAST(DATETIME(CAST(simple.order_date "
+            f"AS TIMESTAMP), 'America/New_York') AS TIMESTAMP)<=CAST('{end}' AS TIMESTAMP)"
         )
         order_by = ""
     elif query_type == Definitions.druid:
@@ -1384,6 +1391,7 @@ def test_simple_query_custom_metric(connections):
         ("order_date", "greater_than", "2021-08-04", Definitions.redshift),
         ("order_date", "greater_than", "2021-08-04", Definitions.bigquery),
         ("order_date", "greater_than", "2021-08-04", Definitions.duck_db),
+        ("order_date", "greater_than", "2021-08-04", Definitions.trino),
         ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.snowflake),
         ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.databricks),
         ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.druid),
@@ -1391,6 +1399,7 @@ def test_simple_query_custom_metric(connections):
         ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.redshift),
         ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.bigquery),
         ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.duck_db),
+        ("order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.trino),
         ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.snowflake),
         ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.databricks),
         ("previous_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.druid),
@@ -1405,6 +1414,7 @@ def test_simple_query_custom_metric(connections):
         ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.redshift),
         ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.bigquery),
         ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.duck_db),
+        ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.trino),
         ("order_date", "matches", "last week", Definitions.snowflake),
         ("order_date", "matches", "last year", Definitions.snowflake),
         ("order_date", "matches", "last year", Definitions.databricks),
@@ -1413,6 +1423,7 @@ def test_simple_query_custom_metric(connections):
         ("order_date", "matches", "last year", Definitions.redshift),
         ("order_date", "matches", "last year", Definitions.bigquery),
         ("order_date", "matches", "last year", Definitions.duck_db),
+        ("order_date", "matches", "last year", Definitions.trino),
     ],
 )
 @pytest.mark.query
@@ -1431,13 +1442,14 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
         Definitions.databricks,
         Definitions.druid,
         Definitions.sql_server,
+        Definitions.trino,
     }:
         order_by = ""
     else:
         order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
 
     semi = ";"
-    if query_type == Definitions.druid:
+    if query_type in {Definitions.druid, Definitions.trino}:
         semi = ""
     sf_or_rs = query_type in {
         Definitions.snowflake,
@@ -1445,8 +1457,9 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
         Definitions.druid,
         Definitions.duck_db,
         Definitions.databricks,
+        Definitions.trino,
     }
-    if query_type not in {Definitions.druid, Definitions.duck_db, Definitions.databricks}:
+    if query_type not in {Definitions.druid, Definitions.duck_db, Definitions.databricks, Definitions.trino}:
         field_id = f"simple.{field}"
     else:
         field_id = f"CAST(simple.{field} AS TIMESTAMP)"
@@ -1458,7 +1471,7 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
         query_type == Definitions.sql_server and isinstance(value, datetime) and expression == "greater_than"
     ):
         condition = f"CAST(CAST({field_id} AS DATE) AS DATETIME)>'2021-08-04T00:00:00'"
-    elif sf_or_rs and isinstance(value, datetime):
+    elif sf_or_rs and query_type != Definitions.trino and isinstance(value, datetime):
         condition = f"DATE_TRUNC('DAY', {field_id})>'2021-08-04T00:00:00'"
     elif (
         query_type == Definitions.bigquery
@@ -1468,17 +1481,27 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
     ):
         condition = "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), DAY) AS TIMESTAMP)>'2021-08-04'"
     elif query_type == Definitions.bigquery and isinstance(value, datetime) and field == "order_date":
-        condition = "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), DAY) AS TIMESTAMP)>TIMESTAMP('2021-08-04 00:00:00')"  # noqa
+        condition = "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), DAY) AS TIMESTAMP)>CAST('2021-08-04 00:00:00' AS TIMESTAMP)"  # noqa
+    elif query_type == Definitions.trino and isinstance(value, datetime) and field == "order_date":
+        condition = "DATE_TRUNC('DAY', CAST(simple.order_date AS TIMESTAMP))>CAST('2021-08-04 00:00:00' AS TIMESTAMP)"  # noqa
     elif (
         query_type == Definitions.bigquery and isinstance(value, datetime) and field == "previous_order_date"
     ):
-        condition = "CAST(DATE_TRUNC(CAST(simple.previous_order_date AS DATE), DAY) AS DATETIME)>DATETIME('2021-08-04 00:00:00')"  # noqa
+        condition = "CAST(DATE_TRUNC(CAST(simple.previous_order_date AS DATE), DAY) AS DATETIME)>CAST('2021-08-04 00:00:00' AS DATETIME)"  # noqa
+    elif query_type == Definitions.trino and isinstance(value, datetime) and field == "first_order_date":
+        condition = "DATE_TRUNC('DAY', CAST(simple.first_order_date AS TIMESTAMP))>CAST('2021-08-04 00:00:00' AS DATE)"  # noqa
     elif query_type == Definitions.bigquery and isinstance(value, datetime) and field == "first_order_date":
-        condition = "CAST(DATE_TRUNC(CAST(simple.first_order_date AS DATE), DAY) AS DATE)>DATE('2021-08-04 00:00:00')"  # noqa
+        condition = "CAST(DATE_TRUNC(CAST(simple.first_order_date AS DATE), DAY) AS DATE)>CAST('2021-08-04 00:00:00' AS DATE)"  # noqa
     elif sf_or_rs and expression == "matches" and value == "last year":
         last_year = pendulum.now("UTC").year - 1
-        condition = f"DATE_TRUNC('DAY', {field_id})>='{last_year}-01-01T00:00:00' AND "
-        condition += f"DATE_TRUNC('DAY', {field_id})<='{last_year}-12-31T23:59:59'"
+        if query_type == Definitions.trino:
+            start_of = f"CAST('{last_year}-01-01T00:00:00' AS TIMESTAMP)"
+            end_of = f"CAST('{last_year}-12-31T23:59:59' AS TIMESTAMP)"
+        else:
+            start_of = f"'{last_year}-01-01T00:00:00'"
+            end_of = f"'{last_year}-12-31T23:59:59'"
+        condition = f"DATE_TRUNC('DAY', {field_id})>={start_of} AND "
+        condition += f"DATE_TRUNC('DAY', {field_id})<={end_of}"
     elif query_type == Definitions.sql_server and expression == "matches" and value == "last year":
         last_year = pendulum.now("UTC").year - 1
         condition = f"CAST(CAST({field_id} AS DATE) AS DATETIME)>='{last_year}-01-01T00:00:00' AND "
@@ -1489,14 +1512,20 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
         pendulum.week_ends_at(pendulum.SATURDAY)
         start_of = pendulum.now("UTC").subtract(days=7).start_of("week").strftime(date_format)
         end_of = pendulum.now("UTC").subtract(days=7).end_of("week").strftime(date_format)
-        condition = f"DATE_TRUNC('DAY', {field_id})>='{start_of}' AND "
-        condition += f"DATE_TRUNC('DAY', {field_id})<='{end_of}'"
+        if query_type == Definitions.trino:
+            start_of = f"CAST('{start_of}' AS TIMESTAMP)"
+            end_of = f"CAST('{end_of}' AS TIMESTAMP)"
+        else:
+            start_of = f"'{start_of}'"
+            end_of = f"'{end_of}'"
+        condition = f"DATE_TRUNC('DAY', {field_id})>={start_of} AND "
+        condition += f"DATE_TRUNC('DAY', {field_id})<={end_of}"
         pendulum.week_starts_at(pendulum.MONDAY)
         pendulum.week_ends_at(pendulum.SUNDAY)
     elif query_type == Definitions.bigquery and expression == "matches":
         last_year = pendulum.now("UTC").year - 1
-        condition = f"CAST(DATE_TRUNC(CAST(simple.{field} AS DATE), DAY) AS TIMESTAMP)>=TIMESTAMP('{last_year}-01-01T00:00:00') AND "  # noqa
-        condition += f"CAST(DATE_TRUNC(CAST(simple.{field} AS DATE), DAY) AS TIMESTAMP)<=TIMESTAMP('{last_year}-12-31T23:59:59')"  # noqa
+        condition = f"CAST(DATE_TRUNC(CAST(simple.{field} AS DATE), DAY) AS TIMESTAMP)>=CAST('{last_year}-01-01T00:00:00' AS TIMESTAMP) AND "  # noqa
+        condition += f"CAST(DATE_TRUNC(CAST(simple.{field} AS DATE), DAY) AS TIMESTAMP)<=CAST('{last_year}-12-31T23:59:59' AS TIMESTAMP)"  # noqa
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
@@ -1535,10 +1564,12 @@ def test_simple_query_convert_tz_alias_no(connections):
         ("channel", "contains_case_insensitive", "Email", Definitions.databricks),
         ("channel", "contains_case_insensitive", "Email", Definitions.druid),
         ("channel", "contains_case_insensitive", "Email", Definitions.sql_server),
+        ("channel", "contains_case_insensitive", "Email", Definitions.trino),
         ("channel", "does_not_contain_case_insensitive", "Email", Definitions.snowflake),
         ("channel", "does_not_contain_case_insensitive", "Email", Definitions.databricks),
         ("channel", "does_not_contain_case_insensitive", "Email", Definitions.druid),
         ("channel", "does_not_contain_case_insensitive", "Email", Definitions.sql_server),
+        ("channel", "does_not_contain_case_insensitive", "Email", Definitions.trino),
         ("channel", "starts_with", "Email", Definitions.snowflake),
         ("channel", "ends_with", "Email", Definitions.snowflake),
         ("channel", "does_not_start_with", "Email", Definitions.snowflake),
@@ -1552,10 +1583,13 @@ def test_simple_query_convert_tz_alias_no(connections):
         ("is_valid_order", "is_not_null", None, Definitions.databricks),
         ("is_valid_order", "is_not_null", None, Definitions.druid),
         ("is_valid_order", "is_not_null", None, Definitions.sql_server),
+        ("is_valid_order", "is_not_null", None, Definitions.trino),
         ("is_valid_order", "boolean_true", None, Definitions.snowflake),
         ("is_valid_order", "boolean_false", None, Definitions.snowflake),
         ("is_valid_order", "boolean_true", None, Definitions.sql_server),
         ("is_valid_order", "boolean_false", None, Definitions.sql_server),
+        ("is_valid_order", "boolean_true", None, Definitions.trino),
+        ("is_valid_order", "boolean_false", None, Definitions.trino),
     ],
 )
 @pytest.mark.query
@@ -1573,7 +1607,7 @@ def test_simple_query_with_where_dict(connections, field_name, filter_type, valu
     if query_type == Definitions.snowflake:
         order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
         semi = ";"
-    elif query_type == Definitions.druid:
+    elif query_type in {Definitions.druid, Definitions.trino}:
         order_by = ""
         semi = ""
     else:

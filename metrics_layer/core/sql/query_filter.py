@@ -18,9 +18,8 @@ from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_errors import ParseError
 
 
-def bigquery_cast(field, value):
-    cast_func = field.datatype.upper()
-    return LiteralValue(f"{cast_func}('{value}')")
+def datatype_cast(field, value):
+    return LiteralValue(f"CAST('{value}' AS {field.datatype.upper()})")
 
 
 class FunnelFilterTypes:
@@ -113,10 +112,10 @@ class MetricsLayerFilter(MetricsLayerBase):
                 except Exception:
                     pass
 
-            if self.design.query_type == Definitions.bigquery and isinstance(
+            if self.design.query_type in Definitions.needs_datetime_cast and isinstance(
                 definition["value"], datetime.datetime
             ):
-                definition["value"] = bigquery_cast(self.field, definition["value"])
+                definition["value"] = datatype_cast(self.field, definition["value"])
 
             if self.field.type == "yesno" and "False" in str(definition["value"]):
                 definition["expression"] = "boolean_false"
@@ -169,8 +168,8 @@ class MetricsLayerFilter(MetricsLayerBase):
                 "timezone": self.timezone,
             }
             for f in Filter(filter_dict).filter_dict():
-                if self.query_type == Definitions.bigquery:
-                    value = bigquery_cast(self.field, f["value"])
+                if self.query_type in Definitions.needs_datetime_cast:
+                    value = datatype_cast(self.field, f["value"])
                 else:
                     value = f["value"]
                 criteria.append(Filter.sql_query(field_sql, f["expression"], value, self.field.type))

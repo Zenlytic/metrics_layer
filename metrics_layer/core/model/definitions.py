@@ -23,6 +23,7 @@ class Definitions:
     ]
     symmetric_aggregates_supported_warehouses = [snowflake, redshift, bigquery, postgres, duck_db]
     no_semicolon_warehouses = [druid, trino]
+    needs_datetime_cast = [bigquery, trino]
     supported_warehouses_text = ", ".join(supported_warehouses)
 
     does_not_exist = "__DOES_NOT_EXIST__"
