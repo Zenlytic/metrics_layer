@@ -87,6 +87,10 @@ def test_query_bigquery_week_filter_type_conversion(connection, field):
     )
 
     cast_as = "DATE" if "order_lines.order_week" == field else "TIMESTAMP"
+    if cast_as == "DATE":
+        casted = f"CAST(CAST('2021-08-04 00:00:00' AS TIMESTAMP) AS {cast_as})"
+    else:
+        casted = f"CAST('2021-08-04 00:00:00' AS {cast_as})"
     sql_field = "order_lines.order_date" if "order_lines.order_week" == field else "orders.order_date"
     join = ""
     if "orders" in field:
@@ -94,8 +98,8 @@ def test_query_bigquery_week_filter_type_conversion(connection, field):
     correct = (
         "SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) as"
         f" order_lines_total_item_revenue FROM analytics.order_line_items order_lines {join}WHERE"
-        f" CAST(DATE_TRUNC(CAST({sql_field} AS DATE), WEEK) AS {cast_as})>CAST('2021-08-04 00:00:00' AS"
-        f" {cast_as}) GROUP BY order_lines_channel;"
+        f" CAST(DATE_TRUNC(CAST({sql_field} AS DATE), WEEK) AS {cast_as})>{casted} GROUP BY"
+        " order_lines_channel;"
     )
     assert query == correct
 
