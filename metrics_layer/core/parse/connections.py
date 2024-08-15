@@ -247,7 +247,7 @@ class TrinoConnection(BaseConnection):
         port: int = 8080,
         **kwargs,
     ) -> None:
-        self.type = ConnectionType.druid
+        self.type = ConnectionType.trino
         self.name = name
         self.host = host
         self.user = user

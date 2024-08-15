@@ -487,7 +487,7 @@ class SeedMetricsLayer:
         elif self.connection.type == Definitions.bigquery:
             query += f" FROM `{self.database}`.`{schema_name}`.`{table_name}`"
 
-        return query + ";" if self.connection.type != Definitions.druid else query
+        return query + ";" if self.connection.type not in Definitions.no_semicolon_warehouses else query
 
     def columns_query(self):
         if self.connection.type in {Definitions.snowflake, Definitions.databricks}:
@@ -534,7 +534,7 @@ class SeedMetricsLayer:
         if self.connection.type == Definitions.snowflake:
             # 10k columns is a reasonable max for a single table
             return query + " LIMIT 10000;"
-        return query + ";" if self.connection.type != Definitions.druid else query
+        return query + ";" if self.connection.type not in Definitions.no_semicolon_warehouses else query
 
     def table_query(self):
         if self.database and self.connection.type == Definitions.snowflake:
