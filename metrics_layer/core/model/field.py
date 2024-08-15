@@ -1153,12 +1153,11 @@ class Field(MetricsLayerBase, SQLReplacement):
                     f"DATE_TRUNC('YEAR', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
                 ),
                 "week_index": lambda s, qt: (
-                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP))"
+                    f"EXTRACT(WEEK FROM CAST({self._apply_week_start_day_offset_only(s,qt)} AS TIMESTAMP))"
                 ),
-                "week_of_month": lambda s, qt: (  # noqa
-                    f"EXTRACT(WEEK FROM CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP)) -"
-                    " EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
-                    f" CAST({self._week_dimension_group_time_sql(s,qt)} AS TIMESTAMP))) + 1"
+                "week_of_month": lambda s, qt: (
+                    f"EXTRACT(WEEK FROM CAST({s} AS TIMESTAMP)) - EXTRACT(WEEK FROM DATE_TRUNC('MONTH',"
+                    f" CAST({s} AS TIMESTAMP))) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP))",
                 "fiscal_month_of_year_index": lambda s, qt: (
@@ -1452,6 +1451,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.druid,
             Definitions.duck_db,
             Definitions.databricks,
+            Definitions.trino,
         }:
             if offset is None:
                 return f"DATE_TRUNC('DAY', CAST({sql} AS TIMESTAMP))"
@@ -1465,7 +1465,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                 return f"CAST({casted} AS DATETIME)"
             return f"CAST(DATEADD(DAY, {offset}, {casted}) AS DATETIME)"  # noqa
         else:
-            raise QueryError(f"Unable to find a valid method for running week with query type {query_type}")
+            raise QueryError(f"Unable to find a valid method for running offset with query type {query_type}")
 
     def _error(self, element, error, extra: dict = {}):
         line, column = self.line_col(element)
