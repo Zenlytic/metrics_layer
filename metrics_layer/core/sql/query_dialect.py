@@ -194,7 +194,8 @@ query_lookup = {
     Definitions.postgres: PostgresQueryWithOrderByNullsOption,
     Definitions.druid: PostgresQuery,  # druid core query logic is postgres compatible, minus null sorting
     Definitions.duck_db: PostgresQueryWithOrderByNullsOption,  # duck db core query logic = postgres
-    Definitions.databricks: PostgresQueryWithOrderByNullsOption,  # duck db core query logic = postgres
+    Definitions.databricks: PostgresQueryWithOrderByNullsOption,  # databricks core query logic = postgres
+    Definitions.trino: PostgresQueryWithOrderByNullsOption,  # trino core query logic = postgres
     Definitions.sql_server: MSSSQLQuery,
     Definitions.azure_synapse: MSSSQLQuery,  # Azure Synapse is a T-SQL flavor
 }
@@ -207,6 +208,7 @@ if_null_lookup = {
     Definitions.databricks: "coalesce",
     Definitions.druid: "nvl",
     Definitions.duck_db: "coalesce",
+    Definitions.trino: "coalesce",
     Definitions.sql_server: "isnull",
     Definitions.azure_synapse: "isnull",
 }

@@ -55,7 +55,7 @@ def test_cumulative_query_metric_with_number(connection, query_type):
         date_spine = "select date from unnest(generate_date_array('2000-01-01', '2040-01-01')) as date"
         date_trunc = "CAST(DATE_TRUNC(CAST(orders.order_date AS DATE), DAY) AS TIMESTAMP)"
         order_by = ""
-        time = "TIMESTAMP('2018-01-02 00:00:00')"
+        time = "CAST('2018-01-02 00:00:00' AS TIMESTAMP)"
     else:
         date_spine = (
             "select dateadd(day, seq4(), '2000-01-01') as date from table(generator(rowcount => 365*40))"
@@ -272,8 +272,8 @@ def test_cumulative_query_metrics_and_time(connection, query_type):
         month_date_trunc = "CAST(DATE_TRUNC(CAST(orders.order_date AS DATE), MONTH) AS TIMESTAMP)"
         date_trunc_group = "orders_order_date"
         order_by = ""
-        time1 = "TIMESTAMP('2018-01-02 00:00:00')"
-        time2 = "TIMESTAMP('2019-01-01 00:00:00')"
+        time1 = "CAST('2018-01-02 00:00:00' AS TIMESTAMP)"
+        time2 = "CAST('2019-01-01 00:00:00' AS TIMESTAMP)"
     else:
         date_spine = (
             "select dateadd(day, seq4(), '2000-01-01') as date from table(generator(rowcount => 365*40))"

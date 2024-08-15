@@ -16,6 +16,7 @@ from metrics_layer.core.model.definitions import Definitions
         Definitions.redshift,
         Definitions.duck_db,
         Definitions.postgres,
+        Definitions.trino,
         Definitions.databricks,
     ],
 )
@@ -34,7 +35,7 @@ def test_merged_result_query_additional_metric(connection, query_type):
 
         order_by = ""
         session_by = ""
-    elif query_type in {Definitions.postgres, Definitions.databricks, Definitions.duck_db}:
+    elif query_type in {Definitions.postgres, Definitions.trino, Definitions.databricks, Definitions.duck_db}:
         order_date = "DATE_TRUNC('MONTH', CAST(order_lines.order_date AS TIMESTAMP))"
         session_date = "DATE_TRUNC('MONTH', CAST(sessions.session_date AS TIMESTAMP))"
         if query_type == Definitions.duck_db:
@@ -56,7 +57,7 @@ def test_merged_result_query_additional_metric(connection, query_type):
 
     if query_type == Definitions.redshift:
         ifnull = "nvl"
-    elif query_type in {Definitions.postgres, Definitions.databricks, Definitions.duck_db}:
+    elif query_type in {Definitions.postgres, Definitions.trino, Definitions.databricks, Definitions.duck_db}:
         ifnull = "coalesce"
     else:
         ifnull = "ifnull"
@@ -80,7 +81,7 @@ def test_merged_result_query_additional_metric(connection, query_type):
         f"{ifnull}({cte_2}.sessions_session_month, {cte_1}.order_lines_order_month) as sessions_session_month,"  # noqa
         f"order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
         f"FROM {cte_1} FULL OUTER JOIN {cte_2} "
-        f"ON {on_statement};"
+        f"ON {on_statement}{';' if query_type != Definitions.trino else ''}"
     )
     assert query == correct
 

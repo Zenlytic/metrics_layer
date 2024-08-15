@@ -94,8 +94,8 @@ def test_query_bigquery_week_filter_type_conversion(connection, field):
     correct = (
         "SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) as"
         f" order_lines_total_item_revenue FROM analytics.order_line_items order_lines {join}WHERE"
-        f" CAST(DATE_TRUNC(CAST({sql_field} AS DATE), WEEK) AS {cast_as})>{cast_as}('2021-08-04 00:00:00')"
-        " GROUP BY order_lines_channel;"
+        f" CAST(DATE_TRUNC(CAST({sql_field} AS DATE), WEEK) AS {cast_as})>CAST('2021-08-04 00:00:00' AS"
+        f" {cast_as}) GROUP BY order_lines_channel;"
     )
     assert query == correct
 
@@ -824,6 +824,7 @@ def test_join_graph_raise_unjoinable_error(connection):
     [
         Definitions.snowflake,
         Definitions.druid,
+        Definitions.trino,
         Definitions.redshift,
         Definitions.bigquery,
         Definitions.sql_server,

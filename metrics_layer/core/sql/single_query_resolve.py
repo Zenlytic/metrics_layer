@@ -82,8 +82,8 @@ class SingleSQLQueryResolver:
                 query_definition, design=self.design, suppress_warnings=self.suppress_warnings
             )
 
-        # Druid does not allow semicolons
-        if self.query_type == Definitions.druid:
+        # If query type does not allow semicolons
+        if self.query_type in Definitions.no_semicolon_warehouses:
             semicolon = False
         query = query_generator.get_query(semicolon=semicolon)
 
