@@ -19,6 +19,8 @@ from metrics_layer.core.sql.query_errors import ParseError
 
 
 def datatype_cast(field, value):
+    if field.datatype.upper() == "DATE":
+        return LiteralValue(f"CAST(CAST('{value}' AS TIMESTAMP) AS DATE)")
     return LiteralValue(f"CAST('{value}' AS {field.datatype.upper()})")
 
 

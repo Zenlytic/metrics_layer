@@ -1489,9 +1489,9 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
     ):
         condition = "CAST(DATE_TRUNC(CAST(simple.previous_order_date AS DATE), DAY) AS DATETIME)>CAST('2021-08-04 00:00:00' AS DATETIME)"  # noqa
     elif query_type == Definitions.trino and isinstance(value, datetime) and field == "first_order_date":
-        condition = "DATE_TRUNC('DAY', CAST(simple.first_order_date AS TIMESTAMP))>CAST('2021-08-04 00:00:00' AS DATE)"  # noqa
+        condition = "DATE_TRUNC('DAY', CAST(simple.first_order_date AS TIMESTAMP))>CAST(CAST('2021-08-04 00:00:00' AS TIMESTAMP) AS DATE)"  # noqa
     elif query_type == Definitions.bigquery and isinstance(value, datetime) and field == "first_order_date":
-        condition = "CAST(DATE_TRUNC(CAST(simple.first_order_date AS DATE), DAY) AS DATE)>CAST('2021-08-04 00:00:00' AS DATE)"  # noqa
+        condition = "CAST(DATE_TRUNC(CAST(simple.first_order_date AS DATE), DAY) AS DATE)>CAST(CAST('2021-08-04 00:00:00' AS TIMESTAMP) AS DATE)"  # noqa
     elif sf_or_rs and expression == "matches" and value == "last year":
         last_year = pendulum.now("UTC").year - 1
         if query_type == Definitions.trino:
