@@ -116,9 +116,13 @@ class Project:
     def timezone(self):
         if self._timezone:
             return self._timezone
-        for m in self.models():
-            if m.timezone:
-                return m.timezone
+        timezones = list(set(m.timezone for m in self.models() if m.timezone))
+        if len(timezones) == 1:
+            return timezones[0]
+        elif len(timezones) > 1:
+            raise QueryError(
+                "Multiple timezones found in models, please specify only one timezone across models"
+            )
         return None
 
     @property

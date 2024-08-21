@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import Counter, defaultdict
 from copy import deepcopy
 from typing import List, Union
 
@@ -413,7 +413,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             return self._derive_model(metrics, dimensions)
 
     def _derive_model(self, metrics: list, dimensions: list):
-        all_model_names = []
+        all_model_names, mapping_model_names = [], []
         models = self.project.models()
         for f in metrics + dimensions:
             try:
@@ -423,18 +423,21 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                 for model in models:
                     try:
                         self.project.get_mapped_field(f, model=model)
-                        all_model_names.append(model.name)
-                        break
+                        mapping_model_names.append(model.name)
                     except Exception:
                         pass
 
         all_model_names = list(set(all_model_names))
-
-        if len(all_model_names) == 0:
+        if len(all_model_names) == 0 and len(mapping_model_names) > 0:
             # In a case that there are no models in the query, we'll just use the first model
             # in the project. This case should be limited to only mapping-only queries, so this is safe.
-            return self.project.models()[0]
-        elif len(all_model_names) == 1:
+            model_counts = Counter(mapping_model_names)
+            sorted_models = [m for m, _ in model_counts.most_common()]
+            return self.project.get_model(sorted_models[0])
+        elif len(all_model_names) == 1 and (
+            len(mapping_model_names) == 0
+            or (len(mapping_model_names) > 0 and all_model_names[0] in mapping_model_names)
+        ):
             return self.project.get_model(list(all_model_names)[0])
         else:
             raise QueryError(
