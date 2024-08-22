@@ -2775,14 +2775,14 @@ class Field(MetricsLayerBase, SQLReplacement):
         base = list(set.intersection(*base_collection))
 
         if self.is_cumulative():
-            return self._wrap_with_model_name(base)
+            return base
 
         edges = self.view.project.join_graph.merged_results_graph(self.view.model).in_edges(self.id())
-        extended = [f"merged_result_{mr}" for mr, _ in edges]
+        extended = self._wrap_with_model_name([f"merged_result_{mr}" for mr, _ in edges])
 
         if self.loses_join_ability_with_other_views():
-            return self._wrap_with_model_name(extended)
-        return self._wrap_with_model_name(list(sorted(base + extended)))
+            return extended
+        return list(sorted(base + extended))
 
     def _wrap_with_model_name(self, join_graphs: list):
         if len(models := self.view.project.models()) > 1:
