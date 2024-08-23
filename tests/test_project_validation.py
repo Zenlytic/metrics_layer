@@ -613,8 +613,13 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
         ),
         (
             "default_date",
+            "sessions.session",
+            ["Default date sessions.session in view order_lines is not joinable to the view order_lines"],
+        ),
+        (
+            "default_date",
             "fake",
-            ["Default date fake in view order_lines is not joinable to the view order_lines"],
+            ["Default date fake in view order_lines does not exist."],
         ),
         ("row_label", None, ["The row_label property, None must be a string in the view order_lines"]),
         ("row_label", "Hello", []),

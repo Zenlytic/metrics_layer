@@ -340,14 +340,23 @@ class View(MetricsLayerBase, SQLReplacement):
                             ),
                         )
                     )
-            except (AccessDeniedOrDoesNotExistException, QueryError):
+                # If the default date is not joinable to the view (or in the view itself),
+                # then we need to add an error
+                if field.view.name not in self.project.get_joinable_views(self.name) + [self.name]:
+                    errors.append(
+                        self._error(
+                            self._definition["default_date"],
+                            (
+                                f"Default date {self.default_date} in view {self.name} is not joinable to the"
+                                f" view {self.name}"
+                            ),
+                        )
+                    )
+            except (QueryError, AccessDeniedOrDoesNotExistException):
                 errors.append(
                     self._error(
                         self._definition["default_date"],
-                        (
-                            f"Default date {self.default_date} in view {self.name} is not joinable to the"
-                            f" view {self.name}"
-                        ),
+                        f"Default date {self.default_date} in view {self.name} does not exist.",
                     )
                 )
 
