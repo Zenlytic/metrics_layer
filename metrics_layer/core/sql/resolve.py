@@ -319,9 +319,18 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             for w in where:
                 if "field" in w and w["field"] == to_replace:
                     result.append({**w, "field": field.id()})
-                elif "field" not in w:
+                elif "conditions" in w:
                     result.append(
                         {**w, "conditions": self._replace_dict_or_literal(w["conditions"], to_replace, field)}
+                    )
+                elif "conditionals" in w:
+                    result.append(
+                        {
+                            **w,
+                            "conditionals": self._replace_dict_or_literal(
+                                w["conditionals"], to_replace, field
+                            ),
+                        }
                     )
                 else:
                     result.append(w)
