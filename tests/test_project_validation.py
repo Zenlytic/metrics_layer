@@ -693,7 +693,7 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
             "access_filters",
             [{"name": "test"}],
             [
-                "Access filter in view order_lines is missing the required field property",
+                "Access filter in view order_lines is missing the required property: 'field'",
                 "Access filter in view order_lines is missing the required user_attribute property",
             ],
         ),

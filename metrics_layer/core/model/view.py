@@ -179,6 +179,17 @@ class View(MetricsLayerBase, SQLReplacement):
         attributes["number_of_fields"] = f'{len(attributes.get("fields", []))}'
         return {key: attributes.get(key) for key in to_print if attributes.get(key) is not None}
 
+    def is_affected_by_access_filters(self):
+        """This method checks if the view is affected by any access filters
+        the current user (set in the Project object) has on him/herself.
+        """
+        if self.access_filters:
+            for condition_set in self.access_filters:
+                user_attribute_value = condition_set["user_attribute"]
+                if self.project._user and self.project._user.get(user_attribute_value):
+                    return True
+        return False
+
     @property
     def primary_key(self):
         return next((f for f in self.fields() if f.primary_key), None)
@@ -461,7 +472,7 @@ class View(MetricsLayerBase, SQLReplacement):
                     errors.append(
                         self._error(
                             self._definition["access_filters"],
-                            f"Access filter in view {self.name} is missing the required field property",
+                            f"Access filter in view {self.name} is missing the required property: 'field'",
                         )
                     )
                 elif "field" in f:
