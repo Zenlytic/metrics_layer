@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "metrics_layer"
-version = "0.12.26"
+version = "0.12.36"
 description = "The open source metrics layer."
 authors = ["Paul Blankley <paul@zenlytic.com>"]
 keywords = ["Metrics Layer", "Business Intelligence", "Analytics"]
@@ -11,23 +11,23 @@ repository = "https://github.com/Zenlytic/metrics_layer"
 documentation = "https://docs.zenlytic.com"
 
 [tool.poetry.dependencies]
-python = ">=3.8.1, <3.12"
+python = ">=3.8.1, <3.13"
 GitPython = ">=3.1.20"
 sqlparse = ">=0.4.1"
 PyPika = "^0.48.8"
 pandas = "^1.5.2"
 numpy = "^1.24.4"
-redshift-connector = {version = ">=2.0.917", optional = true}
-snowflake-connector-python = {version = ">=3.5.0", optional = true}
+redshift-connector = {version = "^2.0.905", optional = true}
+snowflake-connector-python = {version = "^3.5.0", optional = true}
 pyarrow = {version = ">=10", optional = true}
-google-cloud-bigquery = {version = ">=2.24.1", optional = true}
-psycopg2-binary = {version = ">=2.9.3", optional = true}
-SQLAlchemy = {version = ">=1.3.18", optional = true}
+google-cloud-bigquery = {version = "^3.13.0", optional = true}
+psycopg2-binary = {version = "^2.9.9", optional = true}
+SQLAlchemy = {version = "^2.0.21", optional = true}
 networkx = "^2.8.2"
 click = "^8.0"
 colorama = "^0.4.4"
 "ruamel.yaml" = "^0.17.20"
-pendulum = "^2.1.2"
+pendulum = "^3.0.0"
 PyYAML = "^6.0"
 metricflow-to-zenlytic = "^0.1.5"
 
@@ -40,6 +40,7 @@ isort = "^5.9.3"
 pytest-cov = "^2.12.1"
 pytest-mock = "^3.6.1"
 pytest-xdist = "^3.5.0"
+pendulum = {version = "^3.0.0", extras = ["test"]}
 
 
 [tool.poetry.extras]

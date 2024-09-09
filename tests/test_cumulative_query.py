@@ -55,13 +55,13 @@ def test_cumulative_query_metric_with_number(connection, query_type):
         date_spine = "select date from unnest(generate_date_array('2000-01-01', '2040-01-01')) as date"
         date_trunc = "CAST(DATE_TRUNC(CAST(orders.order_date AS DATE), DAY) AS TIMESTAMP)"
         order_by = ""
-        time = "TIMESTAMP('2018-01-02 00:00:00')"
+        time = "CAST('2018-01-02 00:00:00' AS TIMESTAMP)"
     else:
         date_spine = (
             "select dateadd(day, seq4(), '2000-01-01') as date from table(generator(rowcount => 365*40))"
         )
         date_trunc = "DATE_TRUNC('DAY', orders.order_date)"
-        order_by = " ORDER BY orders_average_order_value_custom DESC"
+        order_by = " ORDER BY orders_average_order_value_custom DESC NULLS LAST"
         time = "'2018-01-02T00:00:00'"
     correct = (
         f"WITH date_spine AS ({date_spine}) ,subquery_orders_cumulative_aov "
@@ -153,7 +153,7 @@ def test_cumulative_query_metric_dimension_no_time(connection):
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
         "WHERE customers.region='West' GROUP BY orders.new_vs_repeat "
-        "ORDER BY order_lines_total_item_revenue DESC) "
+        "ORDER BY order_lines_total_item_revenue DESC NULLS LAST) "
         "SELECT base.orders_new_vs_repeat as orders_new_vs_repeat,"
         "aggregated_orders_total_lifetime_revenue.orders_total_revenue "
         "as orders_total_lifetime_revenue FROM base LEFT JOIN "
@@ -188,7 +188,7 @@ def test_cumulative_metric_and_non_cumulative(connection):
         "customers.customer_id  ELSE NULL END), 0) as customers_number_of_customers FROM "
         "analytics.orders orders LEFT JOIN analytics.customers customers ON orders.customer_id"
         "=customers.customer_id WHERE customers.region='West' GROUP BY orders.new_vs_repeat "
-        "ORDER BY customers_number_of_customers DESC) SELECT base.orders_new_vs_repeat as "
+        "ORDER BY customers_number_of_customers DESC NULLS LAST) SELECT base.orders_new_vs_repeat as "
         "orders_new_vs_repeat,(aggregated_orders_total_lifetime_revenue.orders_total_revenue) "
         "/ nullif((COUNT(customers_number_of_customers)), 0) as orders_ltr FROM base LEFT JOIN"
         " aggregated_orders_total_lifetime_revenue ON base.orders_new_vs_repeat="
@@ -272,8 +272,8 @@ def test_cumulative_query_metrics_and_time(connection, query_type):
         month_date_trunc = "CAST(DATE_TRUNC(CAST(orders.order_date AS DATE), MONTH) AS TIMESTAMP)"
         date_trunc_group = "orders_order_date"
         order_by = ""
-        time1 = "TIMESTAMP('2018-01-02 00:00:00')"
-        time2 = "TIMESTAMP('2019-01-01 00:00:00')"
+        time1 = "CAST('2018-01-02 00:00:00' AS TIMESTAMP)"
+        time2 = "CAST('2019-01-01 00:00:00' AS TIMESTAMP)"
     else:
         date_spine = (
             "select dateadd(day, seq4(), '2000-01-01') as date from table(generator(rowcount => 365*40))"
@@ -281,7 +281,7 @@ def test_cumulative_query_metrics_and_time(connection, query_type):
         date_trunc_group = date_trunc = "DATE_TRUNC('DAY', orders.order_date)"
         spine_date_trunc = "DATE_TRUNC('MONTH', date_spine.date)"
         month_date_trunc = "DATE_TRUNC('MONTH', orders.order_date)"
-        order_by = " ORDER BY order_lines_total_item_revenue DESC"
+        order_by = " ORDER BY order_lines_total_item_revenue DESC NULLS LAST"
         time1 = "'2018-01-02T00:00:00'"
         time2 = "'2019-01-01T00:00:00'"
     correct = (
@@ -370,7 +370,7 @@ def test_cumulative_query_metrics_dimensions_and_time(connection):
         "as orders_order_date,SUM(order_lines.revenue) as order_lines_total_item_revenue "
         "FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
         "ON order_lines.order_unique_id=orders.id GROUP BY orders.new_vs_repeat,"
-        "DATE_TRUNC('DAY', orders.order_date) ORDER BY order_lines_total_item_revenue DESC) "
+        "DATE_TRUNC('DAY', orders.order_date) ORDER BY order_lines_total_item_revenue DESC NULLS LAST) "
         "SELECT base.orders_new_vs_repeat as orders_new_vs_repeat,base.orders_order_date as "
         "orders_order_date,aggregated_orders_total_lifetime_revenue.orders_total_revenue "
         "as orders_total_lifetime_revenue,aggregated_orders_cumulative_customers"

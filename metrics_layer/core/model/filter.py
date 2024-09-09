@@ -1,6 +1,7 @@
 import re
 from datetime import datetime
 from enum import Enum
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import pendulum
@@ -12,6 +13,9 @@ from metrics_layer.core.exceptions import QueryError
 
 from .base import MetricsLayerBase
 from .week_start_day_types import WeekStartDayTypes
+
+if TYPE_CHECKING:
+    from metrics_layer.core.model.view import View
 
 
 class LiteralValueCriterion(Criterion):
@@ -480,7 +484,7 @@ class Filter(MetricsLayerBase):
         return date_obj.strftime("%Y-%m-%dT%H:%M:%S")
 
     @staticmethod
-    def translate_looker_filters_to_sql(sql: str, filters: list, else_0: bool = False):
+    def translate_looker_filters_to_sql(sql: str, filters: list, view: "View", else_0: bool = False):
         case_sql = "case when "
         conditions = []
         for f in filters:
@@ -488,6 +492,15 @@ class Filter(MetricsLayerBase):
             if not all(k in f for k in ["field", "value"]):
                 continue
 
+            if "." not in f["field"]:
+                field_id = f'{view.name}.{f["field"]}'
+            else:
+                field_id = f["field"]
+            try:
+                field = view.project.get_field(field_id)
+                field_datatype = field.type
+            except Exception:
+                field_datatype = "unknown"
             filter_dict = Filter._filter_dict(
                 f["field"], f["value"], f.get("week_start_day"), f.get("timezone")
             )
@@ -500,7 +513,7 @@ class Filter(MetricsLayerBase):
                 if filter_obj != {}:
                     field_reference = "${" + f["field"] + "}"
                     condition_value = Filter.sql_query(
-                        field_reference, filter_obj["expression"], filter_obj["value"]
+                        field_reference, filter_obj["expression"], filter_obj["value"], field_datatype
                     )
                     condition = f"{condition_value}"
                     conditions.append(condition)
@@ -516,8 +529,14 @@ class Filter(MetricsLayerBase):
         return case_sql
 
     @staticmethod
-    def sql_query(sql_to_compare: str, expression_type: str, value):
+    def sql_query(sql_to_compare: str, expression_type: str, value, field_datatype: str):
         field = LiteralValue(sql_to_compare)
+        if (
+            expression_type
+            in {MetricsLayerFilterExpressionType.IsIn, MetricsLayerFilterExpressionType.IsNotIn}
+            and field_datatype == "number"
+        ):
+            value = [pd.to_numeric(v) for v in value]
         criterion_strategies = {
             MetricsLayerFilterExpressionType.LessThan: lambda f: f < value,
             MetricsLayerFilterExpressionType.LessOrEqualThan: lambda f: f <= value,

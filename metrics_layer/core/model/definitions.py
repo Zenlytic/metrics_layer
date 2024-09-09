@@ -8,6 +8,7 @@ class Definitions:
     duck_db = "DUCK_DB"
     databricks = "DATABRICKS"
     azure_synapse = "AZURE_SYNAPSE"
+    trino = "TRINO"
     supported_warehouses = [
         snowflake,
         bigquery,
@@ -18,8 +19,11 @@ class Definitions:
         duck_db,
         databricks,
         azure_synapse,
+        trino,
     ]
     symmetric_aggregates_supported_warehouses = [snowflake, redshift, bigquery, postgres, duck_db]
+    no_semicolon_warehouses = [druid, trino]
+    needs_datetime_cast = [bigquery, trino]
     supported_warehouses_text = ", ".join(supported_warehouses)
 
     does_not_exist = "__DOES_NOT_EXIST__"

@@ -158,6 +158,26 @@ class SeedMetricsLayer:
             "NUMERIC": "number",
             "STRING": "string",
         }
+        self._trino_type_lookup = {
+            "boolean": "yesno",
+            "tinyint": "number",
+            "smallint": "number",
+            "integer": "number",
+            "int": "number",
+            "bigint": "number",
+            "real": "number",
+            "double": "number",
+            "decimal": "number",
+            "varchar": "string",
+            "char": "string",
+            "varbinary": "string",
+            "json": "string",
+            "date": "date",
+            "timestamp": "timestamp",
+            "timestamp(p)": "timestamp",
+            "timestamp with time zone": "timestamp",
+            "timestamp(p) with time zone": "timestamp",
+        }
 
     def seed(self, auto_tag_searchable_fields: bool = False):
         from metrics_layer.core.parse import ProjectDumper, ProjectLoader
@@ -287,7 +307,7 @@ class SeedMetricsLayer:
             sql_table_name = f"{schema_name}.{table_name}"
             if self._database_is_not_default:
                 sql_table_name = f"{self.database}.{sql_table_name}"
-        elif self.connection.type == Definitions.druid:
+        elif self.connection.type in {Definitions.druid, Definitions.trino}:
             sql_table_name = f"{schema_name}.{table_name}"
         elif self.connection.type == Definitions.bigquery:
             sql_table_name = f"`{self.database}.{schema_name}.{table_name}`"
@@ -337,14 +357,18 @@ class SeedMetricsLayer:
                 metrics_layer_type = self._sql_server_type_lookup.get(row["DATA_TYPE"], "string")
             elif self.connection.type == Definitions.databricks:
                 metrics_layer_type = self._databricks_type_lookup.get(row["DATA_TYPE"], "string")
+            elif self.connection.type == Definitions.trino:
+                metrics_layer_type = self._trino_type_lookup.get(row["DATA_TYPE"], "string")
             else:
                 raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
             # Add quotes for certain db only because we've seen issues with column names with special chars
             if self.connection.type in {
                 Definitions.druid,
+                Definitions.trino,
                 Definitions.snowflake,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.redshift,
             }:
                 column_name = '"' + row["COLUMN_NAME"] + '"'
             else:
@@ -419,6 +443,9 @@ class SeedMetricsLayer:
             if self.connection.type in (Definitions.snowflake, Definitions.duck_db, Definitions.druid):
                 quote_column_name = f'"{column_name}"' if quote else column_name
                 query = f'APPROX_COUNT_DISTINCT( {quote_column_name} ) as "{column_name_alias}_cardinality"'  # noqa: E501
+            elif self.connection.type in {Definitions.trino}:
+                quote_column_name = f'"{column_name}"' if quote else column_name
+                query = f'APPROX_DISTINCT( {quote_column_name} ) as "{column_name_alias}_cardinality"'  # noqa: E501
             elif self.connection.type in {Definitions.redshift, Definitions.postgres}:
                 quote_column_name = f'"{column_name}"' if quote else column_name
                 query = (
@@ -455,12 +482,12 @@ class SeedMetricsLayer:
             Definitions.databricks,
         }:
             query += f" FROM {self.database}.{schema_name}.{table_name}"
-        elif self.connection.type == Definitions.druid:
+        elif self.connection.type in {Definitions.druid, Definitions.trino}:
             query += f"FROM {schema_name}.{table_name}"
         elif self.connection.type == Definitions.bigquery:
             query += f" FROM `{self.database}`.`{schema_name}`.`{table_name}`"
 
-        return query + ";" if self.connection.type != Definitions.druid else query
+        return query + ";" if self.connection.type not in Definitions.no_semicolon_warehouses else query
 
     def columns_query(self):
         if self.connection.type in {Definitions.snowflake, Definitions.databricks}:
@@ -483,7 +510,7 @@ class SeedMetricsLayer:
                 query += f"INFORMATION_SCHEMA.COLUMNS"
             else:
                 query += f"{self.database}.INFORMATION_SCHEMA.COLUMNS"
-        elif self.connection.type == Definitions.druid:
+        elif self.connection.type in {Definitions.druid, Definitions.trino}:
             query = (
                 "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE "
                 "FROM INFORMATION_SCHEMA.COLUMNS"
@@ -507,7 +534,7 @@ class SeedMetricsLayer:
         if self.connection.type == Definitions.snowflake:
             # 10k columns is a reasonable max for a single table
             return query + " LIMIT 10000;"
-        return query + ";" if self.connection.type != Definitions.druid else query
+        return query + ";" if self.connection.type not in Definitions.no_semicolon_warehouses else query
 
     def table_query(self):
         if self.database and self.connection.type == Definitions.snowflake:
@@ -518,12 +545,12 @@ class SeedMetricsLayer:
                 "row_count as table_row_count, comment as comment "
                 f"FROM {self.database}.INFORMATION_SCHEMA.TABLES"
             )
-        elif self.connection.type in {Definitions.druid}:
+        elif self.connection.type in {Definitions.druid, Definitions.trino}:
             query = (
                 "SELECT TABLE_CATALOG as table_database, TABLE_SCHEMA as table_schema, "
                 "TABLE_NAME as table_name, TABLE_TYPE as table_type "
                 "FROM INFORMATION_SCHEMA.TABLES "
-                "WHERE TABLE_SCHEMA not in ('sys', 'INFORMATION_SCHEMA')"
+                "WHERE TABLE_SCHEMA not in ('sys', 'INFORMATION_SCHEMA', 'information_schema')"
             )
         elif self.database and self.connection.type in {
             Definitions.redshift,
@@ -558,7 +585,7 @@ class SeedMetricsLayer:
             )
         else:
             raise ValueError("You must specify at least a database for seeding")
-        return query + ";" if self.connection.type != Definitions.druid else query
+        return query + ";" if self.connection.type not in Definitions.no_semicolon_warehouses else query
 
     def run_query(self, query: str):
         if self.run_query_override:

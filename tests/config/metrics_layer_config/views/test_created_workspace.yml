@@ -19,11 +19,13 @@ always_filter:
     value: -NULL
   - field: context_os
     value: 1, Google, os:iOS
+  - field: session_id
+    value: -1, -44, -087
 
 fields:
   - name: session_id
     field_type: 'dimension'
-    type: string
+    type: number
     primary_key: yes
     hidden: yes
     sql: '${TABLE}.id'

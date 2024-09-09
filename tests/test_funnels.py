@@ -292,7 +292,7 @@ def test_orders_basic_query_with_funnel_filter(connection):
         "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
         "WHERE customers.customer_id IN (SELECT DISTINCT customers_customer_id FROM link_filter_subquery) "
-        "GROUP BY customers.region ORDER BY orders_number_of_orders DESC;"
+        "GROUP BY customers.region ORDER BY orders_number_of_orders DESC NULLS LAST;"
     )
     assert query == correct
 

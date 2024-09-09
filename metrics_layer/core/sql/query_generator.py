@@ -11,7 +11,7 @@ from metrics_layer.core.model.filter import LiteralValueCriterion
 from metrics_layer.core.model.view import View
 from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
-from metrics_layer.core.sql.query_dialect import query_lookup
+from metrics_layer.core.sql.query_dialect import NullSorting, query_lookup
 from metrics_layer.core.sql.query_errors import ArgumentError
 from metrics_layer.core.sql.query_filter import MetricsLayerFilter
 
@@ -122,10 +122,22 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         if isinstance(order_by, str):
             for order_clause in order_by.split(","):
                 if "desc" in order_clause.lower():
-                    field_reference = order_clause.lower().replace("desc", "").strip()
+                    field_reference = (
+                        order_clause.lower()
+                        .replace("desc", "")
+                        .replace("nulls last", "")
+                        .replace("nulls first", "")
+                        .strip()
+                    )
                     results.append({"field": field_reference, "sort": "desc"})
                 else:
-                    field_reference = order_clause.lower().replace("asc", "").strip()
+                    field_reference = (
+                        order_clause.lower()
+                        .replace("asc", "")
+                        .replace("nulls last", "")
+                        .replace("nulls first", "")
+                        .strip()
+                    )
                     results.append({"field": field_reference, "sort": "asc"})
 
         # Handle JSON order_by
@@ -255,7 +267,9 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                     field = self.design.get_field(arg["field"])
                     arg["field"] = field.alias(with_view=True)
                 order = Order.desc if arg["sort"] == "desc" else Order.asc
-                base_query = base_query.orderby(LiteralValue(arg["field"]), order=order)
+                base_query = base_query.orderby(
+                    LiteralValue(arg["field"]), order=order, nulls=NullSorting.last
+                )
 
         completed_query = base_query.limit(self.limit)
         if self.return_pypika_query:
