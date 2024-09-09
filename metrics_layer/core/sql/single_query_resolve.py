@@ -233,7 +233,10 @@ class SingleSQLQueryResolver:
 
         def recurse(filter_obj):
             if isinstance(filter_obj, dict):
-                if "conditions" in filter_obj:
+                if "conditionals" in filter_obj:
+                    for f in filter_obj["conditionals"]:
+                        recurse(f)
+                elif "conditions" in filter_obj:
                     for f in filter_obj["conditions"]:
                         recurse(f)
                 elif "conditionals" in filter_obj:
