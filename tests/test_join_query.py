@@ -4,6 +4,7 @@ import pytest
 
 from metrics_layer.core.exceptions import JoinError, QueryError
 from metrics_layer.core.model import Definitions
+from metrics_layer.core.sql.query_errors import ParseError
 
 
 @pytest.mark.query
@@ -1102,6 +1103,148 @@ def test_query_with_or_filters_with_mappings_nested(connection):
         " order_lines.order_date)<'2023-09-02' OR orders.new_vs_repeat='New' OR (DATE_TRUNC('DAY',"
         " order_lines.order_date)<'2023-09-02' AND orders.new_vs_repeat='New')) AND DATE_TRUNC('DAY',"
         " order_lines.order_date)>'2023-09-02' GROUP BY order_lines.sales_channel ORDER BY"
+        " order_lines_total_item_revenue DESC;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_with_or_filters_conditionals_syntax_broken_logical_operator(connection):
+    with pytest.raises(ParseError) as exc_info:
+        connection.get_sql_query(
+            metrics=["total_item_revenue"],
+            dimensions=["channel"],
+            where=[
+                {
+                    "conditionals": [
+                        {
+                            "conditions": [
+                                {"field": "customers.gender", "expression": "isin", "value": ["M"]}
+                            ],
+                            "logical_operator": "ORR",
+                        }
+                    ]
+                },
+                {"field": "date", "expression": "greater_or_equal_than", "value": datetime(2024, 1, 1, 0, 0)},
+            ],
+            having=[
+                {
+                    "field": "order_lines.total_item_revenue",
+                    "expression": "less_or_equal_than",
+                    "value": 200.0,
+                },
+                {
+                    "conditionals": [
+                        {
+                            "conditions": [
+                                {
+                                    "field": "order_lines.total_item_revenue",
+                                    "expression": "greater_than",
+                                    "value": 100.0,
+                                },
+                                {
+                                    "conditions": [
+                                        {
+                                            "field": "order_lines.total_item_revenue",
+                                            "expression": "greater_than",
+                                            "value": 100.0,
+                                        },
+                                        {
+                                            "field": "order_lines.total_item_revenue",
+                                            "expression": "less_than",
+                                            "value": 200.0,
+                                        },
+                                    ],
+                                    "logical_operator": "ANDD",
+                                },
+                            ],
+                            "logical_operator": "OR",
+                        }
+                    ]
+                },
+            ],
+        )
+
+    assert (
+        "'logical_operator': 'ORR'}' needs a valid logical operator. Options are: ['AND', 'OR']"
+        in exc_info.value.args[0]
+    )
+
+
+@pytest.mark.query
+def test_query_with_or_filters_with_mappings_nestedd(connection):
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["channel"],
+        where=[
+            {
+                "conditionals": [
+                    {
+                        "conditions": [{"field": "customers.gender", "expression": "isin", "value": ["M"]}],
+                        "logical_operator": "OR",
+                    }
+                ]
+            },
+            {"field": "date", "expression": "greater_or_equal_than", "value": datetime(2024, 1, 1, 0, 0)},
+            {
+                "field": "date",
+                "expression": "less_or_equal_than",
+                "value": datetime(2024, 12, 31, 23, 59, 59),
+            },
+        ],
+        having=[
+            {
+                "field": "order_lines.total_item_revenue",
+                "expression": "greater_or_equal_than",
+                "value": 100.0,
+            },
+            {"field": "order_lines.total_item_revenue", "expression": "less_or_equal_than", "value": 200.0},
+            {
+                "conditionals": [
+                    {
+                        "conditions": [
+                            {
+                                "field": "order_lines.total_item_revenue",
+                                "expression": "greater_than",
+                                "value": 100.0,
+                            },
+                            {
+                                "field": "order_lines.total_item_revenue",
+                                "expression": "less_than",
+                                "value": 200.0,
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "field": "order_lines.total_item_revenue",
+                                        "expression": "greater_than",
+                                        "value": 100.0,
+                                    },
+                                    {
+                                        "field": "order_lines.total_item_revenue",
+                                        "expression": "less_than",
+                                        "value": 200.0,
+                                    },
+                                ],
+                                "logical_operator": "AND",
+                            },
+                        ],
+                        "logical_operator": "OR",
+                    }
+                ]
+            },
+        ],
+    )
+
+    correct = (
+        "SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) as"
+        " order_lines_total_item_revenue FROM analytics.order_line_items order_lines LEFT JOIN"
+        " analytics.customers customers ON order_lines.customer_id=customers.customer_id WHERE"
+        " customers.gender IN ('M') AND DATE_TRUNC('DAY', order_lines.order_date)>='2024-01-01T00:00:00' AND"
+        " DATE_TRUNC('DAY', order_lines.order_date)<='2024-12-31T23:59:59' GROUP BY order_lines.sales_channel"
+        " HAVING SUM(order_lines.revenue)>=100.0 AND SUM(order_lines.revenue)<=200.0 AND"
+        " (SUM(order_lines.revenue)>100.0 OR SUM(order_lines.revenue)<200.0 OR"
+        " (SUM(order_lines.revenue)>100.0 AND SUM(order_lines.revenue)<200.0)) ORDER BY"
         " order_lines_total_item_revenue DESC;"
     )
     assert query == correct

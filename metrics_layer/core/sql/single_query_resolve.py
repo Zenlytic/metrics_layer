@@ -110,9 +110,12 @@ class SingleSQLQueryResolver:
                 w["query_class"] = FunnelQuery(
                     funnel_query, design=self.design, suppress_warnings=self.suppress_warnings
                 )
-            if "logical_operator" in w:
+            if "conditionals" in w:
                 field_types = set(
-                    [self.field_lookup[f["field"]].field_type for f in self.flatten_filters(w["conditions"])]
+                    [
+                        self.field_lookup[f["field"]].field_type
+                        for f in self.flatten_filters(w["conditionals"])
+                    ]
                 )
                 if "measure" in field_types and (
                     "dimension" in field_types or "dimension_group" in field_types
@@ -128,9 +131,12 @@ class SingleSQLQueryResolver:
             return having
         validated_having = []
         for h in having:
-            if "logical_operator" in h:
+            if "conditionals" in h:
                 field_types = set(
-                    [self.field_lookup[f["field"]].field_type for f in self.flatten_filters(h["conditions"])]
+                    [
+                        self.field_lookup[f["field"]].field_type
+                        for f in self.flatten_filters(h["conditionals"])
+                    ]
                 )
                 if "measure" in field_types and (
                     "dimension" in field_types or "dimension_group" in field_types
@@ -229,6 +235,9 @@ class SingleSQLQueryResolver:
             if isinstance(filter_obj, dict):
                 if "conditions" in filter_obj:
                     for f in filter_obj["conditions"]:
+                        recurse(f)
+                elif "conditionals" in filter_obj:
+                    for f in filter_obj["conditionals"]:
                         recurse(f)
                 else:
                     flat_list.append(filter_obj)

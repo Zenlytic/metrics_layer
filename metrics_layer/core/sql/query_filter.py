@@ -45,7 +45,7 @@ class MetricsLayerFilter(MetricsLayerBase):
         self.design = design
         self.is_literal_filter = "literal" in definition
         # This is a filter with parenthesis like (XYZ or ABC)
-        self.is_filter_group = "conditions" in definition
+        self.is_filter_group = "conditions" in definition or "conditionals" in definition
 
         if self.design:
             self.query_type = self.design.query_type
@@ -59,6 +59,12 @@ class MetricsLayerFilter(MetricsLayerBase):
             self.expression_type = MetricsLayerFilterExpressionType.parse(definition["expression"])
 
         super().__init__(definition)
+
+    @property
+    def conditions(self):
+        if "conditionals" in self._definition:
+            return self._definition["conditionals"]
+        return self._definition.get("conditions", [])
 
     @property
     def is_group_by(self):
@@ -75,13 +81,18 @@ class MetricsLayerFilter(MetricsLayerBase):
         key = definition.get("field", None)
         filter_literal = definition.get("literal", None)
         filter_group_conditions = definition.get("conditions", None)
+        filter_group_conditionals = definition.get("conditionals", None)
+        if filter_group_conditions is None:
+            filter_group_conditions = filter_group_conditionals
+
         if filter_group_conditions:
             for f in filter_group_conditions:
                 MetricsLayerFilter(f, self.design, self.filter_type)
 
-            if "logical_operator" not in definition:
-                raise ParseError(f"Filter group '{definition}' needs a logical_operator.")
-            elif definition["logical_operator"] not in MetricsLayerFilterGroupLogicalOperatorType.options:
+            if (
+                "logical_operator" in definition
+                and definition["logical_operator"] not in MetricsLayerFilterGroupLogicalOperatorType.options
+            ):
                 raise ParseError(
                     f"Filter group '{definition}' needs a valid logical operator. Options are:"
                     f" {MetricsLayerFilterGroupLogicalOperatorType.options}"
@@ -152,10 +163,13 @@ class MetricsLayerFilter(MetricsLayerBase):
                         condition_object.field.sql_query(self.query_type, functional_pk)
                     )
                 )
-        if self.logical_operator == MetricsLayerFilterGroupLogicalOperatorType.and_:
-            return Criterion.all(pypika_conditions)
-        elif self.logical_operator == MetricsLayerFilterGroupLogicalOperatorType.or_:
+        if self.logical_operator == MetricsLayerFilterGroupLogicalOperatorType.or_:
             return Criterion.any(pypika_conditions)
+        if (
+            self.logical_operator is None
+            or self.logical_operator == MetricsLayerFilterGroupLogicalOperatorType.and_
+        ):
+            return Criterion.all(pypika_conditions)
         raise ParseError(f"Invalid logical operator: {self.logical_operator}")
 
     def sql_query(self):
