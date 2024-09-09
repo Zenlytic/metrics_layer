@@ -1100,7 +1100,7 @@ def test_query_with_or_filters_with_mappings(connection):
         " analytics.orders orders ON order_lines.order_unique_id=orders.id WHERE (DATE_TRUNC('DAY',"
         " order_lines.order_date)<'2023-09-02' OR orders.new_vs_repeat='New') AND DATE_TRUNC('DAY',"
         " order_lines.order_date)>'2023-09-02' GROUP BY order_lines.sales_channel ORDER BY"
-        " order_lines_total_item_revenue DESC;"
+        " order_lines_total_item_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -1136,7 +1136,7 @@ def test_query_with_or_filters_with_mappings_nested(connection):
         " order_lines.order_date)<'2023-09-02' OR orders.new_vs_repeat='New' OR (DATE_TRUNC('DAY',"
         " order_lines.order_date)<'2023-09-02' AND orders.new_vs_repeat='New')) AND DATE_TRUNC('DAY',"
         " order_lines.order_date)>'2023-09-02' GROUP BY order_lines.sales_channel ORDER BY"
-        " order_lines_total_item_revenue DESC;"
+        " order_lines_total_item_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -1278,6 +1278,6 @@ def test_query_with_or_filters_with_mappings_nestedd(connection):
         " HAVING SUM(order_lines.revenue)>=100.0 AND SUM(order_lines.revenue)<=200.0 AND"
         " (SUM(order_lines.revenue)>100.0 OR SUM(order_lines.revenue)<200.0 OR"
         " (SUM(order_lines.revenue)>100.0 AND SUM(order_lines.revenue)<200.0)) ORDER BY"
-        " order_lines_total_item_revenue DESC;"
+        " order_lines_total_item_revenue DESC NULLS LAST;"
     )
     assert query == correct

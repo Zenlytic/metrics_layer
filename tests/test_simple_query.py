@@ -1863,8 +1863,9 @@ def test_simple_query_with_or_filters_no_nesting(connections):
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM"
-        " analytics.orders simple WHERE (simple.sales_channel<>'Email' OR simple.new_vs_repeat='New')"
-        " AND simple.discount_amt>1335 GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC;"
+        " analytics.orders simple WHERE (simple.sales_channel<>'Email' OR simple.new_vs_repeat='New') AND"
+        " simple.discount_amt>1335 GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC NULLS"
+        " LAST;"
     )
     assert query == correct
 
@@ -1898,7 +1899,7 @@ def test_simple_query_with_or_filters_single_nesting(connections):
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM"
         " analytics.orders simple WHERE ((simple.sales_channel<>'Email' AND simple.discount_amt<0.01) OR"
         " simple.new_vs_repeat='New') AND simple.discount_amt>1335 GROUP BY simple.sales_channel ORDER BY"
-        " simple_total_revenue DESC;"
+        " simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -1964,7 +1965,7 @@ def test_simple_query_with_or_filters_triple_nesting(connections):
         " simple.discount_amt<0.01 AND (simple.sales_channel='Email' OR simple.discount_amt<-100.05 OR"
         " (simple.sales_channel='Facebook' AND simple.new_vs_repeat='Repeat'))) OR"
         " simple.new_vs_repeat='New') AND (simple.sales_channel<>'Email' OR simple.discount_amt<0.01) AND"
-        " simple.discount_amt>13 GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC;"
+        " simple.discount_amt>13 GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -1991,7 +1992,8 @@ def test_simple_query_with_or_filters_having(connections):
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM"
         " analytics.orders simple GROUP BY simple.sales_channel HAVING (AVG(simple.revenue)>250 OR"
-        " SUM(simple.revenue)<25000) AND SUM(simple.revenue)>20000 ORDER BY simple_total_revenue DESC;"
+        " SUM(simple.revenue)<25000) AND SUM(simple.revenue)>20000 ORDER BY simple_total_revenue DESC NULLS"
+        " LAST;"
     )
     assert query == correct
 
