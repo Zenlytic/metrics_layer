@@ -47,7 +47,7 @@ class MetricsLayerFilter(MetricsLayerBase):
         self.design = design
         self.is_literal_filter = "literal" in definition
         # This is a filter with parenthesis like (XYZ or ABC)
-        self.is_filter_group = "conditions" in definition or "conditionals" in definition
+        self.is_filter_group = "conditions" in definition or "conditional_filter_logic" in definition
 
         if self.design:
             self.query_type = self.design.query_type
@@ -64,8 +64,8 @@ class MetricsLayerFilter(MetricsLayerBase):
 
     @property
     def conditions(self):
-        if "conditionals" in self._definition:
-            return self._definition["conditionals"]
+        if "conditional_filter_logic" in self._definition:
+            return self._definition["conditional_filter_logic"]
         return self._definition.get("conditions", [])
 
     @property
@@ -83,9 +83,9 @@ class MetricsLayerFilter(MetricsLayerBase):
         key = definition.get("field", None)
         filter_literal = definition.get("literal", None)
         filter_group_conditions = definition.get("conditions", None)
-        filter_group_conditionals = definition.get("conditionals", None)
+        filter_group_conditional_filter_logic = definition.get("conditional_filter_logic", None)
         if filter_group_conditions is None:
-            filter_group_conditions = filter_group_conditionals
+            filter_group_conditions = filter_group_conditional_filter_logic
 
         if filter_group_conditions:
             for f in filter_group_conditions:
