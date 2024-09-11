@@ -499,6 +499,8 @@ class SQLQueryResolver(SingleSQLQueryResolver):
     def _clean_conditional_filter_syntax(self, filters: Union[str, None, List]):
         if not filters or isinstance(filters, str):
             return filters
+        if isinstance(filters, dict):
+            return [filters]
 
         def process_filter(filter_obj):
             if isinstance(filter_obj, dict):

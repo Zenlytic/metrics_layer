@@ -1141,7 +1141,7 @@ def test_query_with_or_filters_with_mappings_nested(connection):
     assert query == correct
 
 
-@pytest.mark.queryy
+@pytest.mark.query
 def test_query_with_or_filters_alternate_syntax_broken_logical_operator(connection):
     with pytest.raises(ParseError) as exc_info:
         connection.get_sql_query(
@@ -1198,7 +1198,7 @@ def test_query_with_or_filters_alternate_syntax_broken_logical_operator(connecti
     )
 
 
-@pytest.mark.queryy
+@pytest.mark.query
 def test_query_with_or_filters_alternate_syntax(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
