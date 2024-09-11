@@ -111,9 +111,7 @@ class SingleSQLQueryResolver:
                     funnel_query, design=self.design, suppress_warnings=self.suppress_warnings
                 )
 
-            if "conditional_filter_logic" in w:
-                conditions = w["conditional_filter_logic"]
-            elif "conditions" in w:
+            if "conditions" in w:
                 conditions = w["conditions"]
             else:
                 conditions = []
@@ -135,9 +133,7 @@ class SingleSQLQueryResolver:
             return having
         validated_having = []
         for h in having:
-            if "conditional_filter_logic" in h:
-                conditions = h["conditional_filter_logic"]
-            elif "conditions" in h:
+            if "conditions" in h:
                 conditions = h["conditions"]
             else:
                 conditions = []
@@ -191,24 +187,12 @@ class SingleSQLQueryResolver:
 
     def parse_field_names(self, where, having, order_by):
         self.where = self._check_for_dict(where)
-        self.where = [
-            {**f, "conditional_filter_logic": self._check_for_dict(f["conditional_filter_logic"])}
-            if "conditional_filter_logic" in f
-            else f
-            for f in self.where
-        ]
         if self._is_literal(self.where):
             self._where_field_names = MetricsLayerQuery.parse_identifiers_from_clause(self.where)
         else:
             self._where_field_names = self.parse_identifiers_from_dicts(self.where)
 
         self.having = self._check_for_dict(having)
-        self.having = [
-            {**f, "conditional_filter_logic": self._check_for_dict(f["conditional_filter_logic"])}
-            if "conditional_filter_logic" in f
-            else f
-            for f in self.having
-        ]
         if self._is_literal(self.having):
             self._having_field_names = MetricsLayerQuery.parse_identifiers_from_clause(self.having)
         else:
@@ -252,14 +236,8 @@ class SingleSQLQueryResolver:
 
         def recurse(filter_obj):
             if isinstance(filter_obj, dict):
-                if "conditional_filter_logic" in filter_obj:
-                    for f in filter_obj["conditional_filter_logic"]:
-                        recurse(f)
-                elif "conditions" in filter_obj:
+                if "conditions" in filter_obj:
                     for f in filter_obj["conditions"]:
-                        recurse(f)
-                elif "conditionals" in filter_obj:
-                    for f in filter_obj["conditionals"]:
                         recurse(f)
                 else:
                     flat_list.append(filter_obj)

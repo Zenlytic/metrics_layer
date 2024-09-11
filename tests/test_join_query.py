@@ -1141,22 +1141,18 @@ def test_query_with_or_filters_with_mappings_nested(connection):
     assert query == correct
 
 
-@pytest.mark.query
-def test_query_with_or_filters_conditionals_syntax_broken_logical_operator(connection):
+@pytest.mark.queryy
+def test_query_with_or_filters_alternate_syntax_broken_logical_operator(connection):
     with pytest.raises(ParseError) as exc_info:
         connection.get_sql_query(
             metrics=["total_item_revenue"],
             dimensions=["channel"],
             where=[
                 {
-                    "conditionals": [
-                        {
-                            "conditions": [
-                                {"field": "customers.gender", "expression": "isin", "value": ["M"]}
-                            ],
-                            "logical_operator": "ORR",
-                        }
-                    ]
+                    "conditional_filter_logic": {
+                        "conditions": [{"field": "customers.gender", "expression": "isin", "value": ["M"]}],
+                        "logical_operator": "ORR",
+                    }
                 },
                 {"field": "date", "expression": "greater_or_equal_than", "value": datetime(2024, 1, 1, 0, 0)},
             ],
@@ -1167,33 +1163,31 @@ def test_query_with_or_filters_conditionals_syntax_broken_logical_operator(conne
                     "value": 200.0,
                 },
                 {
-                    "conditionals": [
-                        {
-                            "conditions": [
-                                {
-                                    "field": "order_lines.total_item_revenue",
-                                    "expression": "greater_than",
-                                    "value": 100.0,
-                                },
-                                {
-                                    "conditions": [
-                                        {
-                                            "field": "order_lines.total_item_revenue",
-                                            "expression": "greater_than",
-                                            "value": 100.0,
-                                        },
-                                        {
-                                            "field": "order_lines.total_item_revenue",
-                                            "expression": "less_than",
-                                            "value": 200.0,
-                                        },
-                                    ],
-                                    "logical_operator": "ANDD",
-                                },
-                            ],
-                            "logical_operator": "OR",
-                        }
-                    ]
+                    "conditional_filter_logic": {
+                        "conditions": [
+                            {
+                                "field": "order_lines.total_item_revenue",
+                                "expression": "greater_than",
+                                "value": 100.0,
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "field": "order_lines.total_item_revenue",
+                                        "expression": "greater_than",
+                                        "value": 100.0,
+                                    },
+                                    {
+                                        "field": "order_lines.total_item_revenue",
+                                        "expression": "less_than",
+                                        "value": 200.0,
+                                    },
+                                ],
+                                "logical_operator": "ANDD",
+                            },
+                        ],
+                        "logical_operator": "OR",
+                    }
                 },
             ],
         )
@@ -1204,19 +1198,17 @@ def test_query_with_or_filters_conditionals_syntax_broken_logical_operator(conne
     )
 
 
-@pytest.mark.query
-def test_query_with_or_filters_with_mappings_nestedd(connection):
+@pytest.mark.queryy
+def test_query_with_or_filters_alternate_syntax(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
         dimensions=["channel"],
         where=[
             {
-                "conditionals": [
-                    {
-                        "conditions": [{"field": "customers.gender", "expression": "isin", "value": ["M"]}],
-                        "logical_operator": "OR",
-                    }
-                ]
+                "conditional_filter_logic": {
+                    "conditions": [{"field": "customers.gender", "expression": "isin", "value": ["M"]}],
+                    "logical_operator": "OR",
+                }
             },
             {"field": "date", "expression": "greater_or_equal_than", "value": datetime(2024, 1, 1, 0, 0)},
             {
@@ -1233,38 +1225,36 @@ def test_query_with_or_filters_with_mappings_nestedd(connection):
             },
             {"field": "order_lines.total_item_revenue", "expression": "less_or_equal_than", "value": 200.0},
             {
-                "conditionals": [
-                    {
-                        "conditions": [
-                            {
-                                "field": "order_lines.total_item_revenue",
-                                "expression": "greater_than",
-                                "value": 100.0,
-                            },
-                            {
-                                "field": "order_lines.total_item_revenue",
-                                "expression": "less_than",
-                                "value": 200.0,
-                            },
-                            {
-                                "conditions": [
-                                    {
-                                        "field": "order_lines.total_item_revenue",
-                                        "expression": "greater_than",
-                                        "value": 100.0,
-                                    },
-                                    {
-                                        "field": "order_lines.total_item_revenue",
-                                        "expression": "less_than",
-                                        "value": 200.0,
-                                    },
-                                ],
-                                "logical_operator": "AND",
-                            },
-                        ],
-                        "logical_operator": "OR",
-                    }
-                ]
+                "conditional_filter_logic": {
+                    "conditions": [
+                        {
+                            "field": "order_lines.total_item_revenue",
+                            "expression": "greater_than",
+                            "value": 100.0,
+                        },
+                        {
+                            "field": "order_lines.total_item_revenue",
+                            "expression": "less_than",
+                            "value": 200.0,
+                        },
+                        {
+                            "conditions": [
+                                {
+                                    "field": "order_lines.total_item_revenue",
+                                    "expression": "greater_than",
+                                    "value": 100.0,
+                                },
+                                {
+                                    "field": "order_lines.total_item_revenue",
+                                    "expression": "less_than",
+                                    "value": 200.0,
+                                },
+                            ],
+                            "logical_operator": "AND",
+                        },
+                    ],
+                    "logical_operator": "OR",
+                }
             },
         ],
     )
