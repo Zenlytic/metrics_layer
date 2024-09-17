@@ -471,7 +471,8 @@ def test_cli_validate(connection, fresh_project, mocker):
 
     # assert result.exit_code == 0
     assert (
-        result.output == "Found 7 errors in the project:\n\n"
+        result.output
+        == "Found 7 errors in the project:\n\n"
         "\nCould not locate reference revenue_dimension in field total_item_costs in view order_lines\n\n"
         "\nField total_item_costs in view order_lines contains invalid field reference revenue_dimension.\n\n"
         "\nCould not locate reference revenue_dimension in field revenue_in_cents in view orders\n\n"
@@ -499,7 +500,8 @@ def test_cli_validate_broken_canon_date(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert (
-        result.output == "Found 1 error in the project:\n\n"
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nCanon date customers.does_not_exist is unreachable in field total_sessions.\n\n"
     )
 
@@ -756,7 +758,8 @@ def test_cli_validate_model_name_in_view(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert (
-        result.output == "Found 1 error in the project:\n\n"
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nCould not find a model in the view orders. Use the model_name property to specify the model.\n\n"
     )
 
@@ -799,7 +802,8 @@ def test_cli_dashboard_model_does_not_exist(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert (
-        result.output == "Found 1 error in the project:\n\n"
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nCould not find or you do not have access to model missing_model in dashboard sales_dashboard\n\n"
     )
 
@@ -820,7 +824,8 @@ def test_cli_canon_date_inaccessible(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert (
-        result.output == "Found 1 error in the project:\n\n"
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nCanon date orders.missing_field is unreachable in field total_revenue.\n\n"
     )
 
@@ -905,7 +910,8 @@ def test_cli_duplicate_field_names(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert (
-        result.output == "Found 1 error in the project:\n\n"
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nDuplicate field names in view customers: number_of_customers\n\n"
     )
 
@@ -972,7 +978,7 @@ def test_cli_validate_required_access_filters(connection, fresh_project, mocker)
     assert result.exit_code == 0
     assert (
         result.output
-        == "Found 19 errors in the project:\n\n\nView order_lines does not have any access filters, but an"
+        == "Found 20 errors in the project:\n\n\nView order_lines does not have any access filters, but an"
         " access filter with user attribute products is required.\n\n\nView orders does not have an access"
         " filter with the required user attribute products\n\n\nView customers does not have any access"
         " filters, but an access filter with user attribute products is required.\n\n\nView discounts does"
@@ -993,10 +999,11 @@ def test_cli_validate_required_access_filters(connection, fresh_project, mocker)
         " other_db_traffic does not have any access filters, but an access filter with user attribute"
         " products is required.\n\n\nView created_workspace does not have any access filters, but an"
         " access filter with user attribute products is required.\n\n\nView mrr does not have any access"
-        " filters, but an access filter with user attribute products is required.\n\n\nView child_account"
-        " does not have any access filters, but an access filter with user attribute products is"
-        " required.\n\n\nView parent_account does not have any access filters, but an access filter with"
-        " user attribute products is required.\n\n"
+        " filters, but an access filter with user attribute products is required.\n\n\nView"
+        " monthly_aggregates does not have any access filters, but an access filter with user attribute"
+        " products is required.\n\n\nView child_account does not have any access filters, but an access"
+        " filter with user attribute products is required.\n\n\nView parent_account does not have any"
+        " access filters, but an access filter with user attribute products is required.\n\n"
     )
 
 
@@ -1074,8 +1081,8 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
         "models": "Found 2 models:\n\ntest_model\nnew_model\n",
         "connections": "Found 3 connections:\n\ntesting_snowflake\ntesting_bigquery\ntesting_databricks\n",
         "views": (  # noqa
-            "Found 20"
-            " views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nmrr\nchild_account\nparent_account\n"  # noqa
+            "Found 21"
+            " views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nmrr\nmonthly_aggregates\nchild_account\nparent_account\n"  # noqa
         ),
         "fields": "Found 2 fields:\n\ndiscount_promo_name\ndiscount_usd\n",
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
