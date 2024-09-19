@@ -2,6 +2,8 @@ import difflib
 import re
 from typing import List
 
+from metrics_layer.core.exceptions import QueryError
+
 NAME_REGEX = re.compile(r"([A-Za-z0-9\_]+)")
 
 
@@ -30,6 +32,13 @@ class MetricsLayerBase:
         return (
             f"{entity_name.title()} name: {name} is invalid. Please reference "
             "the naming conventions (only letters, numbers, or underscores)"
+        )
+
+    @staticmethod
+    def _raise_query_error_from_cte(field_name: str):
+        raise QueryError(
+            f"Field {field_name} is not present in either source query, so it"
+            " cannot be applied as a filter. Please add it to one of the source queries."
         )
 
     @staticmethod

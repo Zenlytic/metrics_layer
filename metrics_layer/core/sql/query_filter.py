@@ -39,12 +39,13 @@ class MetricsLayerFilter(MetricsLayerBase):
     """
 
     def __init__(
-        self, definition: Dict = {}, design: MetricsLayerDesign = None, filter_type: str = None
+        self, definition: Dict = {}, design: MetricsLayerDesign = None, filter_type: str = None, project=None
     ) -> None:
         # The design is used for filters in queries against specific designs
         #  to validate that all the tables and attributes (columns/aggregates)
         #  are properly defined in the design
         self.design = design
+        self.project = project
         self.is_literal_filter = "literal" in definition
         # This is a filter with parenthesis like (XYZ or ABC)
         self.is_filter_group = "conditions" in definition
@@ -84,6 +85,7 @@ class MetricsLayerFilter(MetricsLayerBase):
 
         if filter_group_conditions:
             for f in filter_group_conditions:
+                f["query_type"] = self.query_type
                 MetricsLayerFilter(f, self.design, self.filter_type)
 
             if (
@@ -148,12 +150,32 @@ class MetricsLayerFilter(MetricsLayerBase):
             if self.field.type == "yesno" and "True" in str(definition["value"]):
                 definition["expression"] = "boolean_true"
 
-    def group_sql_query(self, functional_pk: str):
+    def group_sql_query(
+        self,
+        functional_pk: str,
+        alias_query: bool = False,
+        cte_alias_lookup: dict = {},
+        raise_if_not_in_lookup: bool = False,
+    ):
         pypika_conditions = []
         for condition in self.conditions:
-            condition_object = MetricsLayerFilter(condition, self.design, self.filter_type)
+            condition_object = MetricsLayerFilter(condition, self.design, self.filter_type, self.project)
             if condition_object.is_filter_group:
-                pypika_conditions.append(condition_object.group_sql_query(functional_pk))
+                pypika_conditions.append(
+                    condition_object.group_sql_query(
+                        functional_pk,
+                        alias_query,
+                        cte_alias_lookup=cte_alias_lookup,
+                        raise_if_not_in_lookup=raise_if_not_in_lookup,
+                    )
+                )
+            elif alias_query:
+                if self.project is None:
+                    raise ValueError("Project is not set, but it is required for an alias_query")
+                field_alias = self._handle_cte_alias_replacement(
+                    condition_object.field, cte_alias_lookup, raise_if_not_in_lookup
+                )
+                pypika_conditions.append(condition_object.criterion(field_alias))
             else:
                 pypika_conditions.append(
                     condition_object.criterion(
@@ -169,13 +191,35 @@ class MetricsLayerFilter(MetricsLayerBase):
             return Criterion.all(pypika_conditions)
         raise ParseError(f"Invalid logical operator: {self.logical_operator}")
 
-    def sql_query(self):
+    def sql_query(
+        self, alias_query: bool = False, cte_alias_lookup: dict = {}, raise_if_not_in_lookup: bool = False
+    ):
         if self.is_literal_filter:
             return LiteralValueCriterion(self.replace_fields_literal_filter())
+
+        if alias_query and self.is_filter_group:
+            return self.group_sql_query("NA", alias_query, cte_alias_lookup, raise_if_not_in_lookup)
+        elif alias_query:
+            field_alias = self._handle_cte_alias_replacement(
+                self.field, cte_alias_lookup, raise_if_not_in_lookup
+            )
+            return self.criterion(field_alias)
+
         functional_pk = self.design.functional_pk()
         if self.is_filter_group:
             return self.group_sql_query(functional_pk)
         return self.criterion(self.field.sql_query(self.query_type, functional_pk))
+
+    def _handle_cte_alias_replacement(
+        self, field_id: str, cte_alias_lookup: dict, raise_if_not_in_lookup: bool
+    ):
+        field = self.project.get_field(field_id)
+        field_alias = field.alias(with_view=True)
+        if field_alias in cte_alias_lookup:
+            field_alias = f"{cte_alias_lookup[field_alias]}.{field_alias}"
+        elif raise_if_not_in_lookup:
+            self._raise_query_error_from_cte(field.id())
+        return field_alias
 
     def isin_sql_query(self, cte_alias, field_name, query_generator):
         group_by_field = self.design.get_field(field_name)

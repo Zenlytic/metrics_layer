@@ -22,22 +22,17 @@ class MetricsLayerQueryBase(MetricsLayerBase):
         where = []
         for filter_clause in filters:
             filter_clause["query_type"] = self.query_type
-            f = MetricsLayerFilter(definition=filter_clause, design=None, filter_type="where")
-            field = project.get_field(filter_clause["field"])
-            field_alias = field.alias(with_view=True)
-            if field_alias in cte_alias_lookup:
-                field_alias = f"{cte_alias_lookup[field_alias]}.{field_alias}"
-            elif raise_if_not_in_lookup:
-                self._raise_query_error_from_cte(field.id(capitalize_alias=True))
-            where.append(f.criterion(field_alias))
+            f = MetricsLayerFilter(
+                definition=filter_clause, design=None, filter_type="where", project=project
+            )
+            where.append(
+                f.sql_query(
+                    alias_query=True,
+                    cte_alias_lookup=cte_alias_lookup,
+                    raise_if_not_in_lookup=raise_if_not_in_lookup,
+                )
+            )
         return where
-
-    @staticmethod
-    def _raise_query_error_from_cte(field_name: str):
-        raise QueryError(
-            f"Field {field_name} is not present in either source query, so it"
-            " cannot be applied as a filter. Please add it to one of the source queries."
-        )
 
     @staticmethod
     def parse_identifiers_from_clause(clause: str):

@@ -48,7 +48,7 @@ class MetricsLayerMergedQueries(MetricsLayerQueryBase):
                 if order_by_alias in self.cte_alias_lookup:
                     order_by_alias = f"{self.cte_alias_lookup[order_by_alias]}.{order_by_alias}"
                 else:
-                    self._raise_query_error_from_cte(field.id(capitalize_alias=True))
+                    self._raise_query_error_from_cte(field.id())
 
                 order = Order.desc if order_clause.get("sort", "asc").lower() == "desc" else Order.asc
                 complete_query = complete_query.orderby(

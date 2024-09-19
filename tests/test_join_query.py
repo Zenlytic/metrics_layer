@@ -2,6 +2,7 @@ from datetime import datetime
 
 import pytest
 
+from metrics_layer import MetricsLayerConnection
 from metrics_layer.core.exceptions import JoinError, QueryError
 from metrics_layer.core.model import Definitions
 from metrics_layer.core.sql.query_errors import ParseError
@@ -1248,6 +1249,69 @@ def test_query_with_or_filters_alternate_syntax(connection):
                                     "field": "order_lines.total_item_revenue",
                                     "expression": "less_than",
                                     "value": 200.0,
+                                },
+                            ],
+                            "logical_operator": "AND",
+                        },
+                    ],
+                    "logical_operator": "OR",
+                }
+            },
+        ],
+    )
+
+    correct = (
+        "SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) as"
+        " order_lines_total_item_revenue FROM analytics.order_line_items order_lines LEFT JOIN"
+        " analytics.customers customers ON order_lines.customer_id=customers.customer_id WHERE"
+        " customers.gender IN ('M') AND DATE_TRUNC('DAY', order_lines.order_date)>='2024-01-01T00:00:00' AND"
+        " DATE_TRUNC('DAY', order_lines.order_date)<='2024-12-31T23:59:59' GROUP BY order_lines.sales_channel"
+        " HAVING SUM(order_lines.revenue)>=100.0 AND SUM(order_lines.revenue)<=200.0 AND"
+        " (SUM(order_lines.revenue)>100.0 OR SUM(order_lines.revenue)<200.0 OR"
+        " (SUM(order_lines.revenue)>100.0 AND SUM(order_lines.revenue)<200.0)) ORDER BY"
+        " order_lines_total_item_revenue DESC NULLS LAST;"
+    )
+    assert query == correct
+
+
+# TODO DELETE BEFORE MERGE
+@pytest.mark.queryy
+def test_query_with_or_filters_alternate_syntaxx(connection):
+    connection = MetricsLayerConnection("/Users/pb/src/data_models/demo-data-model")
+    connection.load()
+
+    query = connection.get_sql_query(
+        query_type="SNOWFLAKE",
+        metrics=["number_of_orders"],
+        dimensions=[],
+        where=[
+            {"field": "date", "expression": "greater_or_equal_than", "value": datetime(2024, 1, 1, 0, 0)},
+            {
+                "field": "date",
+                "expression": "less_or_equal_than",
+                "value": datetime(2024, 12, 31, 23, 59, 59),
+            },
+        ],
+        having=[
+            {
+                "conditional_filter_logic": {
+                    "conditions": [
+                        {
+                            "field": "order_lines.total_net_revenue",
+                            "expression": "less_than",
+                            "value": 5,
+                        },
+                        {
+                            "field": "order_lines.total_gross_revenue",
+                            "expression": "greater_than",
+                            "value": 6,
+                        },
+                        {
+                            "conditions": [
+                                {
+                                    "field": "roas",
+                                    "expression": "greater_than",
+                                    "value": 1,
                                 },
                             ],
                             "logical_operator": "AND",
