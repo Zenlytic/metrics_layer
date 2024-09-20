@@ -1,3 +1,5 @@
+import datetime
+
 import pytest
 
 from metrics_layer.core.model.definitions import Definitions
@@ -183,5 +185,38 @@ def test_query_number_with_sql(connection, query_type):
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
         f"GROUP BY {'order_lines.sales_channel' if query_type != Definitions.bigquery else 'order_lines_channel'}"  # noqa
         f"{order_by};"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_with_corrected_no_symm_agg_triggered(connection):
+    query = connection.get_sql_query(
+        metrics=["monthly_aggregates.count_new_employees"],
+        dimensions=["monthly_aggregates.division"],
+        where=[
+            {
+                "field": "date",
+                "expression": "greater_or_equal_than",
+                "value": datetime.datetime(2024, 1, 5, 0, 0),
+            },
+            {
+                "field": "date",
+                "expression": "less_or_equal_than",
+                "value": datetime.datetime(2024, 10, 5, 0, 0),
+            },
+        ],
+        order_by=[{"field": "monthly_aggregates.division", "sort": "asc"}],
+        limit=25,
+    )
+
+    # This, correctly, does not apply a symmetric aggregate
+    correct = (
+        "SELECT monthly_aggregates.division as"
+        " monthly_aggregates_division,COUNT(monthly_aggregates.n_new_employees) as"
+        " monthly_aggregates_count_new_employees FROM analytics.monthly_rollup monthly_aggregates WHERE"
+        " DATE_TRUNC('DAY', monthly_aggregates.record_date)>='2024-01-05T00:00:00' AND DATE_TRUNC('DAY',"
+        " monthly_aggregates.record_date)<='2024-10-05T00:00:00' GROUP BY monthly_aggregates.division ORDER"
+        " BY monthly_aggregates_division ASC NULLS LAST LIMIT 25;"
     )
     assert query == correct

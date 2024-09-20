@@ -192,7 +192,7 @@ class View(MetricsLayerBase, SQLReplacement):
 
     @property
     def primary_key(self):
-        return next((f for f in self.fields() if f.primary_key), None)
+        return next((f for f in self.fields(expand_dimension_groups=True) if f.primary_key), None)
 
     def _error(self, element, error, extra: dict = {}):
         line, column = self.line_col(element)
