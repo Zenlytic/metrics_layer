@@ -648,7 +648,7 @@ def test_query_merged_queries_invalid_where_post_merge(connection):
     assert isinstance(exc_info.value, QueryError)
     assert (
         str(exc_info.value)
-        == "Field orders.NEW_VS_REPEAT is not present in either source query, so it cannot be applied as a"
+        == "Field orders.new_vs_repeat is not present in either source query, so it cannot be applied as a"
         " filter. Please add it to one of the source queries."
     )
 
@@ -670,7 +670,7 @@ def test_query_merged_queries_invalid_having_post_merge(connection):
     assert isinstance(exc_info.value, QueryError)
     assert (
         str(exc_info.value)
-        == "Field order_lines.TOTAL_ITEM_COSTS is not present in either source query, so it cannot be applied"
+        == "Field order_lines.total_item_costs is not present in either source query, so it cannot be applied"
         " as a filter. Please add it to one of the source queries."
     )
 
@@ -691,7 +691,7 @@ def test_query_merged_queries_invalid_order_by_post_merge(connection):
     assert isinstance(exc_info.value, QueryError)
     assert (
         str(exc_info.value)
-        == "Field order_lines.TOTAL_ITEM_COSTS is not present in either source query, so it cannot be applied"
+        == "Field order_lines.total_item_costs is not present in either source query, so it cannot be applied"
         " as a filter. Please add it to one of the source queries."
     )
 
