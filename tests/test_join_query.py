@@ -1274,17 +1274,44 @@ def test_query_with_or_filters_alternate_syntax(connection):
     assert query == correct
 
 
-# TODO DELETE BEFORE MERGE
-@pytest.mark.queryy
-def test_query_with_or_filters_alternate_syntaxx(connection):
-    connection = MetricsLayerConnection("/Users/pb/src/data_models/demo-data-model")
-    connection.load()
-
+@pytest.mark.query
+def test_query_with_or_filters_alternate_syntax_merged_result(connection):
     query = connection.get_sql_query(
-        query_type="SNOWFLAKE",
-        metrics=["number_of_orders"],
-        dimensions=[],
+        metrics=["total_item_revenue"],
+        dimensions=["date"],
         where=[
+            {
+                "conditional_filter_logic": {
+                    "conditions": [
+                        {
+                            "field": "orders.campaign",
+                            "expression": "equal_to",
+                            "value": "Email",
+                        },
+                        {
+                            "field": "orders.sub_channel",
+                            "expression": "isin",
+                            "value": ["FB", "TikTok"],
+                        },
+                        {
+                            "conditions": [
+                                {
+                                    "field": "orders.sub_channel",
+                                    "expression": "equal_to",
+                                    "value": "Snap",
+                                },
+                                {
+                                    "field": "customers.gender",
+                                    "expression": "equal_to",
+                                    "value": "M",
+                                },
+                            ],
+                            "logical_operator": "AND",
+                        },
+                    ],
+                    "logical_operator": "OR",
+                }
+            },
             {"field": "date", "expression": "greater_or_equal_than", "value": datetime(2024, 1, 1, 0, 0)},
             {
                 "field": "date",
@@ -1294,24 +1321,86 @@ def test_query_with_or_filters_alternate_syntaxx(connection):
         ],
         having=[
             {
+                "field": "costs_per_session",
+                "expression": "greater_than",
+                "value": 1,
+            },
+        ],
+    )
+
+    correct = (
+        "WITH order_lines_order__cte_subquery_0 AS (SELECT DATE_TRUNC('DAY', order_lines.order_date) as"
+        " order_lines_order_date,SUM(case when order_lines.product_name='Portable Charger' and"
+        " order_lines.product_name IN ('Portable Charger','Dual Charger') and orders.revenue * 100>100 then"
+        " order_lines.item_costs end) as order_lines_total_item_costs,COUNT(case when"
+        " order_lines.sales_channel='Email' then order_lines.order_id end) as"
+        " order_lines_number_of_email_purchased_items,SUM(order_lines.revenue) as"
+        " order_lines_total_item_revenue FROM analytics.order_line_items order_lines LEFT JOIN"
+        " analytics.orders orders ON order_lines.order_unique_id=orders.id LEFT JOIN analytics.customers"
+        " customers ON order_lines.customer_id=customers.customer_id WHERE (orders.campaign='Email' OR"
+        " orders.sub_channel IN ('FB','TikTok') OR (orders.sub_channel='Snap' AND customers.gender='M')) AND"
+        " DATE_TRUNC('DAY', order_lines.order_date)>='2024-01-01T00:00:00' AND DATE_TRUNC('DAY',"
+        " order_lines.order_date)<='2024-12-31T23:59:59' GROUP BY DATE_TRUNC('DAY', order_lines.order_date)"
+        " ORDER BY order_lines_total_item_costs DESC NULLS LAST) ,sessions_session__cte_subquery_1 AS (SELECT"
+        " DATE_TRUNC('DAY', sessions.session_date) as sessions_session_date,COUNT(sessions.id) as"
+        " sessions_number_of_sessions FROM analytics.sessions sessions LEFT JOIN analytics.customers"
+        " customers ON sessions.customer_id=customers.customer_id WHERE (sessions.utm_campaign='Email' OR"
+        " sessions.utm_source IN ('FB','TikTok') OR (sessions.utm_source='Snap' AND customers.gender='M'))"
+        " AND DATE_TRUNC('DAY', sessions.session_date)>='2024-01-01T00:00:00' AND DATE_TRUNC('DAY',"
+        " sessions.session_date)<='2024-12-31T23:59:59' GROUP BY DATE_TRUNC('DAY', sessions.session_date)"
+        " ORDER BY sessions_number_of_sessions DESC NULLS LAST) SELECT"
+        " order_lines_order__cte_subquery_0.order_lines_total_item_costs as"
+        " order_lines_total_item_costs,order_lines_order__cte_subquery_0.order_lines_number_of_email_purchased_items"  # noqa
+        " as order_lines_number_of_email_purchased_items,order_lines_order__cte_subquery_0.order_lines_total_item_revenue"  # noqa
+        " as order_lines_total_item_revenue,sessions_session__cte_subquery_1.sessions_number_of_sessions as"
+        " sessions_number_of_sessions,ifnull(order_lines_order__cte_subquery_0.order_lines_order_date,"
+        " sessions_session__cte_subquery_1.sessions_session_date) as"
+        " order_lines_order_date,ifnull(sessions_session__cte_subquery_1.sessions_session_date,"
+        " order_lines_order__cte_subquery_0.order_lines_order_date) as"
+        " sessions_session_date,(order_lines_total_item_costs * order_lines_number_of_email_purchased_items)"
+        " / nullif(sessions_number_of_sessions, 0) as order_lines_costs_per_session FROM"
+        " order_lines_order__cte_subquery_0 FULL OUTER JOIN sessions_session__cte_subquery_1 ON"
+        " order_lines_order__cte_subquery_0.order_lines_order_date=sessions_session__cte_subquery_1.sessions_session_date"  # noqa
+        " WHERE order_lines_costs_per_session>1;"
+    )
+    assert query == correct
+
+
+# TODO DELETE BEFORE MERGE
+@pytest.mark.queryy
+def test_query_with_or_filters_alternate_syntaxx(connection):
+    connection = MetricsLayerConnection("/Users/pb/src/data_models/demo-data-model")
+    connection.load()
+
+    query = connection.get_sql_query(
+        query_type="SNOWFLAKE",
+        metrics=["number_of_orders"],
+        dimensions=["date"],
+        where=[
+            {
                 "conditional_filter_logic": {
                     "conditions": [
                         {
-                            "field": "order_lines.total_net_revenue",
-                            "expression": "less_than",
-                            "value": 5,
+                            "field": "order_lines.marketing_channel",
+                            "expression": "equal_to",
+                            "value": "Email",
                         },
                         {
-                            "field": "order_lines.total_gross_revenue",
-                            "expression": "greater_than",
-                            "value": 6,
+                            "field": "order_lines.marketing_channel",
+                            "expression": "isin",
+                            "value": ["Email", "Paid Social"],
                         },
                         {
                             "conditions": [
                                 {
-                                    "field": "roas",
-                                    "expression": "greater_than",
-                                    "value": 1,
+                                    "field": "order_lines.campaign",
+                                    "expression": "equal_to",
+                                    "value": "Campaign A",
+                                },
+                                {
+                                    "field": "order_lines.campaign",
+                                    "expression": "equal_to",
+                                    "value": "Campaign B",
                                 },
                             ],
                             "logical_operator": "AND",
@@ -1320,18 +1409,21 @@ def test_query_with_or_filters_alternate_syntaxx(connection):
                     "logical_operator": "OR",
                 }
             },
+            {"field": "date", "expression": "greater_or_equal_than", "value": datetime(2024, 1, 1, 0, 0)},
+            {
+                "field": "date",
+                "expression": "less_or_equal_than",
+                "value": datetime(2024, 12, 31, 23, 59, 59),
+            },
+        ],
+        having=[
+            {
+                "field": "cac",
+                "expression": "greater_than",
+                "value": 1,
+            },
         ],
     )
 
-    correct = (
-        "SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) as"
-        " order_lines_total_item_revenue FROM analytics.order_line_items order_lines LEFT JOIN"
-        " analytics.customers customers ON order_lines.customer_id=customers.customer_id WHERE"
-        " customers.gender IN ('M') AND DATE_TRUNC('DAY', order_lines.order_date)>='2024-01-01T00:00:00' AND"
-        " DATE_TRUNC('DAY', order_lines.order_date)<='2024-12-31T23:59:59' GROUP BY order_lines.sales_channel"
-        " HAVING SUM(order_lines.revenue)>=100.0 AND SUM(order_lines.revenue)<=200.0 AND"
-        " (SUM(order_lines.revenue)>100.0 OR SUM(order_lines.revenue)<200.0 OR"
-        " (SUM(order_lines.revenue)>100.0 AND SUM(order_lines.revenue)<200.0)) ORDER BY"
-        " order_lines_total_item_revenue DESC NULLS LAST;"
-    )
+    correct = ""
     assert query == correct

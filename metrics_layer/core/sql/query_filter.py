@@ -131,7 +131,8 @@ class MetricsLayerFilter(MetricsLayerBase):
             # If the value is a string, it might be a field reference.
             # If it is a field reference, we need to replace it with the actual
             # field's sql as a LiteralValue
-            if "value" in definition and isinstance(definition["value"], str):
+            # Note: it must be a fully qualified reference, so the '.' is required
+            if "value" in definition and isinstance(definition["value"], str) and "." in definition["value"]:
                 try:
                     value_field = self.design.get_field(definition["value"])
                     functional_pk = self.design.functional_pk()
