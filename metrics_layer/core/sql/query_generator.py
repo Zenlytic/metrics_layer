@@ -14,6 +14,7 @@ from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_dialect import NullSorting, query_lookup
 from metrics_layer.core.sql.query_errors import ArgumentError
 from metrics_layer.core.sql.query_filter import MetricsLayerFilter
+from metrics_layer.core.utils import flatten_filters
 
 
 class MetricsLayerQuery(MetricsLayerQueryBase):
@@ -80,7 +81,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         # them as CTE's for the appropriate filters
         self.non_additive_ctes = []
         metrics_in_select = definition.get("metrics", [])
-        metrics_in_having = [h.field.id() for h in self.having_filters if h.field]
+        metrics_in_having = [h["field"] for h in flatten_filters(having)]
         for metric in metrics_in_select + metrics_in_having:
             metric_field = self.design.get_field(metric)
             for ref_field in [metric_field] + metric_field.referenced_fields(metric_field.sql):
@@ -385,7 +386,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         field_lookup[non_additive_dimension.id()] = non_additive_dimension
 
         # We also need to make all fields in the where clause available to the query
-        for f in self.where:
+        for f in flatten_filters(self.where):
             field = self.design.get_field(f["field"])
             field_lookup[field.id()] = field
 

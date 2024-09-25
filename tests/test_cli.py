@@ -176,6 +176,8 @@ def test_cli_seed_metrics_layer(
                 Definitions.postgres,
                 Definitions.trino,
                 Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert social["sql"] == '${TABLE}."ON_SOCIAL_NETWORK"'
             else:
@@ -195,6 +197,8 @@ def test_cli_seed_metrics_layer(
                 Definitions.postgres,
                 Definitions.trino,
                 Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert acq_date["sql"] == '${TABLE}."ACQUISITION_DATE"'
             else:
@@ -231,6 +235,8 @@ def test_cli_seed_metrics_layer(
                 Definitions.postgres,
                 Definitions.trino,
                 Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert date["sql"] == '${TABLE}."ORDER_CREATED_AT"'
             else:
@@ -244,6 +250,8 @@ def test_cli_seed_metrics_layer(
                 Definitions.postgres,
                 Definitions.trino,
                 Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert new["sql"] == '${TABLE}."NEW_VS_REPEAT"'
             else:
@@ -257,6 +265,8 @@ def test_cli_seed_metrics_layer(
                 Definitions.postgres,
                 Definitions.trino,
                 Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert num["sql"] == '${TABLE}."REVENUE"'
             else:
@@ -307,6 +317,8 @@ def test_cli_seed_metrics_layer(
                 Definitions.postgres,
                 Definitions.trino,
                 Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert cross_sell["sql"] == '${TABLE}."@CRoSSell P-roduct:"'
             else:
@@ -344,6 +356,8 @@ def test_cli_seed_metrics_layer(
                 Definitions.postgres,
                 Definitions.trino,
                 Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert date["sql"] == '${TABLE}."SESSION_DATE"'
             else:
@@ -357,6 +371,8 @@ def test_cli_seed_metrics_layer(
                 Definitions.postgres,
                 Definitions.trino,
                 Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert pk["sql"] == '${TABLE}."SESSION_ID"'
             else:
@@ -370,6 +386,8 @@ def test_cli_seed_metrics_layer(
                 Definitions.postgres,
                 Definitions.trino,
                 Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert num["sql"] == '${TABLE}."CONVERSION"'
             else:
