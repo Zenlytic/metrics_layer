@@ -4,6 +4,7 @@ from metrics_layer.core.sql.query_cumulative_metric import CumulativeMetricsQuer
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_funnel import FunnelQuery
 from metrics_layer.core.sql.query_generator import MetricsLayerQuery
+from metrics_layer.core.utils import flatten_filters
 
 
 class SingleSQLQueryResolver:
@@ -232,21 +233,7 @@ class SingleSQLQueryResolver:
 
     @staticmethod
     def flatten_filters(filters: list):
-        flat_list = []
-
-        def recurse(filter_obj):
-            if isinstance(filter_obj, dict):
-                if "conditions" in filter_obj:
-                    for f in filter_obj["conditions"]:
-                        recurse(f)
-                else:
-                    flat_list.append(filter_obj)
-            elif isinstance(filter_obj, list):
-                for item in filter_obj:
-                    recurse(item)
-
-        recurse(filters)
-        return flat_list
+        return flatten_filters(filters)
 
     @staticmethod
     def _check_for_dict(conditions: list):
