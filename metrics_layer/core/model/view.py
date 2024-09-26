@@ -179,9 +179,20 @@ class View(MetricsLayerBase, SQLReplacement):
         attributes["number_of_fields"] = f'{len(attributes.get("fields", []))}'
         return {key: attributes.get(key) for key in to_print if attributes.get(key) is not None}
 
+    def is_affected_by_access_filters(self):
+        """This method checks if the view is affected by any access filters
+        the current user (set in the Project object) has on him/herself.
+        """
+        if self.access_filters:
+            for condition_set in self.access_filters:
+                user_attribute_value = condition_set["user_attribute"]
+                if self.project._user and self.project._user.get(user_attribute_value):
+                    return True
+        return False
+
     @property
     def primary_key(self):
-        return next((f for f in self.fields() if f.primary_key), None)
+        return next((f for f in self.fields(expand_dimension_groups=True) if f.primary_key), None)
 
     def _error(self, element, error, extra: dict = {}):
         line, column = self.line_col(element)
@@ -340,14 +351,23 @@ class View(MetricsLayerBase, SQLReplacement):
                             ),
                         )
                     )
-            except (AccessDeniedOrDoesNotExistException, QueryError):
+                # If the default date is not joinable to the view (or in the view itself),
+                # then we need to add an error
+                if field.view.name not in self.project.get_joinable_views(self.name) + [self.name]:
+                    errors.append(
+                        self._error(
+                            self._definition["default_date"],
+                            (
+                                f"Default date {self.default_date} in view {self.name} is not joinable to the"
+                                f" view {self.name}"
+                            ),
+                        )
+                    )
+            except (QueryError, AccessDeniedOrDoesNotExistException):
                 errors.append(
                     self._error(
                         self._definition["default_date"],
-                        (
-                            f"Default date {self.default_date} in view {self.name} is not joinable to the"
-                            f" view {self.name}"
-                        ),
+                        f"Default date {self.default_date} in view {self.name} does not exist.",
                     )
                 )
 
@@ -452,7 +472,7 @@ class View(MetricsLayerBase, SQLReplacement):
                     errors.append(
                         self._error(
                             self._definition["access_filters"],
-                            f"Access filter in view {self.name} is missing the required field property",
+                            f"Access filter in view {self.name} is missing the required property: 'field'",
                         )
                     )
                 elif "field" in f:

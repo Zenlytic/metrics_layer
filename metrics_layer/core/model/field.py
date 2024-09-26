@@ -1317,7 +1317,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "fiscal_quarter_of_year": lambda s, qt: (
                     f"EXTRACT(QUARTER FROM {self._fiscal_offset_to_timestamp(s, qt)})"
                 ),
-                "hour_of_day": lambda s, qt: f"CAST({s} AS STRING FORMAT 'HH24')",
+                "hour_of_day": lambda s, qt: f"CAST(CAST({s} AS STRING FORMAT 'HH24') AS INT64)",
                 "day_of_week": lambda s, qt: f"CAST({s} AS STRING FORMAT 'DAY')",
                 "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM {s})",
                 "day_of_year": lambda s, qt: f"EXTRACT(DAYOFYEAR FROM {s})",

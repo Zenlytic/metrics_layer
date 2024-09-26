@@ -672,3 +672,80 @@ def test_mrr_non_additive_dimension_merged_result_sub_join_where(connection):
         " mrr_record__cte_subquery_0.mrr_record_date=z_customer_accounts_created__cte_subquery_1.z_customer_accounts_created_date;"  # noqa
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_mrr_non_additive_dimension_or_filters_with_select(connection):
+    query = connection.get_sql_query(
+        metrics=["mrr.mrr_end_of_month"],
+        dimensions=[],
+        where=[
+            {
+                "conditional_filter_logic": {
+                    "conditions": [
+                        {"field": "mrr.plan_name", "expression": "equal_to", "value": "Enterprise"}
+                    ],
+                    "logical_operator": "AND",
+                }
+            },
+        ],
+        having=[
+            {
+                "conditional_filter_logic": {
+                    "conditions": [
+                        {"field": "number_of_billed_accounts", "expression": "greater_than", "value": 1100}
+                    ],
+                    "logical_operator": "AND",
+                }
+            }
+        ],
+    )
+
+    correct = (
+        "WITH cte_mrr_end_of_month_record_raw AS (SELECT MAX(mrr.record_date) as mrr_max_record_raw FROM"
+        " analytics.mrr_by_customer mrr WHERE mrr.plan_name='Enterprise' ORDER BY mrr_max_record_raw DESC"
+        " NULLS LAST) SELECT SUM(case when mrr.record_date=cte_mrr_end_of_month_record_raw.mrr_max_record_raw"
+        " then mrr.mrr else 0 end) as mrr_mrr_end_of_month FROM analytics.mrr_by_customer mrr LEFT JOIN"
+        " cte_mrr_end_of_month_record_raw ON 1=1 WHERE mrr.plan_name='Enterprise' HAVING"
+        " COUNT(mrr.parent_account_id)>1100 ORDER BY mrr_mrr_end_of_month DESC NULLS LAST;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_mrr_non_additive_dimension_or_filters(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_billed_accounts"],
+        dimensions=[],
+        where=[
+            {
+                "conditional_filter_logic": {
+                    "conditions": [
+                        {"field": "mrr.plan_name", "expression": "equal_to", "value": "Enterprise"}
+                    ],
+                    "logical_operator": "AND",
+                }
+            },
+        ],
+        having=[
+            {
+                "conditional_filter_logic": {
+                    "conditions": [
+                        {"field": "mrr.mrr_end_of_month", "expression": "greater_than", "value": 1100}
+                    ],
+                    "logical_operator": "AND",
+                }
+            }
+        ],
+    )
+
+    correct = (
+        "WITH cte_mrr_end_of_month_record_raw AS (SELECT MAX(mrr.record_date) as mrr_max_record_raw FROM"
+        " analytics.mrr_by_customer mrr WHERE mrr.plan_name='Enterprise' ORDER BY mrr_max_record_raw DESC"
+        " NULLS LAST) SELECT COUNT(mrr.parent_account_id) as mrr_number_of_billed_accounts FROM"
+        " analytics.mrr_by_customer mrr LEFT JOIN cte_mrr_end_of_month_record_raw ON 1=1 WHERE"
+        " mrr.plan_name='Enterprise' HAVING SUM(case when"
+        " mrr.record_date=cte_mrr_end_of_month_record_raw.mrr_max_record_raw then mrr.mrr else 0 end)>1100"
+        " ORDER BY mrr_number_of_billed_accounts DESC NULLS LAST;"
+    )
+    assert query == correct

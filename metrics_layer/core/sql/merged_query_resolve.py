@@ -125,7 +125,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
 
         secondary_metric_ids = [m.id() for m in self.secondary_metrics]
         merged_metric_ids = [m.id() for m in self.merged_metrics]
-        for h in self.having:
+        for h in self.flatten_filters(self.having):
             field = self.project.get_field(h["field"])
             if field.id() not in secondary_metric_ids and not field.is_merged_result:
                 self.secondary_metrics.append(field)
@@ -256,42 +256,10 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         keys = list(self.query_metrics.keys()) + list(self.query_dimensions.keys())
         unique_keys = sorted(list(set(keys)), key=lambda x: keys.index(x))
         self.query_where = defaultdict(list)
-        for where in self.where:
-            metric_canon_dates = {f.canon_date for v in self.query_metrics.values() for f in v}
-            field = self.project.get_field(where["field"])
-            is_canon_date = any(f"{field.view.name}.{field.name}" == d for d in metric_canon_dates)
-            dimension_group = field.dimension_group
-            join_group_hash = self._join_hash_key(field)
-            added_filter = {join_hash: False for join_hash in unique_keys}
-            for join_hash in unique_keys:
-                join_hash_with_canon_date = f"{field.view.name}_{field.name}__{join_group_hash}"
-                joinable_graphs = join_hash.split("__")[-1]
-                # The field is joinable if the subquery is the same as one in the main join hash's subquery
-                joinable_subqueries = [
-                    f"subquery{g}".strip("_") for g in joinable_graphs.split("subquery") if g != ""
-                ]
-                joinable_not_canon_date = not is_canon_date and join_group_hash in joinable_subqueries
-                is_canon_date_same = is_canon_date and join_hash_with_canon_date in join_hash
-                if joinable_not_canon_date or is_canon_date_same:
-                    self.query_where[join_hash].append(where)
-                    added_filter[join_hash] = True
-                else:
-                    key = f"{field.view.name}.{field.name}"
-                    for mapping_info in dimension_mapping[key]:
-                        if mapping_info["from_join_hash"] == join_hash:
-                            if dimension_group:
-                                key = f"{mapping_info['field']}_{dimension_group}"
-                            else:
-                                key = mapping_info["field"]
-                            ref_field = self.project.get_field(key)
-                            mapped_where = deepcopy(where)
-                            mapped_where["field"] = ref_field.id()
-                            self.query_where[join_hash].append(mapped_where)
-                            added_filter[join_hash] = True
-            # This handles the case where the where field is joined in and not in a mapping
-            for join_hash in self.query_metrics.keys():
-                if not added_filter[join_hash]:
-                    self.query_where[join_hash].append(where)
+        for join_hash in unique_keys:
+            for where in self.where:
+                resolved_where = self._parse_where_filter(where, dimension_mapping, join_hash)
+                self.query_where[join_hash].append(resolved_where)
 
         clean_wheres = defaultdict(list)
         for k, v in self.query_where.items():
@@ -304,6 +272,50 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             sorted_hashes = sorted(list(set(hashes)), key=lambda x: hashes.index(x))
             clean_wheres[k] = [lookup[h] for h in sorted_hashes]
         self.query_where = clean_wheres
+
+    def _parse_where_filter(self, where_filter, dimension_mapping, join_hash):
+        def recurse(filter_obj):
+            if isinstance(filter_obj, dict):
+                if "conditions" in filter_obj:
+                    return {**filter_obj, "conditions": [recurse(f) for f in filter_obj["conditions"]]}
+
+                else:
+                    return self._resolve_where_mapped_filter(filter_obj, dimension_mapping, join_hash)
+
+        return recurse(where_filter)
+
+    def _resolve_where_mapped_filter(self, where_filter_object, dimension_mapping, join_hash):
+        metric_canon_dates = {f.canon_date for v in self.query_metrics.values() for f in v}
+        field = self.project.get_field(where_filter_object["field"])
+        is_canon_date = any(f"{field.view.name}.{field.name}" == d for d in metric_canon_dates)
+        dimension_group = field.dimension_group
+        join_group_hash = self._join_hash_key(field)
+
+        join_hash_with_canon_date = f"{field.view.name}_{field.name}__{join_group_hash}"
+        joinable_graphs = join_hash.split("__")[-1]
+
+        # The field is joinable if the subquery is the same as one in the main join hash's subquery
+        joinable_subqueries = [
+            f"subquery{g}".strip("_") for g in joinable_graphs.split("subquery") if g != ""
+        ]
+        joinable_not_canon_date = not is_canon_date and join_group_hash in joinable_subqueries
+        is_canon_date_same = is_canon_date and join_hash_with_canon_date in join_hash
+        if joinable_not_canon_date or is_canon_date_same:
+            return where_filter_object
+        else:
+            key = f"{field.view.name}.{field.name}"
+            for mapping_info in dimension_mapping[key]:
+                if mapping_info["from_join_hash"] == join_hash:
+                    if dimension_group:
+                        key = f"{mapping_info['field']}_{dimension_group}"
+                    else:
+                        key = mapping_info["field"]
+                    ref_field = self.project.get_field(key)
+                    mapped_where = deepcopy(where_filter_object)
+                    mapped_where["field"] = ref_field.id()
+                    return mapped_where
+
+        return where_filter_object
 
     def _canon_date_mapping(self):
         canon_dates, join_hashes = [], []

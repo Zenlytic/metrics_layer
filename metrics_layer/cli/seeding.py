@@ -374,6 +374,8 @@ class SeedMetricsLayer:
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 column_name = '"' + row["COLUMN_NAME"] + '"'
             else:

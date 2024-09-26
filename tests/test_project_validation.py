@@ -613,8 +613,13 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
         ),
         (
             "default_date",
+            "sessions.session",
+            ["Default date sessions.session in view order_lines is not joinable to the view order_lines"],
+        ),
+        (
+            "default_date",
             "fake",
-            ["Default date fake in view order_lines is not joinable to the view order_lines"],
+            ["Default date fake in view order_lines does not exist."],
         ),
         ("row_label", None, ["The row_label property, None must be a string in the view order_lines"]),
         ("row_label", "Hello", []),
@@ -688,7 +693,7 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
             "access_filters",
             [{"name": "test"}],
             [
-                "Access filter in view order_lines is missing the required field property",
+                "Access filter in view order_lines is missing the required property: 'field'",
                 "Access filter in view order_lines is missing the required user_attribute property",
             ],
         ),

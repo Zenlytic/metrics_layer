@@ -42,7 +42,8 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         always_where = self._apply_always_filter(metrics + dimensions)
         if always_where:
             self.where.extend(always_where)
-        self.having = having
+        self.where = self._clean_conditional_filter_syntax(self.where)
+        self.having = self._clean_conditional_filter_syntax(having)
         self.order_by = order_by
         self.kwargs = kwargs
         self.connection = self._get_connection(self.model.connection)
@@ -392,7 +393,17 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         if self._is_literal(where):
             return where.replace(to_replace, field.id())
         else:
-            return [{**w, "field": field.id()} if w["field"] == to_replace else w for w in where]
+            result = []
+            for w in where:
+                if "field" in w and w["field"] == to_replace:
+                    result.append({**w, "field": field.id()})
+                elif "field" not in w and "conditions" in w:
+                    result.append(
+                        {**w, "conditions": self._replace_dict_or_literal(w["conditions"], to_replace, field)}
+                    )
+                else:
+                    result.append(w)
+            return result
 
     def _get_model_for_query(self, model_name: str = None, metrics: list = [], dimensions: list = []):
         models = self.project.models()
@@ -487,6 +498,22 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                 seen.add(hashable_filter)
                 cleaned_filters.append(f)
         return cleaned_filters
+
+    def _clean_conditional_filter_syntax(self, filters: Union[str, None, List]):
+        if not filters or isinstance(filters, str):
+            return filters
+        if isinstance(filters, dict):
+            return [filters]
+
+        def process_filter(filter_obj):
+            if isinstance(filter_obj, dict):
+                if "conditional_filter_logic" in filter_obj:
+                    return filter_obj["conditional_filter_logic"]
+                elif "conditions" in filter_obj:
+                    filter_obj["conditions"] = [process_filter(cond) for cond in filter_obj["conditions"]]
+            return filter_obj
+
+        return [process_filter(filter_obj) for filter_obj in filters]
 
     def _get_connection_schema(self, connection):
         if connection is not None:
