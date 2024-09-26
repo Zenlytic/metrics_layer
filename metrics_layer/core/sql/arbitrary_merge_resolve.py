@@ -37,6 +37,7 @@ class ArbitraryMergedQueryResolver(SingleSQLQueryResolver):
         self.project = project
         self.connections = connections
         self.connection = None
+        self.model = None
         # All queries are merged queries (obviously)
         self.query_kind = QueryKindTypes.merged
         self.kwargs = kwargs
@@ -76,6 +77,7 @@ class ArbitraryMergedQueryResolver(SingleSQLQueryResolver):
             )
 
         mapping_lookup = self._mapping_lookup
+        self.model = resolver.model
         clean_where = [{**w, "field": mapping_lookup.get(w["field"].lower(), w["field"])} for w in self.where]
         clean_having = [
             {**h, "field": mapping_lookup.get(h["field"].lower(), h["field"])} for h in self.having

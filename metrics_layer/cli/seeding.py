@@ -266,8 +266,13 @@ class SeedMetricsLayer:
             dumper.dump_yaml_file(project_data, zenlytic_project_path)
 
     def get_model_name(self, current_models: list):
-        if len(current_models) > 0:
+        if len(current_models) == 1:
             return current_models[0].name
+        elif len(current_models) > 1:
+            for model in current_models:
+                if self.connection and model.connection == self.connection.name:
+                    return model.name
+            raise ValueError("Multiple models found, but none match the connection name")
         return self.default_model_name
 
     def make_models(self):

@@ -2778,8 +2778,14 @@ class Field(MetricsLayerBase, SQLReplacement):
             return base
 
         edges = self.view.project.join_graph.merged_results_graph(self.view.model).in_edges(self.id())
-        extended = [f"merged_result_{mr}" for mr, _ in edges]
+        extended = self._wrap_with_model_name([f"merged_result_{mr}" for mr, _ in edges])
 
         if self.loses_join_ability_with_other_views():
             return extended
         return list(sorted(base + extended))
+
+    def _wrap_with_model_name(self, join_graphs: list):
+        if len(models := self.view.project.models()) > 1:
+            model_index = [m.name for m in models].index(self.view.model.name)
+            return [f"m{model_index}_{jg}" for jg in join_graphs]
+        return join_graphs
