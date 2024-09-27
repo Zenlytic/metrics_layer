@@ -45,6 +45,7 @@ fields:
     type: string
     sql: '${TABLE}.region'
     searchable: true
+    geographic_role: country
 
   - name: gender
     field_type: 'dimension'
