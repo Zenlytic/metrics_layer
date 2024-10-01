@@ -1,6 +1,7 @@
 import datetime
 from typing import Dict
 
+import pandas as pd
 from pypika import Criterion, Field, Table
 from pypika.terms import LiteralValue
 
@@ -12,14 +13,16 @@ from metrics_layer.core.model.filter import (
     Filter,
     LiteralValueCriterion,
     MetricsLayerFilterExpressionType,
+    MetricsLayerFilterGroupLogicalOperatorType,
 )
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_errors import ParseError
 
 
-def bigquery_cast(field, value):
-    cast_func = field.datatype.upper()
-    return LiteralValue(f"{cast_func}('{value}')")
+def datatype_cast(field, value):
+    if field.datatype.upper() == "DATE":
+        return LiteralValue(f"CAST(CAST('{value}' AS TIMESTAMP) AS DATE)")
+    return LiteralValue(f"CAST('{value}' AS {field.datatype.upper()})")
 
 
 class FunnelFilterTypes:
@@ -36,13 +39,17 @@ class MetricsLayerFilter(MetricsLayerBase):
     """
 
     def __init__(
-        self, definition: Dict = {}, design: MetricsLayerDesign = None, filter_type: str = None
+        self, definition: Dict = {}, design: MetricsLayerDesign = None, filter_type: str = None, project=None
     ) -> None:
         # The design is used for filters in queries against specific designs
         #  to validate that all the tables and attributes (columns/aggregates)
         #  are properly defined in the design
         self.design = design
+        self.project = project
         self.is_literal_filter = "literal" in definition
+        # This is a filter with parenthesis like (XYZ or ABC)
+        self.is_filter_group = "conditions" in definition
+
         if self.design:
             self.query_type = self.design.query_type
         else:
@@ -52,10 +59,14 @@ class MetricsLayerFilter(MetricsLayerBase):
 
         self.validate(definition)
 
-        if not self.is_literal_filter:
+        if not self.is_literal_filter and not self.is_filter_group:
             self.expression_type = MetricsLayerFilterExpressionType.parse(definition["expression"])
 
         super().__init__(definition)
+
+    @property
+    def conditions(self):
+        return self._definition.get("conditions", [])
 
     @property
     def is_group_by(self):
@@ -71,6 +82,22 @@ class MetricsLayerFilter(MetricsLayerBase):
         """
         key = definition.get("field", None)
         filter_literal = definition.get("literal", None)
+        filter_group_conditions = definition.get("conditions", None)
+
+        if filter_group_conditions:
+            for f in filter_group_conditions:
+                f["query_type"] = self.query_type
+                MetricsLayerFilter(f, self.design, self.filter_type)
+
+            if (
+                "logical_operator" in definition
+                and definition["logical_operator"] not in MetricsLayerFilterGroupLogicalOperatorType.options
+            ):
+                raise ParseError(
+                    f"Filter group '{definition}' needs a valid logical operator. Options are:"
+                    f" {MetricsLayerFilterGroupLogicalOperatorType.options}"
+                )
+            return
 
         is_boolean_value = str(definition.get("value")).lower() == "true" and key is None
         if is_boolean_value:
@@ -105,7 +132,8 @@ class MetricsLayerFilter(MetricsLayerBase):
             # If the value is a string, it might be a field reference.
             # If it is a field reference, we need to replace it with the actual
             # field's sql as a LiteralValue
-            if "value" in definition and isinstance(definition["value"], str):
+            # Note: it must be a fully qualified reference, so the '.' is required
+            if "value" in definition and isinstance(definition["value"], str) and "." in definition["value"]:
                 try:
                     value_field = self.design.get_field(definition["value"])
                     functional_pk = self.design.functional_pk()
@@ -113,10 +141,10 @@ class MetricsLayerFilter(MetricsLayerBase):
                 except Exception:
                     pass
 
-            if self.design.query_type == Definitions.bigquery and isinstance(
+            if self.design.query_type in Definitions.needs_datetime_cast and isinstance(
                 definition["value"], datetime.datetime
             ):
-                definition["value"] = bigquery_cast(self.field, definition["value"])
+                definition["value"] = datatype_cast(self.field, definition["value"])
 
             if self.field.type == "yesno" and "False" in str(definition["value"]):
                 definition["expression"] = "boolean_false"
@@ -124,12 +152,76 @@ class MetricsLayerFilter(MetricsLayerBase):
             if self.field.type == "yesno" and "True" in str(definition["value"]):
                 definition["expression"] = "boolean_true"
 
-    def sql_query(self):
+    def group_sql_query(
+        self,
+        functional_pk: str,
+        alias_query: bool = False,
+        cte_alias_lookup: dict = {},
+        raise_if_not_in_lookup: bool = False,
+    ):
+        pypika_conditions = []
+        for condition in self.conditions:
+            condition_object = MetricsLayerFilter(condition, self.design, self.filter_type, self.project)
+            if condition_object.is_filter_group:
+                pypika_conditions.append(
+                    condition_object.group_sql_query(
+                        functional_pk,
+                        alias_query,
+                        cte_alias_lookup=cte_alias_lookup,
+                        raise_if_not_in_lookup=raise_if_not_in_lookup,
+                    )
+                )
+            elif alias_query:
+                if self.project is None:
+                    raise ValueError("Project is not set, but it is required for an alias_query")
+                field_alias = self._handle_cte_alias_replacement(
+                    condition_object.field, cte_alias_lookup, raise_if_not_in_lookup
+                )
+                pypika_conditions.append(condition_object.criterion(field_alias))
+            else:
+                pypika_conditions.append(
+                    condition_object.criterion(
+                        condition_object.field.sql_query(self.query_type, functional_pk)
+                    )
+                )
+        if self.logical_operator == MetricsLayerFilterGroupLogicalOperatorType.or_:
+            return Criterion.any(pypika_conditions)
+        if (
+            self.logical_operator is None
+            or self.logical_operator == MetricsLayerFilterGroupLogicalOperatorType.and_
+        ):
+            return Criterion.all(pypika_conditions)
+        raise ParseError(f"Invalid logical operator: {self.logical_operator}")
+
+    def sql_query(
+        self, alias_query: bool = False, cte_alias_lookup: dict = {}, raise_if_not_in_lookup: bool = False
+    ):
         if self.is_literal_filter:
             return LiteralValueCriterion(self.replace_fields_literal_filter())
-        functional_pk = self.design.functional_pk()
 
+        if alias_query and self.is_filter_group:
+            return self.group_sql_query("NA", alias_query, cte_alias_lookup, raise_if_not_in_lookup)
+        elif alias_query:
+            field_alias = self._handle_cte_alias_replacement(
+                self.field, cte_alias_lookup, raise_if_not_in_lookup
+            )
+            return self.criterion(field_alias)
+
+        functional_pk = self.design.functional_pk()
+        if self.is_filter_group:
+            return self.group_sql_query(functional_pk)
         return self.criterion(self.field.sql_query(self.query_type, functional_pk))
+
+    def _handle_cte_alias_replacement(
+        self, field_id: str, cte_alias_lookup: dict, raise_if_not_in_lookup: bool
+    ):
+        field = self.project.get_field(field_id)
+        field_alias = field.alias(with_view=True)
+        if field_alias in cte_alias_lookup:
+            field_alias = f"{cte_alias_lookup[field_alias]}.{field_alias}"
+        elif raise_if_not_in_lookup:
+            self._raise_query_error_from_cte(field.id())
+        return field_alias
 
     def isin_sql_query(self, cte_alias, field_name, query_generator):
         group_by_field = self.design.get_field(field_name)
@@ -169,13 +261,17 @@ class MetricsLayerFilter(MetricsLayerBase):
                 "timezone": self.timezone,
             }
             for f in Filter(filter_dict).filter_dict():
-                if self.query_type == Definitions.bigquery:
-                    value = bigquery_cast(self.field, f["value"])
+                if self.query_type in Definitions.needs_datetime_cast:
+                    value = datatype_cast(self.field, f["value"])
                 else:
                     value = f["value"]
-                criteria.append(Filter.sql_query(field_sql, f["expression"], value))
+                criteria.append(Filter.sql_query(field_sql, f["expression"], value, self.field.type))
             return Criterion.all(criteria)
-        return Filter.sql_query(field_sql, self.expression_type, self.value)
+        if isinstance(self.field, MetricsLayerField):
+            field_datatype = self.field.type
+        else:
+            field_datatype = "unknown"
+        return Filter.sql_query(field_sql, self.expression_type, self.value, field_datatype)
 
     def consolidate_group_by_filter(self, filter_class_to_consolidate: "MetricsLayerFilter") -> None:
         """

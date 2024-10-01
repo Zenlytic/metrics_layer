@@ -1,3 +1,4 @@
+from collections import Counter, defaultdict
 from copy import deepcopy
 from typing import List, Union
 
@@ -41,7 +42,8 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         always_where = self._apply_always_filter(metrics + dimensions)
         if always_where:
             self.where.extend(always_where)
-        self.having = having
+        self.where = self._clean_conditional_filter_syntax(self.where)
+        self.having = self._clean_conditional_filter_syntax(having)
         self.order_by = order_by
         self.kwargs = kwargs
         self.connection = self._get_connection(self.model.connection)
@@ -212,17 +214,93 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                     )
                 self._replace_mapped_field(name, replace_with)
         else:
-            for i, (name, mapped_field) in enumerate(self.mapping_lookup.items()):
-                if i == 0:
+            # This is the scenario where we only have mappings and no other fields in the query
+
+            # First, we need to get all join graphs for all fields involved in the mappings.
+            # Since we have no "real" fields, we have no basis for required join graphs we
+            # must match, yet. This gives us the raw material to derive which join graphs
+            # overlap in the mappings.
+            check = defaultdict(list)
+            for name, mapped_field in self.mapping_lookup.items():
+                for field_id in mapped_field["fields"]:
+                    ref_field = self.project.get_field(field_id)
+                    check[name].append((field_id, ref_field.join_graphs()))
+
+            # Next, we iterate over all mappings and check if there is a valid join path
+            # between all fields in the mappings.
+            validity = defaultdict(dict)
+            # This is done my comparing a single mapping (name), then...
+            for name, field_info in check.items():
+                # Looking at all fields that are present in that mapping name, and
+                # comparing them to all other fields in all other mappings
+                for field_id, join_graphs in field_info:
+                    passed, points = 0, 0
+                    for other_name, other_field_info in check.items():
+                        if name != other_name:
+                            for other_field_id, other_join_graphs in other_field_info:
+                                if field_id != other_field_id:
+                                    # If the fields are joinable or mergeable, then we can form a
+                                    # valid query, and we can count them as 'passed'
+                                    if set(join_graphs).intersection(set(other_join_graphs)):
+                                        passed += 1
+                                        # It's not enough just to pass though. There are some things we prefer,
+                                        # when there is no solid direction on which fields to choose.
+
+                                        # 1. We prefer when fields are in the same view
+                                        points += (
+                                            1 if field_id.split(".")[0] == other_field_id.split(".")[0] else 0
+                                        )
+
+                                        # 2. We prefer when fields can be joined over when they can only be merged
+                                        joinable_first = [j for j in join_graphs if "merged_result" not in j]
+                                        joinable_second = [
+                                            j for j in other_join_graphs if "merged_result" not in j
+                                        ]
+                                        if set(joinable_first).intersection(set(joinable_second)):
+                                            points += 1
+                                        # Once we have determined a field pair is valid,
+                                        # we can stop checking other fields under that mapping name
+                                        break
+
+                    # If at least one field in each of the other mapping names has 'passed' the check,
+                    # then we can consider this mapping name as valid, and assign it the points
+                    if passed == len(check) - 1:
+                        validity[name][field_id] = points
+
+            # If this exists and we have more than one mapping present
+            if validity and len(self.mapping_lookup) > 1:
+                replaced_mapping = None
+                all_items = [
+                    (name, *item) for name, field_info in validity.items() for item in field_info.items()
+                ]
+                # Sort the mappings by points, and then by field_id (so it is consistent in
+                # the event fields have the same points), and replace the highest ranking one
+                # and set its join graphs as the active ones all other mappings must adhere to.
+                for name, field_id, points in sorted(all_items, key=lambda x: (x[-1], x[1]), reverse=True):
+                    replaced_mapping = name
+                    replace_with = self.project.get_field(field_id)
+                    self.field_lookup[name] = replace_with.join_graphs()
+                    break
+
+                self._replace_mapped_field(name, replace_with)
+            # In the event there is only one mapping, just pick the first field in the options
+            elif len(self.mapping_lookup) == 1:
+                for name, mapped_field in self.mapping_lookup.items():
+                    replaced_mapping = name
                     replace_with = self.project.get_field(mapped_field["fields"][0])
                     self.field_lookup[name] = replace_with.join_graphs()
-                else:
+                self._replace_mapped_field(name, replace_with)
+            else:
+                raise QueryError("No valid join path found for mapped fields")
+
+            for name, mapped_field in self.mapping_lookup.items():
+                if name != replaced_mapping:
                     mergeable_graphs, joinable_graphs = self._join_graphs_by_type(self.field_lookup)
                     self._handle_invalid_merged_result(mergeable_graphs, joinable_graphs)
                     replace_with = self.determine_field_to_replace_with(
                         mapped_field, joinable_graphs, mergeable_graphs
                     )
-                self._replace_mapped_field(name, replace_with)
+                    self._replace_mapped_field(name, replace_with)
 
     def _get_field_from_lookup(self, field_name: str, only_search_lookup: bool = False):
         if field_name in self.field_object_lookup:
@@ -315,7 +393,17 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         if self._is_literal(where):
             return where.replace(to_replace, field.id())
         else:
-            return [{**w, "field": field.id()} if w["field"] == to_replace else w for w in where]
+            result = []
+            for w in where:
+                if "field" in w and w["field"] == to_replace:
+                    result.append({**w, "field": field.id()})
+                elif "field" not in w and "conditions" in w:
+                    result.append(
+                        {**w, "conditions": self._replace_dict_or_literal(w["conditions"], to_replace, field)}
+                    )
+                else:
+                    result.append(w)
+            return result
 
     def _get_model_for_query(self, model_name: str = None, metrics: list = [], dimensions: list = []):
         models = self.project.models()
@@ -336,7 +424,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             return self._derive_model(metrics, dimensions)
 
     def _derive_model(self, metrics: list, dimensions: list):
-        all_model_names = []
+        all_model_names, mapping_model_names = [], []
         models = self.project.models()
         for f in metrics + dimensions:
             try:
@@ -346,18 +434,21 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                 for model in models:
                     try:
                         self.project.get_mapped_field(f, model=model)
-                        all_model_names.append(model.name)
-                        break
+                        mapping_model_names.append(model.name)
                     except Exception:
                         pass
 
         all_model_names = list(set(all_model_names))
-
-        if len(all_model_names) == 0:
+        if len(all_model_names) == 0 and len(mapping_model_names) > 0:
             # In a case that there are no models in the query, we'll just use the first model
             # in the project. This case should be limited to only mapping-only queries, so this is safe.
-            return self.project.models()[0]
-        elif len(all_model_names) == 1:
+            model_counts = Counter(mapping_model_names)
+            sorted_models = [m for m, _ in model_counts.most_common()]
+            return self.project.get_model(sorted_models[0])
+        elif len(all_model_names) == 1 and (
+            len(mapping_model_names) == 0
+            or (len(mapping_model_names) > 0 and all_model_names[0] in mapping_model_names)
+        ):
             return self.project.get_model(list(all_model_names)[0])
         else:
             raise QueryError(
@@ -407,6 +498,22 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                 seen.add(hashable_filter)
                 cleaned_filters.append(f)
         return cleaned_filters
+
+    def _clean_conditional_filter_syntax(self, filters: Union[str, None, List]):
+        if not filters or isinstance(filters, str):
+            return filters
+        if isinstance(filters, dict):
+            return [filters]
+
+        def process_filter(filter_obj):
+            if isinstance(filter_obj, dict):
+                if "conditional_filter_logic" in filter_obj:
+                    return filter_obj["conditional_filter_logic"]
+                elif "conditions" in filter_obj:
+                    filter_obj["conditions"] = [process_filter(cond) for cond in filter_obj["conditions"]]
+            return filter_obj
+
+        return [process_filter(filter_obj) for filter_obj in filters]
 
     def _get_connection_schema(self, connection):
         if connection is not None:

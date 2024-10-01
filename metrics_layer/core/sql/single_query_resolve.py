@@ -4,6 +4,7 @@ from metrics_layer.core.sql.query_cumulative_metric import CumulativeMetricsQuer
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_funnel import FunnelQuery
 from metrics_layer.core.sql.query_generator import MetricsLayerQuery
+from metrics_layer.core.utils import flatten_filters
 
 
 class SingleSQLQueryResolver:
@@ -58,7 +59,7 @@ class SingleSQLQueryResolver:
             "dimensions": self.dimensions,
             "funnel": self.funnel,
             "where": self.parse_where(self.where),
-            "having": self.having,
+            "having": self.parse_having(self.having),
             "order_by": self.order_by,
             "select_raw_sql": self.select_raw_sql,
             "limit": self.limit,
@@ -82,8 +83,8 @@ class SingleSQLQueryResolver:
                 query_definition, design=self.design, suppress_warnings=self.suppress_warnings
             )
 
-        # Druid does not allow semicolons
-        if self.query_type == Definitions.druid:
+        # If query type does not allow semicolons
+        if self.query_type in Definitions.no_semicolon_warehouses:
             semicolon = False
         query = query_generator.get_query(semicolon=semicolon)
 
@@ -110,8 +111,45 @@ class SingleSQLQueryResolver:
                 w["query_class"] = FunnelQuery(
                     funnel_query, design=self.design, suppress_warnings=self.suppress_warnings
                 )
+
+            if "conditions" in w:
+                conditions = w["conditions"]
+            else:
+                conditions = []
+            if conditions:
+                field_types = set(
+                    [self.field_lookup[f["field"]].field_type for f in self.flatten_filters(conditions)]
+                )
+                if "measure" in field_types and (
+                    "dimension" in field_types or "dimension_group" in field_types
+                ):
+                    raise QueryError(
+                        "Cannot mix dimensions and measures in a compound filter with a logical_operator"
+                    )
             where_with_query.append(w)
         return where_with_query
+
+    def parse_having(self, having: list):
+        if having is None or having == [] or self._is_literal(having):
+            return having
+        validated_having = []
+        for h in having:
+            if "conditions" in h:
+                conditions = h["conditions"]
+            else:
+                conditions = []
+            if conditions:
+                field_types = set(
+                    [self.field_lookup[f["field"]].field_type for f in self.flatten_filters(conditions)]
+                )
+                if "measure" in field_types and (
+                    "dimension" in field_types or "dimension_group" in field_types
+                ):
+                    raise QueryError(
+                        "Cannot mix dimensions and measures in a compound filter with a logical_operator"
+                    )
+            validated_having.append(h)
+        return validated_having
 
     def parse_input(self):
         all_field_names = self.metrics + self.dimensions
@@ -184,13 +222,18 @@ class SingleSQLQueryResolver:
 
     @staticmethod
     def parse_identifiers_from_dicts(conditions: list):
+        flattened_conditions = SingleSQLQueryResolver.flatten_filters(conditions)
         try:
-            return [cond["field"] for cond in conditions if "group_by" not in cond]
+            return [cond["field"] for cond in flattened_conditions if "group_by" not in cond]
         except KeyError:
             for cond in conditions:
                 if "field" not in cond:
                     break
             raise QueryError(f"Identifier was missing required 'field' key: {cond}")
+
+    @staticmethod
+    def flatten_filters(filters: list):
+        return flatten_filters(filters)
 
     @staticmethod
     def _check_for_dict(conditions: list):

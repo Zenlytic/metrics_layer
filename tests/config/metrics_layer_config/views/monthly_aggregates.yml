@@ -1,0 +1,26 @@
+version: 1
+type: view
+name: monthly_aggregates
+
+sql_table_name: analytics.monthly_rollup
+default_date: record
+model_name: test_model
+
+fields:
+  - name: record
+    field_type: 'dimension_group'
+    type: time
+    timeframes: [raw, time, date, week, month, quarter, year]
+    sql: '${TABLE}.record_date'
+    primary_key: yes
+
+  - name: division
+    field_type: 'dimension'
+    type: string
+    sql: '${TABLE}.division'
+    searchable: true
+
+  - name: count_new_employees
+    field_type: measure
+    type: count
+    sql: ${TABLE}.n_new_employees

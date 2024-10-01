@@ -613,8 +613,13 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
         ),
         (
             "default_date",
+            "sessions.session",
+            ["Default date sessions.session in view order_lines is not joinable to the view order_lines"],
+        ),
+        (
+            "default_date",
             "fake",
-            ["Default date fake in view order_lines is not joinable to the view order_lines"],
+            ["Default date fake in view order_lines does not exist."],
         ),
         ("row_label", None, ["The row_label property, None must be a string in the view order_lines"]),
         ("row_label", "Hello", []),
@@ -688,7 +693,7 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
             "access_filters",
             [{"name": "test"}],
             [
-                "Access filter in view order_lines is missing the required field property",
+                "Access filter in view order_lines is missing the required property: 'field'",
                 "Access filter in view order_lines is missing the required user_attribute property",
             ],
         ),
@@ -1097,11 +1102,20 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
                 "Third, this is a really long description aimed at testing the warning on the length of the"
                 " description, so I will keep writing more content to make sure I get to the maximum length"
                 " of the description and therefore test the total length max of the description."
+                "Fourth, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Fifth, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Sixth, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
             ),
             [
-                "View order_lines has a description that is too long. "
-                "Descriptions must be 512 characters or less. It will be truncated to the "
-                "first 512 characters."
+                "View order_lines has a description that is too long (1550 characters)."
+                " Descriptions must be 1024 characters or less. It will be truncated to the "
+                "first 1024 characters."
             ],
         ),
     ],
@@ -1313,7 +1327,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 "Valid value_format_names are: ['decimal_0', 'decimal_1', 'decimal_2', "
                 "'decimal_pct_0', 'decimal_pct_1', 'decimal_pct_2', 'percent_0', 'percent_1', "
                 "'percent_2', 'eur', 'eur_0', 'eur_1', 'eur_2', 'usd', 'usd_0', 'usd_1', "
-                "'usd_2', 'string']"
+                "'usd_2', 'string', 'image_from_url', 'date', 'week', 'month', 'quarter', 'year']"
             ],
         ),
         (
@@ -1325,7 +1339,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 "Valid value_format_names are: ['decimal_0', 'decimal_1', 'decimal_2', "
                 "'decimal_pct_0', 'decimal_pct_1', 'decimal_pct_2', 'percent_0', 'percent_1', "
                 "'percent_2', 'eur', 'eur_0', 'eur_1', 'eur_2', 'usd', 'usd_0', 'usd_1', "
-                "'usd_2', 'string']"
+                "'usd_2', 'string', 'image_from_url', 'date', 'week', 'month', 'quarter', 'year']"
             ],
         ),
         (
@@ -1626,7 +1640,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "total_item_costs",
             "sql",
             "${TABL}.mycol",
-            ["Could not locate reference tabl in field total_item_costs in view order_lines"],
+            [
+                "Could not locate reference tabl in field total_item_costs in view order_lines",
+                "Field total_item_costs in view order_lines contains invalid field reference tabl.",
+            ],
         ),
         ("total_item_costs", "sql", "${TABLE}.mycol", []),
         ("total_item_costs", "sql", "${order_date}", []),
@@ -1671,7 +1688,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "waiting",
             "sql_end",
             "${TABL}.mycol",
-            ["Could not locate reference tabl in field waiting in view order_lines"],
+            [
+                "Could not locate reference tabl in field waiting in view order_lines",
+                "Field waiting in view order_lines contains invalid field reference tabl.",
+            ],
         ),
         ("waiting", "sql_end", "${TABLE}.mycol", []),
         ("waiting", "sql_end", "${order_date}", []),
@@ -1855,6 +1875,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             [
                 "Could not locate reference order_lines.fake in field total_item_costs in view order_lines",
                 (
+                    "Field total_item_costs in view order_lines contains invalid field reference "
+                    "order_lines.fake."
+                ),
+                (
                     "Field total_item_costs in view order_lines has an invalid "
                     "non_additive_dimension. The field order_lines.fake referenced in "
                     "non_additive_dimension does not exist."
@@ -1913,6 +1937,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             {"name": "order_raw", "window_choice": "max", "window_groupings": ["fake"]},
             [
                 "Could not locate reference order_lines.fake in field total_item_costs in view order_lines",
+                (
+                    "Field total_item_costs in view order_lines contains invalid field reference "
+                    "order_lines.fake."
+                ),
                 (
                     "Field total_item_costs in view order_lines has an invalid "
                     "non_additive_dimension. The field order_lines.fake "
@@ -2128,6 +2156,15 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             ],
         ),
         (
+            "revenue_per_session",
+            "sql",
+            "${sessions.number_of_sess} * ${total_item_revenue} / nullif(${total_item_revenue}, 0)",
+            [
+                "Field revenue_per_session in view order_lines contains invalid field "
+                "reference sessions.number_of_sess."
+            ],
+        ),
+        (
             "parent_channel",
             "description",
             (
@@ -2142,9 +2179,9 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 " of the description and therefore test the total length max of the description."
             ),
             [
-                "Field parent_channel in view order_lines has a description that is too long. "
-                "Descriptions must be 512 characters or less. It will be truncated to the "
-                "first 512 characters."
+                "Field parent_channel in view order_lines has a description that is too long (772"
+                " characters). Descriptions must be 512 characters or less. It will be truncated to the first"
+                " 512 characters."
             ],
         ),
     ],

@@ -4,6 +4,15 @@ import pytest
 from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.exceptions import QueryError
 
+_NOW = pendulum.now("UTC")
+_THIS_YEAR = _NOW.end_of("year").diff(_NOW.start_of("year"))
+
+
+def _generate_dt_params():
+    yield pytest.param(_NOW, marks=pytest.mark.primary_dt)
+    for dt in _THIS_YEAR.range("days"):
+        yield pytest.param(dt, marks=pytest.mark.slow)
+
 
 def test_dashboard_located(connection):
     dash = connection.get_dashboard("sales_dashboard")
@@ -58,76 +67,80 @@ def test_dashboard_to_dict(connection):
     assert first_element["slice_by"] == ["orders.new_vs_repeat", "order_lines.product_name"]
 
 
-@pytest.mark.query
-def test_dashboard_filter_week_start(fresh_project):
-    date_format = "%Y-%m-%dT%H:%M:%S"
-    fresh_project._models[0]["week_start_day"] = "sunday"
-    connection = MetricsLayerConnection(project=fresh_project, connections=[])
-    dash = connection.get_dashboard("sales_dashboard")
+@pytest.mark.filters
+@pytest.mark.parametrize("dt", _generate_dt_params())
+def test_dashboard_filter_week_start(fresh_project, dt):
+    with pendulum.travel_to(dt):
+        date_format = "%Y-%m-%dT%H:%M:%S"
+        fresh_project._models[0]["week_start_day"] = "sunday"
+        connection = MetricsLayerConnection(project=fresh_project, connections=[])
+        dash = connection.get_dashboard("sales_dashboard")
 
-    raw_filter_dict = {"field": "orders.order_year", "value": "1 week"}
-    dash.filters = [raw_filter_dict]
-    dashboard_parsed_filters = dash.parsed_filters()
+        raw_filter_dict = {"field": "orders.order_year", "value": "1 week"}
+        dash.filters = [raw_filter_dict]
+        dashboard_parsed_filters = dash.parsed_filters()
 
-    last_element = dash.elements()[-1]
-    last_element.filters = [raw_filter_dict]
-    element_parsed_filters = last_element.parsed_filters()
+        last_element = dash.elements()[-1]
+        last_element.filters = [raw_filter_dict]
+        element_parsed_filters = last_element.parsed_filters()
 
-    pendulum.week_starts_at(pendulum.SUNDAY)
-    pendulum.week_ends_at(pendulum.SATURDAY)
-    start = pendulum.now("UTC").start_of("week").subtract(days=0).strftime(date_format)
-    end = pendulum.now("UTC").end_of("week").subtract(days=0).strftime(date_format)
-    pendulum.week_starts_at(pendulum.MONDAY)
-    pendulum.week_ends_at(pendulum.SUNDAY)
+        pendulum.week_starts_at(pendulum.SUNDAY)
+        pendulum.week_ends_at(pendulum.SATURDAY)
+        start = pendulum.now("UTC").start_of("week").subtract(days=0).strftime(date_format)
+        end = pendulum.now("UTC").end_of("week").subtract(days=0).strftime(date_format)
+        pendulum.week_starts_at(pendulum.MONDAY)
+        pendulum.week_ends_at(pendulum.SUNDAY)
 
-    correct = [
-        {"field": "orders.order_year", "value": start, "expression": "greater_or_equal_than"},
-        {"field": "orders.order_year", "value": end, "expression": "less_or_equal_than"},
-    ]
-    for parsed_filters in [dashboard_parsed_filters, element_parsed_filters]:
-        assert parsed_filters[0]["field"] == correct[0]["field"]
-        assert parsed_filters[0]["expression"].value == correct[0]["expression"]
-        assert parsed_filters[0]["value"] == correct[0]["value"]
-        assert parsed_filters[1]["field"] == correct[1]["field"]
-        assert parsed_filters[1]["expression"].value == correct[1]["expression"]
-        assert parsed_filters[1]["value"] == correct[1]["value"]
-
-
-@pytest.mark.query
-def test_dashboard_filter_timezone(fresh_project):
-    date_format = "%Y-%m-%dT%H:%M:%S"
-    fresh_project.set_timezone("Pacific/Apia")
-    connection = MetricsLayerConnection(project=fresh_project, connections=[])
-    dash = connection.get_dashboard("sales_dashboard")
-
-    raw_filter_dict = {"field": "orders.order_date", "value": "week to date"}
-    dash.filters = [raw_filter_dict]
-    dashboard_parsed_filters = dash.parsed_filters()
-
-    last_element = dash.elements()[-1]
-    last_element.filters = [raw_filter_dict]
-    element_parsed_filters = last_element.parsed_filters()
-
-    # These are 24 hours apart so this test should always fail if we get the wrong timezone
-    to_sub = 1 if pendulum.now("Pacific/Apia").day_of_week != 1 else 0
-    start = pendulum.now("Pacific/Apia").start_of("week").strftime(date_format)
-    end = pendulum.now("Pacific/Apia").subtract(days=to_sub).end_of("day").strftime(date_format)
-    wrong_end = pendulum.now("Pacific/Niue").subtract(days=to_sub).end_of("day").strftime(date_format)
-    correct = [
-        {"field": "orders.order_date", "value": start, "expression": "greater_or_equal_than"},
-        {"field": "orders.order_date", "value": end, "expression": "less_or_equal_than"},
-    ]
-    for parsed_filters in [dashboard_parsed_filters, element_parsed_filters]:
-        assert parsed_filters[0]["field"] == correct[0]["field"]
-        assert parsed_filters[0]["expression"].value == correct[0]["expression"]
-        assert parsed_filters[0]["value"] == correct[0]["value"]
-        assert parsed_filters[1]["field"] == correct[1]["field"]
-        assert parsed_filters[1]["expression"].value == correct[1]["expression"]
-        assert parsed_filters[1]["value"] == correct[1]["value"]
-        assert parsed_filters[1]["value"] != wrong_end
+        correct = [
+            {"field": "orders.order_year", "value": start, "expression": "greater_or_equal_than"},
+            {"field": "orders.order_year", "value": end, "expression": "less_or_equal_than"},
+        ]
+        for parsed_filters in [dashboard_parsed_filters, element_parsed_filters]:
+            assert parsed_filters[0]["field"] == correct[0]["field"]
+            assert parsed_filters[0]["expression"].value == correct[0]["expression"]
+            assert parsed_filters[0]["value"] == correct[0]["value"]
+            assert parsed_filters[1]["field"] == correct[1]["field"]
+            assert parsed_filters[1]["expression"].value == correct[1]["expression"]
+            assert parsed_filters[1]["value"] == correct[1]["value"]
 
 
-@pytest.mark.query
+@pytest.mark.filters
+@pytest.mark.parametrize("dt", _generate_dt_params())
+def test_dashboard_filter_timezone(fresh_project, dt):
+    with pendulum.travel_to(dt):
+        date_format = "%Y-%m-%dT%H:%M:%S"
+        fresh_project.set_timezone("Pacific/Apia")
+        connection = MetricsLayerConnection(project=fresh_project, connections=[])
+        dash = connection.get_dashboard("sales_dashboard")
+
+        raw_filter_dict = {"field": "orders.order_date", "value": "week to date"}
+        dash.filters = [raw_filter_dict]
+        dashboard_parsed_filters = dash.parsed_filters()
+
+        last_element = dash.elements()[-1]
+        last_element.filters = [raw_filter_dict]
+        element_parsed_filters = last_element.parsed_filters()
+
+        # These are 24 hours apart so this test should always fail if we get the wrong timezone
+        to_sub = 1 if pendulum.now("Pacific/Apia").day_of_week != 0 else 0
+        start = pendulum.now("Pacific/Apia").start_of("week").strftime(date_format)
+        end = pendulum.now("Pacific/Apia").subtract(days=to_sub).end_of("day").strftime(date_format)
+        wrong_end = pendulum.now("Pacific/Niue").subtract(days=to_sub).end_of("day").strftime(date_format)
+        correct = [
+            {"field": "orders.order_date", "value": start, "expression": "greater_or_equal_than"},
+            {"field": "orders.order_date", "value": end, "expression": "less_or_equal_than"},
+        ]
+        for parsed_filters in [dashboard_parsed_filters, element_parsed_filters]:
+            assert parsed_filters[0]["field"] == correct[0]["field"]
+            assert parsed_filters[0]["expression"].value == correct[0]["expression"]
+            assert parsed_filters[0]["value"] == correct[0]["value"]
+            assert parsed_filters[1]["field"] == correct[1]["field"]
+            assert parsed_filters[1]["expression"].value == correct[1]["expression"]
+            assert parsed_filters[1]["value"] == correct[1]["value"]
+            assert parsed_filters[1]["value"] != wrong_end
+
+
+@pytest.mark.filters
 @pytest.mark.parametrize(
     "raw_filter_dict",
     [
@@ -187,6 +200,8 @@ def test_dashboard_filter_timezone(fresh_project):
         {"field": "customers.gender", "value": "-Male, Female"},
     ],
 )
+# These tests took too long to run in CI, commenting out for now
+# @pytest.mark.parametrize("dt", _generate_dt_params())
 def test_dashboard_filter_processing(connection, raw_filter_dict):
     dash = connection.get_dashboard("sales_dashboard")
     dash.filters = [raw_filter_dict]
@@ -332,7 +347,7 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         .strftime(date_format),
         "2021-02-03 until this month": pendulum.now("UTC").end_of("month").strftime(date_format),
         "week to date": pendulum.now("UTC")
-        .subtract(days=1 if pendulum.now("UTC").day_of_week != 1 else 0)
+        .subtract(days=1 if pendulum.now("UTC").day_of_week != 0 else 0)
         .end_of("day")
         .strftime(date_format),
         "month to date": pendulum.now("UTC")
@@ -345,13 +360,16 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         )
         .end_of("day")
         .strftime(date_format),
-        "year to date": pendulum.now("UTC").subtract(days=1).end_of("day").strftime(date_format),
+        "year to date": pendulum.now("UTC")
+        .subtract(days=1 if pendulum.now("UTC").date() != pendulum.now("UTC").start_of("year").date() else 0)
+        .end_of("day")
+        .strftime(date_format),
         "last week to date": pendulum.now("UTC")
         .subtract(weeks=1)
         .start_of("week")
         .add(
             days=(pendulum.now("UTC") - pendulum.now("UTC").start_of("week")).days - 1
-            if pendulum.now("UTC").day_of_week != 1
+            if pendulum.now("UTC").day_of_week != 0
             else 0
         )
         .end_of("day")
@@ -361,7 +379,7 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         .start_of("week")
         .add(
             days=(pendulum.now("UTC") - pendulum.now("UTC").start_of("week")).days - 1
-            if pendulum.now("UTC").day_of_week != 1
+            if pendulum.now("UTC").day_of_week != 0
             else 0
         )
         .end_of("day")
@@ -379,7 +397,11 @@ def test_dashboard_filter_processing(connection, raw_filter_dict):
         "1 year ago to date": pendulum.now("UTC")
         .subtract(years=1)
         .start_of("year")
-        .add(days=(pendulum.now("UTC") - pendulum.now("UTC").start_of("year")).days - 1)
+        .add(
+            days=(pendulum.now("UTC") - pendulum.now("UTC").start_of("year")).days - 1
+            if pendulum.now("UTC").date() != pendulum.now("UTC").start_of("year").date()
+            else 0
+        )
         .end_of("day")
         .strftime(date_format),
         "1 year ago for 3 months": pendulum.now("UTC")

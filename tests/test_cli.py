@@ -50,6 +50,7 @@ def test_cli_init(mocker, monkeypatch):
         (Definitions.postgres, "alternative_demo", "alternative_target", None),
         (Definitions.redshift, None, None, None),
         (Definitions.druid, None, None, None),
+        (Definitions.trino, None, None, None),
         (Definitions.sql_server, None, None, None),
         (Definitions.azure_synapse, None, None, None),
     ],
@@ -67,6 +68,7 @@ def test_cli_seed_metrics_layer(
     seed_redshift_tables_data,
     seed_postgres_tables_data,
     seed_druid_tables_data,
+    seed_trino_tables_data,
     seed_sql_server_tables_data,
     seed_databricks_tables_data,
 ):
@@ -99,6 +101,8 @@ def test_cli_seed_metrics_layer(
             return seed_bigquery_tables_data
         elif query_type == Definitions.druid:
             return seed_druid_tables_data
+        elif query_type == Definitions.trino:
+            return seed_trino_tables_data
         elif query_type in {Definitions.sql_server, Definitions.azure_synapse}:
             return seed_sql_server_tables_data
         elif query_type == Definitions.databricks:
@@ -134,6 +138,7 @@ def test_cli_seed_metrics_layer(
                     Definitions.azure_synapse,
                     Definitions.sql_server,
                     Definitions.databricks,
+                    Definitions.trino,
                 }
                 and database_override is None
             ):
@@ -169,6 +174,10 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.trino,
+                Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert social["sql"] == '${TABLE}."ON_SOCIAL_NETWORK"'
             else:
@@ -186,6 +195,10 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.trino,
+                Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert acq_date["sql"] == '${TABLE}."ACQUISITION_DATE"'
             else:
@@ -199,6 +212,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
+                Definitions.trino,
             }:
                 assert date["datatype"] == "date"
             else:
@@ -219,6 +233,10 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.trino,
+                Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert date["sql"] == '${TABLE}."ORDER_CREATED_AT"'
             else:
@@ -230,6 +248,10 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.trino,
+                Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert new["sql"] == '${TABLE}."NEW_VS_REPEAT"'
             else:
@@ -241,6 +263,10 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.trino,
+                Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert num["sql"] == '${TABLE}."REVENUE"'
             else:
@@ -260,6 +286,7 @@ def test_cli_seed_metrics_layer(
                     Definitions.sql_server,
                     Definitions.azure_synapse,
                     Definitions.databricks,
+                    Definitions.trino,
                 }
                 and database_override is None
             ):
@@ -288,6 +315,10 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.trino,
+                Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert cross_sell["sql"] == '${TABLE}."@CRoSSell P-roduct:"'
             else:
@@ -302,6 +333,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.sql_server,
                 Definitions.azure_synapse,
                 Definitions.databricks,
+                Definitions.trino,
             }:
                 assert date["datatype"] == "date"
             else:
@@ -322,6 +354,10 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.trino,
+                Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert date["sql"] == '${TABLE}."SESSION_DATE"'
             else:
@@ -333,6 +369,10 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.trino,
+                Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert pk["sql"] == '${TABLE}."SESSION_ID"'
             else:
@@ -344,6 +384,10 @@ def test_cli_seed_metrics_layer(
                 Definitions.druid,
                 Definitions.duck_db,
                 Definitions.postgres,
+                Definitions.trino,
+                Definitions.redshift,
+                Definitions.sql_server,
+                Definitions.azure_synapse,
             }:
                 assert num["sql"] == '${TABLE}."CONVERSION"'
             else:
@@ -434,7 +478,7 @@ def test_cli_validate(connection, fresh_project, mocker):
     project = fresh_project
     project._views[1]["default_date"] = "sessions.session_date"
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
-    sorted_fields[19]["name"] = "rev_broken_dim"
+    sorted_fields[20]["name"] = "rev_broken_dim"
     project._views[1]["fields"] = sorted_fields
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
@@ -446,11 +490,14 @@ def test_cli_validate(connection, fresh_project, mocker):
     # assert result.exit_code == 0
     assert (
         result.output
-        == "Found 4 errors in the project:\n\n"
+        == "Found 7 errors in the project:\n\n"
         "\nCould not locate reference revenue_dimension in field total_item_costs in view order_lines\n\n"
+        "\nField total_item_costs in view order_lines contains invalid field reference revenue_dimension.\n\n"
         "\nCould not locate reference revenue_dimension in field revenue_in_cents in view orders\n\n"
         "\nCould not locate reference revenue_dimension in field total_revenue in view orders\n\n"
-        "\nDefault date sessions.session_date in view orders is not joinable to the view orders\n\n"
+        "\nDefault date sessions.session_date in view orders does not exist.\n\n"
+        "\nField revenue_in_cents in view orders contains invalid field reference revenue_dimension.\n\n"
+        "\nField total_revenue in view orders contains invalid field reference revenue_dimension.\n\n"
     )
 
 
@@ -458,7 +505,7 @@ def test_cli_validate(connection, fresh_project, mocker):
 def test_cli_validate_broken_canon_date(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
-    project._views[2]["fields"][-2]["canon_date"] = "does_not_exist"
+    project._views[2]["fields"][-3]["canon_date"] = "does_not_exist"
     project.refresh_cache()
     project.join_graph
 
@@ -516,8 +563,9 @@ def test_cli_validate_personal_field_view_level_error(connection, fresh_project,
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 1 error in the project:\n\n"
+        "Found 2 errors in the project:\n\n"
         "\nWarning: Could not locate reference some_crazy_ref in field cancelled in view customers\n\n"  # noqa
+        "\nWarning: Field cancelled in view customers contains invalid field reference some_crazy_ref.\n\n"  # noqa
     )
 
 
@@ -639,7 +687,7 @@ def test_cli_validate_filter_with_no_field(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
 
-    project._views[2]["fields"][-2]["filters"][0] = {"is_churned": None, "value": False}
+    project._views[2]["fields"][-3]["filters"][0] = {"is_churned": None, "value": False}
 
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
@@ -694,8 +742,8 @@ def test_cli_validate_names(connection, fresh_project, mocker):
     project = fresh_project
     sorted_fields = sorted(project._views[1]["fields"], key=lambda x: x["name"])
 
-    sorted_fields[1]["name"] = "an invalid @name\\"
-    sorted_fields[4]["timeframes"] = ["date", "month", "year"]
+    sorted_fields[2]["name"] = "an invalid @name\\"
+    sorted_fields[5]["timeframes"] = ["date", "month", "year"]
     project._views[1]["fields"] = sorted_fields
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
@@ -706,9 +754,10 @@ def test_cli_validate_names(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert result.output == (
-        "Found 3 errors in the project:\n\n"
+        "Found 4 errors in the project:\n\n"
         "\nCould not locate reference days_between_orders in field an invalid @name\\ in view orders\n\n"
         "\nField name: an invalid @name\\ is invalid. Please reference the naming conventions (only letters, numbers, or underscores)\n\n"  # noqa
+        "\nField an invalid @name\ in view orders contains invalid field reference days_between_orders.\n\n"
         "\nField between_orders in view orders is of type duration, but has property timeframes when it should have property intervals\n\n"  # noqa
     )
 
@@ -737,7 +786,7 @@ def test_cli_validate_model_name_in_view(connection, fresh_project, mocker):
 def test_cli_validate_two_customer_tags(connection, fresh_project, mocker):
     # Break something so validation fails
     sorted_fields = sorted(fresh_project._views[1]["fields"], key=lambda x: x["name"])
-    sorted_fields[6]["tags"] = ["customer"]
+    sorted_fields[7]["tags"] = ["customer"]
     conn = MetricsLayerConnection(project=fresh_project, connections=connection._raw_connections[0])
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer._init_profile", lambda profile, target: conn)
     mocker.patch("metrics_layer.cli.seeding.SeedMetricsLayer.get_profile", lambda *args: "demo")
@@ -947,7 +996,7 @@ def test_cli_validate_required_access_filters(connection, fresh_project, mocker)
     assert result.exit_code == 0
     assert (
         result.output
-        == "Found 19 errors in the project:\n\n\nView order_lines does not have any access filters, but an"
+        == "Found 20 errors in the project:\n\n\nView order_lines does not have any access filters, but an"
         " access filter with user attribute products is required.\n\n\nView orders does not have an access"
         " filter with the required user attribute products\n\n\nView customers does not have any access"
         " filters, but an access filter with user attribute products is required.\n\n\nView discounts does"
@@ -968,10 +1017,11 @@ def test_cli_validate_required_access_filters(connection, fresh_project, mocker)
         " other_db_traffic does not have any access filters, but an access filter with user attribute"
         " products is required.\n\n\nView created_workspace does not have any access filters, but an"
         " access filter with user attribute products is required.\n\n\nView mrr does not have any access"
-        " filters, but an access filter with user attribute products is required.\n\n\nView child_account"
-        " does not have any access filters, but an access filter with user attribute products is"
-        " required.\n\n\nView parent_account does not have any access filters, but an access filter with"
-        " user attribute products is required.\n\n"
+        " filters, but an access filter with user attribute products is required.\n\n\nView"
+        " monthly_aggregates does not have any access filters, but an access filter with user attribute"
+        " products is required.\n\n\nView child_account does not have any access filters, but an access"
+        " filter with user attribute products is required.\n\n\nView parent_account does not have any"
+        " access filters, but an access filter with user attribute products is required.\n\n"
     )
 
 
@@ -1049,8 +1099,8 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
         "models": "Found 2 models:\n\ntest_model\nnew_model\n",
         "connections": "Found 3 connections:\n\ntesting_snowflake\ntesting_bigquery\ntesting_databricks\n",
         "views": (  # noqa
-            "Found 20"
-            " views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nmrr\nchild_account\nparent_account\n"  # noqa
+            "Found 21"
+            " views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nmrr\nmonthly_aggregates\nchild_account\nparent_account\n"  # noqa
         ),
         "fields": "Found 2 fields:\n\ndiscount_promo_name\ndiscount_usd\n",
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",

@@ -37,6 +37,7 @@ class ArbitraryMergedQueryResolver(SingleSQLQueryResolver):
         self.project = project
         self.connections = connections
         self.connection = None
+        self.model = None
         # All queries are merged queries (obviously)
         self.query_kind = QueryKindTypes.merged
         self.kwargs = kwargs
@@ -76,6 +77,7 @@ class ArbitraryMergedQueryResolver(SingleSQLQueryResolver):
             )
 
         mapping_lookup = self._mapping_lookup
+        self.model = resolver.model
         clean_where = [{**w, "field": mapping_lookup.get(w["field"].lower(), w["field"])} for w in self.where]
         clean_having = [
             {**h, "field": mapping_lookup.get(h["field"].lower(), h["field"])} for h in self.having
@@ -95,7 +97,7 @@ class ArbitraryMergedQueryResolver(SingleSQLQueryResolver):
             }
         )
         # Druid does not allow semicolons
-        if resolver.query_type == Definitions.druid:
+        if resolver.query_type in Definitions.no_semicolon_warehouses:
             semicolon = False
 
         query = merged_queries_resolver.get_query(semicolon=semicolon)
@@ -179,7 +181,10 @@ class ArbitraryMergedQueryResolver(SingleSQLQueryResolver):
                 raise QueryError(
                     f"merged_queries must be a list of dictionaries. Item {i} is not a dictionary."
                 )
-            if not merged_query.get("metrics") or not merged_query.get("dimensions"):
+            if not all(
+                key in merged_query and isinstance(merged_query[key], list)
+                for key in ["metrics", "dimensions"]
+            ):
                 raise QueryError(f"Each item in merged_queries must have 'metrics' and 'dimensions' keys.")
             if merged_query.get("funnel"):
                 raise QueryError(

@@ -1,3 +1,5 @@
+import datetime
+
 import pytest
 
 from metrics_layer.core.model.definitions import Definitions
@@ -19,7 +21,7 @@ def test_query_sum_with_sql(connection, query_type):
             "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
             "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
         )
-        order_by = " ORDER BY orders_total_revenue DESC"
+        order_by = " ORDER BY orders_total_revenue DESC NULLS LAST"
     elif query_type == Definitions.redshift:
         sa = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) "
@@ -29,7 +31,7 @@ def test_query_sum_with_sql(connection, query_type):
             "::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
             "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
         )
-        order_by = " ORDER BY orders_total_revenue DESC"
+        order_by = " ORDER BY orders_total_revenue DESC NULLS LAST"
     elif query_type in {Definitions.postgres}:
         sa = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) * (1000000 * 1.0)) AS"
@@ -67,7 +69,7 @@ def test_query_count_with_sql(connection):
         "(orders.id)  IS NOT NULL THEN  orders.id  ELSE NULL END), 0)"
         " as orders_number_of_orders FROM analytics.order_line_items order_lines "
         "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
-        "GROUP BY order_lines.sales_channel ORDER BY orders_number_of_orders DESC;"
+        "GROUP BY order_lines.sales_channel ORDER BY orders_number_of_orders DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -85,7 +87,7 @@ def test_query_count_with_one_to_many(connection):
         " then order_lines.order_line_id end  ELSE NULL END), 0) as order_lines_number_of_email_purchased_items "  # noqa
         "FROM analytics_live.discounts discounts "
         "LEFT JOIN analytics.order_line_items order_lines ON discounts.order_id=order_lines.order_unique_id "
-        "GROUP BY discounts.code ORDER BY order_lines_number_of_email_purchased_items DESC;"
+        "GROUP BY discounts.code ORDER BY order_lines_number_of_email_purchased_items DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -106,7 +108,7 @@ def test_query_average_with_sql(connection, query_type: str):
             "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
             "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
         )
-        order_by = " ORDER BY orders_average_order_value DESC"
+        order_by = " ORDER BY orders_average_order_value DESC NULLS LAST"
     elif query_type == Definitions.redshift:
         sa_sum = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) "
@@ -116,7 +118,7 @@ def test_query_average_with_sql(connection, query_type: str):
             "::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
             "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
         )
-        order_by = " ORDER BY orders_average_order_value DESC"
+        order_by = " ORDER BY orders_average_order_value DESC NULLS LAST"
     elif query_type == Definitions.bigquery:
         sa_sum = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) "
@@ -155,7 +157,7 @@ def test_query_number_with_sql(connection, query_type):
             "% 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
             "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
         )
-        order_by = " ORDER BY customers_total_sessions_divide DESC"
+        order_by = " ORDER BY customers_total_sessions_divide DESC NULLS LAST"
     elif query_type == Definitions.redshift:
         sa_sum = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when (customers.is_churned)=false then customers.total_sessions end, 0) "  # noqa
@@ -165,7 +167,7 @@ def test_query_number_with_sql(connection, query_type):
             "::NUMERIC(38, 0))) AS DOUBLE PRECISION) "
             "/ CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
         )
-        order_by = " ORDER BY customers_total_sessions_divide DESC"
+        order_by = " ORDER BY customers_total_sessions_divide DESC NULLS LAST"
     elif query_type == Definitions.bigquery:
         sa_sum = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(case when (customers.is_churned)=false then customers.total_sessions end, 0) "  # noqa
@@ -183,5 +185,38 @@ def test_query_number_with_sql(connection, query_type):
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id "
         f"GROUP BY {'order_lines.sales_channel' if query_type != Definitions.bigquery else 'order_lines_channel'}"  # noqa
         f"{order_by};"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_with_corrected_no_symm_agg_triggered(connection):
+    query = connection.get_sql_query(
+        metrics=["monthly_aggregates.count_new_employees"],
+        dimensions=["monthly_aggregates.division"],
+        where=[
+            {
+                "field": "date",
+                "expression": "greater_or_equal_than",
+                "value": datetime.datetime(2024, 1, 5, 0, 0),
+            },
+            {
+                "field": "date",
+                "expression": "less_or_equal_than",
+                "value": datetime.datetime(2024, 10, 5, 0, 0),
+            },
+        ],
+        order_by=[{"field": "monthly_aggregates.division", "sort": "asc"}],
+        limit=25,
+    )
+
+    # This, correctly, does not apply a symmetric aggregate
+    correct = (
+        "SELECT monthly_aggregates.division as"
+        " monthly_aggregates_division,COUNT(monthly_aggregates.n_new_employees) as"
+        " monthly_aggregates_count_new_employees FROM analytics.monthly_rollup monthly_aggregates WHERE"
+        " DATE_TRUNC('DAY', monthly_aggregates.record_date)>='2024-01-05T00:00:00' AND DATE_TRUNC('DAY',"
+        " monthly_aggregates.record_date)<='2024-10-05T00:00:00' GROUP BY monthly_aggregates.division ORDER"
+        " BY monthly_aggregates_division ASC NULLS LAST LIMIT 25;"
     )
     assert query == correct
