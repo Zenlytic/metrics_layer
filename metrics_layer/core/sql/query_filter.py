@@ -1,4 +1,5 @@
 import datetime
+import json
 from typing import Dict
 
 import pandas as pd
@@ -16,6 +17,7 @@ from metrics_layer.core.model.filter import (
     MetricsLayerFilterGroupLogicalOperatorType,
 )
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
+from metrics_layer.core.sql.query_dialect import query_lookup
 from metrics_layer.core.sql.query_errors import ParseError
 
 
@@ -64,6 +66,14 @@ class MetricsLayerFilter(MetricsLayerBase):
 
         super().__init__(definition)
 
+    def __hash__(self):
+        valid_def = {
+            k: v
+            for k, v in self._definition.items()
+            if k not in {"group_by_filter_cte_lookup", "query_type", "query_class"}
+        }
+        return hash(json.dumps(valid_def, sort_keys=True))
+
     @property
     def conditions(self):
         return self._definition.get("conditions", [])
@@ -87,12 +97,14 @@ class MetricsLayerFilter(MetricsLayerBase):
         if filter_group_conditions:
             for f in filter_group_conditions:
                 f["query_type"] = self.query_type
+                f["group_by_filter_cte_lookup"] = definition.get("group_by_filter_cte_lookup", None)
                 MetricsLayerFilter(f, self.design, self.filter_type)
 
             if (
                 "logical_operator" in definition
                 and definition["logical_operator"] not in MetricsLayerFilterGroupLogicalOperatorType.options
             ):
+                definition.pop("group_by_filter_cte_lookup", None)
                 raise ParseError(
                     f"Filter group '{definition}' needs a valid logical operator. Options are:"
                     f" {MetricsLayerFilterGroupLogicalOperatorType.options}"
@@ -161,6 +173,7 @@ class MetricsLayerFilter(MetricsLayerBase):
     ):
         pypika_conditions = []
         for condition in self.conditions:
+            condition["group_by_filter_cte_lookup"] = self.group_by_filter_cte_lookup
             condition_object = MetricsLayerFilter(condition, self.design, self.filter_type, self.project)
             if condition_object.is_filter_group:
                 pypika_conditions.append(
@@ -179,11 +192,14 @@ class MetricsLayerFilter(MetricsLayerBase):
                 )
                 pypika_conditions.append(condition_object.criterion(field_alias))
             else:
-                pypika_conditions.append(
-                    condition_object.criterion(
-                        condition_object.field.sql_query(self.query_type, functional_pk)
+                if condition_object.is_group_by:
+                    pypika_conditions.append(condition_object.isin_sql_query())
+                else:
+                    pypika_conditions.append(
+                        condition_object.criterion(
+                            condition_object.field.sql_query(self.query_type, functional_pk)
+                        )
                     )
-                )
         if self.logical_operator == MetricsLayerFilterGroupLogicalOperatorType.or_:
             return Criterion.any(pypika_conditions)
         if (
@@ -210,6 +226,8 @@ class MetricsLayerFilter(MetricsLayerBase):
         functional_pk = self.design.functional_pk()
         if self.is_filter_group:
             return self.group_sql_query(functional_pk)
+        elif self.is_group_by:
+            return self.isin_sql_query()
         return self.criterion(self.field.sql_query(self.query_type, functional_pk))
 
     def _handle_cte_alias_replacement(
@@ -223,13 +241,14 @@ class MetricsLayerFilter(MetricsLayerBase):
             self._raise_query_error_from_cte(field.id())
         return field_alias
 
-    def isin_sql_query(self, cte_alias, field_name, query_generator):
-        group_by_field = self.design.get_field(field_name)
-        base = query_generator._base_query()
+    def isin_sql_query(self):
+        cte_alias = self.group_by_filter_cte_lookup[hash(self)]
+        group_by_field = self.design.get_field(self.group_by)
+        base = query_lookup[self.query_type]
         subquery = base.from_(Table(cte_alias)).select(group_by_field.alias(with_view=True)).distinct()
         definition = {
             "query_type": self.query_type,
-            "field": field_name,
+            "field": self.group_by,
             "expression": MetricsLayerFilterExpressionType.IsIn.value,
             "value": subquery,
         }

@@ -710,21 +710,18 @@ def test_query_bool_and_date_filter(connection, bool_value):
 
 
 @pytest.mark.query
-@pytest.mark.parametrize("filter_type", ["having", "where"])
-def test_query_sub_group_by_filter_measure(connection, filter_type):
+def test_query_sub_group_by_filter_measure_in_where(connection):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
         dimensions=["region"],
-        **{
-            filter_type: [
-                {
-                    "field": "total_item_revenue",
-                    "group_by": "customers.customer_id",
-                    "expression": "greater_than",
-                    "value": 1000,
-                }
-            ]
-        },
+        where=[
+            {
+                "field": "total_item_revenue",
+                "group_by": "customers.customer_id",
+                "expression": "greater_than",
+                "value": 1000,
+            }
+        ],
     )
 
     correct = (
@@ -743,21 +740,37 @@ def test_query_sub_group_by_filter_measure(connection, filter_type):
 
 
 @pytest.mark.query
-@pytest.mark.parametrize("filter_type", ["having", "where"])
-def test_query_sub_group_by_filter_dimension(connection, filter_type):
+def test_query_sub_group_by_filter_measure_in_having(connection):
+    with pytest.raises(QueryError) as e:
+        connection.get_sql_query(
+            metrics=["number_of_orders"],
+            dimensions=["region"],
+            having=[
+                {
+                    "field": "total_item_revenue",
+                    "group_by": "customers.customer_id",
+                    "expression": "greater_than",
+                    "value": 1000,
+                }
+            ],
+        )
+
+    assert "Entity (group by) filters in having clause are not supported" in str(e.value)
+
+
+@pytest.mark.query
+def test_query_sub_group_by_filter_dimension(connection):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
         dimensions=["region"],
-        **{
-            filter_type: [
-                {
-                    "field": "channel",
-                    "group_by": "customers.customer_id",
-                    "expression": "contains_case_insensitive",
-                    "value": "social",
-                }
-            ]
-        },
+        where=[
+            {
+                "field": "channel",
+                "group_by": "customers.customer_id",
+                "expression": "contains_case_insensitive",
+                "value": "social",
+            }
+        ],
     )
 
     correct = (
@@ -775,21 +788,18 @@ def test_query_sub_group_by_filter_dimension(connection, filter_type):
 
 
 @pytest.mark.query
-@pytest.mark.parametrize("filter_type", ["having", "where"])
-def test_query_sub_group_by_filter_dimension_group(connection, filter_type):
+def test_query_sub_group_by_filter_dimension_group(connection):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
         dimensions=["region"],
-        **{
-            filter_type: [
-                {
-                    "field": "orders.order_date",
-                    "group_by": "customers.customer_id",
-                    "expression": "less_than",
-                    "value": "2024-02-03",
-                }
-            ]
-        },
+        where=[
+            {
+                "field": "orders.order_date",
+                "group_by": "customers.customer_id",
+                "expression": "less_than",
+                "value": "2024-02-03",
+            }
+        ],
     )
 
     correct = (
@@ -837,19 +847,25 @@ def test_query_sub_group_by_filter_consolidated(connection):
 
     correct = (
         "WITH filter_subquery_0 AS (SELECT customers.customer_id as customers_customer_id FROM"
-        " analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON"
-        " order_lines.order_unique_id=orders.id LEFT JOIN analytics.customers customers ON"
-        " order_lines.customer_id=customers.customer_id WHERE DATE_TRUNC('DAY',"
-        " orders.order_date)<'2024-02-03' AND LOWER(order_lines.sales_channel) LIKE LOWER('%social%') GROUP"
-        " BY customers.customer_id HAVING SUM(order_lines.revenue)>1000 ORDER BY customers_customer_id ASC"
-        " NULLS LAST) SELECT customers.region as customers_region,NULLIF(COUNT(DISTINCT CASE WHEN "
-        " (orders.id)  IS NOT NULL THEN  orders.id  ELSE NULL END), 0) as orders_number_of_orders FROM"
-        " analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON"
-        " order_lines.order_unique_id=orders.id LEFT JOIN analytics.customers customers ON"
-        " order_lines.customer_id=customers.customer_id WHERE order_lines.product_name<>'Shipping Protection'"
-        " AND customers.customer_id IN (SELECT DISTINCT customers_customer_id FROM filter_subquery_0) GROUP"
-        " BY customers.region HAVING SUM(order_lines.revenue)<300000 ORDER BY orders_number_of_orders DESC"
-        " NULLS LAST;"
+        " analytics.orders orders LEFT JOIN analytics.customers customers ON"
+        " orders.customer_id=customers.customer_id WHERE DATE_TRUNC('DAY', orders.order_date)<'2024-02-03'"
+        " GROUP BY customers.customer_id ORDER BY customers_customer_id ASC NULLS LAST) ,filter_subquery_1 AS"
+        " (SELECT customers.customer_id as customers_customer_id FROM analytics.order_line_items order_lines"
+        " LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id WHERE"
+        " LOWER(order_lines.sales_channel) LIKE LOWER('%social%') GROUP BY customers.customer_id ORDER BY"
+        " customers_customer_id ASC NULLS LAST) ,filter_subquery_2 AS (SELECT customers.customer_id as"
+        " customers_customer_id FROM analytics.order_line_items order_lines LEFT JOIN analytics.customers"
+        " customers ON order_lines.customer_id=customers.customer_id GROUP BY customers.customer_id HAVING"
+        " SUM(order_lines.revenue)>1000 ORDER BY customers_customer_id ASC NULLS LAST) SELECT"
+        " customers.region as customers_region,NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL THEN"
+        "  orders.id  ELSE NULL END), 0) as orders_number_of_orders FROM analytics.order_line_items"
+        " order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id LEFT JOIN"
+        " analytics.customers customers ON order_lines.customer_id=customers.customer_id WHERE"
+        " customers.customer_id IN (SELECT DISTINCT customers_customer_id FROM filter_subquery_0) AND"
+        " customers.customer_id IN (SELECT DISTINCT customers_customer_id FROM filter_subquery_1) AND"
+        " customers.customer_id IN (SELECT DISTINCT customers_customer_id FROM filter_subquery_2) AND"
+        " order_lines.product_name<>'Shipping Protection' GROUP BY customers.region HAVING"
+        " SUM(order_lines.revenue)<300000 ORDER BY orders_number_of_orders DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -889,11 +905,11 @@ def test_query_sub_group_by_filter_consolidated_no_join(connection):
         " NOT NULL THEN  orders.id  ELSE NULL END), 0) as orders_number_of_orders FROM"
         " analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON"
         " order_lines.order_unique_id=orders.id LEFT JOIN analytics.customers customers ON"
-        " order_lines.customer_id=customers.customer_id WHERE order_lines.product_name<>'Shipping Protection'"
-        " AND customers.customer_id IN (SELECT DISTINCT customers_customer_id FROM filter_subquery_0) AND"
-        " customers.customer_id IN (SELECT DISTINCT customers_customer_id FROM filter_subquery_1) GROUP BY"
-        " customers.region HAVING SUM(order_lines.revenue)<300000 ORDER BY orders_number_of_orders DESC NULLS"
-        " LAST;"
+        " order_lines.customer_id=customers.customer_id WHERE customers.customer_id IN (SELECT DISTINCT"
+        " customers_customer_id FROM filter_subquery_0) AND customers.customer_id IN (SELECT DISTINCT"
+        " customers_customer_id FROM filter_subquery_1) AND order_lines.product_name<>'Shipping Protection'"
+        " GROUP BY customers.region HAVING SUM(order_lines.revenue)<300000 ORDER BY orders_number_of_orders"
+        " DESC NULLS LAST;"
     )
     assert query == correct
 
@@ -922,21 +938,61 @@ def test_query_sub_group_by_filter_not_consolidated(connection):
     )
 
     correct = (
-        "WITH filter_subquery_0 AS (SELECT customers.customer_id as customers_customer_id FROM"
+        "WITH filter_subquery_0 AS (SELECT orders.id as orders_order_id FROM analytics.order_line_items"
+        " order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id WHERE"
+        " LOWER(order_lines.sales_channel) LIKE LOWER('%social%') GROUP BY orders.id ORDER BY orders_order_id"
+        " ASC NULLS LAST) ,filter_subquery_1 AS (SELECT customers.customer_id as customers_customer_id FROM"
         " analytics.order_line_items order_lines LEFT JOIN analytics.customers customers ON"
         " order_lines.customer_id=customers.customer_id GROUP BY customers.customer_id HAVING"
-        " SUM(order_lines.revenue)>1000 ORDER BY customers_customer_id ASC NULLS LAST) ,filter_subquery_1 AS"
-        " (SELECT orders.id as orders_order_id FROM analytics.order_line_items order_lines LEFT JOIN"
-        " analytics.orders orders ON order_lines.order_unique_id=orders.id WHERE"
+        " SUM(order_lines.revenue)>1000 ORDER BY customers_customer_id ASC NULLS LAST) SELECT"
+        " customers.region as customers_region,NULLIF(COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL THEN"
+        "  orders.id  ELSE NULL END), 0) as orders_number_of_orders FROM analytics.order_line_items"
+        " order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id LEFT JOIN"
+        " analytics.customers customers ON order_lines.customer_id=customers.customer_id WHERE orders.id IN"
+        " (SELECT DISTINCT orders_order_id FROM filter_subquery_0) AND customers.customer_id IN (SELECT"
+        " DISTINCT customers_customer_id FROM filter_subquery_1) AND order_lines.product_name<>'Shipping"
+        " Protection' GROUP BY customers.region HAVING SUM(order_lines.revenue)<300000 ORDER BY"
+        " orders_number_of_orders DESC NULLS LAST;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_sub_group_by_filter_with_or_syntax(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders"],
+        dimensions=["region"],
+        where=[
+            {
+                "conditional_filter_logic": {
+                    "conditions": [
+                        {
+                            "field": "channel",
+                            "group_by": "orders.order_id",
+                            "expression": "contains_case_insensitive",
+                            "value": "social",
+                        },
+                    ],
+                    "logical_operator": "AND",
+                }
+            },
+            {"field": "product_name", "expression": "not_equal_to", "value": "Shipping Protection"},
+        ],
+        having=[{"field": "total_item_revenue", "expression": "less_than", "value": 300_000}],
+    )
+
+    correct = (
+        "WITH filter_subquery_0 AS (SELECT orders.id as orders_order_id FROM analytics.order_line_items"
+        " order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id WHERE"
         " LOWER(order_lines.sales_channel) LIKE LOWER('%social%') GROUP BY orders.id ORDER BY orders_order_id"
         " ASC NULLS LAST) SELECT customers.region as customers_region,NULLIF(COUNT(DISTINCT CASE WHEN "
         " (orders.id)  IS NOT NULL THEN  orders.id  ELSE NULL END), 0) as orders_number_of_orders FROM"
         " analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON"
         " order_lines.order_unique_id=orders.id LEFT JOIN analytics.customers customers ON"
-        " order_lines.customer_id=customers.customer_id WHERE order_lines.product_name<>'Shipping Protection'"
-        " AND customers.customer_id IN (SELECT DISTINCT customers_customer_id FROM filter_subquery_0) AND"
-        " orders.id IN (SELECT DISTINCT orders_order_id FROM filter_subquery_1) GROUP BY customers.region"
-        " HAVING SUM(order_lines.revenue)<300000 ORDER BY orders_number_of_orders DESC NULLS LAST;"
+        " order_lines.customer_id=customers.customer_id WHERE orders.id IN (SELECT DISTINCT orders_order_id"
+        " FROM filter_subquery_0) AND order_lines.product_name<>'Shipping Protection' GROUP BY"
+        " customers.region HAVING SUM(order_lines.revenue)<300000 ORDER BY orders_number_of_orders DESC NULLS"
+        " LAST;"
     )
     assert query == correct
 
