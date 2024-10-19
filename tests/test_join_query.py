@@ -2,7 +2,6 @@ from datetime import datetime
 
 import pytest
 
-from metrics_layer import MetricsLayerConnection
 from metrics_layer.core.exceptions import JoinError, QueryError
 from metrics_layer.core.model import Definitions
 from metrics_layer.core.sql.query_errors import ParseError
@@ -782,6 +781,63 @@ def test_query_sub_group_by_filter_dimension(connection):
         " analytics.orders orders LEFT JOIN analytics.customers customers ON"
         " orders.customer_id=customers.customer_id WHERE customers.customer_id IN (SELECT DISTINCT"
         " customers_customer_id FROM filter_subquery_0) GROUP BY customers.region ORDER BY"
+        " orders_number_of_orders DESC NULLS LAST;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_sub_group_by_filter_dimension_mapping_in_field(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders"],
+        dimensions=["region"],
+        where=[
+            {
+                "field": "source",
+                "group_by": "customers.customer_id",
+                "expression": "contains_case_insensitive",
+                "value": "social",
+            }
+        ],
+    )
+
+    correct = (
+        "WITH filter_subquery_0 AS (SELECT customers.customer_id as customers_customer_id FROM"
+        " analytics.orders orders LEFT JOIN analytics.customers customers ON"
+        " orders.customer_id=customers.customer_id WHERE LOWER(orders.sub_channel) LIKE LOWER('%social%')"
+        " GROUP BY customers.customer_id ORDER BY customers_customer_id ASC NULLS LAST) SELECT"
+        " customers.region as customers_region,COUNT(orders.id) as orders_number_of_orders FROM"
+        " analytics.orders orders LEFT JOIN analytics.customers customers ON"
+        " orders.customer_id=customers.customer_id WHERE customers.customer_id IN (SELECT DISTINCT"
+        " customers_customer_id FROM filter_subquery_0) GROUP BY customers.region ORDER BY"
+        " orders_number_of_orders DESC NULLS LAST;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_sub_group_by_filter_dimension_mapping_in_group_by(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders"],
+        dimensions=["region"],
+        where=[
+            {
+                "field": "channel",
+                "group_by": "source",
+                "expression": "contains_case_insensitive",
+                "value": "DTC",
+            }
+        ],
+    )
+
+    correct = (
+        "WITH filter_subquery_0 AS (SELECT orders.sub_channel as orders_sub_channel FROM"
+        " analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON"
+        " order_lines.order_unique_id=orders.id WHERE LOWER(order_lines.sales_channel) LIKE LOWER('%DTC%')"
+        " GROUP BY orders.sub_channel ORDER BY orders_sub_channel ASC NULLS LAST) SELECT customers.region as"
+        " customers_region,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders LEFT JOIN"
+        " analytics.customers customers ON orders.customer_id=customers.customer_id WHERE orders.sub_channel"
+        " IN (SELECT DISTINCT orders_sub_channel FROM filter_subquery_0) GROUP BY customers.region ORDER BY"
         " orders_number_of_orders DESC NULLS LAST;"
     )
     assert query == correct
