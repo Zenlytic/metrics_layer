@@ -1323,11 +1323,12 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "value_format_name",
             None,
             [
-                "Field total_item_costs in view order_lines has an invalid value_format_name None. "
-                "Valid value_format_names are: ['decimal_0', 'decimal_1', 'decimal_2', "
-                "'decimal_pct_0', 'decimal_pct_1', 'decimal_pct_2', 'percent_0', 'percent_1', "
-                "'percent_2', 'eur', 'eur_0', 'eur_1', 'eur_2', 'usd', 'usd_0', 'usd_1', "
-                "'usd_2', 'string', 'image_from_url', 'date', 'week', 'month', 'quarter', 'year']"
+                "Field total_item_costs in view order_lines has an invalid value_format_name None. Valid"
+                " value_format_names are: ['decimal', 'decimal_0', 'decimal_1', 'decimal_2', 'decimal_3',"
+                " 'decimal_4', 'decimal_pct_0', 'decimal_pct_1', 'decimal_pct_2', 'decimal_pct_3',"
+                " 'decimal_pct_4', 'percent_0', 'percent_1', 'percent_2', 'percent_3', 'percent_4', 'eur',"
+                " 'eur_0', 'eur_1', 'eur_2', 'usd', 'usd_0', 'usd_1', 'usd_2', 'string', 'image_from_url',"
+                " 'date', 'week', 'month', 'quarter', 'year']"
             ],
         ),
         (
@@ -1335,11 +1336,12 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "value_format_name",
             "aus",
             [
-                "Field total_item_costs in view order_lines has an invalid value_format_name aus. "
-                "Valid value_format_names are: ['decimal_0', 'decimal_1', 'decimal_2', "
-                "'decimal_pct_0', 'decimal_pct_1', 'decimal_pct_2', 'percent_0', 'percent_1', "
-                "'percent_2', 'eur', 'eur_0', 'eur_1', 'eur_2', 'usd', 'usd_0', 'usd_1', "
-                "'usd_2', 'string', 'image_from_url', 'date', 'week', 'month', 'quarter', 'year']"
+                "Field total_item_costs in view order_lines has an invalid value_format_name aus. Valid"
+                " value_format_names are: ['decimal', 'decimal_0', 'decimal_1', 'decimal_2', 'decimal_3',"
+                " 'decimal_4', 'decimal_pct_0', 'decimal_pct_1', 'decimal_pct_2', 'decimal_pct_3',"
+                " 'decimal_pct_4', 'percent_0', 'percent_1', 'percent_2', 'percent_3', 'percent_4', 'eur',"
+                " 'eur_0', 'eur_1', 'eur_2', 'usd', 'usd_0', 'usd_1', 'usd_2', 'string', 'image_from_url',"
+                " 'date', 'week', 'month', 'quarter', 'year']"
             ],
         ),
         (
