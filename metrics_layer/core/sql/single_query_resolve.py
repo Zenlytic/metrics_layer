@@ -118,7 +118,11 @@ class SingleSQLQueryResolver:
                 conditions = []
             if conditions:
                 field_types = set(
-                    [self.field_lookup[f["field"]].field_type for f in self.flatten_filters(conditions)]
+                    [
+                        self.field_lookup[f["field"]].field_type
+                        for f in self.flatten_filters(conditions)
+                        if "group_by" not in f
+                    ]
                 )
                 if "measure" in field_types and (
                     "dimension" in field_types or "dimension_group" in field_types
@@ -224,7 +228,13 @@ class SingleSQLQueryResolver:
     def parse_identifiers_from_dicts(conditions: list):
         flattened_conditions = SingleSQLQueryResolver.flatten_filters(conditions)
         try:
-            return [cond["field"] for cond in flattened_conditions if "group_by" not in cond]
+            field_names = []
+            for cond in flattened_conditions:
+                if "group_by" in cond:
+                    field_names.append(cond["group_by"])
+                else:
+                    field_names.append(cond["field"])
+            return field_names
         except KeyError:
             for cond in conditions:
                 if "field" not in cond:
