@@ -330,6 +330,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                         replace_with = self.determine_field_to_replace_with(
                             mapped_field, optimal_join_graph_connection, join_graphs
                         )
+                        self.field_id_mapping[cond["field"]] = replace_with.id()
                         cond["field"] = replace_with.id()
 
     def _get_field_from_lookup(self, field_name: str, only_search_lookup: bool = False):
