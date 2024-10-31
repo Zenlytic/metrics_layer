@@ -1072,6 +1072,14 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
             [],
         ),
         (
+            "identifiers",
+            [{"name": "customers", "type": "primary", "sql": "${order_id}", "allowed_fanouts": True}],
+            [
+                "The allowed_fanouts property, True in the identifier customers in view order_lines must be a"
+                " list of view names."
+            ],
+        ),
+        (
             "fields_for_analysis",
             "marketing_channel",
             ["The fields_for_analysis property, marketing_channel must be a list in the view order_lines"],
