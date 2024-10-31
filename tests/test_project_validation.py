@@ -1659,6 +1659,15 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             ],
         ),
         (
+            "parent_channel",
+            "sql",
+            "${total_item_costs} * 2",
+            [
+                "Field parent_channel in view order_lines contains invalid field reference"
+                " total_item_costs. Dimensions and Dimension Groups cannot reference measures."
+            ],
+        ),
+        (
             "order",
             "sql",
             None,

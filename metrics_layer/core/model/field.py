@@ -2508,6 +2508,16 @@ class Field(MetricsLayerBase, SQLReplacement):
                         f"Field {self.name} in view {self.view.name} contains invalid field reference {ref}."
                     )
                     errors.append(error_func(sql, error_text))
+                elif (
+                    self.field_type != ZenlyticFieldType.measure
+                    and isinstance(ref, Field)
+                    and ref.field_type == ZenlyticFieldType.measure
+                ):
+                    error_text = (
+                        f"Field {self.name} in view {self.view.name} contains invalid field reference"
+                        f" {ref.name}. Dimensions and Dimension Groups cannot reference measures."
+                    )
+                    errors.append(error_func(sql, error_text))
         return errors
 
     def get_referenced_sql_query(self, strings_only=True):
