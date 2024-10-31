@@ -574,6 +574,19 @@ class View(MetricsLayerBase, SQLReplacement):
                             )
                         )
                     used_identifier_names.add(i["name"])
+
+                if "allowed_fanouts" in i and not isinstance(i["allowed_fanouts"], list):
+                    errors.append(
+                        self._error(
+                            i["allowed_fanouts"],
+                            (
+                                f"The allowed_fanouts property, {i['allowed_fanouts']} in"
+                                f" the identifier {i['name']} in view {self.name} must be a"
+                                " list of view names."
+                            ),
+                        )
+                    )
+
                 if "identifiers" in i:
                     for identifier in i["identifiers"]:
                         if identifier.get("name") not in {_id.get("name") for _id in self.identifiers}:

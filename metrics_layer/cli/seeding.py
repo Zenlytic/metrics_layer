@@ -363,7 +363,10 @@ class SeedMetricsLayer:
             elif self.connection.type == Definitions.databricks:
                 metrics_layer_type = self._databricks_type_lookup.get(row["DATA_TYPE"], "string")
             elif self.connection.type == Definitions.trino:
-                metrics_layer_type = self._trino_type_lookup.get(row["DATA_TYPE"], "string")
+                stripped_data_type = (
+                    row["DATA_TYPE"].split("(")[0] if "(" in row["DATA_TYPE"] else row["DATA_TYPE"]
+                )
+                metrics_layer_type = self._trino_type_lookup.get(stripped_data_type, "string")
             else:
                 raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
             # Add quotes for certain db only because we've seen issues with column names with special chars

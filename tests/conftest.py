@@ -303,9 +303,9 @@ def seed_druid_tables_data():
 @pytest.fixture(scope="function")
 def seed_trino_tables_data():
     order_records = [
-        {"COLUMN_NAME": "ORDER_ID", "DATA_TYPE": "decimal"},
+        {"COLUMN_NAME": "ORDER_ID", "DATA_TYPE": "double"},
         {"COLUMN_NAME": "ORDER_CREATED_AT", "DATA_TYPE": "date"},
-        {"COLUMN_NAME": "REVENUE", "DATA_TYPE": "double"},
+        {"COLUMN_NAME": "REVENUE", "DATA_TYPE": "decimal(12,3)"},
         {"COLUMN_NAME": "ACQUISITION_DATE", "DATA_TYPE": "timestamp with time zone"},
         {"COLUMN_NAME": "ON_SOCIAL_NETWORK", "DATA_TYPE": "boolean"},
         {"COLUMN_NAME": "CAMPAIGN", "DATA_TYPE": "json"},
