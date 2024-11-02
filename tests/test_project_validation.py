@@ -1541,7 +1541,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                     " which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second',"
                     " 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'fiscal_month',"
                     " 'fiscal_quarter', 'fiscal_year', 'week_index', 'week_of_year', 'week_of_month',"
-                    " 'month_of_year', 'month_of_year_index', 'fiscal_month_index',"
+                    " 'month_of_year', 'month_of_year_full_name', 'month_of_year_index', 'fiscal_month_index',"
                     " 'fiscal_month_of_year_index', 'month_name', 'month_index', 'quarter_of_year',"
                     " 'fiscal_quarter_of_year', 'hour_of_day', 'day_of_week', 'day_of_month', 'day_of_year'])"
                 ),
@@ -1664,6 +1664,15 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             [
                 "Field parent_channel in view order_lines has an invalid sql None. sql must be a string. The"
                 " sql property must be present for dimensions."
+            ],
+        ),
+        (
+            "parent_channel",
+            "sql",
+            "${total_item_costs} * 2",
+            [
+                "Field parent_channel in view order_lines contains invalid field reference"
+                " total_item_costs. Dimensions and Dimension Groups cannot reference measures."
             ],
         ),
         (
