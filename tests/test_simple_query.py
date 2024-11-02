@@ -88,6 +88,7 @@ simple_view = {
                 "week_of_month",
                 "month_index",
                 "month_of_year",
+                "month_of_year_full_name",
                 "month_of_year_index",
                 "month_name",
                 "quarter_of_year",
@@ -627,6 +628,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("month_of_year_index", Definitions.snowflake),
         ("month_index", Definitions.snowflake),
         ("month_of_year", Definitions.snowflake),
+        ("month_of_year_full_name", Definitions.snowflake),
         ("month_name", Definitions.snowflake),
         ("quarter_of_year", Definitions.snowflake),
         ("hour_of_day", Definitions.snowflake),
@@ -652,6 +654,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("week_of_month", Definitions.databricks),
         ("month_of_year_index", Definitions.databricks),
         ("month_of_year", Definitions.databricks),
+        ("month_of_year_full_name", Definitions.databricks),
         ("quarter_of_year", Definitions.databricks),
         ("hour_of_day", Definitions.databricks),
         ("day_of_week", Definitions.databricks),
@@ -676,6 +679,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("week_of_month", Definitions.druid),
         ("month_of_year_index", Definitions.druid),
         ("month_of_year", Definitions.druid),
+        ("month_of_year_full_name", Definitions.druid),
         ("quarter_of_year", Definitions.druid),
         ("hour_of_day", Definitions.druid),
         ("day_of_week", Definitions.druid),
@@ -700,6 +704,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("week_of_month", Definitions.sql_server),
         ("month_of_year_index", Definitions.sql_server),
         ("month_of_year", Definitions.sql_server),
+        ("month_of_year_full_name", Definitions.sql_server),
         ("quarter_of_year", Definitions.sql_server),
         ("hour_of_day", Definitions.sql_server),
         ("day_of_week", Definitions.sql_server),
@@ -724,6 +729,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("week_of_month", Definitions.azure_synapse),
         ("month_of_year_index", Definitions.azure_synapse),
         ("month_of_year", Definitions.azure_synapse),
+        ("month_of_year_full_name", Definitions.azure_synapse),
         ("quarter_of_year", Definitions.azure_synapse),
         ("hour_of_day", Definitions.azure_synapse),
         ("day_of_week", Definitions.azure_synapse),
@@ -748,6 +754,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("week_of_month", Definitions.redshift),
         ("month_of_year_index", Definitions.redshift),
         ("month_of_year", Definitions.redshift),
+        ("month_of_year_full_name", Definitions.redshift),
         ("quarter_of_year", Definitions.redshift),
         ("hour_of_day", Definitions.redshift),
         ("day_of_week", Definitions.redshift),
@@ -772,6 +779,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("week_of_month", Definitions.postgres),
         ("month_of_year_index", Definitions.postgres),
         ("month_of_year", Definitions.postgres),
+        ("month_of_year_full_name", Definitions.postgres),
         ("quarter_of_year", Definitions.postgres),
         ("hour_of_day", Definitions.postgres),
         ("day_of_week", Definitions.postgres),
@@ -796,6 +804,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("week_of_month", Definitions.trino),
         ("month_of_year_index", Definitions.trino),
         ("month_of_year", Definitions.trino),
+        ("month_of_year_full_name", Definitions.trino),
         ("quarter_of_year", Definitions.trino),
         ("hour_of_day", Definitions.trino),
         ("day_of_week", Definitions.trino),
@@ -820,6 +829,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("week_of_month", Definitions.duck_db),
         ("month_of_year_index", Definitions.duck_db),
         ("month_of_year", Definitions.duck_db),
+        ("month_of_year_full_name", Definitions.duck_db),
         ("quarter_of_year", Definitions.duck_db),
         ("hour_of_day", Definitions.duck_db),
         ("day_of_week", Definitions.duck_db),
@@ -844,6 +854,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("week_of_month", Definitions.bigquery),
         ("month_of_year_index", Definitions.bigquery),
         ("month_of_year", Definitions.bigquery),
+        ("month_of_year_full_name", Definitions.bigquery),
         ("quarter_of_year", Definitions.bigquery),
         ("hour_of_day", Definitions.bigquery),
         ("day_of_week", Definitions.bigquery),
@@ -888,6 +899,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "month_index": f"EXTRACT(MONTH FROM simple.order_date)",
             "month_of_year": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')",
             "month_name": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')",
+            "month_of_year_full_name": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'MMMM')",
             "quarter_of_year": "EXTRACT(QUARTER FROM simple.order_date)",
             "hour_of_day": "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))",
             "day_of_week": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Dy')",
@@ -938,6 +950,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             ),
             "month_of_year_index": f"EXTRACT(MONTH FROM CAST(simple.order_date AS DATE))",
             "month_of_year": "LEFT(DATENAME(MONTH, CAST(simple.order_date AS DATE)), 3)",
+            "month_of_year_full_name": "DATENAME(MONTH, CAST(simple.order_date AS DATE))",
             "quarter_of_year": "DATEPART(QUARTER, CAST(simple.order_date AS DATE))",
             "hour_of_day": "DATEPART(HOUR, CAST(simple.order_date AS DATETIME))",
             "day_of_week": "LEFT(DATENAME(WEEKDAY, CAST(simple.order_date AS DATE)), 3)",
@@ -990,6 +1003,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             ),
             "month_of_year_index": f"EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP))",
             "month_of_year": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')",
+            "month_of_year_full_name": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Month')",
             "quarter_of_year": "EXTRACT(QUARTER FROM CAST(simple.order_date AS TIMESTAMP))",
             "hour_of_day": "EXTRACT('HOUR' FROM CAST(simple.order_date AS TIMESTAMP))",
             "day_of_week": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Dy')",
@@ -998,6 +1012,9 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         }
         if query_type == Definitions.trino:
             result_lookup["month_of_year"] = "FORMAT_DATETIME(CAST(simple.order_date AS TIMESTAMP), 'MMM')"
+            result_lookup[
+                "month_of_year_full_name"
+            ] = "FORMAT_DATETIME(CAST(simple.order_date AS TIMESTAMP), 'MMMM')"
             result_lookup["hour_of_day"] = "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))"
             result_lookup["day_of_week"] = "FORMAT_DATETIME(CAST(simple.order_date AS TIMESTAMP), 'EEE')"
             result_lookup["day_of_month"] = "EXTRACT(DAY FROM CAST(simple.order_date AS TIMESTAMP))"
@@ -1028,6 +1045,9 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
                 "fiscal_quarter_of_year"
             ] = "EXTRACT(QUARTER FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
             result_lookup["month_of_year"] = "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'MMM')"
+            result_lookup[
+                "month_of_year_full_name"
+            ] = "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'MMMM')"  # noqa
             result_lookup["hour_of_day"] = "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))"
             result_lookup["day_of_week"] = "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'E')"
             result_lookup["day_of_month"] = "EXTRACT(DAY FROM CAST(simple.order_date AS TIMESTAMP))"
@@ -1036,6 +1056,9 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             result_lookup[
                 "month_of_year"
             ] = "CASE EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'Jan' WHEN 2 THEN 'Feb' WHEN 3 THEN 'Mar' WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun' WHEN 7 THEN 'Jul' WHEN 8 THEN 'Aug' WHEN 9 THEN 'Sep' WHEN 10 THEN 'Oct' WHEN 11 THEN 'Nov' WHEN 12 THEN 'Dec' ELSE 'Invalid Month' END"  # noqa
+            result_lookup[
+                "month_of_year_full_name"
+            ] = "CASE EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'January' WHEN 2 THEN 'February' WHEN 3 THEN 'March' WHEN 4 THEN 'April' WHEN 5 THEN 'May' WHEN 6 THEN 'June' WHEN 7 THEN 'July' WHEN 8 THEN 'August' WHEN 9 THEN 'September' WHEN 10 THEN 'October' WHEN 11 THEN 'November' WHEN 12 THEN 'December' ELSE 'Invalid Month' END"  # noqa
             result_lookup["hour_of_day"] = "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))"
             result_lookup[
                 "day_of_week"
@@ -1080,7 +1103,8 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
                 f" AS DATE), MONTH)) + 1"
             ),
             "month_of_year_index": f"EXTRACT(MONTH FROM simple.order_date)",
-            "month_of_year": "FORMAT_DATETIME('%B', CAST(simple.order_date as DATETIME))",
+            "month_of_year": "LEFT(FORMAT_DATETIME('%B', CAST(simple.order_date as DATETIME)), 3)",
+            "month_of_year_full_name": "FORMAT_DATETIME('%B', CAST(simple.order_date as DATETIME))",
             "quarter_of_year": "EXTRACT(QUARTER FROM simple.order_date)",
             "hour_of_day": f"CAST(CAST(simple.order_date AS STRING FORMAT 'HH24') AS INT64)",
             "day_of_week": f"CAST(simple.order_date AS STRING FORMAT 'DAY')",
