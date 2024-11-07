@@ -162,6 +162,8 @@ class JoinGraph(SQLReplacement):
                     if join_view_name != view.name and self._allowed_join(only_join, join_view_name):
                         join_view = self.project.get_view(join_view_name)
                         join_identifier = join_view.get_identifier(identifier["name"])
+                        if join_identifier is None:
+                            continue
                         join_only_join = join_identifier.get("only_join", [])
                         if not self._allowed_join(join_only_join, view.name):
                             continue
