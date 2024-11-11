@@ -148,7 +148,7 @@ class ZenlyticType:
 
 
 class Field(MetricsLayerBase, SQLReplacement):
-    internal_properties = ["is_personal_field"]
+    internal_properties = ("is_personal_field",)
 
     def __init__(self, definition: dict, view) -> None:
         self.defaults = {"type": "string", "primary_key": False, "datatype": "timestamp"}
