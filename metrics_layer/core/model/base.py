@@ -1,6 +1,6 @@
 import difflib
 import re
-from collections.abc import Iterable
+from typing import Iterable
 
 from metrics_layer.core.exceptions import QueryError
 
