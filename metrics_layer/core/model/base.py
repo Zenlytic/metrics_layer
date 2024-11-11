@@ -1,6 +1,6 @@
 import difflib
 import re
-from typing import List
+from collections.abc import Iterable
 
 from metrics_layer.core.exceptions import QueryError
 
@@ -49,7 +49,7 @@ class MetricsLayerBase:
 
     @staticmethod
     def invalid_property_error(
-        definition: dict, valid_properties: List[str], entity_name: str, name: str, error_func: callable
+        definition: dict, valid_properties: Iterable[str], entity_name: str, name: str, error_func: callable
     ):
         errors = []
         for key in definition:
@@ -79,7 +79,7 @@ class MetricsLayerBase:
         return explore_name, view_name, name
 
     @staticmethod
-    def propose_property(invalid_property_name: str, valid_properties: List[str]) -> str:
+    def propose_property(invalid_property_name: str, valid_properties: Iterable[str]) -> str:
         closest_match = difflib.get_close_matches(invalid_property_name, valid_properties, n=1)
         if closest_match:
             return closest_match[0]
