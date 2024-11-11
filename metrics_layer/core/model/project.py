@@ -86,6 +86,30 @@ class Project:
             raise QueryError("The required_access_filter_user_attributes must be a list of strings")
         self._required_access_filter_user_attributes = user_attribute_names
 
+    def replace_field(self, field: dict, view_name: str, refresh_cache: bool = True):
+        view = next((v for v in self._views if v["name"] == view_name), None)
+        if view is None:
+            raise AccessDeniedOrDoesNotExistException(
+                f"Could not find a view matching the name {view_name}",
+                object_name=view_name,
+                object_type="view",
+            )
+
+        original_field_idx = next(
+            (idx for idx, f in enumerate(view["fields"]) if f["name"].lower() == field["name"].lower()),
+            None,
+        )
+        if original_field_idx is None:
+            raise AccessDeniedOrDoesNotExistException(
+                f"Could not find a field matching the name {field['name']} in view {view_name}",
+                object_name=field["name"],
+                object_type="field",
+            )
+        view["fields"][original_field_idx] = field
+
+        if refresh_cache:
+            self.refresh_cache()
+
     def add_field(self, field: dict, view_name: str, refresh_cache: bool = True):
         view = next((v for v in self._views if v["name"] == view_name), None)
         if view is None:
