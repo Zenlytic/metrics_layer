@@ -309,7 +309,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self._replace_field_value_in_group_by_filter()
 
     def _replace_field_value_in_group_by_filter(self):
-        if isinstance(self.where, list):
+        if isinstance(self.where, list) and self.field_lookup:
             optimal_join_graph_connection = set.intersection(*map(set, self.field_lookup.values()))
             optimal_join_graph_connection = [
                 o for o in optimal_join_graph_connection if "merged_result" not in o
