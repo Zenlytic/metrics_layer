@@ -2031,6 +2031,22 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
         ),
         (
             "parent_channel",
+            "allow_higher_searchable_max",
+            -1,
+            [
+                "Field parent_channel in view order_lines has an invalid allow_higher_searchable_max -1. "
+                "allow_higher_searchable_max must be a boolean (true or false)."
+            ],
+        ),
+        (
+            "parent_channel",
+            "allow_higher_searchable_max",
+            True,
+            [
+            ],
+        ),
+        (
+            "parent_channel",
             "type",
             "tier",
             [
