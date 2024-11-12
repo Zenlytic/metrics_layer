@@ -211,6 +211,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "tags",
                 "drill_fields",
                 "searchable",
+                "allow_higher_searchable_max",
                 "tiers",
                 "link",
                 "canon_date",
@@ -221,6 +222,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             dimension_group_only = [
                 "primary_key",
                 "searchable",
+                "allow_higher_searchable_max",
                 "tags",
                 "drill_fields",
                 "timeframes",
@@ -1894,6 +1896,19 @@ class Field(MetricsLayerBase, SQLReplacement):
                         (
                             f"Field {self.name} in view {self.view.name} has an invalid searchable"
                             f" {self.searchable}. searchable must be a boolean (true or false)."
+                        ),
+                    )
+                )
+            if "allow_higher_searchable_max" in self._definition and not isinstance(
+                self.allow_higher_searchable_max, bool
+            ):
+                errors.append(
+                    self._error(
+                        self._definition["allow_higher_searchable_max"],
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid"
+                            f" allow_higher_searchable_max {self.allow_higher_searchable_max}."
+                            " allow_higher_searchable_max must be a boolean (true or false)."
                         ),
                     )
                 )
