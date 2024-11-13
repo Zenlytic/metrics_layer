@@ -68,7 +68,7 @@ class MetricsLayerFilter(MetricsLayerBase):
 
     def __hash__(self):
         valid_def = {
-            k: v
+            k: str(v)
             for k, v in self._definition.items()
             if k not in {"group_by_filter_cte_lookup", "query_type", "query_class"}
         }

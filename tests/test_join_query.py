@@ -739,6 +739,35 @@ def test_query_sub_group_by_filter_measure_in_where(connection):
 
 
 @pytest.mark.query
+def test_query_sub_group_by_filter_dim_group(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders"],
+        dimensions=["region"],
+        where=[
+            {
+                "field": "order_lines.order_date",
+                "group_by": "customers.customer_id",
+                "expression": "greater_than",
+                "value": datetime(2024, 1, 1),
+            }
+        ],
+    )
+
+    correct = (
+        "WITH filter_subquery_0 AS (SELECT customers.customer_id as customers_customer_id FROM"
+        " analytics.order_line_items order_lines LEFT JOIN analytics.customers customers ON"
+        " order_lines.customer_id=customers.customer_id WHERE DATE_TRUNC('DAY',"
+        " order_lines.order_date)>'2024-01-01T00:00:00' GROUP BY customers.customer_id ORDER BY"
+        " customers_customer_id ASC NULLS LAST) SELECT customers.region as customers_region,COUNT(orders.id)"
+        " as orders_number_of_orders FROM analytics.orders orders LEFT JOIN analytics.customers customers ON"
+        " orders.customer_id=customers.customer_id WHERE customers.customer_id IN (SELECT DISTINCT"
+        " customers_customer_id FROM filter_subquery_0) GROUP BY customers.region ORDER BY"
+        " orders_number_of_orders DESC NULLS LAST;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_query_sub_group_by_filter_measure_in_having(connection):
     with pytest.raises(QueryError) as e:
         connection.get_sql_query(
