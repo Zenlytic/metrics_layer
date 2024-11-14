@@ -36,6 +36,7 @@ VALID_TIMEFRAMES = [
     "week_of_year",
     "week_of_month",
     "month_of_year",
+    "month_of_year_full_name",
     "month_of_year_index",
     "fiscal_month_index",
     "fiscal_month_of_year_index",
@@ -59,15 +60,22 @@ VALID_INTERVALS = [
     "year",
 ]
 VALID_VALUE_FORMAT_NAMES = [
+    "decimal",
     "decimal_0",
     "decimal_1",
     "decimal_2",
+    "decimal_3",
+    "decimal_4",
     "decimal_pct_0",
     "decimal_pct_1",
     "decimal_pct_2",
+    "decimal_pct_3",
+    "decimal_pct_4",
     "percent_0",
     "percent_1",
     "percent_2",
+    "percent_3",
+    "percent_4",
     "eur",
     "eur_0",
     "eur_1",
@@ -140,7 +148,24 @@ class ZenlyticType:
 
 
 class Field(MetricsLayerBase, SQLReplacement):
-    internal_properties = ["is_personal_field"]
+    shared_properties = (
+        "name",
+        "field_type",
+        "type",
+        "label",
+        "group_label",
+        "description",
+        "zoe_description",
+        "hidden",
+        "value_format_name",
+        "synonyms",
+        "required_access_grants",
+        "label_prefix",
+        "filters",
+        "sql",
+        "extra",
+    )
+    internal_properties = ("is_personal_field",)
 
     def __init__(self, definition: dict, view) -> None:
         self.defaults = {"type": "string", "primary_key": False, "datatype": "timestamp"}
@@ -180,39 +205,24 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     @property
     def valid_properties(self):
-        shared_properties = [
-            "name",
-            "field_type",
-            "type",
-            "label",
-            "group_label",
-            "description",
-            "zoe_description",
-            "hidden",
-            "value_format_name",
-            "synonyms",
-            "required_access_grants",
-            "label_prefix",
-            "filters",
-            "sql",
-            "extra",
-        ]
         if self.field_type == ZenlyticFieldType.dimension:
-            dimension_only = [
+            dimension_only = (
                 "primary_key",
                 "tags",
                 "drill_fields",
                 "searchable",
+                "allow_higher_searchable_max",
                 "tiers",
                 "link",
                 "canon_date",
                 "case",
-            ]
-            return shared_properties + dimension_only
+            )
+            return self.shared_properties + dimension_only
         elif self.field_type == ZenlyticFieldType.dimension_group:
-            dimension_group_only = [
+            dimension_group_only = (
                 "primary_key",
                 "searchable",
+                "allow_higher_searchable_max",
                 "tags",
                 "drill_fields",
                 "timeframes",
@@ -223,10 +233,10 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "convert_timezone",
                 "datatype",
                 "link",
-            ]
-            return shared_properties + dimension_group_only
+            )
+            return self.shared_properties + dimension_group_only
         elif self.field_type == ZenlyticFieldType.measure:
-            measure_only = [
+            measure_only = (
                 "sql_distinct_key",
                 "non_additive_dimension",
                 "canon_date",
@@ -234,10 +244,10 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "is_merged_result",
                 "cumulative_where",
                 "update_where_timeframe",
-            ]
-            return shared_properties + measure_only
+            )
+            return self.shared_properties + measure_only
         else:
-            return shared_properties
+            return self.shared_properties
 
     @property
     def hidden(self):
@@ -1041,6 +1051,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                     f"EXTRACT(MONTH FROM {self._fiscal_offset_to_timestamp(s, qt)})"
                 ),
                 "month_of_year": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Mon')",
+                "month_of_year_full_name": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'MMMM')",
                 "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM {s})",
                 "fiscal_quarter_of_year": lambda s, qt: (
                     f"EXTRACT(QUARTER FROM {self._fiscal_offset_to_timestamp(s, qt)})"
@@ -1082,6 +1093,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                     f"EXTRACT(MONTH FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
                 ),
                 "month_of_year": lambda s, qt: f"DATE_FORMAT(CAST({s} AS TIMESTAMP), 'MMM')",
+                "month_of_year_full_name": lambda s, qt: f"DATE_FORMAT(CAST({s} AS TIMESTAMP), 'MMMM')",
                 "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP))",
                 "fiscal_quarter_of_year": lambda s, qt: (
                     f"EXTRACT(QUARTER FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
@@ -1123,6 +1135,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                     f"EXTRACT(MONTH FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
                 ),
                 "month_of_year": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Mon')",
+                "month_of_year_full_name": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Month')",
                 "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP))",
                 "fiscal_quarter_of_year": lambda s, qt: (
                     f"EXTRACT(QUARTER FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
@@ -1164,6 +1177,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                     f"EXTRACT(MONTH FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
                 ),
                 "month_of_year": lambda s, qt: f"FORMAT_DATETIME(CAST({s} AS TIMESTAMP), 'MMM')",
+                "month_of_year_full_name": lambda s, qt: f"FORMAT_DATETIME(CAST({s} AS TIMESTAMP), 'MMMM')",
                 "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP))",
                 "fiscal_quarter_of_year": lambda s, qt: (
                     f"EXTRACT(QUARTER FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
@@ -1209,6 +1223,12 @@ class Field(MetricsLayerBase, SQLReplacement):
                     " WHEN 3 THEN 'Mar' WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun' WHEN 7 THEN"
                     " 'Jul' WHEN 8 THEN 'Aug' WHEN 9 THEN 'Sep' WHEN 10 THEN 'Oct' WHEN 11 THEN 'Nov' WHEN"
                     " 12 THEN 'Dec' ELSE 'Invalid Month' END"
+                ),
+                "month_of_year_full_name": lambda s, qt: (
+                    f"CASE EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP)) WHEN 1 THEN 'January' WHEN 2 THEN "
+                    "'February' WHEN 3 THEN 'March' WHEN 4 THEN 'April' WHEN 5 THEN 'May' WHEN 6 THEN "
+                    "'June' WHEN 7 THEN 'July' WHEN 8 THEN 'August' WHEN 9 THEN 'September' WHEN 10 THEN "
+                    "'October' WHEN 11 THEN 'November' WHEN 12 THEN 'December' ELSE 'Invalid Month' END"
                 ),
                 "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP))",
                 "fiscal_quarter_of_year": lambda s, qt: (
@@ -1258,6 +1278,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                     f"EXTRACT(MONTH FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS DATE))"
                 ),
                 "month_of_year": lambda s, qt: f"LEFT(DATENAME(MONTH, CAST({s} AS DATE)), 3)",
+                "month_of_year_full_name": lambda s, qt: f"DATENAME(MONTH, CAST({s} AS DATE))",
                 "quarter_of_year": lambda s, qt: f"DATEPART(QUARTER, CAST({s} AS DATE))",
                 "fiscal_quarter_of_year": lambda s, qt: (
                     f"DATEPART(QUARTER, CAST({self._fiscal_offset_to_timestamp(s, qt)} AS DATE))"
@@ -1312,7 +1333,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "fiscal_month_of_year_index": lambda s, qt: (
                     f"EXTRACT(MONTH FROM {self._fiscal_offset_to_timestamp(s, qt)})"
                 ),
-                "month_of_year": lambda s, qt: f"FORMAT_DATETIME('%B', CAST({s} as DATETIME))",
+                "month_of_year": lambda s, qt: f"LEFT(FORMAT_DATETIME('%B', CAST({s} as DATETIME)), 3)",
+                "month_of_year_full_name": lambda s, qt: f"FORMAT_DATETIME('%B', CAST({s} as DATETIME))",
                 "quarter_of_year": lambda s, qt: f"EXTRACT(QUARTER FROM {s})",
                 "fiscal_quarter_of_year": lambda s, qt: (
                     f"EXTRACT(QUARTER FROM {self._fiscal_offset_to_timestamp(s, qt)})"
@@ -1874,6 +1896,19 @@ class Field(MetricsLayerBase, SQLReplacement):
                         (
                             f"Field {self.name} in view {self.view.name} has an invalid searchable"
                             f" {self.searchable}. searchable must be a boolean (true or false)."
+                        ),
+                    )
+                )
+            if "allow_higher_searchable_max" in self._definition and not isinstance(
+                self.allow_higher_searchable_max, bool
+            ):
+                errors.append(
+                    self._error(
+                        self._definition["allow_higher_searchable_max"],
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid"
+                            f" allow_higher_searchable_max {self.allow_higher_searchable_max}."
+                            " allow_higher_searchable_max must be a boolean (true or false)."
                         ),
                     )
                 )
@@ -2499,6 +2534,16 @@ class Field(MetricsLayerBase, SQLReplacement):
                 if isinstance(ref, str):
                     error_text = (
                         f"Field {self.name} in view {self.view.name} contains invalid field reference {ref}."
+                    )
+                    errors.append(error_func(sql, error_text))
+                elif (
+                    self.field_type != ZenlyticFieldType.measure
+                    and isinstance(ref, Field)
+                    and ref.field_type == ZenlyticFieldType.measure
+                ):
+                    error_text = (
+                        f"Field {self.name} in view {self.view.name} contains invalid field reference"
+                        f" {ref.name}. Dimensions and Dimension Groups cannot reference measures."
                     )
                     errors.append(error_func(sql, error_text))
         return errors

@@ -1072,6 +1072,14 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
             [],
         ),
         (
+            "identifiers",
+            [{"name": "customers", "type": "primary", "sql": "${order_id}", "allowed_fanouts": True}],
+            [
+                "The allowed_fanouts property, True in the identifier customers in view order_lines must be a"
+                " list of view names."
+            ],
+        ),
+        (
             "fields_for_analysis",
             "marketing_channel",
             ["The fields_for_analysis property, marketing_channel must be a list in the view order_lines"],
@@ -1323,11 +1331,12 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "value_format_name",
             None,
             [
-                "Field total_item_costs in view order_lines has an invalid value_format_name None. "
-                "Valid value_format_names are: ['decimal_0', 'decimal_1', 'decimal_2', "
-                "'decimal_pct_0', 'decimal_pct_1', 'decimal_pct_2', 'percent_0', 'percent_1', "
-                "'percent_2', 'eur', 'eur_0', 'eur_1', 'eur_2', 'usd', 'usd_0', 'usd_1', "
-                "'usd_2', 'string', 'image_from_url', 'date', 'week', 'month', 'quarter', 'year']"
+                "Field total_item_costs in view order_lines has an invalid value_format_name None. Valid"
+                " value_format_names are: ['decimal', 'decimal_0', 'decimal_1', 'decimal_2', 'decimal_3',"
+                " 'decimal_4', 'decimal_pct_0', 'decimal_pct_1', 'decimal_pct_2', 'decimal_pct_3',"
+                " 'decimal_pct_4', 'percent_0', 'percent_1', 'percent_2', 'percent_3', 'percent_4', 'eur',"
+                " 'eur_0', 'eur_1', 'eur_2', 'usd', 'usd_0', 'usd_1', 'usd_2', 'string', 'image_from_url',"
+                " 'date', 'week', 'month', 'quarter', 'year']"
             ],
         ),
         (
@@ -1335,11 +1344,12 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "value_format_name",
             "aus",
             [
-                "Field total_item_costs in view order_lines has an invalid value_format_name aus. "
-                "Valid value_format_names are: ['decimal_0', 'decimal_1', 'decimal_2', "
-                "'decimal_pct_0', 'decimal_pct_1', 'decimal_pct_2', 'percent_0', 'percent_1', "
-                "'percent_2', 'eur', 'eur_0', 'eur_1', 'eur_2', 'usd', 'usd_0', 'usd_1', "
-                "'usd_2', 'string', 'image_from_url', 'date', 'week', 'month', 'quarter', 'year']"
+                "Field total_item_costs in view order_lines has an invalid value_format_name aus. Valid"
+                " value_format_names are: ['decimal', 'decimal_0', 'decimal_1', 'decimal_2', 'decimal_3',"
+                " 'decimal_4', 'decimal_pct_0', 'decimal_pct_1', 'decimal_pct_2', 'decimal_pct_3',"
+                " 'decimal_pct_4', 'percent_0', 'percent_1', 'percent_2', 'percent_3', 'percent_4', 'eur',"
+                " 'eur_0', 'eur_1', 'eur_2', 'usd', 'usd_0', 'usd_1', 'usd_2', 'string', 'image_from_url',"
+                " 'date', 'week', 'month', 'quarter', 'year']"
             ],
         ),
         (
@@ -1531,7 +1541,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                     " which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second',"
                     " 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'fiscal_month',"
                     " 'fiscal_quarter', 'fiscal_year', 'week_index', 'week_of_year', 'week_of_month',"
-                    " 'month_of_year', 'month_of_year_index', 'fiscal_month_index',"
+                    " 'month_of_year', 'month_of_year_full_name', 'month_of_year_index', 'fiscal_month_index',"
                     " 'fiscal_month_of_year_index', 'month_name', 'month_index', 'quarter_of_year',"
                     " 'fiscal_quarter_of_year', 'hour_of_day', 'day_of_week', 'day_of_month', 'day_of_year'])"
                 ),
@@ -1654,6 +1664,15 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             [
                 "Field parent_channel in view order_lines has an invalid sql None. sql must be a string. The"
                 " sql property must be present for dimensions."
+            ],
+        ),
+        (
+            "parent_channel",
+            "sql",
+            "${total_item_costs} * 2",
+            [
+                "Field parent_channel in view order_lines contains invalid field reference"
+                " total_item_costs. Dimensions and Dimension Groups cannot reference measures."
             ],
         ),
         (
@@ -2008,6 +2027,22 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             [
                 "Field parent_channel in view order_lines has an invalid searchable -1. "
                 "searchable must be a boolean (true or false)."
+            ],
+        ),
+        (
+            "parent_channel",
+            "allow_higher_searchable_max",
+            -1,
+            [
+                "Field parent_channel in view order_lines has an invalid allow_higher_searchable_max -1. "
+                "allow_higher_searchable_max must be a boolean (true or false)."
+            ],
+        ),
+        (
+            "parent_channel",
+            "allow_higher_searchable_max",
+            True,
+            [
             ],
         ),
         (
