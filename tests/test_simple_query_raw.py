@@ -15,6 +15,7 @@ simple_model = {
 simple_view = {
     "type": "view",
     "name": "simple",
+    "model_name": "core",
     "sql_table_name": "analytics.orders",
     "fields": [
         {
