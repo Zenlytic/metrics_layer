@@ -44,15 +44,18 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         where = definition.get("where", None)
         having = definition.get("having", None)
         order_by = definition.get("order_by", None)
+        group_by_where_cte_lookup = {}
 
         access_filter_literal, _ = self.design.get_access_filter()
         if where or access_filter_literal:
-            wheres = self._parse_filter_object(where, "where", access_filter=access_filter_literal)
-            self.where_filters.extend([f for f in wheres if not f.is_group_by and not f.is_funnel])
+            wheres, group_by_wheres, group_by_where_cte_lookup = self._parse_filter_object(
+                where, "where", access_filter=access_filter_literal
+            )
+            self.where_filters.extend([f for f in wheres if not f.is_funnel])
             self.funnel_filters.extend([f for f in wheres if f.is_funnel])
             if len(self.funnel_filters) > 1:
                 raise QueryError("Only one funnel filter is allowed per query")
-            self.having_group_by_filters.extend([f for f in wheres if f.is_group_by])
+            self.having_group_by_filters.extend(group_by_wheres)
 
         if having and self.no_group_by:
             raise ArgumentError(
@@ -61,9 +64,10 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
             )
 
         if having:
-            having_filters = self._parse_filter_object(having, "having")
-            self.having_group_by_filters.extend([f for f in having_filters if f.is_group_by])
-            self.having_filters.extend([f for f in having_filters if not f.is_group_by])
+            having_filters, group_by_having_filters, _ = self._parse_filter_object(having, "having")
+            if len(group_by_having_filters) > 0:
+                raise QueryError("Entity (group by) filters in having clause are not supported")
+            self.having_filters.extend(having_filters)
 
         if order_by and self.no_group_by:
             raise ArgumentError(
@@ -76,6 +80,8 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
             self.order_by_args.extend(self._parse_order_by_object(order_by))
         elif self.query_type in {Definitions.snowflake, Definitions.redshift, Definitions.duck_db}:
             self.order_by_args.append({"field": "__DEFAULT__"})
+
+        self.group_by_filter_cte_lookup = {**group_by_where_cte_lookup}
 
         # Parse any non-additive dimension on given metrics to collect
         # them as CTE's for the appropriate filters
@@ -97,7 +103,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                         )
 
     def _parse_filter_object(self, filter_object, filter_type: str, access_filter: str = None):
-        results = []
+        results, group_by_results, group_by_cte_lookup = [], [], {}
         extra_kwargs = dict(filter_type=filter_type, design=self.design)
 
         if access_filter:
@@ -111,11 +117,23 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
 
         # Handle JSON filter
         if isinstance(filter_object, list):
+            cte_counter = 0
             for filter_dict in filter_object:
+                flattened_filters = flatten_filters(filter_dict)
+                for sub_filter in flattened_filters:
+                    if "group_by" in sub_filter:
+                        gb_f = MetricsLayerFilter(definition=sub_filter, **extra_kwargs)
+                        group_by_cte_lookup[hash(gb_f)] = f"filter_subquery_{cte_counter}"
+                        group_by_results.append(gb_f)
+                        cte_counter += 1
+
+            for filter_dict in filter_object:
+                filter_dict["group_by_filter_cte_lookup"] = group_by_cte_lookup
                 # Generate (and automatically validate) the filter and then store it
                 f = MetricsLayerFilter(definition=filter_dict, **extra_kwargs)
                 results.append(f)
-        return results
+
+        return results, group_by_results, group_by_cte_lookup
 
     def _parse_order_by_object(self, order_by):
         results = []
@@ -184,15 +202,10 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
             base_query = base_query.having(Criterion.all(having))
 
         if self.having_group_by_filters:
-            group_by_where = []
-            for i, f in enumerate(sorted(self.having_group_by_filters)):
-                cte_alias = f"filter_subquery_{i}"
+            for f in self.having_group_by_filters:
+                cte_alias = self.group_by_filter_cte_lookup[hash(f)]
                 cte_query = f.cte(query_class=MetricsLayerQuery, design_class=MetricsLayerDesign)
                 base_query = base_query.with_(Table(cte_query), cte_alias)
-                group_by_where.append(
-                    f.isin_sql_query(cte_alias=cte_alias, field_name=f.group_by, query_generator=self)
-                )
-            base_query = base_query.where(Criterion.all(group_by_where))
 
         if self.non_additive_ctes:
             for definition in sorted(self.non_additive_ctes, key=lambda x: x["alias"]):
@@ -248,9 +261,9 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
             cte_query = funnel_filter.funnel_cte()
             base_query = base_query.with_(Table(cte_query), cte_alias)
             link_field = funnel_filter.query_class.link_field.id()
-            where_sql = funnel_filter.isin_sql_query(
-                cte_alias=cte_alias, field_name=link_field, query_generator=self
-            )
+            funnel_filter._definition["group_by"] = link_field
+            funnel_filter._definition["group_by_filter_cte_lookup"] = {hash(funnel_filter): cte_alias}
+            where_sql = funnel_filter.isin_sql_query()
             base_query = base_query.where(where_sql)
 
         # Handle order by

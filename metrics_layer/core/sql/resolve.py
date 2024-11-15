@@ -149,6 +149,9 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                 self.field_lookup[field_name] = field_obj.join_graphs()
 
         if not self.mapping_lookup:
+            # We need to call this here because the 'field' value in the
+            # group by filter does not show up in the field lookup
+            self._replace_field_value_in_group_by_filter()
             return
 
         if self.field_lookup:
@@ -302,6 +305,34 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                     )
                     self._replace_mapped_field(name, replace_with)
 
+        # We also have to swap out the field in a potential group by where clause
+        self._replace_field_value_in_group_by_filter()
+
+    def _replace_field_value_in_group_by_filter(self):
+        if isinstance(self.where, list) and self.field_lookup:
+            optimal_join_graph_connection = set.intersection(*map(set, self.field_lookup.values()))
+            optimal_join_graph_connection = [
+                o for o in optimal_join_graph_connection if "merged_result" not in o
+            ]
+            flattened_conditions = SingleSQLQueryResolver.flatten_filters(self.where)
+            for cond in flattened_conditions:
+                if "group_by" in cond:
+                    # Only the group by field needs to be joinable or merge-able to the query
+                    # The field in the group by where clause is not required to be joinable
+                    # to the whole query, just to the group by field
+                    group_by_field = self.project.get_field(cond["group_by"], model=self.model)
+                    join_graphs = group_by_field.join_graphs()
+
+                    # Here we need to check if the field is a mapped field
+                    # If it is, we need to add the underlying field
+                    mapped_field = self.project.get_mapped_field(cond["field"], model=self.model)
+                    if mapped_field:
+                        replace_with = self.determine_field_to_replace_with(
+                            mapped_field, optimal_join_graph_connection, join_graphs
+                        )
+                        self.field_id_mapping[cond["field"]] = replace_with.id()
+                        cond["field"] = replace_with.id()
+
     def _get_field_from_lookup(self, field_name: str, only_search_lookup: bool = False):
         if field_name in self.field_object_lookup:
             metric_field = self.field_object_lookup[field_name]
@@ -395,7 +426,9 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         else:
             result = []
             for w in where:
-                if "field" in w and w["field"] == to_replace:
+                if "group_by" in w and w["group_by"] == to_replace:
+                    result.append({**w, "group_by": field.id()})
+                elif "field" in w and w["field"] == to_replace:
                     result.append({**w, "field": field.id()})
                 elif "field" not in w and "conditions" in w:
                     result.append(
