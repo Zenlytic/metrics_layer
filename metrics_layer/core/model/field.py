@@ -148,7 +148,24 @@ class ZenlyticType:
 
 
 class Field(MetricsLayerBase, SQLReplacement):
-    internal_properties = ["is_personal_field"]
+    shared_properties = (
+        "name",
+        "field_type",
+        "type",
+        "label",
+        "group_label",
+        "description",
+        "zoe_description",
+        "hidden",
+        "value_format_name",
+        "synonyms",
+        "required_access_grants",
+        "label_prefix",
+        "filters",
+        "sql",
+        "extra",
+    )
+    internal_properties = ("is_personal_field",)
 
     def __init__(self, definition: dict, view) -> None:
         self.defaults = {"type": "string", "primary_key": False, "datatype": "timestamp"}
@@ -188,39 +205,24 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     @property
     def valid_properties(self):
-        shared_properties = [
-            "name",
-            "field_type",
-            "type",
-            "label",
-            "group_label",
-            "description",
-            "zoe_description",
-            "hidden",
-            "value_format_name",
-            "synonyms",
-            "required_access_grants",
-            "label_prefix",
-            "filters",
-            "sql",
-            "extra",
-        ]
         if self.field_type == ZenlyticFieldType.dimension:
-            dimension_only = [
+            dimension_only = (
                 "primary_key",
                 "tags",
                 "drill_fields",
                 "searchable",
+                "allow_higher_searchable_max",
                 "tiers",
                 "link",
                 "canon_date",
                 "case",
-            ]
-            return shared_properties + dimension_only
+            )
+            return self.shared_properties + dimension_only
         elif self.field_type == ZenlyticFieldType.dimension_group:
-            dimension_group_only = [
+            dimension_group_only = (
                 "primary_key",
                 "searchable",
+                "allow_higher_searchable_max",
                 "tags",
                 "drill_fields",
                 "timeframes",
@@ -231,10 +233,10 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "convert_timezone",
                 "datatype",
                 "link",
-            ]
-            return shared_properties + dimension_group_only
+            )
+            return self.shared_properties + dimension_group_only
         elif self.field_type == ZenlyticFieldType.measure:
-            measure_only = [
+            measure_only = (
                 "sql_distinct_key",
                 "non_additive_dimension",
                 "canon_date",
@@ -242,10 +244,10 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "is_merged_result",
                 "cumulative_where",
                 "update_where_timeframe",
-            ]
-            return shared_properties + measure_only
+            )
+            return self.shared_properties + measure_only
         else:
-            return shared_properties
+            return self.shared_properties
 
     @property
     def hidden(self):
@@ -1894,6 +1896,19 @@ class Field(MetricsLayerBase, SQLReplacement):
                         (
                             f"Field {self.name} in view {self.view.name} has an invalid searchable"
                             f" {self.searchable}. searchable must be a boolean (true or false)."
+                        ),
+                    )
+                )
+            if "allow_higher_searchable_max" in self._definition and not isinstance(
+                self.allow_higher_searchable_max, bool
+            ):
+                errors.append(
+                    self._error(
+                        self._definition["allow_higher_searchable_max"],
+                        (
+                            f"Field {self.name} in view {self.view.name} has an invalid"
+                            f" allow_higher_searchable_max {self.allow_higher_searchable_max}."
+                            " allow_higher_searchable_max must be a boolean (true or false)."
                         ),
                     )
                 )
