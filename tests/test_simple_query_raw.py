@@ -1,3 +1,5 @@
+import copy
+
 import pytest
 
 from metrics_layer.core import MetricsLayerConnection
@@ -11,10 +13,13 @@ simple_model = {
     "week_start_day": "sunday",
     "explores": [{"name": "simple_explore", "from": "simple"}],
 }
+simple_model2 = copy.deepcopy(simple_model)
+simple_model2["name"] = "core2"
 
 simple_view = {
     "type": "view",
     "name": "simple",
+    "model_name": "core",
     "sql_table_name": "analytics.orders",
     "fields": [
         {
@@ -70,11 +75,28 @@ simple_view = {
         },
     ],
 }
+simple_view2 = copy.deepcopy(simple_view)
+simple_view2["name"] = "simple2"
+simple_view2["model_name"] = "core2"
+# Assign new field names to allow fields to be resolved without the view name
+for field in simple_view2["fields"]:
+    field["name"] = f"{field['name']}2"
+
+
+@pytest.fixture(
+    params=[
+        pytest.param(([simple_model], [simple_view]), id="one_model"),
+        pytest.param(([simple_model, simple_model2], [simple_view, simple_view2]), id="two_models"),
+    ]
+)
+def test_models_and_views(request):
+    return request.param
 
 
 @pytest.mark.query
-def test_simple_query(connections):
-    project = Project(models=[simple_model], views=[simple_view])
+def test_simple_query(connections, test_models_and_views):
+    models, views = test_models_and_views
+    project = Project(models=models, views=views)
     conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["order_id", "channel"])
 
@@ -86,8 +108,9 @@ def test_simple_query(connections):
 
 
 @pytest.mark.query
-def test_query_complex_metric(connections):
-    project = Project(models=[simple_model], views=[simple_view])
+def test_query_complex_metric(connections, test_models_and_views):
+    models, views = test_models_and_views
+    project = Project(models=models, views=views)
     conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(metrics=["revenue_per_aov"], dimensions=["order_id", "channel"])
 
@@ -101,8 +124,9 @@ def test_query_complex_metric(connections):
 
 
 @pytest.mark.query
-def test_query_complex_metric_having_error(connections):
-    project = Project(models=[simple_model], views=[simple_view])
+def test_query_complex_metric_having_error(connections, test_models_and_views):
+    models, views = test_models_and_views
+    project = Project(models=models, views=views)
     conn = MetricsLayerConnection(project=project, connections=connections)
     with pytest.raises(ArgumentError) as exc_info:
         conn.get_sql_query(
@@ -115,8 +139,9 @@ def test_query_complex_metric_having_error(connections):
 
 
 @pytest.mark.query
-def test_query_complex_metric_order_by_error(connections):
-    project = Project(models=[simple_model], views=[simple_view])
+def test_query_complex_metric_order_by_error(connections, test_models_and_views):
+    models, views = test_models_and_views
+    project = Project(models=models, views=views)
     conn = MetricsLayerConnection(project=project, connections=connections)
     with pytest.raises(ArgumentError) as exc_info:
         conn.get_sql_query(
@@ -129,8 +154,9 @@ def test_query_complex_metric_order_by_error(connections):
 
 
 @pytest.mark.query
-def test_query_complex_metric_all(connections):
-    project = Project(models=[simple_model], views=[simple_view])
+def test_query_complex_metric_all(connections, test_models_and_views):
+    models, views = test_models_and_views
+    project = Project(models=models, views=views)
     conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(
         metrics=["revenue_per_aov"],

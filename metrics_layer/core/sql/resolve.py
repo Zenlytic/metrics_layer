@@ -470,25 +470,28 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                         mapping_model_names.append(model.name)
                     except Exception:
                         pass
-
         all_model_names = list(set(all_model_names))
-        if len(all_model_names) == 0 and len(mapping_model_names) > 0:
-            # In a case that there are no models in the query, we'll just use the first model
-            # in the project. This case should be limited to only mapping-only queries, so this is safe.
-            model_counts = Counter(mapping_model_names)
-            sorted_models = [m for m, _ in model_counts.most_common()]
-            return self.project.get_model(sorted_models[0])
-        elif len(all_model_names) == 1 and (
+        if not all_model_names:
+            if mapping_model_names:
+                # In this case, the only fields we recognize are mappings. These can
+                # exist in multiple models, so we don't know which to use. Let's make a
+                # guess and choose the model containing the most mappings.
+                model_counts = Counter(mapping_model_names)
+                sorted_models = [m for m, _ in model_counts.most_common()]
+                return self.project.get_model(sorted_models[0])
+            # Alternatively, we don't recognize any fields. Let's arbitrarily choose the
+            # first model.
+            return models[0]
+        if len(all_model_names) == 1 and (
             len(mapping_model_names) == 0
             or (len(mapping_model_names) > 0 and all_model_names[0] in mapping_model_names)
         ):
             return self.project.get_model(list(all_model_names)[0])
-        else:
-            raise QueryError(
-                "More than one model found in this query. Please specify a model "
-                "to use by either passing the name of the model using 'model_name' parameter or by  "
-                "setting the `model_name` property on the view."
-            )
+        raise QueryError(
+            "More than one model found in this query. Please specify a model to use by either passing the"
+            " name of the model using 'model_name' parameter or by setting the `model_name` property on the"
+            " view."
+        )
 
     def _get_query_type(self, connection, kwargs: dict):
         if "query_type" in kwargs:
