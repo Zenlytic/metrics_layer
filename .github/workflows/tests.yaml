@@ -35,4 +35,4 @@ jobs:
           pytest --cov=metrics_layer/ --cov-report=xml
 
       - name: Report on code coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
