@@ -870,6 +870,9 @@ class Field(MetricsLayerBase, SQLReplacement):
             output["sql"] = self.sql_query(query_type)
         return output
 
+    def to_yaml_properties_format(self):
+        return {k: self._definition[k] for k in self.valid_properties & self._definition.keys()}
+
     def printable_attributes(self):
         to_print = [
             "name",
