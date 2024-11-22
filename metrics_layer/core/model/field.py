@@ -279,7 +279,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                 )
             # You cannot apply a filter to a field that is the same name
             # as the field itself (this doesn't make sense)
-            filters_to_apply = [f for f in definition.get("filters", []) if f.get("field") != self.name]
+            filters_to_apply = [f for f in self.filters if f.get("field") != self.name]
 
             else_0 = False
             if non_additive_dimension := self.non_additive_dimension:
