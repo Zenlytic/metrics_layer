@@ -73,6 +73,17 @@ simple_view = {
             "sql": "CASE WHEN ${channel} != 'fraud' THEN TRUE ELSE FALSE END",
             "name": "is_valid_order",
         },
+        {
+            "name": "orders_beginning_of_month",
+            "field_type": "measure",
+            "type": "count",
+            "sql": "${order_id}",
+            "filters": None,
+            "non_additive_dimension": {
+                "name": "order_raw",
+                "window_choice": "min",
+            },
+        },
     ],
 }
 simple_view2 = copy.deepcopy(simple_view)
@@ -119,6 +130,28 @@ def test_query_complex_metric(connections, test_models_and_views):
     )
     correct += (
         "simple_average_order_value,simple.revenue as simple_total_revenue FROM analytics.orders simple;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_complex_metric_with_none_filters_and_non_additive_dimension(
+    connections, test_models_and_views
+):
+    models, views = test_models_and_views
+    project = Project(models=models, views=views)
+    conn = MetricsLayerConnection(project=project, connections=connections)
+    query = conn.get_sql_query(metrics=["orders_beginning_of_month"], dimensions=["order_id"])
+
+    correct = (
+        "WITH cte_orders_beginning_of_month_order_raw AS (SELECT simple.order_id as"
+        " simple_order_id,MIN(simple.order_date) as simple_min_order_raw FROM analytics.orders simple GROUP"
+        " BY simple.order_id ORDER BY simple_min_order_raw DESC NULLS LAST) SELECT simple.order_id as"
+        " simple_order_id,case when"
+        " simple.order_date=cte_orders_beginning_of_month_order_raw.simple_min_order_raw then simple.order_id"
+        " end as simple_orders_beginning_of_month FROM analytics.orders simple LEFT JOIN"
+        " cte_orders_beginning_of_month_order_raw ON"
+        " simple.order_id=cte_orders_beginning_of_month_order_raw.simple_order_id;"
     )
     assert query == correct
 
