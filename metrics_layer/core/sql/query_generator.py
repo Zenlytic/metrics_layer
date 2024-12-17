@@ -121,10 +121,10 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
             for filter_dict in filter_object:
                 flattened_filters = flatten_filters(filter_dict)
                 for sub_filter in flattened_filters:
-                    if "group_by" in sub_filter:
-                        gb_f = MetricsLayerFilter(definition=sub_filter, **extra_kwargs)
-                        group_by_cte_lookup[hash(gb_f)] = f"filter_subquery_{cte_counter}"
-                        group_by_results.append(gb_f)
+                    f = MetricsLayerFilter(definition=sub_filter, **extra_kwargs)
+                    if f.is_group_by:
+                        group_by_cte_lookup[hash(f)] = f"filter_subquery_{cte_counter}"
+                        group_by_results.append(f)
                         cte_counter += 1
 
             for filter_dict in filter_object:

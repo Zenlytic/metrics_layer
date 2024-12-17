@@ -3,7 +3,7 @@ from copy import deepcopy
 from typing import List, Union
 
 from metrics_layer.core.exceptions import JoinError, QueryError
-from metrics_layer.core.model.filter import Filter
+from metrics_layer.core.model.filter import Filter, MetricsLayerFilterExpressionType
 from metrics_layer.core.model.project import Project
 from metrics_layer.core.sql.merged_query_resolve import MergedSQLQueryResolver
 from metrics_layer.core.sql.query_base import QueryKindTypes
@@ -332,6 +332,44 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                         )
                         self.field_id_mapping[cond["field"]] = replace_with.id()
                         cond["field"] = replace_with.id()
+                elif cond["expression"] in {
+                    MetricsLayerFilterExpressionType.IsInQuery.value,
+                    MetricsLayerFilterExpressionType.IsNotInQuery.value,
+                }:
+                    defaults = {
+                        "project": self.project,
+                        "connections": self.connections,
+                        "model_name": self.model.name,
+                        "return_pypika_query": True,
+                    }
+
+                    if not isinstance(cond["value"]["query"], dict):
+                        raise QueryError(
+                            "Subquery filter value for the key 'query' must be a dictionary. It was"
+                            f" {cond['value']['query']}"
+                        )
+
+                    if "apply_limit" in cond["value"] and not bool(cond["value"]["apply_limit"]):
+                        cond["value"]["query"]["limit"] = None
+
+                    resolver = SQLQueryResolver(**cond["value"]["query"], **defaults)
+                    jg_connection = set.intersection(*map(set, resolver.field_lookup.values()))
+                    optimal_jg_connection = [o for o in jg_connection if "merged_result" not in o]
+
+                    mapped_field = self.project.get_mapped_field(cond["value"]["field"], model=self.model)
+                    if mapped_field:
+                        field = self.determine_field_to_replace_with(
+                            mapped_field, optimal_jg_connection, jg_connection
+                        )
+                    else:
+                        field = self.project.get_field(cond["value"]["field"])
+
+                    if field.id() not in {self.project.get_field(d).id() for d in resolver.dimensions}:
+                        raise QueryError(
+                            f"Field {field.id()} not found in subquery dimensions {resolver.dimensions}. You"
+                            " must specify a dimension that is present in the subquery."
+                        )
+                    cond["value"]["sql_query"] = resolver.get_query(semicolon=False)
 
     def _get_field_from_lookup(self, field_name: str, only_search_lookup: bool = False):
         if field_name in self.field_object_lookup:

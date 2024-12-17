@@ -59,6 +59,8 @@ class MetricsLayerFilterExpressionType(str, Enum):
     IsNotNull = "is_not_null"
     IsIn = "isin"
     IsNotIn = "isnotin"
+    IsInQuery = "is_in_query"
+    IsNotInQuery = "is_not_in_query"
     BooleanTrue = "boolean_true"
     BooleanFalse = "boolean_false"
     Matches = "matches"
