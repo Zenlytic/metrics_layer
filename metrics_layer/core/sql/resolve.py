@@ -342,6 +342,8 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                         "model_name": self.model.name,
                         "return_pypika_query": True,
                     }
+                    if "query_type" in self.kwargs:
+                        defaults["query_type"] = self.kwargs["query_type"]
 
                     if not isinstance(cond["value"]["query"], dict):
                         raise QueryError(
