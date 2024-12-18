@@ -340,12 +340,17 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                         "project": self.project,
                         "connections": self.connections,
                         "model_name": self.model.name,
-                        "return_pypika_query": True,
+                        "return_pypika_query": False,
                     }
                     if "query_type" in self.kwargs:
                         defaults["query_type"] = self.kwargs["query_type"]
 
-                    if not isinstance(cond["value"]["query"], dict):
+                    # This handles the case where the passed filter is incomplete, and
+                    # does not apply the filter
+                    if "query" not in cond["value"]:
+                        continue
+
+                    if "query" in cond["value"] and not isinstance(cond["value"]["query"], dict):
                         raise QueryError(
                             "Subquery filter value for the key 'query' must be a dictionary. It was"
                             f" {cond['value']['query']}"
