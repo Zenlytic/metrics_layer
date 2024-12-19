@@ -314,7 +314,9 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             optimal_join_graph_connection = [
                 o for o in optimal_join_graph_connection if "merged_result" not in o
             ]
-            flattened_conditions = SingleSQLQueryResolver.flatten_filters(self.where)
+            flattened_conditions = SingleSQLQueryResolver.flatten_filters(
+                self.where, return_nesting_depth=True
+            )
             for cond in flattened_conditions:
                 if "group_by" in cond:
                     # Only the group by field needs to be joinable or merge-able to the query
@@ -358,6 +360,9 @@ class SQLQueryResolver(SingleSQLQueryResolver):
 
                     if "apply_limit" in cond["value"] and not bool(cond["value"]["apply_limit"]):
                         cond["value"]["query"]["limit"] = None
+
+                    if "nesting_depth" in cond and cond["nesting_depth"] > 0:
+                        defaults["nesting_depth"] = cond["nesting_depth"]
 
                     resolver = SQLQueryResolver(**cond["value"]["query"], **defaults)
                     jg_connection = set.intersection(*map(set, resolver.field_lookup.values()))
@@ -584,6 +589,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
     def _clean_conditional_filter_syntax(self, filters: Union[str, None, List]):
         if not filters or isinstance(filters, str):
             return filters
+
         if isinstance(filters, dict):
             return [filters]
 

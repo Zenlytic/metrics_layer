@@ -36,6 +36,7 @@ class SingleSQLQueryResolver:
         self.funnel, self.is_funnel_query = self.parse_funnel(funnel)
         self.parse_field_names(where, having, order_by)
         self.model = model
+        self.nesting_depth = kwargs.get("nesting_depth", 0)
         self.query_type = kwargs.get("query_type")
         if self.query_type is None:
             raise QueryError(
@@ -64,6 +65,7 @@ class SingleSQLQueryResolver:
             "select_raw_sql": self.select_raw_sql,
             "limit": self.limit,
             "return_pypika_query": self.return_pypika_query,
+            "nesting_depth": self.nesting_depth,
         }
         if self.has_cumulative_metric and self.is_funnel_query:
             raise QueryError("Cumulative metrics cannot be used with funnel queries")
@@ -242,8 +244,8 @@ class SingleSQLQueryResolver:
             raise QueryError(f"Identifier was missing required 'field' key: {cond}")
 
     @staticmethod
-    def flatten_filters(filters: list):
-        return flatten_filters(filters)
+    def flatten_filters(filters: list, return_nesting_depth: bool = False):
+        return flatten_filters(filters, return_nesting_depth=return_nesting_depth)
 
     @staticmethod
     def _check_for_dict(conditions: list):

@@ -480,3 +480,139 @@ def test_query_subquery_filter_field_not_in_query(connection):
 
     assert exc_info.value
     assert "Field orders.new_vs_repeat not found in subquery dimensions" in str(exc_info.value)
+
+
+@pytest.mark.query
+def test_query_subquery_filter_nested_simple_case(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders"],
+        dimensions=["region"],
+        where=[
+            {
+                "conditional_filter_logic": {
+                    "conditions": [
+                        {
+                            "field": "orders.order_id",
+                            "expression": "is_in_query",
+                            "value": {
+                                "query": {
+                                    "metrics": [],
+                                    "dimensions": ["orders.order_id"],
+                                    "where": [
+                                        {
+                                            "field": "orders.order_id",
+                                            "expression": "is_in_query",
+                                            "value": {
+                                                "query": {
+                                                    "metrics": [],
+                                                    "dimensions": ["orders.order_id"],
+                                                    "where": [
+                                                        {
+                                                            "field": "channel",
+                                                            "expression": "contains_case_insensitive",
+                                                            "value": "email",
+                                                        }
+                                                    ],
+                                                },
+                                                "field": "orders.order_id",
+                                            },
+                                        },
+                                        {
+                                            "field": "product_name",
+                                            "expression": "not_equal_to",
+                                            "value": "Shipping Protection",
+                                        },
+                                    ],
+                                },
+                                "field": "orders.order_id",
+                            },
+                        },
+                    ],
+                    "logical_operator": "AND",
+                }
+            },
+        ],
+    )
+
+    correct = (
+        "WITH filter_subquery_0 AS (WITH filter_subquery_2_0 AS (SELECT orders.id as orders_order_id FROM"
+        " analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON"
+        " order_lines.order_unique_id=orders.id WHERE LOWER(order_lines.sales_channel) LIKE LOWER('%email%')"
+        " GROUP BY orders.id ORDER BY orders_order_id ASC NULLS LAST) SELECT orders.id as orders_order_id"
+        " FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON"
+        " order_lines.order_unique_id=orders.id WHERE orders.id IN (SELECT DISTINCT orders_order_id FROM"
+        " filter_subquery_2_0) AND order_lines.product_name<>'Shipping Protection' GROUP BY orders.id ORDER"
+        " BY orders_order_id ASC NULLS LAST) SELECT customers.region as customers_region,COUNT(orders.id) as"
+        " orders_number_of_orders FROM analytics.orders orders LEFT JOIN analytics.customers customers ON"
+        " orders.customer_id=customers.customer_id WHERE orders.id IN (SELECT DISTINCT orders_order_id FROM"
+        " filter_subquery_0) GROUP BY customers.region ORDER BY orders_number_of_orders DESC NULLS LAST;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_subquery_filter_nested(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders"],
+        dimensions=["region"],
+        where=[
+            {
+                "field": "orders.order_id",
+                "expression": "is_in_query",
+                "value": {
+                    "query": {
+                        "metrics": [],
+                        "dimensions": ["orders.order_id"],
+                        "where": [
+                            {
+                                "conditional_filter_logic": {
+                                    "logical_operator": "AND",
+                                    "conditions": [
+                                        {
+                                            "field": "orders.order_id",
+                                            "expression": "is_in_query",
+                                            "value": {
+                                                "query": {
+                                                    "metrics": [],
+                                                    "dimensions": ["orders.order_id"],
+                                                    "where": [
+                                                        {
+                                                            "field": "channel",
+                                                            "expression": "contains_case_insensitive",
+                                                            "value": "email",
+                                                        }
+                                                    ],
+                                                },
+                                                "field": "orders.order_id",
+                                            },
+                                        },
+                                        {
+                                            "field": "product_name",
+                                            "expression": "not_equal_to",
+                                            "value": "Shipping Protection",
+                                        },
+                                    ],
+                                },
+                            }
+                        ],
+                    },
+                    "field": "orders.order_id",
+                },
+            },
+        ],
+    )
+
+    correct = (
+        "WITH filter_subquery_0 AS (WITH filter_subquery_1_0 AS (SELECT orders.id as orders_order_id FROM"
+        " analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON"
+        " order_lines.order_unique_id=orders.id WHERE LOWER(order_lines.sales_channel) LIKE LOWER('%email%')"
+        " GROUP BY orders.id ORDER BY orders_order_id ASC NULLS LAST) SELECT orders.id as orders_order_id"
+        " FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON"
+        " order_lines.order_unique_id=orders.id WHERE orders.id IN (SELECT DISTINCT orders_order_id FROM"
+        " filter_subquery_1_0) AND order_lines.product_name<>'Shipping Protection' GROUP BY orders.id ORDER"
+        " BY orders_order_id ASC NULLS LAST) SELECT customers.region as customers_region,COUNT(orders.id) as"
+        " orders_number_of_orders FROM analytics.orders orders LEFT JOIN analytics.customers customers ON"
+        " orders.customer_id=customers.customer_id WHERE orders.id IN (SELECT DISTINCT orders_order_id FROM"
+        " filter_subquery_0) GROUP BY customers.region ORDER BY orders_number_of_orders DESC NULLS LAST;"
+    )
+    assert query == correct
