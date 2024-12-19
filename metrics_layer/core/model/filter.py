@@ -63,6 +63,8 @@ class MetricsLayerFilterExpressionType(str, Enum):
     IsNotInQuery = "is_not_in_query"
     BooleanTrue = "boolean_true"
     BooleanFalse = "boolean_false"
+    IsTrue = "is_true"
+    IsFalse = "is_false"
     Matches = "matches"
 
     def __hash__(self):
@@ -577,6 +579,8 @@ class Filter(MetricsLayerBase):
             MetricsLayerFilterExpressionType.IsNotIn: lambda f: f.isin(value).negate(),
             MetricsLayerFilterExpressionType.BooleanTrue: lambda f: LiteralValueCriterion(f),
             MetricsLayerFilterExpressionType.BooleanFalse: lambda f: f.negate(),
+            MetricsLayerFilterExpressionType.IsTrue: lambda f: LiteralValueCriterion(f),
+            MetricsLayerFilterExpressionType.IsFalse: lambda f: f.negate(),
         }
 
         try:

@@ -368,9 +368,10 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                         field = self.determine_field_to_replace_with(
                             mapped_field, optimal_jg_connection, jg_connection
                         )
+                        self.field_id_mapping[cond["value"]["field"]] = field.id()
+                        cond["value"]["field"] = field.id()
                     else:
                         field = self.project.get_field(cond["value"]["field"])
-
                     if field.id() not in {self.project.get_field(d).id() for d in resolver.dimensions}:
                         raise QueryError(
                             f"Field {field.id()} not found in subquery dimensions {resolver.dimensions}. You"
