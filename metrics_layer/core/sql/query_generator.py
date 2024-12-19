@@ -49,7 +49,10 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         access_filter_literal, _ = self.design.get_access_filter()
         if where or access_filter_literal:
             wheres, group_by_wheres, group_by_where_cte_lookup = self._parse_filter_object(
-                where, "where", access_filter=access_filter_literal
+                where,
+                "where",
+                access_filter=access_filter_literal,
+                nesting_depth=definition.get("nesting_depth", 0),
             )
             self.where_filters.extend([f for f in wheres if not f.is_funnel])
             self.funnel_filters.extend([f for f in wheres if f.is_funnel])
@@ -102,7 +105,9 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                             }
                         )
 
-    def _parse_filter_object(self, filter_object, filter_type: str, access_filter: str = None):
+    def _parse_filter_object(
+        self, filter_object, filter_type: str, access_filter: str = None, nesting_depth: int = 0
+    ):
         results, group_by_results, group_by_cte_lookup = [], [], {}
         extra_kwargs = dict(filter_type=filter_type, design=self.design)
 
@@ -121,10 +126,14 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
             for filter_dict in filter_object:
                 flattened_filters = flatten_filters(filter_dict)
                 for sub_filter in flattened_filters:
-                    if "group_by" in sub_filter:
-                        gb_f = MetricsLayerFilter(definition=sub_filter, **extra_kwargs)
-                        group_by_cte_lookup[hash(gb_f)] = f"filter_subquery_{cte_counter}"
-                        group_by_results.append(gb_f)
+                    f = MetricsLayerFilter(definition=sub_filter, **extra_kwargs)
+                    if f.is_group_by:
+                        if nesting_depth > 0:
+                            cte_alias = f"filter_subquery_{nesting_depth}_{cte_counter}"
+                        else:
+                            cte_alias = f"filter_subquery_{cte_counter}"
+                        group_by_cte_lookup[hash(f)] = cte_alias
+                        group_by_results.append(f)
                         cte_counter += 1
 
             for filter_dict in filter_object:
