@@ -28,3 +28,5 @@ class Definitions:
 
     does_not_exist = "__DOES_NOT_EXIST__"
     canon_date_join_graph_root = "canon_date_core"
+
+    date_format_tz = "%Y-%m-%dT%H:%M:%SZ"

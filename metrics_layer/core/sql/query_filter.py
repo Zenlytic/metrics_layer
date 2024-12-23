@@ -155,8 +155,8 @@ class MetricsLayerFilter(MetricsLayerBase):
                 except Exception:
                     pass
 
-            if self.design.query_type in Definitions.needs_datetime_cast and isinstance(
-                definition["value"], datetime.datetime
+            if self.design.query_type in Definitions.needs_datetime_cast and self._can_convert_to_datetime(
+                definition["value"]
             ):
                 definition["value"] = datatype_cast(self.field, definition["value"])
 
@@ -165,6 +165,17 @@ class MetricsLayerFilter(MetricsLayerBase):
 
             if self.field.type == "yesno" and "True" in str(definition["value"]):
                 definition["expression"] = "boolean_true"
+
+    def _can_convert_to_datetime(self, value):
+        if isinstance(value, datetime.datetime):
+            return True
+        if isinstance(value, str):
+            try:
+                datetime.datetime.strptime(value, Definitions.date_format_tz)
+                return True
+            except ValueError:
+                return False
+        return False
 
     def group_sql_query(
         self,
