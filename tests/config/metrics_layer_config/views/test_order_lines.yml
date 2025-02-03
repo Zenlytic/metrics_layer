@@ -80,6 +80,12 @@ fields:
     sql: '${TABLE}.product_name'
     searchable: true
 
+  - name: product_name_lang
+    field_type: 'dimension'
+    type: string
+    sql: LOOKUP(${TABLE}.product_name, {{ user_attributes['user_lang'] }} )
+    searchable: true
+
   - name: inventory_qty
     field_type: 'dimension'
     hidden: yes
