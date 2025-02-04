@@ -150,6 +150,7 @@ class MetricsLayerFilter(MetricsLayerBase):
             if "value" in definition and isinstance(definition["value"], str) and "." in definition["value"]:
                 try:
                     value_field = self.design.get_field(definition["value"])
+                    self.design.field_lookup[value_field.id()] = value_field
                     functional_pk = self.design.functional_pk()
                     definition["value"] = LiteralValue(value_field.sql_query(self.query_type, functional_pk))
                 except Exception:
