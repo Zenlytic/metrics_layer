@@ -227,7 +227,7 @@ def test_simple_query_dimension_filter(connections):
 
 
 @pytest.mark.query
-def test_simple_query_field_to_field_filter(connections):
+def test_simple_query_field_on_field_filter(connections):
     project = Project(models=[simple_model], views=[simple_view])
     conn = MetricsLayerConnection(project=project, connections=connections)
     query = conn.get_sql_query(

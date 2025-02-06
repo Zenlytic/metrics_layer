@@ -38,8 +38,8 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
         self.project = project
         self.metrics = metrics
         self.dimensions = dimensions
-        self.parse_field_names(where, having, order_by)
         self.model = model
+        self.parse_field_names(where, having, order_by)
         self.query_type = None
 
     def get_query(self, semicolon: bool = True):
