@@ -1522,7 +1522,7 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
     elif (
         query_type == Definitions.bigquery and isinstance(value, datetime) and field == "previous_order_date"
     ):
-        condition = "CAST(DATE_TRUNC(CAST(simple.previous_order_date AS DATE), DAY) AS DATETIME)>CAST('2021-08-04 00:00:00' AS DATETIME)"  # noqa
+        condition = "CAST(DATE_TRUNC(CAST(simple.previous_order_date AS DATE), DAY) AS DATETIME)>CAST(CAST('2021-08-04 00:00:00' AS TIMESTAMP) AS DATETIME)"  # noqa
     elif query_type == Definitions.trino and isinstance(value, datetime) and field == "first_order_date":
         condition = "DATE_TRUNC('DAY', CAST(simple.first_order_date AS TIMESTAMP))>CAST(CAST('2021-08-04 00:00:00' AS TIMESTAMP) AS DATE)"  # noqa
     elif query_type == Definitions.bigquery and isinstance(value, datetime) and field == "first_order_date":
