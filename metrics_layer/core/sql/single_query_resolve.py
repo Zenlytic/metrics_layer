@@ -34,8 +34,8 @@ class SingleSQLQueryResolver:
         self.metrics = metrics
         self.dimensions = dimensions
         self.funnel, self.is_funnel_query = self.parse_funnel(funnel)
-        self.parse_field_names(where, having, order_by)
         self.model = model
+        self.parse_field_names(where, having, order_by)
         self.nesting_depth = kwargs.get("nesting_depth", 0)
         self.query_type = kwargs.get("query_type")
         if self.query_type is None:
@@ -226,8 +226,7 @@ class SingleSQLQueryResolver:
     def _is_literal(clause):
         return isinstance(clause, str) or clause is None
 
-    @staticmethod
-    def parse_identifiers_from_dicts(conditions: list):
+    def parse_identifiers_from_dicts(self, conditions: list):
         flattened_conditions = SingleSQLQueryResolver.flatten_filters(conditions)
         try:
             field_names = []
@@ -236,6 +235,10 @@ class SingleSQLQueryResolver:
                     field_names.append(cond["group_by"])
                 else:
                     field_names.append(cond["field"])
+                if "value" in cond and isinstance(cond["value"], str):
+                    mapped_field = self.project.get_mapped_field(cond["value"], model=self.model)
+                    if mapped_field:
+                        field_names.append(cond["value"])
             return field_names
         except KeyError:
             for cond in conditions:
