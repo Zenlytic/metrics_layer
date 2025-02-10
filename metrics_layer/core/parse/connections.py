@@ -55,8 +55,10 @@ class SnowflakeConnection(BaseConnection):
             self.username = username
         elif user:
             self.username = user
-        else:
+        elif kwargs.get("token") is None:
             raise ArgumentError("Received no argument for the Snowflake user, pass either user or username")
+        else:
+            self.username = username
         self.password = password
         self.role = role
         self.warehouse = warehouse
