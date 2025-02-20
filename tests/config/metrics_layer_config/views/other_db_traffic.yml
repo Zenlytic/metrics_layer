@@ -2,7 +2,7 @@ version: 1
 type: view
 name: other_db_traffic
 
-sql_table_name: analytics.traffic
+sql_table_name: "{{ user_attributes['db_name'] }}.analytics.traffic"
 model_name: new_model
 
 fields:

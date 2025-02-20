@@ -1175,7 +1175,7 @@ def test_query_merge_results_order_issue(connection):
 
 @pytest.mark.query
 def test_query_merge_results_default_date_raise_error(project, connections):
-    canon_date = project._views[5]["fields"][-1].pop("canon_date")
+    canon_date = project._views[5]["fields"][-2].pop("canon_date")
     connection = MetricsLayerConnection(project=project, connections=connections)
 
     with pytest.raises(QueryError) as exc_info:
