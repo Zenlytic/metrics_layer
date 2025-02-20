@@ -1264,6 +1264,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                     "Canon date order_lines.order is not of field_type: dimension_group and type: "
                     "time in field avg_rainfall in view country_detail"
                 ),
+                (
+                    "Canon date order_lines.order is not of field_type: dimension_group and type: "
+                    "time in field avg_rainfall_adj in view country_detail"
+                ),
                 "Default date order is not of field_type: dimension_group and type: time in view order_lines",
                 (
                     "Field order in view order_lines has an invalid type yesno. Valid types for "
@@ -1505,6 +1509,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                     "Canon date order_lines.order is not of field_type: dimension_group and type: "
                     "time in field avg_rainfall in view country_detail"
                 ),
+                (
+                    "Canon date order_lines.order is not of field_type: dimension_group and type: "
+                    "time in field avg_rainfall_adj in view country_detail"
+                ),
                 "Default date order is not of field_type: dimension_group and type: time in view order_lines",
                 (
                     "Field order in view order_lines has an invalid type number. Valid types for dimension"
@@ -1541,9 +1549,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                     " which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second',"
                     " 'minute', 'hour', 'date', 'week', 'month', 'quarter', 'year', 'fiscal_month',"
                     " 'fiscal_quarter', 'fiscal_year', 'week_index', 'week_of_year', 'week_of_month',"
-                    " 'month_of_year', 'month_of_year_full_name', 'month_of_year_index', 'fiscal_month_index',"
-                    " 'fiscal_month_of_year_index', 'month_name', 'month_index', 'quarter_of_year',"
-                    " 'fiscal_quarter_of_year', 'hour_of_day', 'day_of_week', 'day_of_month', 'day_of_year'])"
+                    " 'month_of_year', 'month_of_year_full_name', 'month_of_year_index',"
+                    " 'fiscal_month_index', 'fiscal_month_of_year_index', 'month_name', 'month_index',"
+                    " 'quarter_of_year', 'fiscal_quarter_of_year', 'hour_of_day', 'day_of_week',"
+                    " 'day_of_month', 'day_of_year'])"
                 ),
             ],
         ),
@@ -2042,8 +2051,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "parent_channel",
             "allow_higher_searchable_max",
             True,
-            [
-            ],
+            [],
         ),
         (
             "parent_channel",

@@ -175,7 +175,7 @@ class View(MetricsLayerBase, SQLReplacement):
     @staticmethod
     def jinja_replacements(sql: str, replaceable_attributes: dict) -> str:
         # Replace jinja with the replaceable attrs here
-        if not sql:
+        if not sql or "{{" not in str(sql):
             return sql
 
         try:
