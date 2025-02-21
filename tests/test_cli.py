@@ -53,6 +53,7 @@ def test_cli_init(mocker, monkeypatch):
         (Definitions.trino, None, None, None),
         (Definitions.sql_server, None, None, None),
         (Definitions.azure_synapse, None, None, None),
+        (Definitions.mysql, None, None, None),
     ],
 )
 def test_cli_seed_metrics_layer(
@@ -71,6 +72,7 @@ def test_cli_seed_metrics_layer(
     seed_trino_tables_data,
     seed_sql_server_tables_data,
     seed_databricks_tables_data,
+    seed_mysql_tables_data,
 ):
     mocker.patch("os.mkdir")
     yaml_dump_called = 0
@@ -107,6 +109,8 @@ def test_cli_seed_metrics_layer(
             return seed_sql_server_tables_data
         elif query_type == Definitions.databricks:
             return seed_databricks_tables_data
+        elif query_type == Definitions.mysql:
+            return seed_mysql_tables_data
         raise ValueError("Query error, does not match expected")
 
     def yaml_dump_assert(slf, data, file):
@@ -139,6 +143,7 @@ def test_cli_seed_metrics_layer(
                     Definitions.sql_server,
                     Definitions.databricks,
                     Definitions.trino,
+                    Definitions.mysql,
                 }
                 and database_override is None
             ):
@@ -150,6 +155,7 @@ def test_cli_seed_metrics_layer(
                     Definitions.azure_synapse,
                     Definitions.sql_server,
                     Definitions.databricks,
+                    Definitions.mysql,
                 }
                 and database_override
             ):
@@ -178,6 +184,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
+                Definitions.mysql,
             }:
                 assert social["sql"] == '${TABLE}."ON_SOCIAL_NETWORK"'
             else:
@@ -199,6 +206,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
+                Definitions.mysql,
             }:
                 assert acq_date["sql"] == '${TABLE}."ACQUISITION_DATE"'
             else:
@@ -213,6 +221,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.sql_server,
                 Definitions.azure_synapse,
                 Definitions.trino,
+                Definitions.mysql,
             }:
                 assert date["datatype"] == "date"
             else:
@@ -237,6 +246,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
+                Definitions.mysql,
             }:
                 assert date["sql"] == '${TABLE}."ORDER_CREATED_AT"'
             else:
@@ -252,6 +262,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
+                Definitions.mysql,
             }:
                 assert new["sql"] == '${TABLE}."NEW_VS_REPEAT"'
             else:
@@ -267,6 +278,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
+                Definitions.mysql,
             }:
                 assert num["sql"] == '${TABLE}."REVENUE"'
             else:
@@ -287,6 +299,7 @@ def test_cli_seed_metrics_layer(
                     Definitions.azure_synapse,
                     Definitions.databricks,
                     Definitions.trino,
+                    Definitions.mysql,
                 }
                 and database_override is None
             ):
@@ -298,6 +311,7 @@ def test_cli_seed_metrics_layer(
                     Definitions.sql_server,
                     Definitions.azure_synapse,
                     Definitions.databricks,
+                    Definitions.mysql,
                 }
                 and database_override
             ):
@@ -319,6 +333,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
+                Definitions.mysql,
             }:
                 assert cross_sell["sql"] == '${TABLE}."@CRoSSell P-roduct:"'
             else:
@@ -334,6 +349,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.azure_synapse,
                 Definitions.databricks,
                 Definitions.trino,
+                Definitions.mysql,
             }:
                 assert date["datatype"] == "date"
             else:
@@ -358,6 +374,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
+                Definitions.mysql,
             }:
                 assert date["sql"] == '${TABLE}."SESSION_DATE"'
             else:
@@ -373,6 +390,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
+                Definitions.mysql,
             }:
                 assert pk["sql"] == '${TABLE}."SESSION_ID"'
             else:
@@ -388,6 +406,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
+                Definitions.mysql,
             }:
                 assert num["sql"] == '${TABLE}."CONVERSION"'
             else:

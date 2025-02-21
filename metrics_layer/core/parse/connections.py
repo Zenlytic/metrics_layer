@@ -16,6 +16,7 @@ class ConnectionType:
     bigquery = Definitions.bigquery
     redshift = Definitions.redshift
     postgres = Definitions.postgres
+    mysql = Definitions.mysql
     druid = Definitions.druid
     sql_server = Definitions.sql_server
     duck_db = Definitions.duck_db
@@ -210,6 +211,29 @@ class PostgresConnection(RedshiftConnection):
         self.password = password
         self.database = dbname
         self.dbname = dbname
+        self.schema = schema
+
+
+class MySQLConnection(RedshiftConnection):
+    def __init__(
+        self,
+        name: str,
+        host: str,
+        user: str,
+        password: str,
+        port: int = 3306,
+        database: str = None,
+        schema: str = None,
+        **kwargs,
+    ) -> None:
+        self.type = ConnectionType.mysql
+        self.name = name
+        self.host = host
+        self.port = port
+        self.user = user
+        self.username = user
+        self.password = password
+        self.database = database
         self.schema = schema
 
 
@@ -451,4 +475,5 @@ connection_class_lookup = {
     ConnectionType.duck_db: DuckDBConnection,
     ConnectionType.databricks: DatabricksConnection,
     ConnectionType.trino: TrinoConnection,
+    ConnectionType.mysql: MySQLConnection,
 }

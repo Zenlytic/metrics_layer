@@ -112,6 +112,25 @@ class SeedMetricsLayer:
             "DATE": "date",
         }
         # Also duck db type lookup
+        self._mysql_type_lookup = {
+            "date": "date",
+            "datetime": "datetime",
+            "timestamp": "timestamp",
+            "int": "number",
+            "tinyint": "number",
+            "smallint": "number",
+            "mediumint": "number",
+            "bigint": "number",
+            "float": "number",
+            "double": "number",
+            "decimal": "number",
+            "numeric": "number",
+            "bit": "number",
+            "text": "string",
+            "varchar": "string",
+            "char": "string",
+            "boolean": "yesno",
+        }
         self._postgres_type_lookup = {
             "date": "date",
             "timestamp without time zone": "timestamp",
@@ -312,7 +331,7 @@ class SeedMetricsLayer:
             sql_table_name = f"{schema_name}.{table_name}"
             if self._database_is_not_default:
                 sql_table_name = f"{self.database}.{sql_table_name}"
-        elif self.connection.type in {Definitions.druid, Definitions.trino}:
+        elif self.connection.type in {Definitions.druid, Definitions.trino, Definitions.mysql}:
             sql_table_name = f"{schema_name}.{table_name}"
         elif self.connection.type == Definitions.bigquery:
             sql_table_name = f"`{self.database}.{schema_name}.{table_name}`"
@@ -367,6 +386,8 @@ class SeedMetricsLayer:
                     row["DATA_TYPE"].split("(")[0] if "(" in row["DATA_TYPE"] else row["DATA_TYPE"]
                 )
                 metrics_layer_type = self._trino_type_lookup.get(stripped_data_type, "string")
+            elif self.connection.type == Definitions.mysql:
+                metrics_layer_type = self._mysql_type_lookup.get(row["DATA_TYPE"], "string")
             else:
                 raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
             # Add quotes for certain db only because we've seen issues with column names with special chars
@@ -379,6 +400,7 @@ class SeedMetricsLayer:
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
+                Definitions.mysql,
             }:
                 column_name = '"' + row["COLUMN_NAME"] + '"'
             else:
@@ -456,7 +478,7 @@ class SeedMetricsLayer:
             elif self.connection.type in {Definitions.trino}:
                 quote_column_name = f'"{column_name}"' if quote else column_name
                 query = f'APPROX_DISTINCT( {quote_column_name} ) as "{column_name_alias}_cardinality"'  # noqa: E501
-            elif self.connection.type in {Definitions.redshift, Definitions.postgres}:
+            elif self.connection.type in {Definitions.redshift, Definitions.postgres, Definitions.mysql}:
                 quote_column_name = f'"{column_name}"' if quote else column_name
                 query = (
                     f'COUNT(DISTINCT {quote_column_name} ) as "{column_name_alias}_cardinality"'  # noqa: E501
@@ -492,7 +514,7 @@ class SeedMetricsLayer:
             Definitions.databricks,
         }:
             query += f" FROM {self.database}.{schema_name}.{table_name}"
-        elif self.connection.type in {Definitions.druid, Definitions.trino}:
+        elif self.connection.type in {Definitions.druid, Definitions.trino, Definitions.mysql}:
             query += f"FROM {schema_name}.{table_name}"
         elif self.connection.type == Definitions.bigquery:
             query += f" FROM `{self.database}`.`{schema_name}`.`{table_name}`"
@@ -520,7 +542,7 @@ class SeedMetricsLayer:
                 query += f"INFORMATION_SCHEMA.COLUMNS"
             else:
                 query += f"{self.database}.INFORMATION_SCHEMA.COLUMNS"
-        elif self.connection.type in {Definitions.druid, Definitions.trino}:
+        elif self.connection.type in {Definitions.druid, Definitions.trino, Definitions.mysql}:
             query = (
                 "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE "
                 "FROM INFORMATION_SCHEMA.COLUMNS"
@@ -555,12 +577,11 @@ class SeedMetricsLayer:
                 "row_count as table_row_count, comment as comment "
                 f"FROM {self.database}.INFORMATION_SCHEMA.TABLES"
             )
-        elif self.connection.type in {Definitions.druid, Definitions.trino}:
+        elif self.connection.type in {Definitions.druid, Definitions.trino, Definitions.mysql}:
             query = (
-                "SELECT TABLE_CATALOG as table_database, TABLE_SCHEMA as table_schema, "
-                "TABLE_NAME as table_name, TABLE_TYPE as table_type "
-                "FROM INFORMATION_SCHEMA.TABLES "
-                "WHERE TABLE_SCHEMA not in ('sys', 'INFORMATION_SCHEMA', 'information_schema')"
+                "SELECT TABLE_CATALOG as table_database, TABLE_SCHEMA as table_schema, TABLE_NAME as"
+                " table_name, TABLE_TYPE as table_type FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA not"
+                " in ('sys', 'INFORMATION_SCHEMA', 'information_schema', 'mysql', 'performance_schema')"
             )
         elif self.database and self.connection.type in {
             Definitions.redshift,

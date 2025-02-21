@@ -9,6 +9,7 @@ class Definitions:
     databricks = "DATABRICKS"
     azure_synapse = "AZURE_SYNAPSE"
     trino = "TRINO"
+    mysql = "MYSQL"
     supported_warehouses = [
         snowflake,
         bigquery,
@@ -20,6 +21,7 @@ class Definitions:
         databricks,
         azure_synapse,
         trino,
+        mysql,
     ]
     symmetric_aggregates_supported_warehouses = [snowflake, redshift, bigquery, postgres, duck_db]
     no_semicolon_warehouses = [druid, trino]

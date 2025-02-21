@@ -269,6 +269,8 @@ def test_simple_query_field_on_field_filter(connections):
         ("min_revenue", Definitions.bigquery),
         ("max_revenue", Definitions.duck_db),
         ("min_revenue", Definitions.duck_db),
+        ("max_revenue", Definitions.mysql),
+        ("min_revenue", Definitions.mysql),
     ],
 )
 def test_simple_query_min_max(connections, metric, query_type):
@@ -310,6 +312,7 @@ def test_simple_query_min_max(connections, metric, query_type):
         (Definitions.trino),
         (Definitions.bigquery),
         (Definitions.duck_db),
+        (Definitions.mysql),
     ],
 )
 def test_simple_query_count_distinct(connections, query_type):
@@ -439,6 +442,8 @@ def test_simple_query_alias_keyword(connections):
         ("order", "week", Definitions.postgres),
         ("order", "date", Definitions.bigquery),
         ("order", "week", Definitions.bigquery),
+        ("order", "date", Definitions.mysql),
+        ("order", "week", Definitions.mysql),
     ],
 )
 @pytest.mark.query
@@ -505,6 +510,23 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
             "WHERE DATE_TRUNC('DAY', CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) "
             f"AS TIMESTAMP_NTZ) AS TIMESTAMP) AS TIMESTAMP))>='{start}' AND DATE_TRUNC('DAY', "
             f"CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS TIMESTAMP_NTZ) AS TIMESTAMP) AS TIMESTAMP))<='{end}'"  # noqa
+        )
+        order_by = ""
+    elif query_type == Definitions.mysql:
+        if field == "previous_order":
+            result_lookup = {"date": "DATE(simple.previous_order_date)"}
+        else:
+            result_lookup = {
+                "date": "DATE(CONVERT_TZ(simple.order_date, 'UTC', 'America/New_York'))",
+                "week": (
+                    "DATE_SUB(CAST(CONVERT_TZ(simple.order_date, 'UTC', 'America/New_York') AS DATE),"
+                    " INTERVAL ((DAYOFWEEK(CAST(CONVERT_TZ(simple.order_date, 'UTC', 'America/New_York') AS"
+                    " DATE)) - 1 + 7) % 7) DAY)"
+                ),
+            }
+        where = (
+            f"WHERE DATE(CONVERT_TZ(simple.order_date, 'UTC', 'America/New_York'))>='{start}' AND"
+            f" DATE(CONVERT_TZ(simple.order_date, 'UTC', 'America/New_York'))<='{end}'"
         )
         order_by = ""
     elif query_type in {Definitions.postgres, Definitions.trino, Definitions.duck_db}:
@@ -861,6 +883,31 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("day_of_week", Definitions.bigquery),
         ("day_of_month", Definitions.bigquery),
         ("day_of_year", Definitions.bigquery),
+        ("time", Definitions.mysql),
+        ("second", Definitions.mysql),
+        ("minute", Definitions.mysql),
+        ("hour", Definitions.mysql),
+        ("date", Definitions.mysql),
+        ("week", Definitions.mysql),
+        ("month", Definitions.mysql),
+        ("quarter", Definitions.mysql),
+        ("year", Definitions.mysql),
+        ("fiscal_month", Definitions.mysql),
+        ("fiscal_quarter", Definitions.mysql),
+        ("fiscal_year", Definitions.mysql),
+        ("fiscal_month_of_year_index", Definitions.mysql),
+        ("fiscal_month_index", Definitions.mysql),
+        ("fiscal_quarter_of_year", Definitions.mysql),
+        ("week_index", Definitions.mysql),
+        ("week_of_month", Definitions.mysql),
+        ("month_of_year_index", Definitions.mysql),
+        ("month_of_year", Definitions.mysql),
+        ("month_of_year_full_name", Definitions.mysql),
+        ("quarter_of_year", Definitions.mysql),
+        ("hour_of_day", Definitions.mysql),
+        ("day_of_week", Definitions.mysql),
+        ("day_of_month", Definitions.mysql),
+        ("day_of_year", Definitions.mysql),
     ],
 )
 @pytest.mark.query
@@ -912,6 +959,43 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             result_lookup["month_name"] = "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')"
         order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
 
+    elif query_type == Definitions.mysql:
+        result_lookup = {
+            "time": "CAST(simple.order_date AS DATETIME)",
+            "second": "DATE_FORMAT(simple.order_date, '%Y-%m-%d %H:%i:%s')",
+            "minute": "DATE_FORMAT(simple.order_date, '%Y-%m-%d %H:%i:00')",
+            "hour": "DATE_FORMAT(simple.order_date, '%Y-%m-%d %H:00:00')",
+            "date": "DATE(simple.order_date)",
+            "week": (
+                "DATE_SUB(CAST(simple.order_date AS DATE), INTERVAL ((DAYOFWEEK(CAST(simple.order_date AS"
+                " DATE)) - 1 + 7) % 7) DAY)"
+            ),
+            "month": "DATE_FORMAT(simple.order_date, '%Y-%m-01')",
+            "quarter": (
+                "MAKEDATE(YEAR(simple.order_date), 1) + INTERVAL (QUARTER(simple.order_date) - 1) QUARTER"
+            ),
+            "year": "DATE_FORMAT(simple.order_date, '%Y-01-01')",
+            "fiscal_month": "DATE_FORMAT(DATE_ADD(simple.order_date, INTERVAL 1 MONTH), '%Y-%m-01')",
+            "fiscal_quarter": (
+                "MAKEDATE(YEAR(DATE_ADD(simple.order_date, INTERVAL 1 MONTH)), 1) + INTERVAL"
+                " (QUARTER(DATE_ADD(simple.order_date, INTERVAL 1 MONTH)) - 1) QUARTER"
+            ),
+            "fiscal_year": "DATE_FORMAT(DATE_ADD(simple.order_date, INTERVAL 1 MONTH), '%Y-01-01')",
+            "fiscal_month_of_year_index": "MONTH(DATE_ADD(simple.order_date, INTERVAL 1 MONTH))",
+            "fiscal_month_index": "MONTH(DATE_ADD(simple.order_date, INTERVAL 1 MONTH))",
+            "fiscal_quarter_of_year": "QUARTER(DATE_ADD(simple.order_date, INTERVAL 1 MONTH))",
+            "week_index": "WEEK(CAST(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 DAY) AS DATETIME))",
+            "week_of_month": "WEEK(simple.order_date) - WEEK(DATE_FORMAT(simple.order_date, '%Y-%m-01')) + 1",
+            "month_of_year_index": "MONTH(simple.order_date)",
+            "month_of_year": "DATE_FORMAT(simple.order_date, '%b')",
+            "month_of_year_full_name": "DATE_FORMAT(simple.order_date, '%M')",
+            "quarter_of_year": "QUARTER(simple.order_date)",
+            "hour_of_day": "HOUR(simple.order_date)",
+            "day_of_week": "DATE_FORMAT(simple.order_date, '%a')",
+            "day_of_month": "DAY(simple.order_date)",
+            "day_of_year": "DAYOFYEAR(simple.order_date)",
+        }
+        order_by = ""
     elif query_type in {Definitions.sql_server, Definitions.azure_synapse}:
         result_lookup = {
             "time": "CAST(simple.order_date AS DATETIME)",
@@ -1206,6 +1290,14 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         ("month", Definitions.duck_db),
         ("quarter", Definitions.duck_db),
         ("year", Definitions.duck_db),
+        ("second", Definitions.mysql),
+        ("minute", Definitions.mysql),
+        ("hour", Definitions.mysql),
+        ("day", Definitions.mysql),
+        ("week", Definitions.mysql),
+        ("month", Definitions.mysql),
+        ("quarter", Definitions.mysql),
+        ("year", Definitions.duck_db),
         ("day", Definitions.bigquery),
         ("week", Definitions.bigquery),
         ("month", Definitions.bigquery),
@@ -1250,7 +1342,7 @@ def test_simple_query_dimension_group_interval(connections, interval: str, query
             "year": "DATEDIFF('YEAR', simple.view_date, simple.order_date)",
         }
         order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
-    elif query_type == Definitions.trino:
+    elif query_type in {Definitions.trino}:
         result_lookup = {
             "second": "DATE_DIFF('SECOND', simple.view_date, simple.order_date)",
             "minute": "DATE_DIFF('MINUTE', simple.view_date, simple.order_date)",
@@ -1263,7 +1355,7 @@ def test_simple_query_dimension_group_interval(connections, interval: str, query
         }
         order_by = ""
         semi = ""
-    elif query_type == Definitions.druid:
+    elif query_type in {Definitions.druid, Definitions.mysql}:
         result_lookup = {
             "second": "TIMESTAMPDIFF(SECOND, simple.view_date, simple.order_date)",
             "minute": "TIMESTAMPDIFF(MINUTE, simple.view_date, simple.order_date)",
@@ -1275,7 +1367,7 @@ def test_simple_query_dimension_group_interval(connections, interval: str, query
             "year": "TIMESTAMPDIFF(YEAR, simple.view_date, simple.order_date)",
         }
         order_by = ""
-        semi = ""
+        semi = "" if query_type == Definitions.druid else ";"
     elif query_type in {Definitions.sql_server, Definitions.azure_synapse, Definitions.databricks}:
         result_lookup = {
             "second": "DATEDIFF(SECOND, simple.view_date, simple.order_date)",
@@ -1494,7 +1586,12 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
         Definitions.databricks,
         Definitions.trino,
     }
-    if query_type not in {Definitions.druid, Definitions.duck_db, Definitions.databricks, Definitions.trino}:
+    if query_type not in {
+        Definitions.druid,
+        Definitions.duck_db,
+        Definitions.databricks,
+        Definitions.trino,
+    }:
         field_id = f"simple.{field}"
     else:
         field_id = f"CAST(simple.{field} AS TIMESTAMP)"
@@ -1600,11 +1697,13 @@ def test_simple_query_convert_tz_alias_no(connections):
         ("channel", "contains_case_insensitive", "Email", Definitions.druid),
         ("channel", "contains_case_insensitive", "Email", Definitions.sql_server),
         ("channel", "contains_case_insensitive", "Email", Definitions.trino),
+        ("channel", "contains_case_insensitive", "Email", Definitions.mysql),
         ("channel", "does_not_contain_case_insensitive", "Email", Definitions.snowflake),
         ("channel", "does_not_contain_case_insensitive", "Email", Definitions.databricks),
         ("channel", "does_not_contain_case_insensitive", "Email", Definitions.druid),
         ("channel", "does_not_contain_case_insensitive", "Email", Definitions.sql_server),
         ("channel", "does_not_contain_case_insensitive", "Email", Definitions.trino),
+        ("channel", "does_not_contain_case_insensitive", "Email", Definitions.mysql),
         ("channel", "starts_with", "Email", Definitions.snowflake),
         ("channel", "ends_with", "Email", Definitions.snowflake),
         ("channel", "does_not_start_with", "Email", Definitions.snowflake),
@@ -1619,12 +1718,15 @@ def test_simple_query_convert_tz_alias_no(connections):
         ("is_valid_order", "is_not_null", None, Definitions.druid),
         ("is_valid_order", "is_not_null", None, Definitions.sql_server),
         ("is_valid_order", "is_not_null", None, Definitions.trino),
+        ("is_valid_order", "is_not_null", None, Definitions.mysql),
         ("is_valid_order", "boolean_true", None, Definitions.snowflake),
         ("is_valid_order", "boolean_false", None, Definitions.snowflake),
         ("is_valid_order", "boolean_true", None, Definitions.sql_server),
         ("is_valid_order", "boolean_false", None, Definitions.sql_server),
         ("is_valid_order", "boolean_true", None, Definitions.trino),
         ("is_valid_order", "boolean_false", None, Definitions.trino),
+        ("is_valid_order", "boolean_true", None, Definitions.mysql),
+        ("is_valid_order", "boolean_false", None, Definitions.mysql),
     ],
 )
 @pytest.mark.query
@@ -1788,6 +1890,7 @@ def test_simple_query_with_having_literal(connections):
         Definitions.duck_db,
         Definitions.databricks,
         Definitions.azure_synapse,
+        Definitions.mysql,
     ],
 )
 def test_simple_query_with_order_by_dict(connections, query_type):
@@ -1818,6 +1921,7 @@ def test_simple_query_with_order_by_dict(connections, query_type):
         Definitions.trino,
         Definitions.databricks,
         Definitions.bigquery,
+        Definitions.mysql,
     }:
         nulls_last = " NULLS LAST"
     else:

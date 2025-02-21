@@ -18,6 +18,7 @@ from metrics_layer.core.model.definitions import Definitions
         Definitions.postgres,
         Definitions.trino,
         Definitions.databricks,
+        Definitions.mysql,
     ],
 )
 def test_merged_result_query_additional_metric(connection, query_type):
@@ -33,6 +34,11 @@ def test_merged_result_query_additional_metric(connection, query_type):
         order_date = "CAST(DATE_TRUNC(CAST(order_lines.order_date AS DATE), MONTH) AS DATE)"
         session_date = "CAST(DATE_TRUNC(CAST(sessions.session_date AS DATE), MONTH) AS TIMESTAMP)"
 
+        order_by = ""
+        session_by = ""
+    elif query_type == Definitions.mysql:
+        order_date = "DATE_FORMAT(order_lines.order_date, '%Y-%m-01')"
+        session_date = "DATE_FORMAT(sessions.session_date, '%Y-%m-01')"
         order_by = ""
         session_by = ""
     elif query_type in {Definitions.postgres, Definitions.trino, Definitions.databricks, Definitions.duck_db}:
