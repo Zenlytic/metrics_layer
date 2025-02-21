@@ -53,6 +53,7 @@ def test_cli_init(mocker, monkeypatch):
         (Definitions.trino, None, None, None),
         (Definitions.sql_server, None, None, None),
         (Definitions.azure_synapse, None, None, None),
+        (Definitions.mysql, None, None, None),
     ],
 )
 def test_cli_seed_metrics_layer(
@@ -71,6 +72,7 @@ def test_cli_seed_metrics_layer(
     seed_trino_tables_data,
     seed_sql_server_tables_data,
     seed_databricks_tables_data,
+    seed_mysql_tables_data,
 ):
     mocker.patch("os.mkdir")
     yaml_dump_called = 0
@@ -107,6 +109,8 @@ def test_cli_seed_metrics_layer(
             return seed_sql_server_tables_data
         elif query_type == Definitions.databricks:
             return seed_databricks_tables_data
+        elif query_type == Definitions.mysql:
+            return seed_mysql_tables_data
         raise ValueError("Query error, does not match expected")
 
     def yaml_dump_assert(slf, data, file):
@@ -139,6 +143,7 @@ def test_cli_seed_metrics_layer(
                     Definitions.sql_server,
                     Definitions.databricks,
                     Definitions.trino,
+                    Definitions.mysql,
                 }
                 and database_override is None
             ):
@@ -150,6 +155,7 @@ def test_cli_seed_metrics_layer(
                     Definitions.azure_synapse,
                     Definitions.sql_server,
                     Definitions.databricks,
+                    Definitions.mysql,
                 }
                 and database_override
             ):
@@ -180,6 +186,8 @@ def test_cli_seed_metrics_layer(
                 Definitions.azure_synapse,
             }:
                 assert social["sql"] == '${TABLE}."ON_SOCIAL_NETWORK"'
+            elif query_type == Definitions.mysql:
+                assert social["sql"] == "${TABLE}.`ON_SOCIAL_NETWORK`"
             else:
                 assert social["sql"] == "${TABLE}.ON_SOCIAL_NETWORK"
 
@@ -201,6 +209,8 @@ def test_cli_seed_metrics_layer(
                 Definitions.azure_synapse,
             }:
                 assert acq_date["sql"] == '${TABLE}."ACQUISITION_DATE"'
+            elif query_type == Definitions.mysql:
+                assert acq_date["sql"] == "${TABLE}.`ACQUISITION_DATE`"
             else:
                 assert acq_date["sql"] == "${TABLE}.ACQUISITION_DATE"
 
@@ -213,6 +223,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.sql_server,
                 Definitions.azure_synapse,
                 Definitions.trino,
+                Definitions.mysql,
             }:
                 assert date["datatype"] == "date"
             else:
@@ -239,6 +250,8 @@ def test_cli_seed_metrics_layer(
                 Definitions.azure_synapse,
             }:
                 assert date["sql"] == '${TABLE}."ORDER_CREATED_AT"'
+            elif query_type == Definitions.mysql:
+                assert date["sql"] == "${TABLE}.`ORDER_CREATED_AT`"
             else:
                 assert date["sql"].upper() == "${TABLE}.ORDER_CREATED_AT"
 
@@ -254,6 +267,8 @@ def test_cli_seed_metrics_layer(
                 Definitions.azure_synapse,
             }:
                 assert new["sql"] == '${TABLE}."NEW_VS_REPEAT"'
+            elif query_type == Definitions.mysql:
+                assert new["sql"] == "${TABLE}.`NEW_VS_REPEAT`"
             else:
                 assert new["sql"].upper() == "${TABLE}.NEW_VS_REPEAT"
 
@@ -269,6 +284,8 @@ def test_cli_seed_metrics_layer(
                 Definitions.azure_synapse,
             }:
                 assert num["sql"] == '${TABLE}."REVENUE"'
+            elif query_type == Definitions.mysql:
+                assert num["sql"] == "${TABLE}.`REVENUE`"
             else:
                 assert num["sql"].upper() == "${TABLE}.REVENUE"
 
@@ -287,6 +304,7 @@ def test_cli_seed_metrics_layer(
                     Definitions.azure_synapse,
                     Definitions.databricks,
                     Definitions.trino,
+                    Definitions.mysql,
                 }
                 and database_override is None
             ):
@@ -298,6 +316,7 @@ def test_cli_seed_metrics_layer(
                     Definitions.sql_server,
                     Definitions.azure_synapse,
                     Definitions.databricks,
+                    Definitions.mysql,
                 }
                 and database_override
             ):
@@ -321,6 +340,8 @@ def test_cli_seed_metrics_layer(
                 Definitions.azure_synapse,
             }:
                 assert cross_sell["sql"] == '${TABLE}."@CRoSSell P-roduct:"'
+            elif query_type == Definitions.mysql:
+                assert cross_sell["sql"] == "${TABLE}.`@CRoSSell P-roduct:`"
             else:
                 assert cross_sell["sql"] == "${TABLE}.@CRoSSell P-roduct:"
 
@@ -334,6 +355,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.azure_synapse,
                 Definitions.databricks,
                 Definitions.trino,
+                Definitions.mysql,
             }:
                 assert date["datatype"] == "date"
             else:
@@ -360,6 +382,8 @@ def test_cli_seed_metrics_layer(
                 Definitions.azure_synapse,
             }:
                 assert date["sql"] == '${TABLE}."SESSION_DATE"'
+            elif query_type == Definitions.mysql:
+                assert date["sql"] == "${TABLE}.`SESSION_DATE`"
             else:
                 assert date["sql"].upper() == "${TABLE}.SESSION_DATE"
 
@@ -375,6 +399,8 @@ def test_cli_seed_metrics_layer(
                 Definitions.azure_synapse,
             }:
                 assert pk["sql"] == '${TABLE}."SESSION_ID"'
+            elif query_type == Definitions.mysql:
+                assert pk["sql"] == "${TABLE}.`SESSION_ID`"
             else:
                 assert pk["sql"].upper() == "${TABLE}.SESSION_ID"
 
@@ -390,6 +416,8 @@ def test_cli_seed_metrics_layer(
                 Definitions.azure_synapse,
             }:
                 assert num["sql"] == '${TABLE}."CONVERSION"'
+            elif query_type == Definitions.mysql:
+                assert num["sql"] == "${TABLE}.`CONVERSION`"
             else:
                 assert num["sql"].upper() == "${TABLE}.CONVERSION"
 

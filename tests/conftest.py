@@ -178,6 +178,47 @@ def seed_databricks_tables_data():
 
 
 @pytest.fixture(scope="function")
+def seed_mysql_tables_data():
+    order_records = [
+        {"COLUMN_NAME": "ORDER_ID", "DATA_TYPE": "numeric"},
+        {"COLUMN_NAME": "ORDER_CREATED_AT", "DATA_TYPE": "date"},
+        {"COLUMN_NAME": "REVENUE", "DATA_TYPE": "double"},
+        {"COLUMN_NAME": "ACQUISITION_DATE", "DATA_TYPE": "timestamp"},
+        {"COLUMN_NAME": "ON_SOCIAL_NETWORK", "DATA_TYPE": "boolean"},
+        {"COLUMN_NAME": "CAMPAIGN", "DATA_TYPE": "varchar(256)"},
+        {"COLUMN_NAME": "NEW_VS_REPEAT", "DATA_TYPE": "varchar(128)"},
+        {"COLUMN_NAME": "PRODUCT", "DATA_TYPE": "varchar"},
+        {"COLUMN_NAME": "DAY_OF_WEEK", "DATA_TYPE": "CHAR"},
+        {"COLUMN_NAME": "TWITTER", "DATA_TYPE": "varchar"},
+        {"COLUMN_NAME": "EMAILS_FROM_US_IN_THE_LAST_WEEK", "DATA_TYPE": "varchar"},
+        {"COLUMN_NAME": "LAST_VIEWED_PAGE", "DATA_TYPE": "varchar"},
+        {"COLUMN_NAME": "CUSTOMER_ID", "DATA_TYPE": "varchar"},
+        {"COLUMN_NAME": "TOP_CUSTOMERS", "DATA_TYPE": "varchar"},
+    ]
+    order_records = [{"TABLE_NAME": "orders", **o} for o in order_records]
+    session_records = [
+        {"COLUMN_NAME": "SESSION_ID", "DATA_TYPE": "varchar"},
+        {"COLUMN_NAME": "SESSION_DATE", "DATA_TYPE": "date"},
+        {"COLUMN_NAME": "ADD_TO_CART", "DATA_TYPE": "bigint"},
+        {"COLUMN_NAME": "CONVERSION", "DATA_TYPE": "int"},
+        {"COLUMN_NAME": "@CRoSSell P-roduct:", "DATA_TYPE": "varchar"},
+        {"COLUMN_NAME": "ACQUISITION_CHANNEL", "DATA_TYPE": "varchar"},
+        {"COLUMN_NAME": "SOCIAL_NETWORK", "DATA_TYPE": "varchar"},
+        {"COLUMN_NAME": "CAMPAIGN", "DATA_TYPE": "varchar"},
+        {"COLUMN_NAME": "NEW_VS_REPEAT", "DATA_TYPE": "varchar"},
+        {"COLUMN_NAME": "PRODUCT", "DATA_TYPE": "varchar"},
+        {"COLUMN_NAME": "DAY_OF_WEEK", "DATA_TYPE": "varchar"},
+        {"COLUMN_NAME": "TWITTER", "DATA_TYPE": "varchar"},
+        {"COLUMN_NAME": "EMAILS_FROM_US_IN_THE_LAST_WEEK", "DATA_TYPE": "varchar"},
+        {"COLUMN_NAME": "LAST_VIEWED_PAGE", "DATA_TYPE": "varchar"},
+    ]
+    session_records = [{"TABLE_NAME": "sessions", **o} for o in session_records]
+    all_records = order_records + session_records
+    records = [{"TABLE_CATALOG": "demo", "TABLE_SCHEMA": "analytics", **r} for r in all_records]
+    return pd.DataFrame(records)
+
+
+@pytest.fixture(scope="function")
 def seed_postgres_tables_data():
     order_records = [
         {"COLUMN_NAME": "ORDER_ID", "DATA_TYPE": "numeric"},

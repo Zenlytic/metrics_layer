@@ -790,6 +790,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.sql_server,
             Definitions.azure_synapse,
             Definitions.trino,
+            Definitions.mysql,
         }:
             raise QueryError(
                 f"Median is not supported in {query_type}. Please choose another "
@@ -943,6 +944,16 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "months": lambda start, end: f"DATE_DIFF('MONTH', {start}, {end})",
                 "quarters": lambda start, end: f"DATE_DIFF('QUARTER', {start}, {end})",
                 "years": lambda start, end: f"DATE_DIFF('YEAR', {start}, {end})",
+            },
+            Definitions.mysql: {
+                "seconds": lambda start, end: f"TIMESTAMPDIFF(SECOND, {start}, {end})",
+                "minutes": lambda start, end: f"TIMESTAMPDIFF(MINUTE, {start}, {end})",
+                "hours": lambda start, end: f"TIMESTAMPDIFF(HOUR, {start}, {end})",
+                "days": lambda start, end: f"TIMESTAMPDIFF(DAY, {start}, {end})",
+                "weeks": lambda start, end: f"TIMESTAMPDIFF(WEEK, {start}, {end})",
+                "months": lambda start, end: f"TIMESTAMPDIFF(MONTH, {start}, {end})",
+                "quarters": lambda start, end: f"TIMESTAMPDIFF(QUARTER, {start}, {end})",
+                "years": lambda start, end: f"TIMESTAMPDIFF(YEAR, {start}, {end})",
             },
             Definitions.postgres: {
                 "seconds": lambda start, end: (  # noqa
@@ -1190,6 +1201,42 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM CAST({s} AS TIMESTAMP))",
                 "day_of_year": lambda s, qt: f"EXTRACT(DOY FROM CAST({s} AS TIMESTAMP))",
             },
+            Definitions.mysql: {
+                "raw": lambda s, qt: s,
+                "time": lambda s, qt: f"CAST({s} AS DATETIME)",
+                "second": lambda s, qt: f"DATE_FORMAT({s}, '%Y-%m-%d %H:%i:%s')",
+                "minute": lambda s, qt: f"DATE_FORMAT({s}, '%Y-%m-%d %H:%i:00')",
+                "hour": lambda s, qt: f"DATE_FORMAT({s}, '%Y-%m-%d %H:00:00')",
+                "date": lambda s, qt: f"DATE({s})",
+                "week": self._week_dimension_group_time_sql,
+                "month": lambda s, qt: f"DATE_FORMAT({s}, '%Y-%m-01')",
+                "quarter": lambda s, qt: f"MAKEDATE(YEAR({s}), 1) + INTERVAL (QUARTER({s}) - 1) QUARTER",
+                "year": lambda s, qt: f"DATE_FORMAT({s}, '%Y-01-01')",
+                "fiscal_month": lambda s, qt: (
+                    f"DATE_FORMAT({self._fiscal_offset_to_timestamp(s, qt)}, '%Y-%m-01')"
+                ),
+                "fiscal_quarter": lambda s, qt: (
+                    f"MAKEDATE(YEAR({self._fiscal_offset_to_timestamp(s, qt)}), 1) + "
+                    f"INTERVAL (QUARTER({self._fiscal_offset_to_timestamp(s, qt)}) - 1) QUARTER"
+                ),
+                "fiscal_year": lambda s, qt: (
+                    f"DATE_FORMAT({self._fiscal_offset_to_timestamp(s, qt)}, '%Y-01-01')"
+                ),
+                "week_index": lambda s, qt: f"WEEK({self._apply_week_start_day_offset_only(s, qt)})",
+                "week_of_month": lambda s, qt: f"WEEK({s}) - WEEK(DATE_FORMAT({s}, '%Y-%m-01')) + 1",
+                "month_of_year_index": lambda s, qt: f"MONTH({s})",
+                "fiscal_month_of_year_index": lambda s, qt: (
+                    f"MONTH({self._fiscal_offset_to_timestamp(s, qt)})"
+                ),
+                "month_of_year": lambda s, qt: f"DATE_FORMAT({s}, '%b')",
+                "month_of_year_full_name": lambda s, qt: f"DATE_FORMAT({s}, '%M')",
+                "quarter_of_year": lambda s, qt: f"QUARTER({s})",
+                "fiscal_quarter_of_year": lambda s, qt: f"QUARTER({self._fiscal_offset_to_timestamp(s, qt)})",
+                "hour_of_day": lambda s, qt: f"HOUR({s})",
+                "day_of_week": lambda s, qt: f"DATE_FORMAT({s}, '%a')",
+                "day_of_month": lambda s, qt: f"DAY({s})",
+                "day_of_year": lambda s, qt: f"DAYOFYEAR({s})",
+            },
             Definitions.druid: {
                 "raw": lambda s, qt: s,
                 "time": lambda s, qt: f"CAST({s} AS TIMESTAMP)",
@@ -1376,6 +1423,8 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"CAST(CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP) AS {self.datatype.upper()})"  # noqa
         elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.trino}:
             return f"CAST(CAST({sql} AS TIMESTAMP) at time zone 'UTC' at time zone '{timezone}' AS {self.datatype.upper()})"  # noqa
+        elif query_type == Definitions.mysql:
+            return f"CONVERT_TZ({sql}, 'UTC', '{timezone}')"
         elif query_type in {Definitions.druid, Definitions.sql_server, Definitions.azure_synapse}:
             print(
                 f"Warning: {query_type.title()} does not support timezone conversion. "
@@ -1399,7 +1448,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"DATEADD(MONTH, {offset_in_months}, {sql})"
         elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.druid, Definitions.trino}:
             return f"{sql} + INTERVAL '{offset_in_months}' MONTH"
-        elif query_type == Definitions.bigquery:
+        elif query_type in {Definitions.bigquery, Definitions.mysql}:
             return f"DATE_ADD({sql}, INTERVAL {offset_in_months} MONTH)"
         else:
             raise QueryError(
@@ -1450,6 +1499,25 @@ class Field(MetricsLayerBase, SQLReplacement):
             if offset is None:
                 return f"DATEADD(WEEK, DATEDIFF(WEEK, 0, {casted}), 0)"
             return f"DATEADD(DAY, -{offset}, DATEADD(WEEK, DATEDIFF(WEEK, 0, DATEADD(DAY, {offset}, {casted})), 0))"  # noqa
+        elif query_type == Definitions.mysql:
+            if offset is None:
+                return f"DATE_SUB({casted}, INTERVAL WEEKDAY({casted}) DAY)"
+            # This takes the offset displayed as "days subtracted from monday"
+            # into the day of week numbering that MySQL uses, so we can use operation below
+            translated_offset = {
+                0: 2,
+                1: 1,
+                2: 7,
+                3: 6,
+                4: 5,
+                5: 4,
+                6: 3,
+            }
+            return (
+                f"DATE_SUB({casted}, INTERVAL ((DAYOFWEEK({casted}) - {translated_offset[offset]} + 7) % 7)"
+                " DAY)"
+            )
+
         else:
             raise QueryError(f"Unable to find a valid method for running week with query type {query_type}")
 
@@ -1489,6 +1557,10 @@ class Field(MetricsLayerBase, SQLReplacement):
             if offset is None:
                 return f"CAST({casted} AS DATETIME)"
             return f"CAST(DATEADD(DAY, {offset}, {casted}) AS DATETIME)"  # noqa
+        elif query_type == Definitions.mysql:
+            if offset is None:
+                return f"CAST({casted} AS DATETIME)"
+            return f"CAST(DATE_ADD({casted}, INTERVAL {offset} DAY) AS DATETIME)"  # noqa
         else:
             raise QueryError(f"Unable to find a valid method for running offset with query type {query_type}")
 

@@ -2,7 +2,12 @@ from enum import Enum
 from typing import Any, Optional
 
 from pypika import Field, Query, Table
-from pypika.dialects import MSSQLQueryBuilder, PostgreSQLQueryBuilder, QueryBuilder
+from pypika.dialects import (
+    MSSQLQueryBuilder,
+    MySQLQueryBuilder,
+    PostgreSQLQueryBuilder,
+    QueryBuilder,
+)
 from pypika.enums import Dialects
 from pypika.utils import builder, format_quotes
 
@@ -127,6 +132,23 @@ class SnowflakeQueryBuilderWithOrderByNullsOption(QueryBuilderWithOrderByNullsOp
         super().__init__(dialect=Dialects.SNOWFLAKE, **kwargs)
 
 
+class MySQLQuery(Query):
+    """
+    Defines a query class for use with MySQL.
+    """
+
+    @classmethod
+    def _builder(cls, **kwargs) -> "MySQLQueryBuilderWithOrderByNullsOption":
+        return MySQLQueryBuilderWithOrderByNullsOption(**kwargs)
+
+
+class MySQLQueryBuilderWithOrderByNullsOption(QueryBuilderWithOrderByNullsOption):
+    QUOTE_CHAR = None
+    ALIAS_QUOTE_CHAR = None
+    QUERY_ALIAS_QUOTE_CHAR = ""
+    QUERY_CLS = MySQLQuery
+
+
 class PostgresQuery(Query):
     """
     Defines a query class for use with Snowflake.
@@ -198,6 +220,7 @@ query_lookup = {
     Definitions.trino: PostgresQueryWithOrderByNullsOption,  # trino core query logic = postgres
     Definitions.sql_server: MSSSQLQuery,
     Definitions.azure_synapse: MSSSQLQuery,  # Azure Synapse is a T-SQL flavor
+    Definitions.mysql: MySQLQuery,
 }
 
 if_null_lookup = {
@@ -211,4 +234,5 @@ if_null_lookup = {
     Definitions.trino: "coalesce",
     Definitions.sql_server: "isnull",
     Definitions.azure_synapse: "isnull",
+    Definitions.mysql: "ifnull",
 }

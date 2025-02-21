@@ -1176,6 +1176,7 @@ def test_join_graph_raise_unjoinable_error(connection):
         Definitions.sql_server,
         Definitions.azure_synapse,
         Definitions.duck_db,
+        Definitions.mysql,
     ],
 )
 def test_median_aggregate_function(connection, query_type):
