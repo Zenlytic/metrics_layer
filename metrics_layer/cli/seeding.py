@@ -400,9 +400,10 @@ class SeedMetricsLayer:
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
-                Definitions.mysql,
             }:
                 column_name = '"' + row["COLUMN_NAME"] + '"'
+            elif self.connection.type == Definitions.mysql:
+                column_name = "`" + row["COLUMN_NAME"] + "`"
             else:
                 column_name = row["COLUMN_NAME"]
             sql = "${TABLE}." + column_name
