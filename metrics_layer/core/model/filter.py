@@ -1,7 +1,7 @@
 import re
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 import pandas as pd
 import pendulum
@@ -491,7 +491,13 @@ class Filter(MetricsLayerBase):
         return date_obj.strftime("%Y-%m-%dT%H:%M:%S")
 
     @staticmethod
-    def translate_looker_filters_to_sql(sql: str, filters: list, view: "View", else_0: bool = False):
+    def translate_looker_filters_to_sql(
+        sql: str,
+        filters: list,
+        view: "View",
+        else_0: bool = False,
+        sql_replacement_func: Callable = lambda x: x,
+    ):
         case_sql = "case when "
         conditions = []
         for f in filters:
@@ -508,9 +514,8 @@ class Filter(MetricsLayerBase):
                 field_datatype = field.type
             except Exception:
                 field_datatype = "unknown"
-            filter_dict = Filter._filter_dict(
-                f["field"], f["value"], f.get("week_start_day"), f.get("timezone")
-            )
+            value = sql_replacement_func(f["value"])
+            filter_dict = Filter._filter_dict(f["field"], value, f.get("week_start_day"), f.get("timezone"))
             if isinstance(filter_dict, dict):
                 filter_list = [filter_dict]
             else:

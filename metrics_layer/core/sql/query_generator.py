@@ -390,7 +390,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
     def _table_expression(self, view: View):
         # Create a pypika Table based on the Table's name or it's derived table sql definition
         if view.derived_table:
-            derived_sql = view.derived_table["sql"]
+            derived_sql = view.derived_table_sql
             table_expr = Table(f"({derived_sql}) as {view.name}")
         else:
             table_expr = Table(view.sql_table_name, alias=view.name)

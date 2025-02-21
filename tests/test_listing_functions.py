@@ -4,7 +4,7 @@ import pytest
 @pytest.mark.project
 def test_list_metrics(connection):
     metrics = connection.list_metrics()
-    assert len(metrics) == 61
+    assert len(metrics) == 62
 
     metrics = connection.list_metrics(view_name="order_lines", names_only=True)
     assert len(metrics) == 11
@@ -26,10 +26,10 @@ def test_list_metrics(connection):
 @pytest.mark.project
 def test_list_dimensions(connection):
     dimensions = connection.list_dimensions(show_hidden=True)
-    assert len(dimensions) == 100
+    assert len(dimensions) == 101
 
     dimensions = connection.list_dimensions()
-    assert len(dimensions) == 66
+    assert len(dimensions) == 67
 
     dimensions = connection.list_dimensions(view_name="order_lines", names_only=True, show_hidden=True)
     dimensions_present = {
@@ -41,12 +41,13 @@ def test_list_dimensions(connection):
         "channel",
         "parent_channel",
         "product_name",
+        "product_name_lang",
         "inventory_qty",
         "is_on_sale_sql",
         "is_on_sale_case",
         "order_tier",
     }
-    assert len(dimensions) == 12
+    assert len(dimensions) == 13
     assert set(dimensions) == dimensions_present
 
 

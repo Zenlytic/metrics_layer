@@ -1,6 +1,8 @@
 import re
 from typing import TYPE_CHECKING, Union
 
+from jinja2 import StrictUndefined, Template
+
 from metrics_layer.core.exceptions import (
     AccessDeniedOrDoesNotExistException,
     QueryError,
@@ -57,10 +59,11 @@ class View(MetricsLayerBase, SQLReplacement):
     @property
     def sql_table_name(self):
         if "sql_table_name" in self._definition:
-            return self.resolve_sql_table_name(
+            resolved_table_name = self.resolve_sql_table_name(
                 str(self._definition["sql_table_name"]), self.project.looker_env
             )
-        return
+            return self.sql_replacement_func(resolved_table_name)
+        return None
 
     @property
     def hidden(self):
@@ -133,6 +136,12 @@ class View(MetricsLayerBase, SQLReplacement):
         return None
 
     @property
+    def derived_table_sql(self):
+        if "derived_table" in self._definition:
+            return self.sql_replacement_func(str(self._definition["derived_table"]["sql"]))
+        return None
+
+    @property
     def event_dimension(self):
         if "event_dimension" in self._definition:
             if "." not in str(self._definition["event_dimension"]):
@@ -159,6 +168,22 @@ class View(MetricsLayerBase, SQLReplacement):
             if model and model.week_start_day:
                 return model.week_start_day.lower()
         return "monday"
+
+    def sql_replacement_func(self, sql: str):
+        return self.jinja_replacements(sql, {"user_attributes": self.project._user})
+
+    @staticmethod
+    def jinja_replacements(sql: str, replaceable_attributes: dict) -> str:
+        # Replace jinja with the replaceable attrs here
+        if not sql or "{{" not in str(sql):
+            return sql
+
+        try:
+            template = Template(sql, undefined=StrictUndefined)
+            return template.render(**replaceable_attributes)
+        except Exception:
+            # If jinja templating fails, return the original SQL
+            return sql
 
     def get_identifier(self, identifier_name: str):
         return next((i for i in self.identifiers if i["name"] == identifier_name), None)

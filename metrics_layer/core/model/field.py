@@ -305,7 +305,11 @@ class Field(MetricsLayerBase, SQLReplacement):
                             }
                         ]
             definition["sql"] = Filter.translate_looker_filters_to_sql(
-                definition["sql"], filters_to_apply, self.view, else_0=else_0
+                definition["sql"],
+                filters_to_apply,
+                self.view,
+                else_0=else_0,
+                sql_replacement_func=self.sql_replacement_func,
             )
 
         if (
@@ -322,6 +326,10 @@ class Field(MetricsLayerBase, SQLReplacement):
 
         if "sql" in definition and isinstance(definition["sql"], str):
             definition["sql"] = self._clean_sql_for_case(definition["sql"])
+
+        # Apply jinja replacements for user attributes
+        if "sql" in definition and isinstance(definition["sql"], str):
+            definition["sql"] = self.sql_replacement_func(definition["sql"])
         return definition.get("sql")
 
     @property
@@ -414,6 +422,9 @@ class Field(MetricsLayerBase, SQLReplacement):
 
             return len(referenced_canon_dates) > 1
         return False
+
+    def sql_replacement_func(self, sql: str):
+        return self.view.jinja_replacements(sql, {"user_attributes": self.view.project._user})
 
     def loses_join_ability_with_other_views(self):
         if "is_merged_result" in self._definition:
@@ -585,7 +596,7 @@ class Field(MetricsLayerBase, SQLReplacement):
     def _get_sql_distinct_key(self, sql_distinct_key: str, query_type: str, alias_only: bool):
         if self.filters:
             clean_sql_distinct_key = Filter.translate_looker_filters_to_sql(
-                sql_distinct_key, self.filters, self.view
+                sql_distinct_key, self.filters, self.view, sql_replacement_func=self.sql_replacement_func
             )
         else:
             clean_sql_distinct_key = sql_distinct_key
