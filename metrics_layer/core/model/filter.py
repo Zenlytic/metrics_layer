@@ -375,6 +375,7 @@ class Filter(MetricsLayerBase):
         first_word = str(value).split(" ")[0]
         first_two_words = " ".join(str(value).split(" ")[:2])
 
+        split_expression = ","
         # Handle field to field comparison
         if isinstance(value, LiteralValue):
             expression = MetricsLayerFilterExpressionType.EqualTo
@@ -420,17 +421,19 @@ class Filter(MetricsLayerBase):
                 expression = MetricsLayerFilterExpressionType.NotEqualTo
 
         # isin for strings
-        elif len(value.split(", ")) > 1:
-            if all(category[0] == "-" for category in value.split(", ")):
+        elif len(value.split(split_expression)) > 1:
+            if all(category.strip()[0] == "-" for category in value.split(split_expression)):
                 expression = MetricsLayerFilterExpressionType.IsNotIn
-                cleaned_value = [f"{category[1:].strip()}" for category in value.split(", ")]
+                cleaned_value = [
+                    f"{category.strip()[1:].strip()}" for category in value.split(split_expression)
+                ]
 
-            elif any(category[0] == "-" for category in value.split(", ")):
+            elif any(category.strip()[0] == "-" for category in value.split(split_expression)):
                 raise QueryError("Invalid filter some elements are negated with '-' and some are not")
 
             else:
                 expression = MetricsLayerFilterExpressionType.IsIn
-                cleaned_value = [f"{category.strip()}" for category in value.split(", ")]
+                cleaned_value = [f"{category.strip()}" for category in value.split(split_expression)]
 
         # Numeric parsing for less than or equal to, greater than or equal to, not equal to
         elif value[:2] in {"<=", ">=", "<>", "!="}:
@@ -554,29 +557,41 @@ class Filter(MetricsLayerBase):
             MetricsLayerFilterExpressionType.GreaterOrEqualThan: lambda f: f >= value,
             MetricsLayerFilterExpressionType.GreaterThan: lambda f: f > value,
             MetricsLayerFilterExpressionType.Like: lambda f: f.like(value),
-            MetricsLayerFilterExpressionType.Contains: lambda f: f.like(f"%{value}%"),
-            MetricsLayerFilterExpressionType.DoesNotContain: lambda f: f.not_like(f"%{value}%"),
+            MetricsLayerFilterExpressionType.Contains: lambda f: f.like(f"%{value}%")
+            if isinstance(value, str)
+            else f.like(value),
+            MetricsLayerFilterExpressionType.DoesNotContain: lambda f: f.not_like(f"%{value}%")
+            if isinstance(value, str)
+            else f.not_like(value),
             MetricsLayerFilterExpressionType.ContainsCaseInsensitive: lambda f: Lower(f).like(
-                Lower(f"%{value}%")
+                Lower(f"%{value}%") if isinstance(value, str) else Lower(value)
             ),
             MetricsLayerFilterExpressionType.DoesNotContainCaseInsensitive: lambda f: Lower(f).not_like(
-                Lower(f"%{value}%")
+                Lower(f"%{value}%") if isinstance(value, str) else Lower(value)
             ),
-            MetricsLayerFilterExpressionType.StartsWith: lambda f: f.like(f"{value}%"),
-            MetricsLayerFilterExpressionType.EndsWith: lambda f: f.like(f"%{value}"),
-            MetricsLayerFilterExpressionType.DoesNotStartWith: lambda f: f.not_like(f"{value}%"),
-            MetricsLayerFilterExpressionType.DoesNotEndWith: lambda f: f.not_like(f"%{value}"),
+            MetricsLayerFilterExpressionType.StartsWith: lambda f: f.like(f"{value}%")
+            if isinstance(value, str)
+            else f.like(value),
+            MetricsLayerFilterExpressionType.EndsWith: lambda f: f.like(f"%{value}")
+            if isinstance(value, str)
+            else f.like(value),
+            MetricsLayerFilterExpressionType.DoesNotStartWith: lambda f: f.not_like(f"{value}%")
+            if isinstance(value, str)
+            else f.not_like(value),
+            MetricsLayerFilterExpressionType.DoesNotEndWith: lambda f: f.not_like(f"%{value}")
+            if isinstance(value, str)
+            else f.not_like(value),
             MetricsLayerFilterExpressionType.StartsWithCaseInsensitive: lambda f: Lower(f).like(
-                Lower(f"{value}%")
+                Lower(f"{value}%") if isinstance(value, str) else Lower(value)
             ),
             MetricsLayerFilterExpressionType.EndsWithCaseInsensitive: lambda f: Lower(f).like(
-                Lower(f"%{value}")
+                Lower(f"%{value}") if isinstance(value, str) else Lower(value)
             ),
             MetricsLayerFilterExpressionType.DoesNotStartWithCaseInsensitive: lambda f: Lower(f).not_like(
-                Lower(f"{value}%")
+                Lower(f"{value}%") if isinstance(value, str) else Lower(value)
             ),
             MetricsLayerFilterExpressionType.DoesNotEndWithCaseInsensitive: lambda f: Lower(f).not_like(
-                Lower(f"%{value}")
+                Lower(f"%{value}") if isinstance(value, str) else Lower(value)
             ),
             MetricsLayerFilterExpressionType.IsNull: lambda f: f.isnull(),
             MetricsLayerFilterExpressionType.IsNotNull: lambda f: f.notnull(),

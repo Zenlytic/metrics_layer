@@ -479,6 +479,10 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             for w in where:
                 if "group_by" in w and w["group_by"] == to_replace:
                     result.append({**w, "group_by": field.id()})
+                elif "field" in w and w["field"] == to_replace and "value" in w and w["value"] == to_replace:
+                    result.append({**w, "field": field.id(), "value": field.id()})
+                elif "value" in w and w["value"] == to_replace:
+                    result.append({**w, "value": field.id()})
                 elif "field" in w and w["field"] == to_replace:
                     result.append({**w, "field": field.id()})
                 elif "field" not in w and "conditions" in w:

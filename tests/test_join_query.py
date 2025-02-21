@@ -1710,3 +1710,60 @@ def test_query_with_or_filters_alternate_syntax_merged_result(connection):
         " WHERE order_lines_costs_per_session>1;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_join_query_field_on_field_filter(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders"],
+        dimensions=["new_vs_repeat"],
+        where=[
+            {
+                "field": "orders.order_date",
+                "expression": "greater_than",
+                "value": "customers.first_order_date",
+            },
+            {"field": "orders.new_vs_repeat", "expression": "equal_to", "value": "orders.campaign"},
+            {"field": "orders.new_vs_repeat", "expression": "contains", "value": "orders.campaign"},
+            {
+                "field": "orders.revenue_in_cents",
+                "expression": "equal_to",
+                "value": "orders.revenue_dimension",
+            },
+        ],
+    )
+
+    correct = (
+        "SELECT orders.new_vs_repeat as orders_new_vs_repeat,COUNT(orders.id) as orders_number_of_orders FROM"
+        " analytics.orders orders LEFT JOIN analytics.customers customers ON"
+        " orders.customer_id=customers.customer_id WHERE DATE_TRUNC('DAY',"
+        " orders.order_date)>DATE_TRUNC('DAY', customers.first_order_date) AND"
+        " orders.new_vs_repeat=orders.campaign AND orders.new_vs_repeat LIKE orders.campaign AND"
+        " orders.revenue * 100=orders.revenue GROUP BY orders.new_vs_repeat ORDER BY orders_number_of_orders"
+        " DESC NULLS LAST;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_join_query_field_on_field_filter_with_mapping(connection):
+    query = connection.get_sql_query(
+        metrics=["number_of_orders"],
+        dimensions=["new_vs_repeat"],
+        where=[
+            {
+                "field": "customers.first_order_date",
+                "expression": "greater_than",
+                "value": "date",
+            }
+        ],
+    )
+
+    correct = (
+        "SELECT orders.new_vs_repeat as orders_new_vs_repeat,COUNT(orders.id) as orders_number_of_orders FROM"
+        " analytics.orders orders LEFT JOIN analytics.customers customers ON"
+        " orders.customer_id=customers.customer_id WHERE DATE_TRUNC('DAY',"
+        " customers.first_order_date)>DATE_TRUNC('DAY', orders.order_date) GROUP BY orders.new_vs_repeat"
+        " ORDER BY orders_number_of_orders DESC NULLS LAST;"
+    )
+    assert query == correct

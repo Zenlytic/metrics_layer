@@ -159,7 +159,7 @@ fields:
     sql: ${TABLE}.revenue
     filters:
       - field: anon_id
-        value: -9, -3, -22, -9082
+        value: -9,-3, -22, -9082
 
   - name: total_lifetime_revenue
     field_type: measure
