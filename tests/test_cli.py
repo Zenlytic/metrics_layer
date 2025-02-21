@@ -184,9 +184,10 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
-                Definitions.mysql,
             }:
                 assert social["sql"] == '${TABLE}."ON_SOCIAL_NETWORK"'
+            elif query_type == Definitions.mysql:
+                assert social["sql"] == "${TABLE}.`ON_SOCIAL_NETWORK`"
             else:
                 assert social["sql"] == "${TABLE}.ON_SOCIAL_NETWORK"
 
@@ -206,9 +207,10 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
-                Definitions.mysql,
             }:
                 assert acq_date["sql"] == '${TABLE}."ACQUISITION_DATE"'
+            elif query_type == Definitions.mysql:
+                assert acq_date["sql"] == "${TABLE}.`ACQUISITION_DATE`"
             else:
                 assert acq_date["sql"] == "${TABLE}.ACQUISITION_DATE"
 
@@ -246,9 +248,10 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
-                Definitions.mysql,
             }:
                 assert date["sql"] == '${TABLE}."ORDER_CREATED_AT"'
+            elif query_type == Definitions.mysql:
+                assert date["sql"] == "${TABLE}.`ORDER_CREATED_AT`"
             else:
                 assert date["sql"].upper() == "${TABLE}.ORDER_CREATED_AT"
 
@@ -262,9 +265,10 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
-                Definitions.mysql,
             }:
                 assert new["sql"] == '${TABLE}."NEW_VS_REPEAT"'
+            elif query_type == Definitions.mysql:
+                assert new["sql"] == "${TABLE}.`NEW_VS_REPEAT`"
             else:
                 assert new["sql"].upper() == "${TABLE}.NEW_VS_REPEAT"
 
@@ -278,9 +282,10 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
-                Definitions.mysql,
             }:
                 assert num["sql"] == '${TABLE}."REVENUE"'
+            elif query_type == Definitions.mysql:
+                assert num["sql"] == "${TABLE}.`REVENUE`"
             else:
                 assert num["sql"].upper() == "${TABLE}.REVENUE"
 
@@ -333,9 +338,10 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
-                Definitions.mysql,
             }:
                 assert cross_sell["sql"] == '${TABLE}."@CRoSSell P-roduct:"'
+            elif query_type == Definitions.mysql:
+                assert cross_sell["sql"] == "${TABLE}.`@CRoSSell P-roduct:`"
             else:
                 assert cross_sell["sql"] == "${TABLE}.@CRoSSell P-roduct:"
 
@@ -374,9 +380,10 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
-                Definitions.mysql,
             }:
                 assert date["sql"] == '${TABLE}."SESSION_DATE"'
+            elif query_type == Definitions.mysql:
+                assert date["sql"] == "${TABLE}.`SESSION_DATE`"
             else:
                 assert date["sql"].upper() == "${TABLE}.SESSION_DATE"
 
@@ -390,9 +397,10 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
-                Definitions.mysql,
             }:
                 assert pk["sql"] == '${TABLE}."SESSION_ID"'
+            elif query_type == Definitions.mysql:
+                assert pk["sql"] == "${TABLE}.`SESSION_ID`"
             else:
                 assert pk["sql"].upper() == "${TABLE}.SESSION_ID"
 
@@ -406,9 +414,10 @@ def test_cli_seed_metrics_layer(
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
-                Definitions.mysql,
             }:
                 assert num["sql"] == '${TABLE}."CONVERSION"'
+            elif query_type == Definitions.mysql:
+                assert num["sql"] == "${TABLE}.`CONVERSION`"
             else:
                 assert num["sql"].upper() == "${TABLE}.CONVERSION"
 
