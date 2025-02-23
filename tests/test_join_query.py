@@ -270,6 +270,7 @@ def test_query_single_join_metric_with_sub_field(connection):
 
 @pytest.mark.query
 def test_query_single_join_with_forced_additional_join(connection):
+    connection.project.set_user({"owned_region": "Europe"})
     query = connection.get_sql_query(
         metrics=["avg_rainfall"],
         dimensions=["discount_promo_name"],
@@ -286,10 +287,12 @@ def test_query_single_join_with_forced_additional_join(connection):
         "0)) as country_detail_avg_rainfall FROM analytics.discount_detail discount_detail "
         "LEFT JOIN analytics_live.discounts discounts ON discounts.discount_id=discount_detail.discount_id "
         "AND CAST(DATE_TRUNC(CAST(discounts.order_date AS DATE), WEEK) AS TIMESTAMP) is not null LEFT JOIN "
-        "(SELECT * FROM ANALYTICS.COUNTRY_DETAIL) as country_detail "
+        "(SELECT * FROM"
+        " ANALYTICS.COUNTRY_DETAIL WHERE 'Europe' = COUNTRY_DETAIL.REGION) as country_detail "
         "ON discounts.country=country_detail.country "
         "GROUP BY discount_detail_discount_promo_name;"
     )
+    connection.project.set_user({})
     assert query == correct
 
 
@@ -626,6 +629,7 @@ def test_query_single_join_count_and_filter(connection):
 
 @pytest.mark.query
 def test_query_implicit_add_three_views(connection):
+    connection.project.set_user({"owned_region": "Europe"})
     query = connection.get_sql_query(
         metrics=["number_of_customers"],
         dimensions=["discount_code", "rainfall"],
@@ -636,13 +640,15 @@ def test_query_implicit_add_three_views(connection):
         "as country_detail_rainfall,NULLIF(COUNT(DISTINCT CASE WHEN  "
         "(customers.customer_id)  IS NOT NULL THEN  customers.customer_id  ELSE NULL END), 0) "
         "as customers_number_of_customers FROM analytics_live.discounts discounts "
-        "LEFT JOIN (SELECT * FROM ANALYTICS.COUNTRY_DETAIL) as country_detail "
+        "LEFT JOIN (SELECT * FROM"
+        " ANALYTICS.COUNTRY_DETAIL WHERE 'Europe' = COUNTRY_DETAIL.REGION) as country_detail "
         "ON discounts.country=country_detail.country "
         "LEFT JOIN analytics.orders orders ON orders.id=discounts.order_id "
         "LEFT JOIN analytics.customers customers ON orders.customer_id=customers.customer_id "
         "GROUP BY discounts.code,country_detail.rain "
         "ORDER BY customers_number_of_customers DESC NULLS LAST;"
     )
+    connection.project.set_user({})
     assert query == correct
 
 

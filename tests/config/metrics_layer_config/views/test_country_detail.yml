@@ -4,23 +4,22 @@ name: country_detail
 model_name: test_model
 
 derived_table:
-  sql: SELECT * FROM ANALYTICS.COUNTRY_DETAIL
-  datagroup_trigger: country_detail_datagroup
+  sql: SELECT * FROM ANALYTICS.COUNTRY_DETAIL WHERE '{{ user_attributes['owned_region'] }}' = COUNTRY_DETAIL.REGION
 
-identifiers: 
-- name: country_id
-  type: primary
-  sql: ${country_detail.country_id}
-- name: order_lines_join
-  type: join
-  reference: order_lines
-  relationship: one_to_many
-  join_type: left_outer
-  sql_on: "${discounts.country}=${country_detail.country_id} and ${order_lines.order_date} is not null"
+identifiers:
+  - name: country_id
+    type: primary
+    sql: ${country_detail.country_id}
+  - name: order_lines_join
+    type: join
+    reference: order_lines
+    relationship: one_to_many
+    join_type: left_outer
+    sql_on: '${discounts.country}=${country_detail.country_id} and ${order_lines.order_date} is not null'
 
 fields:
   - name: country_id
-    field_type: "dimension"
+    field_type: 'dimension'
     type: string
     primary_key: yes
     hidden: yes
@@ -28,12 +27,21 @@ fields:
     group_label: "ID's"
 
   - name: rainfall
-    field_type: "dimension"
+    field_type: 'dimension'
     type: number
     sql: ${TABLE}.rain
 
   - name: avg_rainfall
-    field_type: "measure"
+    field_type: 'measure'
     type: average
     canon_date: order_lines.order
     sql: ${rainfall}
+
+  - name: avg_rainfall_adj
+    field_type: 'measure'
+    type: average
+    canon_date: order_lines.order
+    sql: ${rainfall}
+    filters:
+      - field: country_id
+        value: "{{ user_attributes['country_options'] }}"

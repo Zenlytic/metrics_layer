@@ -91,6 +91,7 @@ def test_access_filters_equal_to(connection):
         "ON orders.customer_id=customers.customer_id WHERE customers.region='US-West' "
         "GROUP BY orders.new_vs_repeat ORDER BY orders_total_revenue DESC NULLS LAST;"
     )
+    connection.project.set_user({})
     assert correct == query
 
 
@@ -106,6 +107,7 @@ def test_access_filters_array(connection):
         "ON orders.customer_id=customers.customer_id WHERE customers.region IN ('US-West','US-East') "
         "GROUP BY orders.new_vs_repeat ORDER BY orders_total_revenue DESC NULLS LAST;"
     )
+    connection.project.set_user({})
     assert correct == query
 
 

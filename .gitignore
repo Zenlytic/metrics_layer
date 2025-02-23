@@ -10,6 +10,7 @@ metrics_layer/api/test.db
 .user.yml
 logs/
 dbt_packages/
+metrics_layer/core/parse/ssh_p8_key*
 
 # Distribution / packaging
 .Python

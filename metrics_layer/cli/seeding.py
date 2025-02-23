@@ -171,10 +171,12 @@ class SeedMetricsLayer:
             "DATE": "date",
             "DATETIME": "timestamp",
             "TIMESTAMP": "timestamp",
+            "TIME": "timestamp",
             "BOOL": "yesno",
             "FLOAT64": "number",
             "INT64": "number",
             "NUMERIC": "number",
+            "BIGNUMERIC": "number",
             "STRING": "string",
         }
         self._trino_type_lookup = {
