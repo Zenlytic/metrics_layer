@@ -15,6 +15,8 @@ from metrics_layer.core.model.definitions import Definitions
 
 PostgreSQLQueryBuilder.ALIAS_QUOTE_CHAR = None
 PostgreSQLQueryBuilder.QUOTE_CHAR = None
+MySQLQueryBuilder.ALIAS_QUOTE_CHAR = None
+MySQLQueryBuilder.QUOTE_CHAR = None
 
 
 class NullSorting(Enum):
@@ -138,15 +140,8 @@ class MySQLQuery(Query):
     """
 
     @classmethod
-    def _builder(cls, **kwargs) -> "MySQLQueryBuilderWithOrderByNullsOption":
-        return MySQLQueryBuilderWithOrderByNullsOption(**kwargs)
-
-
-class MySQLQueryBuilderWithOrderByNullsOption(QueryBuilderWithOrderByNullsOption):
-    QUOTE_CHAR = None
-    ALIAS_QUOTE_CHAR = None
-    QUERY_ALIAS_QUOTE_CHAR = ""
-    QUERY_CLS = MySQLQuery
+    def _builder(cls, **kwargs) -> "MySQLQueryBuilder":
+        return MySQLQueryBuilder(**kwargs)
 
 
 class PostgresQuery(Query):

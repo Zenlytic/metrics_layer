@@ -1921,7 +1921,6 @@ def test_simple_query_with_order_by_dict(connections, query_type):
         Definitions.trino,
         Definitions.databricks,
         Definitions.bigquery,
-        Definitions.mysql,
     }:
         nulls_last = " NULLS LAST"
     else:
