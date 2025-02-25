@@ -13,6 +13,7 @@ from .dashboard import Dashboard
 from .field import Field
 from .join_graph import JoinGraph
 from .model import AccessGrant, Model
+from .topic import Topic
 from .view import View
 
 
@@ -26,6 +27,7 @@ class Project:
         models: list,
         views: list,
         dashboards: list = [],
+        topics: list = [],
         looker_env: Union[None, str] = None,
         connection_lookup: dict = {},
         manifest=None,
@@ -34,6 +36,7 @@ class Project:
         self._models = models
         self._views = self._handle_join_as_duplication(views)
         self._dashboards = dashboards
+        self._topics = topics
         self.looker_env = looker_env
         self.connection_lookup = connection_lookup
         self.manifest = manifest
@@ -400,6 +403,24 @@ class Project:
                 object_type="model",
             )
 
+    def topics(self) -> list:
+        topics = []
+        for t in self._topics:
+            topic = Topic(t, project=self)
+            if self.can_access_topic(topic):
+                topics.append(topic)
+        return topics
+
+    def get_topic(self, topic_label: str) -> Topic:
+        try:
+            return next((t for t in self.topics() if t.label == topic_label))
+        except StopIteration:
+            raise AccessDeniedOrDoesNotExistException(
+                f"Could not find or you do not have access to topic {topic_label}",
+                object_name=topic_label,
+                object_type="topic",
+            )
+
     def access_grants(self):
         return [AccessGrant(g, model=m) for m in self.models() for g in m.access_grants]
 
@@ -411,6 +432,9 @@ class Project:
 
     def can_access_dashboard(self, dashboard: Dashboard):
         return self._can_access_object(dashboard)
+
+    def can_access_topic(self, topic: Topic):
+        return self._can_access_object(topic)
 
     def can_access_view(self, view: View):
         return self._can_access_object(view)
@@ -564,7 +588,7 @@ class Project:
     def _parse_field_and_view_name(self, field_name: str, view_name: str):
         # Handle the case where the view syntax is passed: view_name.field_name
         if "." in field_name:
-            _, specified_view_name, field_name = Field.field_name_parts(field_name)
+            specified_view_name, field_name = Field.field_name_parts(field_name)
             if view_name and specified_view_name != view_name:
                 raise QueryError(
                     f"You specified two different view names {specified_view_name} and {view_name}"

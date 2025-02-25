@@ -1,0 +1,9 @@
+type: topic
+label: Recurring Revenue
+base_view: mrr
+description: Recurring revenue topic description
+
+views:
+  accounts: {}
+  child_account: {}
+  parent_account: {}

@@ -69,14 +69,11 @@ class MetricsLayerBase:
 
     @staticmethod
     def field_name_parts(field_name: str):
-        explore_name, view_name = None, None
-        if field_name.count(".") == 2:
-            explore_name, view_name, name = field_name.split(".")
-        elif field_name.count(".") == 1:
+        if field_name.count(".") == 1:
             view_name, name = field_name.split(".")
         else:
-            name = field_name
-        return explore_name, view_name, name
+            view_name, name = None, field_name
+        return view_name, name
 
     @staticmethod
     def propose_property(invalid_property_name: str, valid_properties: Iterable[str]) -> str:

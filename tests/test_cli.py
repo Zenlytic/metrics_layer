@@ -1130,7 +1130,7 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
             "Found 21"
             " views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nmrr\nmonthly_aggregates\nchild_account\nparent_account\n"  # noqa
         ),
-        "fields": "Found 2 fields:\n\ndiscount_promo_name\ndiscount_usd\n",
+        "fields": "Found 3 fields:\n\ndiscount_order_id\ndiscount_promo_name\ndiscount_usd\n",
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
         "metrics": "Found 2 metrics:\n\ntotal_discount_amt\ndiscount_per_order\n",  # noqa
     }

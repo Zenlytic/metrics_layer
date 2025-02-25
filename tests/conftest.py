@@ -52,7 +52,19 @@ created_workspaces_view_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/views/test_created_workspace.yml"
 )
 other_db_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/other_db_traffic.yml")
+order_lines_topic_path = os.path.join(BASE_PATH, "config/metrics_layer_config/topics/order_lines_topic.yml")
+order_lines_topic_no_always_filters_path = os.path.join(
+    BASE_PATH, "config/metrics_layer_config/topics/order_lines_topic_no_always_filters.yml"
+)
+recurring_revenue_topic_path = os.path.join(
+    BASE_PATH, "config/metrics_layer_config/topics/recurring_revenue_topic.yml"
+)
 model_paths = [model_path, new_model_path]
+topic_paths = [
+    order_lines_topic_path,
+    order_lines_topic_no_always_filters_path,
+    recurring_revenue_topic_path,
+]
 view_paths = [
     order_lines_view_path,
     orders_view_path,
@@ -471,6 +483,12 @@ def fresh_models():
 
 
 @pytest.fixture(scope="function")
+def fresh_topics():
+    topics = [ProjectReaderBase.read_yaml_file(p) for p in topic_paths]
+    return topics
+
+
+@pytest.fixture(scope="function")
 def fresh_views():
     views = [ProjectReaderBase.read_yaml_file(path) for path in view_paths]
     return views
@@ -486,6 +504,12 @@ def fresh_dashboards():
 def models():
     models = [ProjectReaderBase.read_yaml_file(p) for p in model_paths]
     return models
+
+
+@pytest.fixture(scope="module")
+def topics():
+    topics = [ProjectReaderBase.read_yaml_file(p) for p in topic_paths]
+    return topics
 
 
 @pytest.fixture(scope="module")
@@ -515,11 +539,12 @@ def manifest():
 
 
 @pytest.fixture(scope="function")
-def fresh_project(fresh_models, fresh_views, fresh_dashboards, manifest):
+def fresh_project(fresh_models, fresh_views, fresh_dashboards, fresh_topics, manifest):
     project = Project(
         models=fresh_models,
         views=fresh_views,
         dashboards=fresh_dashboards,
+        topics=fresh_topics,
         looker_env="prod",
         connection_lookup={"connection_name": "SNOWFLAKE"},
         manifest=manifest,
@@ -528,11 +553,12 @@ def fresh_project(fresh_models, fresh_views, fresh_dashboards, manifest):
 
 
 @pytest.fixture(scope="module")
-def project(models, views, dashboards, manifest):
+def project(models, views, dashboards, topics, manifest):
     project = Project(
         models=models,
         views=views,
         dashboards=dashboards,
+        topics=topics,
         looker_env="prod",
         connection_lookup={"connection_name": "SNOWFLAKE"},
         manifest=manifest,
