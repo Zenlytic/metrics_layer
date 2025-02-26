@@ -1,6 +1,7 @@
 type: topic
 label: Order lines unfiltered
 base_view: order_lines
+model_name: test_model
 description: Vanilla order lines topic description
 zoe_description: Secret info that is only shown to zoe
 hidden: false

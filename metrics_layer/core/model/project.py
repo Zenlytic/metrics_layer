@@ -71,8 +71,9 @@ class Project:
         model_str = json.dumps(self._models, sort_keys=True)
         view_str = json.dumps(self._views, sort_keys=True)
         dash_str = json.dumps(self._dashboards, sort_keys=True)
+        topic_str = json.dumps(self._topics, sort_keys=True)
         conn_str = json.dumps(self.connection_lookup, sort_keys=True)
-        string_to_hash = model_str + view_str + dash_str + conn_str + str(self.looker_env)
+        string_to_hash = model_str + view_str + dash_str + topic_str + conn_str + str(self.looker_env)
         return hash(string_to_hash)
 
     def set_user(self, user: dict):
@@ -211,7 +212,7 @@ class Project:
 
     @contextmanager
     def replace_objects(self, replaced_objects: list):
-        replaced_views, replaced_models, replaced_dashboards = [], [], []
+        replaced_views, replaced_models, replaced_dashboards, replaced_topics = [], [], [], []
         for dict_obj in replaced_objects:
             if isinstance(dict_obj, dict):
                 if dict_obj.get("type") == "view":
@@ -220,8 +221,10 @@ class Project:
                     replaced_models.append(dict_obj)
                 elif dict_obj.get("type") == "dashboard":
                     replaced_dashboards.append(dict_obj)
+                elif dict_obj.get("type") == "topic":
+                    replaced_topics.append(dict_obj)
                 else:
-                    # We cannot use the object if it is not a view, model or dashboard
+                    # We cannot use the object if it is not a view, model, dashboard or topic
                     pass
 
         # Replace model files
@@ -239,16 +242,23 @@ class Project:
         unchanged_dashboards = [d for d in self._dashboards if d["name"] not in replaced_dashboard_names]
         current_dashboards = json.loads(json.dumps(self._dashboards))
 
+        # Replace topic files
+        replaced_topic_names = set([t["label"] for t in replaced_topics])
+        unchanged_topics = [t for t in self._topics if t["label"] not in replaced_topic_names]
+        current_topics = json.loads(json.dumps(self._topics))
+
         try:
             self._models = unchanged_models + replaced_models
             self._views = unchanged_views + replaced_views
             self._dashboards = unchanged_dashboards + replaced_dashboards
+            self._topics = unchanged_topics + replaced_topics
             self.refresh_cache()
             yield
         finally:
             self._dashboards = current_dashboards
             self._views = current_views
             self._models = current_models
+            self._topics = current_topics
             self.refresh_cache()
 
     def validate_with_replaced_objects(self, replaced_objects: list):
@@ -266,6 +276,13 @@ class Project:
                 all_errors.extend(model.collect_errors())
             except QueryError as e:
                 # If we have an error building the model, we cannot continue
+                return [self._error(str(e))]
+
+        for topic in self.topics():
+            try:
+                all_errors.extend(topic.collect_errors())
+            except QueryError as e:
+                # If we have an error building the topic, we cannot continue
                 return [self._error(str(e))]
 
         try:

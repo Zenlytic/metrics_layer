@@ -9,7 +9,7 @@ from metrics_layer.core.exceptions import (
 
 from .base import MetricsLayerBase
 from .field import Field
-from .join import Join
+from .join import Join, ZenlyticJoinRelationship, ZenlyticJoinType
 from .view import View
 
 if TYPE_CHECKING:
@@ -21,6 +21,7 @@ class Topic(MetricsLayerBase):
         "version",
         "type",
         "label",
+        "model_name",
         "base_view",
         "description",
         "zoe_description",
@@ -29,6 +30,7 @@ class Topic(MetricsLayerBase):
         "access_filters",
         "always_filter",
         "views",
+        "extra",
     ]
     internal_properties = ["_file_path"]
 
@@ -38,7 +40,7 @@ class Topic(MetricsLayerBase):
         super().__init__(definition)
 
     def validate(self, definition: dict):
-        required_keys = ["label", "base_view"]
+        required_keys = ["label", "base_view", "model_name"]
         for k in required_keys:
             if k not in definition:
                 name_str = ""
@@ -46,9 +48,13 @@ class Topic(MetricsLayerBase):
                     name_str = f" in the topic {definition.get('label')}"
                 raise QueryError(f"Topic missing required key {k}{name_str}")
 
+    @property
+    def model(self):
+        return self.project.get_model(self.model_name)
+
     def _error(self, element, error, extra: dict = {}):
         line, column = self.line_col(element)
-        return {**extra, "model_name": self.name, "message": error, "line": line, "column": column}
+        return {**extra, "model_name": self.model_name, "message": error, "line": line, "column": column}
 
     def collect_errors(self):
         errors = []
@@ -71,7 +77,48 @@ class Topic(MetricsLayerBase):
                         ),
                     )
                 )
+            else:
+                # Check if base_view exists
+                try:
+                    self.project.get_view(self.base_view)
+                except AccessDeniedOrDoesNotExistException:
+                    errors.append(
+                        self._error(
+                            self.base_view,
+                            (
+                                f"The base_view property, {self.base_view} in the topic {self.label} is not a"
+                                " valid view"
+                            ),
+                        )
+                    )
 
+        if "model_name" in self._definition:
+            if not isinstance(self.model_name, str):
+                errors.append(
+                    self._error(
+                        self.model_name,
+                        (
+                            f"The model_name property, {self.model_name} must be a string in the topic"
+                            f" {self.label}"
+                        ),
+                    )
+                )
+        else:
+            try:
+                self.model
+            except AccessDeniedOrDoesNotExistException:
+                errors.append(
+                    self._error(
+                        self.model_name,
+                        (
+                            f"The model_name property, {self.model_name} does not exist in the topic"
+                            f" {self.label}"
+                        ),
+                    )
+                )
+
+        # This value is pulled from the MAX_VIEW_DESCRIPTION_LENGTH constant in Zenlytic
+        topic_description_max_chars = 1024
         if "description" in self._definition:
             if not isinstance(self.description, str):
                 errors.append(
@@ -83,7 +130,17 @@ class Topic(MetricsLayerBase):
                         ),
                     )
                 )
-
+            else:
+                if len(self.description) > topic_description_max_chars:
+                    errors.append(
+                        self._error(
+                            self.description,
+                            (
+                                "The description property, must be"
+                                f" {topic_description_max_chars} characters or less in the topic {self.label}"
+                            ),
+                        )
+                    )
         if "zoe_description" in self._definition:
             if not isinstance(self.zoe_description, str):
                 errors.append(
@@ -95,7 +152,17 @@ class Topic(MetricsLayerBase):
                         ),
                     )
                 )
-
+            else:
+                if len(self.zoe_description) > topic_description_max_chars:
+                    errors.append(
+                        self._error(
+                            self.zoe_description,
+                            (
+                                "The zoe_description property, must be"
+                                f" {topic_description_max_chars} characters or less in the topic {self.label}"
+                            ),
+                        )
+                    )
         if "hidden" in self._definition:
             if not isinstance(self.hidden, bool):
                 errors.append(
@@ -127,12 +194,21 @@ class Topic(MetricsLayerBase):
                     continue
 
                 if "field" in f and isinstance(f["field"], str) and "." not in f["field"]:
-                    f["field"] = f"{self.name}.{f['field']}"
-                errors.extend(
-                    Field.collect_field_filter_errors(
-                        f, self.project, "Always filter", "topic", self.label, error_func=self._error
+                    errors.append(
+                        self._error(
+                            f["field"],
+                            (
+                                f"Always filter in topic {self.label} is referencing a field,"
+                                f" {f['field']} that is not full qualified with view_name.field_name"
+                            ),
+                        )
                     )
-                )
+                else:
+                    errors.extend(
+                        Field.collect_field_filter_errors(
+                            f, self.project, "Always filter", "topic", self.label, error_func=self._error
+                        )
+                    )
 
         if "access_filters" in self._definition and not isinstance(self.access_filters, list):
             access_filter_error = self._error(
@@ -201,17 +277,185 @@ class Topic(MetricsLayerBase):
                 self._definition,
                 self.project,
                 f"in topic {self.label}",
-                "",
+                f"in model {self.model_name}",
                 error_func=self._error,
             )
         )
 
-        # TODO tests for the 'views' property in the topic
+        if "views" in self._definition and not isinstance(self.views, dict):
+            errors.append(
+                self._error(
+                    self.views,
+                    f"The views property, {self.views} must be a dictionary in the topic {self.label}",
+                )
+            )
+        elif "views" in self._definition:
+            for view_name, view_config in self.views.items():
+                # Check if view exists
+                try:
+                    self.project.get_view(view_name)
+                except AccessDeniedOrDoesNotExistException:
+                    errors.append(
+                        self._error(
+                            view_name,
+                            (
+                                f"The view {view_name} in the views property of topic {self.label} does not"
+                                " exist"
+                            ),
+                        )
+                    )
+                    continue
+
+                if not isinstance(view_config, dict):
+                    errors.append(
+                        self._error(
+                            view_config,
+                            (
+                                f"The view configuration for {view_name} in topic {self.label} must be a"
+                                " dictionary"
+                            ),
+                        )
+                    )
+                    continue
+
+                # Validate join configuration
+                if "join" in view_config:
+                    if not isinstance(view_config["join"], dict):
+                        errors.append(
+                            self._error(
+                                view_config["join"],
+                                (
+                                    f"The join property for view {view_name} in topic {self.label} must be a"
+                                    " dictionary"
+                                ),
+                            )
+                        )
+                        continue
+                    join_config = view_config["join"]
+
+                    # Check relationship property
+                    valid_relationships = ZenlyticJoinRelationship.options
+                    if "relationship" not in join_config:
+                        errors.append(
+                            self._error(
+                                join_config,
+                                (
+                                    f"The join property for view {view_name} in topic {self.label} is missing"
+                                    f" the required relationship property. Options are: {valid_relationships}"
+                                ),
+                            )
+                        )
+                    elif join_config["relationship"] not in valid_relationships:
+                        errors.append(
+                            self._error(
+                                join_config["relationship"],
+                                (
+                                    f"The join property for view {view_name} in topic {self.label} has an"
+                                    f" invalid relationship property. Options are: {valid_relationships}"
+                                ),
+                            )
+                        )
+
+                    # Check sql_on property
+                    if "sql_on" not in join_config:
+                        errors.append(
+                            self._error(
+                                join_config,
+                                (
+                                    f"The join property for view {view_name} in topic {self.label} is missing"
+                                    " the required sql_on property"
+                                ),
+                            )
+                        )
+                    elif "sql_on" in join_config:
+                        # Check for valid view references in sql_on
+                        sql_on = join_config["sql_on"]
+                        # Validate fields in sql_on
+                        fields_to_replace = Join.fields_to_replace(sql_on)
+                        for field in fields_to_replace:
+                            view_name_part, column_name = Field.field_name_parts(field)
+                            if view_name_part is None:
+                                errors.append(
+                                    self._error(
+                                        sql_on,
+                                        (
+                                            f"Could not find view for field {field} in join for view"
+                                            f" {view_name} in topic {self.label}"
+                                        ),
+                                    )
+                                )
+                                continue
+
+                            try:
+                                view = self.project.get_view(view_name_part)
+                            except AccessDeniedOrDoesNotExistException:
+                                err_msg = (
+                                    f"Could not find view {view_name_part} in join for view {view_name} in"
+                                    f" topic {self.label}"
+                                )
+                                errors.append(self._error(sql_on, err_msg))
+                                continue
+
+                            try:
+                                self.project.get_field(column_name, view_name=view.name)
+                            except AccessDeniedOrDoesNotExistException:
+                                errors.append(
+                                    self._error(
+                                        sql_on,
+                                        (
+                                            f"Could not find field {column_name} in join for view"
+                                            f" {view_name} in topic {self.label} referencing view"
+                                            f" {view_name_part}"
+                                        ),
+                                    )
+                                )
+
+                    # Check join_type property
+                    if "join_type" in join_config:
+                        if join_config["join_type"] not in ZenlyticJoinType.options:
+                            errors.append(
+                                self._error(
+                                    join_config["join_type"],
+                                    (
+                                        f"The join_type property for view {view_name} in topic"
+                                        f" {self.label} must be one of {ZenlyticJoinType.options}"
+                                    ),
+                                )
+                            )
+                if "override_access_filters" in view_config and not isinstance(
+                    view_config["override_access_filters"], bool
+                ):
+                    errors.append(
+                        self._error(
+                            view_config["override_access_filters"],
+                            (
+                                f"The override_access_filters property for view {view_name} in topic"
+                                f" {self.label} must be a boolean"
+                            ),
+                        )
+                    )
+                errors.extend(
+                    self.invalid_property_error(
+                        view_config,
+                        {"join", "override_access_filters"},
+                        "topic",
+                        self.label,
+                        error_func=self._error,
+                    )
+                )
+
+        if "extra" in self._definition and not isinstance(self.extra, dict):
+            errors.append(
+                self._error(
+                    self.extra,
+                    f"Topic {self.label} has an invalid extra {self.extra}. The extra must be a dictionary.",
+                )
+            )
 
         definition_to_check = {k: v for k, v in self._definition.items() if k not in self.internal_properties}
         errors.extend(
             self.invalid_property_error(
-                definition_to_check, self.valid_properties, "model", self.name, error_func=self._error
+                definition_to_check, self.valid_properties, "topic", self.label, error_func=self._error
             )
         )
         return errors

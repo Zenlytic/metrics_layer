@@ -1,6 +1,7 @@
 type: topic
 label: Recurring Revenue
 base_view: mrr
+model_name: test_model
 description: Recurring revenue topic description
 
 views:
