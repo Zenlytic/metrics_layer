@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 import networkx as nx
 
@@ -470,7 +470,7 @@ class Topic(MetricsLayerBase):
             return self.views.get(view_name, {})
         return {}
 
-    def query_validity_check(self, requested_views: list[str]) -> None:
+    def query_validity_check(self, requested_views: List[str]) -> None:
         """
         Check if the requested views are valid for the topic.
         :param requested_views: list of view names that the user specifically asked for
@@ -487,7 +487,7 @@ class Topic(MetricsLayerBase):
                 " can add them to the topic by adding the requested views to the topic."
             )
 
-    def order_required_views(self, view_names: list[str]) -> list[str]:
+    def order_required_views(self, view_names: List[str]) -> List[str]:
         """Impute when other supporting joins are needed to complete a join
         :param view_names: list of view names that the user specifically asked for
         :return: list of view names in a valid topological order
