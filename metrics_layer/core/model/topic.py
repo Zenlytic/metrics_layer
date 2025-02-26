@@ -475,7 +475,10 @@ class Topic(MetricsLayerBase):
         Check if the requested views are valid for the topic.
         :param requested_views: list of view names that the user specifically asked for
         """
-        available_views = [self.base_view] + list(self.views.keys())
+        if self.views and isinstance(self.views, dict):
+            available_views = [self.base_view] + list(self.views.keys())
+        else:
+            available_views = [self.base_view]
         invalid_views = set(requested_views) - set(available_views)
         if invalid_views:
             invalid_views_str = ", ".join(sorted(invalid_views))
