@@ -465,8 +465,10 @@ class Topic(MetricsLayerBase):
         attributes = self.to_dict()
         return {key: attributes.get(key) for key in to_print if attributes.get(key) is not None}
 
-    def get_view_overrides(self, view_name: str) -> list[dict]:
-        return self.views.get(view_name, {})
+    def get_view_overrides(self, view_name: str) -> dict:
+        if self.views and isinstance(self.views, dict):
+            return self.views.get(view_name, {})
+        return {}
 
     def query_validity_check(self, requested_views: list[str]) -> None:
         """
