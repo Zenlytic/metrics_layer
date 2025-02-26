@@ -434,6 +434,10 @@ class SeedMetricsLayer:
                 field["field_type"] = "dimension"
                 field["type"] = "string"
                 searchable_field_candidates.append(row["COLUMN_NAME"])
+            elif metrics_layer_type == "string" and not auto_tag_searchable_fields:
+                field["field_type"] = "dimension"
+                field["type"] = "string"
+                field["searchable"] = False
             else:
                 field["field_type"] = "dimension"
                 field["type"] = metrics_layer_type
