@@ -30,6 +30,8 @@ access_filters:
     user_attribute: owned_region
   - field: orders.warehouse_location
     user_attribute: warehouse_location
+  - field: orders.order_id
+    user_attribute: allowed_order_ids
 
 fields:
   - name: order_id

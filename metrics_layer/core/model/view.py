@@ -858,7 +858,7 @@ class View(MetricsLayerBase, SQLReplacement):
             elif "sql" in identifier:
                 for field in self.fields_to_replace(identifier["sql"]):
                     if field != "TABLE":
-                        _, view_name, column_name = Field.field_name_parts(field)
+                        view_name, column_name = Field.field_name_parts(field)
                         if view_name is None:
                             view_name = self.name
                         try:

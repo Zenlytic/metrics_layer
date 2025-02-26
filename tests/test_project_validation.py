@@ -276,6 +276,10 @@ def test_validation_field_with_fully_qualified_results(connection, field_name, p
             [
                 "The access_grants property, None must be a list in the model test_model",
                 (
+                    "The access grant test_access_grant_department_topic in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
                     "The access grant test_access_grant_department_view in the "
                     "required_access_grants property does not exist in model test_model"
                 ),
@@ -298,6 +302,10 @@ def test_validation_field_with_fully_qualified_results(connection, field_name, p
                     "model test_model"
                 ),
                 (
+                    "The access grant test_access_grant_department_topic in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
                     "The access grant test_access_grant_department_view in the "
                     "required_access_grants property does not exist in model test_model"
                 ),
@@ -316,6 +324,10 @@ def test_validation_field_with_fully_qualified_results(connection, field_name, p
             [{"name": "test"}],
             [
                 "Access Grant test missing required key user_attribute in the model test_model",
+                (
+                    "The access grant test_access_grant_department_topic in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
                 (
                     "The access grant test_access_grant_department_view in the "
                     "required_access_grants property does not exist in model test_model"
@@ -336,6 +348,10 @@ def test_validation_field_with_fully_qualified_results(connection, field_name, p
             [
                 "Access Grant missing required key name in the model test_model",
                 (
+                    "The access grant test_access_grant_department_topic in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
                     "The access grant test_access_grant_department_view in the "
                     "required_access_grants property does not exist in model test_model"
                 ),
@@ -354,6 +370,10 @@ def test_validation_field_with_fully_qualified_results(connection, field_name, p
             [{"name": "test", "user_attribute": "test", "allowed_values": "test"}],
             [
                 "The allowed_values property, test must be a list in the Access Grant test",
+                (
+                    "The access grant test_access_grant_department_topic in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
                 (
                     "The access grant test_access_grant_department_view in the "
                     "required_access_grants property does not exist in model test_model"
@@ -374,6 +394,10 @@ def test_validation_field_with_fully_qualified_results(connection, field_name, p
             [
                 "All values in the allowed_values property must be strings in the Access Grant test",
                 (
+                    "The access grant test_access_grant_department_topic in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
                     "The access grant test_access_grant_department_view in the "
                     "required_access_grants property does not exist in model test_model"
                 ),
@@ -392,6 +416,10 @@ def test_validation_field_with_fully_qualified_results(connection, field_name, p
             [{"name": "test", "user_attribute": None, "allowed_values": ["1", "2"]}],
             [
                 "The user_attribute property, None must be a string in the Access Grant test",
+                (
+                    "The access grant test_access_grant_department_topic in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
                 (
                     "The access grant test_access_grant_department_view in the "
                     "required_access_grants property does not exist in model test_model"
@@ -422,6 +450,10 @@ def test_validation_field_with_fully_qualified_results(connection, field_name, p
                     " Did you mean allowed_values?"
                 ),
                 (
+                    "The access grant test_access_grant_department_topic in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
                     "The access grant test_access_grant_department_view in the "
                     "required_access_grants property does not exist in model test_model"
                 ),
@@ -439,6 +471,10 @@ def test_validation_field_with_fully_qualified_results(connection, field_name, p
             "access_grants",
             [{"name": "test", "user_attribute": "products", "allowed_values": ["blush", "eyeliner"]}],
             [
+                (
+                    "The access grant test_access_grant_department_topic in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
                 (
                     "The access grant test_access_grant_department_view in the "
                     "required_access_grants property does not exist in model test_model"
@@ -2250,4 +2286,296 @@ def test_validation_with_replaced_field_properties(connection, field_name, prope
     response = project.validate_with_replaced_objects(replaced_objects=[view])
 
     print(response)
+    assert [e["message"] for e in response] == errors
+
+
+@pytest.mark.validation
+@pytest.mark.parametrize(
+    "name,value,errors",
+    [
+        ("label", "My Topic!", []),
+        (
+            "description",
+            None,
+            ["The description property, None must be a string in the topic Order lines Topic"],
+        ),
+        ("description", "My Topic Description", []),
+        (
+            "zoe_description",
+            None,
+            ["The zoe_description property, None must be a string in the topic Order lines Topic"],
+        ),
+        ("zoe_description", "Secret Topic Info", []),
+        (
+            "hidden",
+            "yes",
+            ["The hidden property, yes must be a boolean in the topic Order lines Topic"],
+        ),
+        ("hidden", True, []),
+        ("base_view", None, ["The base_view property, None must be a string in the topic Order lines Topic"]),
+        ("base_view", 1, ["The base_view property, 1 must be a string in the topic Order lines Topic"]),
+        ("base_view", "order_lines", []),
+        (
+            "required_access_grants",
+            None,
+            ["The required_access_grants property, None must be a list in topic Order lines Topic"],
+        ),
+        (
+            "required_access_grants",
+            [1],
+            [
+                "The access grant reference 1 in the required_access_grants property must be a string in"
+                " topic Order lines Topic"
+            ],
+        ),
+        (
+            "required_access_grants",
+            [{"name": "test"}],
+            [
+                "The access grant reference {'name': 'test'} in the required_access_grants property must be a"
+                " string in topic Order lines Topic"
+            ],
+        ),
+        (
+            "required_access_grants",
+            ["test"],
+            [
+                "The access grant test in the required_access_grants property does not exist in model"
+                " test_model"
+            ],
+        ),
+        ("required_access_grants", ["test_access_grant_department_customers"], []),
+        (
+            "always_filter",
+            None,
+            ["The always_filter property, None must be a list in the topic Order lines Topic"],
+        ),
+        ("always_filter", [1], ["Always filter 1 in topic Order lines Topic must be a dictionary"]),
+        (
+            "always_filter",
+            [{"name": "test"}],
+            [
+                "Always filter in Topic Order lines Topic is missing the required field property",
+                "Always filter in Topic Order lines Topic is missing the required value property",
+            ],
+        ),
+        (
+            "always_filter",
+            [{"field": "order_id"}],
+            [
+                (
+                    "Always filter in topic Order lines Topic is referencing a field, order_id that is not"
+                    " full qualified with view_name.field_name"
+                ),
+            ],
+        ),
+        (
+            "always_filter",
+            [{"field": "order_lines.test", "value": "=1"}],
+            [
+                "Always filter in Topic Order lines Topic is referencing a field, order_lines.test that does"
+                " not exist"
+            ],
+        ),
+        (
+            "always_filter",
+            [{"field": "order_lines.order_id", "value": 2}],
+            [
+                "Always filter in Topic Order lines Topic has an invalid value property. Valid values can be"
+                " found here in the docs: https://docs.zenlytic.com/docs/data_modeling/field_filter"
+            ],
+        ),
+        ("always_filter", [{"field": "order_lines.order_id", "value": "-Paid"}], []),
+        (
+            "access_filters",
+            None,
+            [
+                (
+                    "The topic Order lines Topic has an access filter, None that is incorrectly "
+                    "specified as a when it should be a list, to specify it correctly check the "
+                    "documentation for access filters at "
+                    "https://docs.zenlytic.com/docs/data_modeling/access_grants#access-filters"
+                ),
+            ],
+        ),
+        (
+            "access_filters",
+            "invalid",
+            [
+                (
+                    "The topic Order lines Topic has an access filter, invalid that is "
+                    "incorrectly specified as a when it should be a list, to specify it correctly "
+                    "check the documentation for access filters at "
+                    "https://docs.zenlytic.com/docs/data_modeling/access_grants#access-filters"
+                ),
+            ],
+        ),
+        (
+            "access_filters",
+            [1],
+            ["Access filter 1 in topic Order lines Topic must be a dictionary"],
+        ),
+        (
+            "access_filters",
+            [{"field": "order_lines.order_id"}],
+            [
+                "Access filter in topic Order lines Topic is missing the required user_attribute property",
+            ],
+        ),
+        ("access_filters", [{"field": "order_lines.order_id", "user_attribute": "orders"}], []),
+        ("views", None, ["The views property, None must be a dictionary in the topic Order lines Topic"]),
+        ("views", [], ["The views property, [] must be a dictionary in the topic Order lines Topic"]),
+        (
+            "views",
+            {"fake_view": {}},
+            ["The view fake_view in the views property of topic Order lines Topic does not exist"],
+        ),
+        (
+            "views",
+            {"orders": 1},
+            ["The view configuration for orders in topic Order lines Topic must be a dictionary"],
+        ),
+        (
+            "views",
+            {"orders": {"join": "invalid"}},
+            ["The join property for view orders in topic Order lines Topic must be a dictionary"],
+        ),
+        (
+            "views",
+            {"orders": {"join": {}}},
+            [
+                (
+                    "The join property for view orders in topic Order lines Topic is missing the "
+                    "required relationship property. Options are: ['many_to_one', 'one_to_one', "
+                    "'one_to_many', 'many_to_many']"
+                ),
+                (
+                    "The join property for view orders in topic Order lines Topic is missing the "
+                    "required sql_on property"
+                ),
+            ],
+        ),
+        (
+            "views",
+            {"orders": {"join": {"relationship": "invalid", "sql_on": "1=1"}}},
+            [
+                "The join property for view orders in topic Order lines Topic has an invalid relationship"
+                " property. Options are: ['many_to_one', 'one_to_one', 'one_to_many', 'many_to_many']"
+            ],
+        ),
+        (
+            "views",
+            {"orders": {"join": {"relationship": "many_to_one"}}},
+            [
+                "The join property for view orders in topic Order lines Topic is missing the required sql_on"
+                " property"
+            ],
+        ),
+        (
+            "views",
+            {
+                "orders": {
+                    "join": {
+                        "relationship": "many_to_one",
+                        "sql_on": "${orders.order_id} = ${order_lines.order_id}",
+                    }
+                }
+            },
+            [],
+        ),
+        (
+            "views",
+            {
+                "orders": {
+                    "join": {
+                        "relationship": "many_to_one",
+                        "sql_on": "${orders.order_id} = ${order_lines.order_id}",
+                        "join_type": "left_outer",
+                    }
+                }
+            },
+            [],
+        ),
+        (
+            "views",
+            {
+                "orders": {
+                    "join": {"relationship": "many_to_one", "sql_on": "${fake.id} = ${order_lines.order_id}"}
+                }
+            },
+            ["Could not find view fake in join for view orders in topic Order lines Topic"],
+        ),
+        (
+            "views",
+            {
+                "orders": {
+                    "join": {
+                        "relationship": "many_to_one",
+                        "sql_on": "${orders.fake} = ${order_lines.order_id}",
+                    }
+                }
+            },
+            [
+                (
+                    "Could not find field fake in join for view orders in topic Order lines Topic "
+                    "referencing view orders"
+                ),
+            ],
+        ),
+        (
+            "views",
+            {"orders": {"override_access_filters": "value"}},
+            [
+                "The override_access_filters property for view orders in topic Order lines Topic must be a"
+                " boolean"
+            ],
+        ),
+        (
+            "views",
+            {"orders": {"override_access_filters": True}},
+            [],
+        ),
+        (
+            "views",
+            {"orders": {"invalid_property": "value"}},
+            [
+                "Property invalid_property is present on Topic Order lines Topic, but it is"
+                " not a valid property."
+            ],
+        ),
+        ("extra", [], ["Topic Order lines Topic has an invalid extra []. The extra must be a dictionary."]),
+        ("extra", {"random": "key"}, []),
+        (
+            "description",
+            (
+                "This is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description. "
+                "Second, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Third, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Fourth, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+            ),
+            [
+                "The description property, must be 1024 characters or less in the topic Order lines Topic",
+            ],
+        ),
+        (
+            "dcqwmwfldqw",
+            True,
+            ["Property dcqwmwfldqw is present on Topic Order lines Topic, but it is not a valid property."],
+        ),
+    ],
+)
+def test_validation_with_replaced_topic_properties(connection, name, value, errors):
+    project = connection.project
+    topic = json.loads(json.dumps(project._topics[0]))
+    topic[name] = value
+    response = project.validate_with_replaced_objects(replaced_objects=[topic])
+
     assert [e["message"] for e in response] == errors

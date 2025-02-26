@@ -28,11 +28,16 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self.mapping_forces_merged_result = False
         self.verbose = kwargs.get("verbose", False)
         self.select_raw_sql = kwargs.get("select_raw_sql", [])
-        self.explore_name = kwargs.get("explore_name")
         self.suppress_warnings = kwargs.get("suppress_warnings", False)
         self.limit = kwargs.get("limit")
         self.single_query = kwargs.get("single_query", False)
+        self.kwargs = kwargs
         self.project = project
+        if self.kwargs.get("topic"):
+            self.topic = self.project.get_topic(kwargs["topic"])
+            self.kwargs["topic"] = self.topic
+        else:
+            self.topic = None
         self.model = self._get_model_for_query(kwargs.get("model_name"), metrics, dimensions)
         self.connections = connections
         self.metrics = metrics
@@ -45,7 +50,6 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self.where = self._clean_conditional_filter_syntax(self.where)
         self.having = self._clean_conditional_filter_syntax(having)
         self.order_by = order_by
-        self.kwargs = kwargs
         self.connection = self._get_connection(self.model.connection)
         self.kwargs["query_type"] = self._get_query_type(self.connection, self.kwargs)
         connection_schema = self._get_connection_schema(self.connection)
@@ -576,6 +580,16 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             # Handle mappings exception
             except Exception:
                 pass
+
+        # Apply always filters from the topic (if present)
+        if self.topic and self.topic.always_filter:
+            for f in self.topic.always_filter:
+                if "." not in f["field"]:
+                    raise QueryError(
+                        f"Always filter field {f['field']} in the topic {self.topic.label} must be a fully"
+                        " qualified field name in the format view_name.field_name"
+                    )
+                always_where.extend(Filter({**f, **to_add}).filter_dict(json_safe=True))
 
         return self._deduplicate_always_where_filters(always_where)
 

@@ -16,6 +16,7 @@ class SingleSQLQueryResolver:
         where: str = None,  # Either a list of json or a string
         having: str = None,  # Either a list of json or a string
         order_by: str = None,  # Either a list of json or a string
+        topic=None,
         model=None,
         project=None,
         **kwargs,
@@ -25,7 +26,6 @@ class SingleSQLQueryResolver:
         self.has_cumulative_metric = False
         self.verbose = kwargs.get("verbose", False)
         self.select_raw_sql = kwargs.get("select_raw_sql", [])
-        self.explore_name = kwargs.get("explore_name")
         self.suppress_warnings = kwargs.get("suppress_warnings", False)
         self.limit = kwargs.get("limit")
         self.return_pypika_query = kwargs.get("return_pypika_query")
@@ -34,6 +34,7 @@ class SingleSQLQueryResolver:
         self.metrics = metrics
         self.dimensions = dimensions
         self.funnel, self.is_funnel_query = self.parse_funnel(funnel)
+        self.topic = topic
         self.model = model
         self.parse_field_names(where, having, order_by)
         self.nesting_depth = kwargs.get("nesting_depth", 0)
@@ -51,6 +52,7 @@ class SingleSQLQueryResolver:
             no_group_by=self.no_group_by,
             query_type=self.query_type,
             field_lookup=self.field_lookup,
+            topic=self.topic,
             model=self.model,
             project=self.project,
         )

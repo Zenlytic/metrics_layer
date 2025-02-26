@@ -26,10 +26,10 @@ def test_list_metrics(connection):
 @pytest.mark.project
 def test_list_dimensions(connection):
     dimensions = connection.list_dimensions(show_hidden=True)
-    assert len(dimensions) == 101
+    assert len(dimensions) == 102
 
     dimensions = connection.list_dimensions()
-    assert len(dimensions) == 67
+    assert len(dimensions) == 68
 
     dimensions = connection.list_dimensions(view_name="order_lines", names_only=True, show_hidden=True)
     dimensions_present = {
