@@ -6,7 +6,15 @@ from metrics_layer.core.model.definitions import Definitions
 
 
 @pytest.mark.parametrize(
-    "query_type", [Definitions.snowflake, Definitions.bigquery, Definitions.redshift, Definitions.postgres]
+    "query_type",
+    [
+        Definitions.snowflake,
+        Definitions.bigquery,
+        Definitions.redshift,
+        Definitions.postgres,
+        Definitions.azure_synapse,
+        Definitions.sql_server,
+    ],
 )
 @pytest.mark.query
 def test_query_sum_with_sql(connection, query_type):
@@ -47,6 +55,15 @@ def test_query_sum_with_sql(connection, query_type):
             "CAST(FARM_FINGERPRINT(CAST(orders.id AS STRING)) AS BIGNUMERIC)) "
             "- SUM(DISTINCT CAST(FARM_FINGERPRINT(CAST(orders.id AS STRING)) AS BIGNUMERIC))) AS FLOAT64) "
             "/ CAST((1000000*1.0) AS FLOAT64), 0)"
+        )
+        order_by = ""
+    elif query_type in {Definitions.azure_synapse, Definitions.sql_server}:
+        sa = (
+            "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) * (1000000 * 1.0)) AS"
+            " DECIMAL(38,0))) + ABS(CAST(HASHBYTES('MD5', CAST(orders.id AS NVARCHAR(MAX))) AS BIGINT)) %"
+            " 10000000000000000000000000) - SUM(DISTINCT ABS(CAST(HASHBYTES('MD5', CAST(orders.id AS"
+            " NVARCHAR(MAX))) AS BIGINT)) % 10000000000000000000000000)) AS FLOAT) / CAST((1000000*1.0) AS"
+            " FLOAT), 0)"
         )
         order_by = ""
     correct = (

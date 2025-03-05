@@ -642,6 +642,10 @@ class Field(MetricsLayerBase, SQLReplacement):
             return self._sum_symmetric_aggregate_postgres(sql, primary_key_sql, alias_only, factor)
         elif query_type == Definitions.bigquery:
             return self._sum_symmetric_aggregate_bigquery(sql, primary_key_sql, alias_only, factor)
+        elif query_type in {Definitions.azure_synapse, Definitions.sql_server}:
+            return self._sum_symmetric_aggregate_azure_synapse(sql, primary_key_sql, alias_only, factor)
+        else:
+            raise QueryError(f"Symmetric aggregate not supported in {query_type}")
 
     def _sum_symmetric_aggregate_bigquery(
         self, sql: str, primary_key_sql: str, alias_only: bool, factor: int = 1_000_000
@@ -725,6 +729,31 @@ class Field(MetricsLayerBase, SQLReplacement):
         result = f"{backed_out_cast} / CAST(({factor}*1.0) AS DOUBLE PRECISION), 0)"
         return result
 
+    def _sum_symmetric_aggregate_azure_synapse(
+        self, sql: str, primary_key_sql: str, alias_only: bool, factor: int = 1_000_000
+    ):
+        if not primary_key_sql:
+            raw_primary_key_sql = self.view.primary_key.sql_query(
+                Definitions.azure_synapse, alias_only=alias_only
+            )
+            primary_key_sql = self._get_sql_distinct_key(
+                raw_primary_key_sql, Definitions.azure_synapse, alias_only
+            )
+
+        adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS DECIMAL(38,0)))"
+
+        pk_sum = (
+            f"ABS(CAST(HASHBYTES('MD5', CAST({primary_key_sql} AS NVARCHAR(MAX))) AS BIGINT)) %"
+            " 10000000000000000000000000"
+        )
+
+        sum_with_pk_backout = f"SUM(DISTINCT {adjusted_sum} + {pk_sum}) - SUM(DISTINCT {pk_sum})"
+
+        backed_out_cast = f"COALESCE(CAST(({sum_with_pk_backout}) AS FLOAT)"
+
+        result = f"{backed_out_cast} / CAST(({factor}*1.0) AS FLOAT), 0)"
+        return result
+
     def _count_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
         if (
             query_type in Definitions.symmetric_aggregates_supported_warehouses
@@ -745,7 +774,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         alias_only: bool = False,
         factor: int = 1_000_000,
     ):
-        # This works for both query types
+        # This works for both all types
         return self._count_symmetric_aggregate_snowflake(
             sql, query_type, primary_key_sql=primary_key_sql, alias_only=alias_only
         )
