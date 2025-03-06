@@ -10,6 +10,7 @@ from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.filter import Filter
 from metrics_layer.core.model.join import ZenlyticJoinRelationship
+from metrics_layer.core.model.view import View
 
 
 class MetricsLayerDesign:
@@ -250,7 +251,7 @@ class MetricsLayerDesign:
         primary_key = base_sequence[-1]
         return primary_key
 
-    def get_view(self, name: str) -> MetricsLayerBase:
+    def get_view(self, name: str) -> View:
         return self.project.get_view(name, model=self.model)
 
     def get_join(self, name: str) -> MetricsLayerBase:

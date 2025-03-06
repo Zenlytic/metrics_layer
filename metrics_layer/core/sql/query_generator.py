@@ -1,5 +1,5 @@
 from copy import copy
-from typing import Dict, List
+from typing import Dict, List, Union
 
 from pypika import Criterion, Order, Table
 from pypika.terms import LiteralValue
@@ -34,6 +34,10 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         self.having_group_by_filters = []
         self.funnel_filters = []
         self.order_by_args = []
+        # This flag controls if we interpolate the whole window function or just the window function name
+        # The former case is for building the cte to reference later on
+        # The latter case is for building the final query
+        self.render_window_functions = definition.get("render_window_functions", False)
 
         self.parse_definition(definition)
 
@@ -45,10 +49,10 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         having = definition.get("having", None)
         order_by = definition.get("order_by", None)
         group_by_where_cte_lookup = {}
-
+        window_func_filters = []
         access_filter_literal, _ = self.design.get_access_filter()
         if where or access_filter_literal:
-            wheres, group_by_wheres, group_by_where_cte_lookup = self._parse_filter_object(
+            wheres, group_by_wheres, group_by_where_cte_lookup, _ = self._parse_filter_object(
                 where,
                 "where",
                 access_filter=access_filter_literal,
@@ -67,7 +71,9 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
             )
 
         if having:
-            having_filters, group_by_having_filters, _ = self._parse_filter_object(having, "having")
+            having_filters, group_by_having_filters, _, window_func_filters = self._parse_filter_object(
+                having, "having"
+            )
             if len(group_by_having_filters) > 0:
                 raise QueryError("Entity (group by) filters in having clause are not supported")
             self.having_filters.extend(having_filters)
@@ -85,6 +91,45 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
             self.order_by_args.append({"field": "__DEFAULT__"})
 
         self.group_by_filter_cte_lookup = {**group_by_where_cte_lookup}
+
+        dimension_window_functions = []
+        if not self.render_window_functions:
+            # Look at measures and dimensions in the select, where, and having clauses to determine
+            # if there are any window functions in the query
+            for field in self.design.field_lookup.values():
+                if field.field_type != "measure" and field.window:
+                    dimension_window_functions.append(field)
+
+                referenced_windows = field.referenced_window_functions(field.sql)
+                for window in referenced_windows:
+                    if window not in dimension_window_functions and window.field_type != "measure":
+                        dimension_window_functions.append(window)
+
+        self.window_function_ctes = []
+        if len(dimension_window_functions) > 0:
+            for window in dimension_window_functions:
+                view_name = window.view.name
+                if not any(cte["view_name"] == view_name for cte in self.window_function_ctes):
+                    self.window_function_ctes.append(
+                        {
+                            "cte_alias": f"{view_name}_window_functions",
+                            "view_name": view_name,
+                            "fields": [window],
+                        }
+                    )
+                else:
+                    for cte in self.window_function_ctes:
+                        if cte["view_name"] == view_name:
+                            cte["fields"].append(window)
+
+        # Note: measure window functions only need to be elevated to a CTE
+        # when they are present in a where or having clause
+        self.measure_window_function_cte = {}
+        if len(window_func_filters) > 0:
+            self.measure_window_function_cte = {
+                "cte_alias": f"measure_window_functions",
+                "filters": window_func_filters,
+            }
 
         # Parse any non-additive dimension on given metrics to collect
         # them as CTE's for the appropriate filters
@@ -106,9 +151,10 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                         )
 
     def _parse_filter_object(
-        self, filter_object, filter_type: str, access_filter: str = None, nesting_depth: int = 0
+        self, filter_object, filter_type: str, access_filter: Union[str, None] = None, nesting_depth: int = 0
     ):
         results, group_by_results, group_by_cte_lookup = [], [], {}
+        measure_window_function_filters = []
         extra_kwargs = dict(filter_type=filter_type, design=self.design)
 
         if access_filter:
@@ -124,8 +170,24 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         if isinstance(filter_object, list):
             cte_counter = 0
             for filter_dict in filter_object:
-                flattened_filters = flatten_filters(filter_dict)
+                flattened_filters = flatten_filters(filter_dict, return_nesting_depth=True)
                 for sub_filter in flattened_filters:
+                    if sub_filter.get("nesting_depth", 0) > 1:
+                        field = self.design.get_field(sub_filter["field"])
+                        if field.window:
+                            raise QueryError(
+                                "Window functions filters cannot be nested. Please move the filter"
+                                f" containing the window function {field.id()} to the outer most filter in an"
+                                " AND statement."
+                            )
+                    if filter_dict.get("logical_operator", "AND") == "OR":
+                        field = self.design.get_field(sub_filter["field"])
+                        if field.window:
+                            raise QueryError(
+                                "Window functions filters cannot be in OR statements. Please move the filter"
+                                f" containing the window function {field.id()} to an AND statement."
+                            )
+
                     f = MetricsLayerFilter(definition=sub_filter, **extra_kwargs)
                     if f.is_group_by:
                         if nesting_depth > 0:
@@ -135,14 +197,33 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                         group_by_cte_lookup[hash(f)] = cte_alias
                         group_by_results.append(f)
                         cte_counter += 1
+                    elif f.field.window:
+                        measure_window_function_filters.append(f)
 
             for filter_dict in filter_object:
                 filter_dict["group_by_filter_cte_lookup"] = group_by_cte_lookup
+                # Remove window function filters from the filter object
+                if len(measure_window_function_filters) > 0:
+                    if "conditions" in filter_dict:
+                        filter_dict["conditions"] = [
+                            c
+                            for c in filter_dict["conditions"]
+                            if not self.design.get_field(c["field"]).window
+                        ]
+                    elif "field" in filter_dict:
+                        if self.design.get_field(filter_dict["field"]).window:
+                            continue
+
                 # Generate (and automatically validate) the filter and then store it
                 f = MetricsLayerFilter(definition=filter_dict, **extra_kwargs)
                 results.append(f)
 
-        return results, group_by_results, group_by_cte_lookup
+        if len(measure_window_function_filters) > 0 and filter_type == "where":
+            raise QueryError(
+                f"Window functions filters cannot be in WHERE clauses. Please move the filter"
+                f" to the HAVING clause"
+            )
+        return results, group_by_results, group_by_cte_lookup, measure_window_function_filters
 
     def _parse_order_by_object(self, order_by):
         results = []
@@ -185,11 +266,18 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         else:
             base_query = self._base_query()
 
+        view_overrides = {}
+        if self.window_function_ctes:
+            for cte in self.window_function_ctes:
+                cte_query = self._window_function_cte(cte)
+                base_query = base_query.with_(Table(cte_query), cte["cte_alias"])
+                view_overrides[cte["view_name"]] = cte["cte_alias"]
+
         # Build the base_join table if a join is needed otherwise use a single table
         if self.needs_join():
-            base_query = self.get_join_query_from(base_query)
+            base_query = self.get_join_query_from(base_query, view_overrides)
         else:
-            base_query = self.get_single_table_query_from(base_query)
+            base_query = self.get_single_table_query_from(base_query, view_overrides)
 
         # Add all columns in the SELECT clause
         select = self.get_select_columns()
@@ -275,6 +363,14 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
             where_sql = funnel_filter.isin_sql_query()
             base_query = base_query.where(where_sql)
 
+        if self.measure_window_function_cte:
+            new_base_query = self._base_query()
+            new_base_query = new_base_query.with_(base_query, self.measure_window_function_cte["cte_alias"])
+            new_base_query = new_base_query.from_(self.measure_window_function_cte["cte_alias"])
+            new_base_query = new_base_query.select("*")
+            where = [f.sql_query(field_alias_only=True) for f in self.measure_window_function_cte["filters"]]
+            new_base_query = new_base_query.where(Criterion.all(where))
+            base_query = new_base_query
         # Handle order by
         if self.order_by_args and not self.no_group_by:
             all_fields = self.metrics + self.dimensions
@@ -331,7 +427,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         return select
 
     def _sql_from_field_no_group_by(self, field: Field) -> List:
-        sql = field.raw_sql_query(self.query_type)
+        sql = field.raw_sql_query(self.query_type, render_window_functions=self.render_window_functions)
 
         if isinstance(sql, str):
             return [self.sql(sql, alias=field.alias(with_view=True))]
@@ -358,18 +454,19 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         return select
 
     # Code to handle the FROM portion of the query
-    def get_join_query_from(self, base_join_query):
+    def get_join_query_from(self, base_join_query, view_overrides: dict):
         # Base table from statement
         table = self.design.get_view(self.design.base_view_name)
-
-        base_join_query = base_join_query.from_(self._table_expression(table))
+        base_join_query = base_join_query.from_(
+            self._table_expression(table, view_overrides.get(self.design.base_view_name))
+        )
 
         # Start By building the Join
         for join in self.design.joins():
             table = self.design.get_view(join.join_view_name)
 
             # Create a pypika Table based on the Table's name
-            db_table = self._table_expression(table)
+            db_table = self._table_expression(table, view_overrides.get(join.join_view_name))
 
             criteria = LiteralValueCriterion(join.replaced_sql_on(self.query_type))
             join_type = self.get_pypika_join_type(join)
@@ -381,20 +478,53 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
 
         return base_join_query
 
-    def get_single_table_query_from(self, base_query):
+    def get_single_table_query_from(self, base_query, view_overrides: dict):
         table = self.design.get_view(self.design.base_view_name)
-        base_query = base_query.from_(self._table_expression(table))
+        if view_overrides and self.design.base_view_name in view_overrides:
+            base_query = base_query.from_(
+                self._table_expression(table, view_overrides[self.design.base_view_name])
+            )
+        else:
+            base_query = base_query.from_(self._table_expression(table))
 
         return base_query
 
-    def _table_expression(self, view: View):
+    def _table_expression(self, view: View, override_cte_reference: Union[str, None] = None):
         # Create a pypika Table based on the Table's name or it's derived table sql definition
-        if view.derived_table:
+        if override_cte_reference:
+            table_expr = Table(override_cte_reference, alias=view.name)
+        elif view.derived_table:
             derived_sql = view.derived_table_sql
             table_expr = Table(f"({derived_sql}) as {view.name}")
         else:
             table_expr = Table(view.sql_table_name, alias=view.name)
         return table_expr
+
+    def _window_function_cte(self, cte: dict):
+        field_lookup = {}
+        for field in cte["fields"]:
+            field_lookup[field.id()] = field
+
+        design = MetricsLayerDesign(
+            no_group_by=True,
+            query_type=self.design.query_type,
+            field_lookup=field_lookup,
+            model=self.design.model,
+            project=self.design.project,
+        )
+
+        config = {
+            "metrics": [],
+            "dimensions": [f.id() for f in cte["fields"]],
+            "where": [],
+            "having": [],
+            "return_pypika_query": True,
+            "select_raw_sql": [f"{cte['view_name']}.*"],
+            "render_window_functions": True,
+        }
+        generator = MetricsLayerQuery(config, design=design)
+        cte_query = generator.get_query()
+        return cte_query
 
     def _non_additive_cte(self, definition: dict, group_by_dimensions: list):
         field_lookup = {}
@@ -461,9 +591,9 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         return group_by
 
     # Code for formatting values
-    def get_sql(self, field, alias: str = None, use_symmetric: bool = False):
+    def get_sql(self, field, alias: Union[None, str] = None, use_symmetric: bool = False):
+        extra_args = {"render_window_functions": self.render_window_functions}
         if use_symmetric:
-            query = field.sql_query(query_type=self.query_type, functional_pk=self.design.functional_pk())
-        else:
-            query = field.sql_query(query_type=self.query_type)
+            extra_args["functional_pk"] = self.design.functional_pk()
+        query = field.sql_query(query_type=self.query_type, **extra_args)
         return self.sql(query, alias)

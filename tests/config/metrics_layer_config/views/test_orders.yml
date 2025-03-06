@@ -115,6 +115,20 @@ fields:
     sql: '${TABLE}.sub_channel'
     searchable: true
 
+  - name: last_order_channel
+    field_type: 'dimension'
+    type: string
+    sql: lag(${TABLE}.sub_channel) over (partition by ${customers.customer_id} order by ${TABLE}.order_date)
+    window: true
+    searchable: true
+
+  - name: last_order_warehouse_location
+    field_type: 'dimension'
+    type: string
+    sql: lag(${TABLE}.warehouselocation) over (partition by ${customers.customer_id} order by ${TABLE}.order_date)
+    window: true
+    searchable: true
+
   - name: warehouse_location
     field_type: dimension
     type: string

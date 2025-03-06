@@ -1,12 +1,12 @@
 import re
 from copy import deepcopy
+from typing import Union
 
 import sqlparse
 from pypika import JoinType
 from pypika.terms import LiteralValue
 from sqlparse.tokens import Name, Punctuation
 
-from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.model.join import Join, ZenlyticJoinType
 from metrics_layer.core.sql.query_filter import MetricsLayerFilter
@@ -68,7 +68,7 @@ class MetricsLayerQueryBase(MetricsLayerBase):
         return JoinType.left
 
     @staticmethod
-    def sql(sql: str, alias: str = None):
+    def sql(sql: str, alias: Union[None, str] = None):
         if alias:
             return LiteralValue(sql + f" as {alias}")
         return LiteralValue(sql)
