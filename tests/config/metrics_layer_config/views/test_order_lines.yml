@@ -103,6 +103,18 @@ fields:
     sql: case when ${TABLE}.product_name ilike '%sale%' then 'On sale' else 'Not on sale' end
     searchable: true
 
+  - name: order_sequence
+    field_type: dimension
+    type: number
+    sql: dense_rank() over (partition by ${customer_id} order by ${order_date} asc)
+    window: true
+
+  - name: new_vs_repeat_status
+    field_type: dimension
+    type: string
+    sql: case when ${order_sequence} = 1 then 'New' else 'Repeat' end
+    searchable: true
+
   - name: order_tier
     field_type: dimension
     type: tier
@@ -115,6 +127,21 @@ fields:
     value_format_name: decimal_0
     description: 'The ending inventory for the time period selected'
     sql: split_part(listagg(${inventory_qty}, ',') within group (order by ${order_date} desc), ',', 0)::int
+
+  - name: number_of_new_purchased_items
+    field_type: measure
+    type: count
+    sql: '${TABLE}.order_id'
+    filters:
+      - field: new_vs_repeat_status
+        value: 'New'
+
+  - name: pct_of_total_item_revenue
+    field_type: measure
+    type: number
+    sql: RATIO_TO_REPORT(${total_item_revenue}) OVER ()
+    window: TRUE
+    value_format_name: percent_1
 
   - name: number_of_email_purchased_items
     field_type: measure

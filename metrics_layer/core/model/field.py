@@ -3,7 +3,7 @@ import hashlib
 import json
 import re
 from copy import copy
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, List, Union
 
 from pypika.terms import LiteralValue
 
@@ -164,6 +164,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         "filters",
         "sql",
         "extra",
+        "window",
     )
     internal_properties = ("is_personal_field",)
 
@@ -519,6 +520,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         query_type: Union[str, None] = None,
         functional_pk: Union[str, None] = None,
         alias_only: bool = False,
+        render_window_functions: bool = False,
     ):
         if not query_type:
             query_type = self._derive_query_type()
@@ -526,17 +528,22 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"{self.cte_prefix()}.{self.measure.alias(with_view=True)}"
         if self.field_type == ZenlyticFieldType.measure:
             return self.aggregate_sql_query(query_type, functional_pk, alias_only=alias_only)
-        return self.raw_sql_query(query_type, alias_only=alias_only)
+        return self.raw_sql_query(
+            query_type, alias_only=alias_only, render_window_functions=render_window_functions
+        )
 
-    def raw_sql_query(self, query_type: str, alias_only: bool = False):
+    def raw_sql_query(self, query_type: str, alias_only: bool = False, render_window_functions: bool = False):
         if self.field_type == ZenlyticFieldType.measure and self.type == "number":
             return self.get_referenced_sql_query()
         elif alias_only:
             return self.alias(with_view=True)
-        return self.get_replaced_sql_query(query_type, alias_only=alias_only)
+        elif not render_window_functions and self.window:
+            return self.alias(with_view=True)
+        return self.get_replaced_sql_query(
+            query_type, alias_only=alias_only, render_window_functions=render_window_functions
+        )
 
     def aggregate_sql_query(self, query_type: str, functional_pk: str, alias_only: bool = False):
-        # TODO add median_distinct, percentile, percentile, percentile_distinct
         sql = self.raw_sql_query(query_type, alias_only=alias_only)
         type_lookup = {
             "sum": self._sum_aggregate_sql,
@@ -1657,6 +1664,17 @@ class Field(MetricsLayerBase, SQLReplacement):
                 )
             )
 
+        if "window" in self._definition and not isinstance(self.window, bool):
+            errors.append(
+                self._error(
+                    self._definition["window"],
+                    (
+                        f"Field {self.name} in view {self.view.name} has an invalid window value of"
+                        f" {self.window}. window must be a boolean (true or false)."
+                    ),
+                )
+            )
+
         if "description" in self._definition and not isinstance(self.description, str):
             errors.append(
                 self._error(
@@ -2678,16 +2696,55 @@ class Field(MetricsLayerBase, SQLReplacement):
 
         return reference_fields
 
-    def get_replaced_sql_query(self, query_type: str, alias_only: bool = False):
+    def referenced_window_functions(self, sql) -> List[Any]:
+        reference_window_functions = []
+        if sql is None:
+            return []
+
+        for to_replace in self.fields_to_replace(sql):
+            if to_replace != "TABLE":
+                try:
+                    field = self.get_field_with_view_info(to_replace)
+                except AccessDeniedOrDoesNotExistException:
+                    continue
+
+                contains_non_table_references = field.sql and any(
+                    r != "TABLE" for r in self.fields_to_replace(field.sql)
+                )
+                if contains_non_table_references:
+                    reference_fields_raw = field.referenced_window_functions(field.sql)
+                    for f in reference_fields_raw:
+                        if f.window:
+                            reference_window_functions.append(f)
+                if field is not None and field.window:
+                    reference_window_functions.append(field)
+
+        return reference_window_functions
+
+    def get_replaced_sql_query(
+        self, query_type: str, alias_only: bool = False, render_window_functions: bool = False
+    ):
         if self.sql:
-            clean_sql = self._replace_sql_query(self.sql, query_type, alias_only=alias_only)
+            clean_sql = self._replace_sql_query(
+                self.sql, query_type, alias_only=alias_only, render_window_functions=render_window_functions
+            )
             if self.field_type == ZenlyticFieldType.dimension_group and self.type == "time":
                 clean_sql = self.apply_dimension_group_time_sql(clean_sql, query_type)
             return clean_sql
 
         if self.sql_start and self.sql_end and self.type == "duration":
-            clean_sql_start = self._replace_sql_query(self.sql_start, query_type, alias_only=alias_only)
-            clean_sql_end = self._replace_sql_query(self.sql_end, query_type, alias_only=alias_only)
+            clean_sql_start = self._replace_sql_query(
+                self.sql_start,
+                query_type,
+                alias_only=alias_only,
+                render_window_functions=render_window_functions,
+            )
+            clean_sql_end = self._replace_sql_query(
+                self.sql_end,
+                query_type,
+                alias_only=alias_only,
+                render_window_functions=render_window_functions,
+            )
             return self.apply_dimension_group_duration_sql(clean_sql_start, clean_sql_end, query_type)
 
         if self.type == "cumulative":
@@ -2700,15 +2757,21 @@ class Field(MetricsLayerBase, SQLReplacement):
 
         raise QueryError(f"Unknown type of SQL query for field {self.name}")
 
-    def _replace_sql_query(self, sql_query: str, query_type: str, alias_only: bool = False):
+    def _replace_sql_query(
+        self, sql_query: str, query_type: str, alias_only: bool = False, render_window_functions: bool = False
+    ):
         if sql_query is None or "{%" in sql_query or sql_query == "":
             return None
-        clean_sql = self.replace_fields(sql_query, query_type, alias_only=alias_only)
+        clean_sql = self.replace_fields(
+            sql_query, query_type, alias_only=alias_only, render_window_functions=render_window_functions
+        )
         clean_sql = re.sub(r"[ ]{2,}", " ", clean_sql)
         clean_sql = clean_sql.replace("'", "'")
         return clean_sql
 
-    def replace_fields(self, sql, query_type, view_name=None, alias_only=False):
+    def replace_fields(
+        self, sql, query_type, view_name=None, alias_only=False, render_window_functions: bool = False
+    ):
         clean_sql = copy(sql)
         view_name = self.view.name if not view_name else view_name
         fields_to_replace = self.fields_to_replace(sql)
@@ -2720,8 +2783,12 @@ class Field(MetricsLayerBase, SQLReplacement):
                     clean_sql = clean_sql.replace("${TABLE}", view_name)
             else:
                 field = self.get_field_with_view_info(to_replace, specified_view=view_name)
-                if field:
-                    sql_replace = field.raw_sql_query(query_type, alias_only=alias_only)
+                if field and field.window and not render_window_functions:
+                    sql_replace = field.alias(with_view=True)
+                elif field:
+                    sql_replace = field.raw_sql_query(
+                        query_type, alias_only=alias_only, render_window_functions=render_window_functions
+                    )
                 else:
                     sql_replace = to_replace
                 if isinstance(sql_replace, list):

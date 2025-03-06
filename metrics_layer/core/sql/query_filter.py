@@ -184,6 +184,7 @@ class MetricsLayerFilter(MetricsLayerBase):
         alias_query: bool = False,
         cte_alias_lookup: dict = {},
         raise_if_not_in_lookup: bool = False,
+        field_alias_only: bool = False,
     ):
         pypika_conditions = []
         for condition in self.conditions:
@@ -196,6 +197,7 @@ class MetricsLayerFilter(MetricsLayerBase):
                         alias_query,
                         cte_alias_lookup=cte_alias_lookup,
                         raise_if_not_in_lookup=raise_if_not_in_lookup,
+                        field_alias_only=field_alias_only,
                     )
                 )
             elif alias_query:
@@ -208,6 +210,10 @@ class MetricsLayerFilter(MetricsLayerBase):
             else:
                 if condition_object.is_group_by:
                     pypika_conditions.append(condition_object.isin_sql_query())
+                elif field_alias_only:
+                    pypika_conditions.append(
+                        condition_object.criterion(condition_object.field.alias(with_view=True))
+                    )
                 else:
                     pypika_conditions.append(
                         condition_object.criterion(
@@ -224,7 +230,11 @@ class MetricsLayerFilter(MetricsLayerBase):
         raise ParseError(f"Invalid logical operator: {self.logical_operator}")
 
     def sql_query(
-        self, alias_query: bool = False, cte_alias_lookup: dict = {}, raise_if_not_in_lookup: bool = False
+        self,
+        alias_query: bool = False,
+        cte_alias_lookup: dict = {},
+        raise_if_not_in_lookup: bool = False,
+        field_alias_only: bool = False,
     ):
         if self.is_literal_filter:
             return LiteralValueCriterion(self.replace_fields_literal_filter())
@@ -242,7 +252,10 @@ class MetricsLayerFilter(MetricsLayerBase):
             return self.group_sql_query(functional_pk)
         elif self.is_group_by:
             return self.isin_sql_query()
-        return self.criterion(self.field.sql_query(self.query_type, functional_pk))
+        elif field_alias_only:
+            return self.criterion(self.field.alias(with_view=True))
+        else:
+            return self.criterion(self.field.sql_query(self.query_type, functional_pk))
 
     def _handle_cte_alias_replacement(
         self, field_id: str, cte_alias_lookup: dict, raise_if_not_in_lookup: bool
