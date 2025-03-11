@@ -92,6 +92,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             "query_metrics": readable_metrics,
             "query_dimensions": readable_dimensions,
             "having": self.having,
+            "order_by": self.order_by,
             "queries_to_join": queries_to_join,
             "join_hashes": list(sorted(readable_join_hashes)),
             "mapping_lookup": readable_mapping_lookup,

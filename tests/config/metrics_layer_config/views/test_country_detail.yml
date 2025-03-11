@@ -31,6 +31,17 @@ fields:
     type: number
     sql: ${TABLE}.rain
 
+  - name: rainfall_at
+    field_type: dimension_group
+    type: time
+    timeframes:
+      - raw
+      - date
+      - week
+      - month
+    sql: >
+      case when '{{ query_attributes['dimension_group'] }}' = 'raw' then ${TABLE}.rain_date when '{{ query_attributes['dimension_group'] }}' = 'date' then time_bucket('1 day', ${TABLE}.rain_date) when '{{ query_attributes['dimension_group'] }}' = 'week' then time_bucket('1 week', ${TABLE}.rain_date) when '{{ query_attributes['dimension_group'] }}' = 'month' then time_bucket('1 month', ${TABLE}.rain_date) end
+
   - name: avg_rainfall
     field_type: 'measure'
     type: average

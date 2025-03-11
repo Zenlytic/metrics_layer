@@ -975,15 +975,21 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
                 "MAKEDATE(YEAR(simple.order_date), 1) + INTERVAL (QUARTER(simple.order_date) - 1) QUARTER"
             ),
             "year": "DATE_FORMAT(simple.order_date, '%Y-01-01')",
-            "fiscal_month": "DATE_FORMAT(DATE_ADD(simple.order_date, INTERVAL 1 MONTH), '%Y-%m-01')",
-            "fiscal_quarter": (
-                "MAKEDATE(YEAR(DATE_ADD(simple.order_date, INTERVAL 1 MONTH)), 1) + INTERVAL"
-                " (QUARTER(DATE_ADD(simple.order_date, INTERVAL 1 MONTH)) - 1) QUARTER"
+            "fiscal_month": (
+                "DATE_FORMAT(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH), '%Y-%m-01')"
             ),
-            "fiscal_year": "DATE_FORMAT(DATE_ADD(simple.order_date, INTERVAL 1 MONTH), '%Y-01-01')",
-            "fiscal_month_of_year_index": "MONTH(DATE_ADD(simple.order_date, INTERVAL 1 MONTH))",
-            "fiscal_month_index": "MONTH(DATE_ADD(simple.order_date, INTERVAL 1 MONTH))",
-            "fiscal_quarter_of_year": "QUARTER(DATE_ADD(simple.order_date, INTERVAL 1 MONTH))",
+            "fiscal_quarter": (
+                "MAKEDATE(YEAR(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH)), 1) + INTERVAL"
+                " (QUARTER(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH)) - 1) QUARTER"
+            ),
+            "fiscal_year": (
+                "DATE_FORMAT(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH), '%Y-01-01')"
+            ),
+            "fiscal_month_of_year_index": (
+                "MONTH(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH))"
+            ),
+            "fiscal_month_index": "MONTH(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH))",
+            "fiscal_quarter_of_year": "QUARTER(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH))",
             "week_index": "WEEK(CAST(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 DAY) AS DATETIME))",
             "week_of_month": "WEEK(simple.order_date) - WEEK(DATE_FORMAT(simple.order_date, '%Y-%m-01')) + 1",
             "month_of_year_index": "MONTH(simple.order_date)",
@@ -1166,22 +1172,26 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "quarter": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), QUARTER) AS TIMESTAMP)",
             "year": "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), YEAR) AS TIMESTAMP)",
             "fiscal_month": (
-                "CAST(DATE_TRUNC(CAST(DATE_ADD(simple.order_date, INTERVAL 1 MONTH) AS DATE), MONTH) AS"
-                " TIMESTAMP)"
+                "CAST(DATE_TRUNC(CAST(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH) AS DATE),"
+                " MONTH) AS TIMESTAMP)"
             ),
             "fiscal_quarter": (
-                "CAST(DATE_TRUNC(CAST(DATE_ADD(simple.order_date, INTERVAL 1 MONTH) AS DATE), QUARTER) AS"
-                " TIMESTAMP)"
+                "CAST(DATE_TRUNC(CAST(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH) AS DATE),"
+                " QUARTER) AS TIMESTAMP)"
             ),
             "fiscal_year": (
-                "CAST(DATE_TRUNC(CAST(DATE_ADD(simple.order_date, INTERVAL 1 MONTH) AS DATE), YEAR) AS"
-                " TIMESTAMP)"
+                "CAST(DATE_TRUNC(CAST(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH) AS DATE),"
+                " YEAR) AS TIMESTAMP)"
             ),
             "fiscal_month_of_year_index": (
-                f"EXTRACT(MONTH FROM DATE_ADD(simple.order_date, INTERVAL 1 MONTH))"
+                f"EXTRACT(MONTH FROM DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH))"
             ),
-            "fiscal_month_index": f"EXTRACT(MONTH FROM DATE_ADD(simple.order_date, INTERVAL 1 MONTH))",
-            "fiscal_quarter_of_year": "EXTRACT(QUARTER FROM DATE_ADD(simple.order_date, INTERVAL 1 MONTH))",
+            "fiscal_month_index": (
+                f"EXTRACT(MONTH FROM DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH))"
+            ),
+            "fiscal_quarter_of_year": (
+                "EXTRACT(QUARTER FROM DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH))"
+            ),
             "week_index": f"EXTRACT(WEEK FROM DATE_TRUNC(CAST(simple.order_date AS DATE) + 1, DAY))",
             "week_of_month": (
                 f"EXTRACT(WEEK FROM simple.order_date) - EXTRACT(WEEK FROM DATE_TRUNC(CAST(simple.order_date"

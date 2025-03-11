@@ -424,7 +424,10 @@ class Field(MetricsLayerBase, SQLReplacement):
         return False
 
     def sql_replacement_func(self, sql: str):
-        return self.view.jinja_replacements(sql, {"user_attributes": self.view.project._user})
+        query_attributes = {"dimension_group": self.dimension_group}
+        return self.view.jinja_replacements(
+            sql, {"user_attributes": self.view.project._user, "query_attributes": query_attributes}
+        )
 
     def loses_join_ability_with_other_views(self):
         if "is_merged_result" in self._definition:
@@ -1489,7 +1492,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.druid, Definitions.trino}:
             return f"{sql} + INTERVAL '{offset_in_months}' MONTH"
         elif query_type in {Definitions.bigquery, Definitions.mysql}:
-            return f"DATE_ADD({sql}, INTERVAL {offset_in_months} MONTH)"
+            return f"DATE_ADD(CAST({sql} AS DATE), INTERVAL {offset_in_months} MONTH)"
         else:
             raise QueryError(
                 f"Unable to find a valid method for running fiscal offset with query type {query_type}"
