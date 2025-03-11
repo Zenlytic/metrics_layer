@@ -1492,7 +1492,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.druid, Definitions.trino}:
             return f"{sql} + INTERVAL '{offset_in_months}' MONTH"
         elif query_type in {Definitions.bigquery, Definitions.mysql}:
-            return f"DATE_ADD({sql}, INTERVAL {offset_in_months} MONTH)"
+            return f"DATE_ADD(CAST({sql} AS DATE), INTERVAL {offset_in_months} MONTH)"
         else:
             raise QueryError(
                 f"Unable to find a valid method for running fiscal offset with query type {query_type}"
