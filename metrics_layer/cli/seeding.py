@@ -62,6 +62,8 @@ class SeedMetricsLayer:
             "BINARY": "string",
             "VARBINARY": "string",
             "NUMBER": "number",
+            "GEOGRAPHY": "number",
+            "GEOMETRY": "number",
         }
 
         self._redshift_type_lookup = {
