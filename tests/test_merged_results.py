@@ -920,28 +920,30 @@ def test_merged_query_merged_results_joined_filter(connection):
             {"field": "customers.region", "expression": "isin", "value": ["West", "South"]},
             {"field": "sessions.utm_source", "expression": "equal_to", "value": "google"},
         ],
+        order_by=[{"field": "number_of_orders", "direction": "desc"}],
+        limit=10,
     )
 
     orders_cte = "orders_order__cte_subquery_0"
     sessions_cte = "sessions_session__cte_subquery_1"
     correct = (
-        f"WITH {orders_cte} AS (SELECT DATE_TRUNC('DAY', orders.order_date) "
-        "as orders_order_date,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders "
-        "orders LEFT JOIN analytics.customers customers ON orders.customer_id=customers.customer_id "
-        "WHERE customers.region IN ('West','South') AND orders.sub_channel='google' "
-        "GROUP BY DATE_TRUNC('DAY', orders.order_date) ORDER BY orders_number_of_orders DESC NULLS LAST) ,"
-        f"{sessions_cte} AS (SELECT DATE_TRUNC('DAY', sessions.session_date) as "
-        "sessions_session_date,COUNT(sessions.id) as sessions_number_of_sessions "
-        "FROM analytics.sessions sessions LEFT JOIN analytics.customers customers ON "
-        "sessions.customer_id=customers.customer_id WHERE customers.region IN ('West','South') "
-        "AND sessions.utm_source='google' GROUP BY DATE_TRUNC('DAY', sessions.session_date) "
-        f"ORDER BY sessions_number_of_sessions DESC NULLS LAST) SELECT {orders_cte}."
-        f"orders_number_of_orders as orders_number_of_orders,{sessions_cte}."
-        "sessions_number_of_sessions as sessions_number_of_sessions,"
-        f"ifnull({orders_cte}.orders_order_date, {sessions_cte}.sessions_session_date) "
-        f"as orders_order_date,ifnull({sessions_cte}.sessions_session_date, {orders_cte}.orders_order_date) "
-        f"as sessions_session_date FROM {orders_cte} FULL OUTER JOIN {sessions_cte} "
-        f"ON {orders_cte}.orders_order_date={sessions_cte}.sessions_session_date;"
+        f"WITH {orders_cte} AS (SELECT DATE_TRUNC('DAY', orders.order_date) as"
+        " orders_order_date,COUNT(orders.id) as orders_number_of_orders FROM analytics.orders orders LEFT"
+        " JOIN analytics.customers customers ON orders.customer_id=customers.customer_id WHERE"
+        " customers.region IN ('West','South') AND orders.sub_channel='google' GROUP BY DATE_TRUNC('DAY',"
+        f" orders.order_date) ORDER BY orders_number_of_orders DESC NULLS LAST) ,{sessions_cte} AS (SELECT"
+        " DATE_TRUNC('DAY', sessions.session_date) as sessions_session_date,COUNT(sessions.id) as"
+        " sessions_number_of_sessions FROM analytics.sessions sessions LEFT JOIN analytics.customers"
+        " customers ON sessions.customer_id=customers.customer_id WHERE customers.region IN ('West','South')"
+        " AND sessions.utm_source='google' GROUP BY DATE_TRUNC('DAY', sessions.session_date) ORDER BY"
+        f" sessions_number_of_sessions DESC NULLS LAST) SELECT {orders_cte}.orders_number_of_orders as"
+        f" orders_number_of_orders,{sessions_cte}.sessions_number_of_sessions as"
+        f" sessions_number_of_sessions,ifnull({orders_cte}.orders_order_date,"
+        f" {sessions_cte}.sessions_session_date) as"
+        f" orders_order_date,ifnull({sessions_cte}.sessions_session_date, {orders_cte}.orders_order_date) as"
+        f" sessions_session_date FROM {orders_cte} FULL OUTER JOIN {sessions_cte} ON"
+        f" {orders_cte}.orders_order_date={sessions_cte}.sessions_session_date ORDER BY"
+        " orders_number_of_orders DESC NULLS LAST LIMIT 10;"
     )
     assert query == correct
 
@@ -1385,36 +1387,33 @@ def test_query_number_metric_with_non_matching_canon_dates(connection):
                 "value": datetime.datetime(2023, 6, 26, 23, 59, 59),
             },
         ],
+        order_by=[{"field": "date", "direction": "desc"}],
     )
 
     cte_1 = "submitted_form_sent_at__cte_subquery_0"
     cte_2 = "submitted_form_session__cte_subquery_1"
     correct = (
-        f"WITH {cte_1} AS (SELECT DATE_TRUNC('DAY', "
-        "submitted_form.sent_at) as submitted_form_sent_at_date,"
-        "COUNT(DISTINCT(submitted_form.customer_id)) as submitted_form_unique_users_form_submissions "
-        "FROM analytics.submitted_form submitted_form WHERE DATE_TRUNC('DAY', "
-        "submitted_form.sent_at)<='2023-06-26T23:59:59' "
-        "GROUP BY DATE_TRUNC('DAY', submitted_form.sent_at) "
-        "ORDER BY submitted_form_unique_users_form_submissions DESC NULLS LAST) ,"
-        f"{cte_2} AS (SELECT DATE_TRUNC('DAY', "
-        "submitted_form.session_date) as submitted_form_session_date,"
-        "COUNT(submitted_form.id) as submitted_form_number_of_form_submissions "
-        "FROM analytics.submitted_form submitted_form WHERE DATE_TRUNC('DAY', "
-        "submitted_form.session_date)<='2023-06-26T23:59:59' GROUP BY DATE_TRUNC('DAY', "
-        "submitted_form.session_date) ORDER BY submitted_form_number_of_form_submissions DESC NULLS LAST) "
-        f"SELECT {cte_1}.submitted_form_unique_users_form_submissions "
-        f"as submitted_form_unique_users_form_submissions,{cte_2}."
-        "submitted_form_number_of_form_submissions as submitted_form_number_of_form_submissions,"
-        f"ifnull({cte_1}.submitted_form_sent_at_date, "
-        f"{cte_2}.submitted_form_session_date) as "
-        f"submitted_form_sent_at_date,ifnull({cte_2}."
-        f"submitted_form_session_date, {cte_1}."
-        "submitted_form_sent_at_date) as submitted_form_session_date,"
-        "submitted_form_unique_users_form_submissions / submitted_form_number_of_form_submissions "
-        f"as submitted_form_unique_users_per_form_submission FROM {cte_1} "
-        f"FULL OUTER JOIN {cte_2} ON {cte_1}"
-        f".submitted_form_sent_at_date={cte_2}.submitted_form_session_date;"
+        f"WITH {cte_1} AS (SELECT DATE_TRUNC('DAY', submitted_form.sent_at) as"
+        " submitted_form_sent_at_date,COUNT(DISTINCT(submitted_form.customer_id)) as"
+        " submitted_form_unique_users_form_submissions FROM analytics.submitted_form submitted_form WHERE"
+        " DATE_TRUNC('DAY', submitted_form.sent_at)<='2023-06-26T23:59:59' GROUP BY DATE_TRUNC('DAY',"
+        " submitted_form.sent_at) ORDER BY submitted_form_unique_users_form_submissions DESC NULLS LAST)"
+        f" ,{cte_2} AS (SELECT DATE_TRUNC('DAY', submitted_form.session_date) as"
+        " submitted_form_session_date,COUNT(submitted_form.id) as submitted_form_number_of_form_submissions"
+        " FROM analytics.submitted_form submitted_form WHERE DATE_TRUNC('DAY',"
+        " submitted_form.session_date)<='2023-06-26T23:59:59' GROUP BY DATE_TRUNC('DAY',"
+        " submitted_form.session_date) ORDER BY submitted_form_number_of_form_submissions DESC NULLS LAST)"
+        f" SELECT {cte_1}.submitted_form_unique_users_form_submissions as"
+        f" submitted_form_unique_users_form_submissions,{cte_2}.submitted_form_number_of_form_submissions as"
+        f" submitted_form_number_of_form_submissions,ifnull({cte_1}.submitted_form_sent_at_date,"
+        f" {cte_2}.submitted_form_session_date) as"
+        f" submitted_form_sent_at_date,ifnull({cte_2}.submitted_form_session_date,"
+        f" {cte_1}.submitted_form_sent_at_date) as"
+        " submitted_form_session_date,submitted_form_unique_users_form_submissions /"
+        " submitted_form_number_of_form_submissions as submitted_form_unique_users_per_form_submission FROM"
+        f" {cte_1} FULL OUTER JOIN {cte_2} ON"
+        f" {cte_1}.submitted_form_sent_at_date={cte_2}.submitted_form_session_date ORDER BY"
+        " submitted_form_session_date DESC NULLS LAST;"
     )
     assert query == correct
 
