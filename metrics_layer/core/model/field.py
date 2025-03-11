@@ -424,7 +424,10 @@ class Field(MetricsLayerBase, SQLReplacement):
         return False
 
     def sql_replacement_func(self, sql: str):
-        return self.view.jinja_replacements(sql, {"user_attributes": self.view.project._user})
+        query_attributes = {"dimension_group": self.dimension_group}
+        return self.view.jinja_replacements(
+            sql, {"user_attributes": self.view.project._user, "query_attributes": query_attributes}
+        )
 
     def loses_join_ability_with_other_views(self):
         if "is_merged_result" in self._definition:
