@@ -5,12 +5,13 @@ from .project_reader_base import ProjectReaderBase
 
 class MetricsLayerProjectReader(ProjectReaderBase):
     def load(self) -> None:
-        models, views, dashboards = [], [], []
+        models, views, dashboards, topics = [], [], [], []
 
         model_folders = self.get_folders("model-paths")
         view_folders = self.get_folders("view-paths")
         dashboard_folders = self.get_folders("dashboard-paths", raise_errors=False)
-        all_folders = model_folders + view_folders + dashboard_folders
+        topic_folders = self.get_folders("topic-paths")
+        all_folders = model_folders + view_folders + dashboard_folders + topic_folders
 
         file_names = self.search_for_yaml_files(all_folders)
 
@@ -30,10 +31,15 @@ class MetricsLayerProjectReader(ProjectReaderBase):
                 views.append(yaml_dict)
             elif yaml_type == "dashboard":
                 dashboards.append(yaml_dict)
+            elif yaml_type == "topic":
+                topics.append(yaml_dict)
             elif yaml_type:
-                print(f"WARNING: Unknown file type '{yaml_type}' options are 'model', 'view', or 'dashboard'")
+                print(
+                    f"WARNING: Unknown file type '{yaml_type}' options are 'model', 'view', 'dashboard', "
+                    "or 'topic'"
+                )
 
-        return models, views, dashboards
+        return models, views, dashboards, topics
 
     def search_for_yaml_files(self, folders: list):
         file_names = self.repo.search("*.yml", folders) + self.repo.search("*.yaml", folders)
