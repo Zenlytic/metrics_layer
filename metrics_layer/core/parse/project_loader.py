@@ -51,7 +51,7 @@ class ProjectLoader:
         else:
             raise TypeError(f"Unknown repo type: {repo_type}, valid types are 'metrics_layer', 'metricflow'")
 
-        models, views, dashboards = reader.load()
+        models, views, dashboards, topics = reader.load()
         commit_hash = (
             self.repo.git_repo.head.commit.hexsha
             if isinstance(self.repo, GithubRepo) and self.repo.git_repo is not None
@@ -63,6 +63,7 @@ class ProjectLoader:
             models=models,
             views=views,
             dashboards=dashboards,
+            topics=topics,
             connection_lookup={c.name: c.type for c in self._connections},
             manifest=Manifest(reader.manifest),
             commit_hash=commit_hash,

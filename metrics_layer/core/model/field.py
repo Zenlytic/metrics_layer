@@ -935,7 +935,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def equal(self, field_name: str):
         # Determine if the field name passed in references this field
-        _, view_name, field_name_only = self.field_name_parts(field_name)
+        view_name, field_name_only = self.field_name_parts(field_name)
         if view_name and view_name != self.view.name:
             return False
 
@@ -2766,7 +2766,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         return clean_sql.strip()
 
     def get_field_with_view_info(self, field: str, specified_view: str = None):
-        _, view_name, field_name = self.field_name_parts(field)
+        view_name, field_name = self.field_name_parts(field)
         if view_name is None and specified_view is None:
             view_name = self.view.name
         elif view_name is None and specified_view:

@@ -113,7 +113,7 @@ class Join(MetricsLayerBase, SQLReplacement):
             fields_to_replace = self.fields_to_replace(self.sql_on)
 
             for field in fields_to_replace:
-                _, view_name, column_name = Field.field_name_parts(field)
+                view_name, column_name = Field.field_name_parts(field)
                 if view_name is None:
                     errors.append(
                         self._error(self.sql_on, f"Could not find view for field {field} in {self.name}")
@@ -145,7 +145,7 @@ class Join(MetricsLayerBase, SQLReplacement):
 
             # The join isn't valid if we can't find an existing view with that name
             for field in fields_to_replace:
-                _, view_name, _ = Field.field_name_parts(field)
+                view_name, _ = Field.field_name_parts(field)
                 if view_name not in self.explore.join_names():
                     err_msg = f"Could not find view {view_name} for {self.name}"
                     print(err_msg)
@@ -160,7 +160,7 @@ class Join(MetricsLayerBase, SQLReplacement):
 
         views = []
         for field in self.fields_to_replace(self.sql_on):
-            _, view_name, _ = Field.field_name_parts(field)
+            view_name, _ = Field.field_name_parts(field)
             views.append(view_name)
         return list(set(views))
 
@@ -170,7 +170,7 @@ class Join(MetricsLayerBase, SQLReplacement):
 
         joins = []
         for field in self.fields_to_replace(self.sql_on):
-            _, join_name, _ = Field.field_name_parts(field)
+            join_name, _ = Field.field_name_parts(field)
             joins.append(join_name)
         return list(set(joins))
 
@@ -178,7 +178,7 @@ class Join(MetricsLayerBase, SQLReplacement):
         sql_on = copy(sql)
         fields_to_replace = self.fields_to_replace(sql_on)
         for field in fields_to_replace:
-            _, view_name, column_name = Field.field_name_parts(field)
+            view_name, column_name = Field.field_name_parts(field)
             if view_name is None:
                 return
 

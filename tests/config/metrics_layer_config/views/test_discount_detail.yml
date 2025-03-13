@@ -20,6 +20,12 @@ fields:
     sql: ${TABLE}.discount_id
     group_label: "ID's"
 
+  - name: discount_order_id
+    field_type: 'dimension'
+    type: string
+    sql: ${TABLE}.order_id
+    searchable: true
+
   - name: discount_promo_name
     field_type: 'dimension'
     type: string

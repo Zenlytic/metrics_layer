@@ -34,6 +34,9 @@ access_grants:
   - name: test_access_grant_department_view
     user_attribute: department
     allowed_values: ['finance', 'executive', 'sales']
+  - name: test_access_grant_department_topic
+    user_attribute: department
+    allowed_values: ['executive']
   - name: test_access_grant_department_customers
     user_attribute: department
     allowed_values: ['executive', 'marketing', 'sales']
