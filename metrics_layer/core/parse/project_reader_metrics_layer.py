@@ -10,7 +10,7 @@ class MetricsLayerProjectReader(ProjectReaderBase):
         model_folders = self.get_folders("model-paths")
         view_folders = self.get_folders("view-paths")
         dashboard_folders = self.get_folders("dashboard-paths", raise_errors=False)
-        topic_folders = self.get_folders("topic-paths")
+        topic_folders = self.get_folders("topic-paths", raise_errors=False)
         all_folders = model_folders + view_folders + dashboard_folders + topic_folders
 
         file_names = self.search_for_yaml_files(all_folders)
