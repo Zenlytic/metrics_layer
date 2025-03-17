@@ -2,7 +2,7 @@ import functools
 import json
 from collections import Counter
 from contextlib import contextmanager
-from typing import List, Union
+from typing import List, Optional, Union
 
 from metrics_layer.core.exceptions import (
     AccessDeniedOrDoesNotExistException,
@@ -540,12 +540,25 @@ class Project:
     def _all_fields(self, show_hidden: bool, expand_dimension_groups: bool, model: Model):
         return [f for v in self.views(model=model) for f in v.fields(show_hidden, expand_dimension_groups)]
 
+    def _topic_fields(
+        self,
+        topic_label: str,
+        show_hidden: bool = True,
+        expand_dimension_groups: bool = False,
+        model: Optional[Model] = None,
+    ):
+        topic = self.get_topic(topic_label)
+        if not topic:
+            plus_model = f" in model {model.name}" if model else ""
+            raise QueryError(f"Could not find a topic matching the label {topic_label}{plus_model}")
+        return [f for v in topic._views() for f in v.fields(show_hidden, expand_dimension_groups)]
+
     def _view_fields(
         self,
         view_name: str,
         show_hidden: bool = True,
         expand_dimension_groups: bool = False,
-        model: Model = None,
+        model: Optional[Model] = None,
     ):
         view = self.get_view(view_name, model=model)
         if not view:

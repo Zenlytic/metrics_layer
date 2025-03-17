@@ -52,6 +52,10 @@ class Topic(MetricsLayerBase):
     def model(self):
         return self.project.get_model(self.model_name)
 
+    def _views(self):
+        topic_view_names = [self.base_view] + list(self.views.keys())
+        return [v for v in self.project.views(model=self.model) if v.name in topic_view_names]
+
     def _error(self, element, error, extra: dict = {}):
         line, column = self.line_col(element)
         return {**extra, "model_name": self.model_name, "message": error, "line": line, "column": column}
