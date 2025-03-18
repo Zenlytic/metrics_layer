@@ -18,6 +18,20 @@ def test_topic_attributes(connection):
     assert topic.required_access_grants == ["test_access_grant_department_topic"]
 
 
+@pytest.mark.queryy
+def test_query_topic_with_one_view(connection):
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"], dimensions=["channel"], topic="Order lines ONLY"
+    )
+
+    correct = (
+        "SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) as"
+        " order_lines_total_item_revenue FROM analytics.order_line_items order_lines"
+        " GROUP BY order_lines.sales_channel ORDER BY order_lines_total_item_revenue DESC NULLS LAST;"
+    )
+    assert query == correct
+
+
 @pytest.mark.query
 def test_query_no_join_with_limit_in_topic_no_access_filter(connection):
     query = connection.get_sql_query(

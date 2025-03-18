@@ -497,6 +497,11 @@ class Topic(MetricsLayerBase):
         :return: list of view names in a valid topological order
         """
         self.query_validity_check(view_names)
+
+        # If the topic has no joined views, return the view names
+        if self.views is None and len(view_names) == 1:
+            return view_names
+
         # Build a directed graph G where edges point from dependency -> dependent join
         G = nx.DiGraph()
         G.add_node(self.base_view)

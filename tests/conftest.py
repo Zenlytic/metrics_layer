@@ -59,11 +59,15 @@ order_lines_topic_no_always_filters_path = os.path.join(
 recurring_revenue_topic_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/topics/recurring_revenue_topic.yml"
 )
+order_lines_only_topic_path = os.path.join(
+    BASE_PATH, "config/metrics_layer_config/topics/order_lines_only_topic.yml"
+)
 model_paths = [model_path, new_model_path]
 topic_paths = [
     order_lines_topic_path,
     order_lines_topic_no_always_filters_path,
     recurring_revenue_topic_path,
+    order_lines_only_topic_path,
 ]
 view_paths = [
     order_lines_view_path,

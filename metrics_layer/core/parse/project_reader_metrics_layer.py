@@ -4,7 +4,7 @@ from .project_reader_base import ProjectReaderBase
 
 
 class MetricsLayerProjectReader(ProjectReaderBase):
-    def load(self) -> None:
+    def load(self) -> tuple:
         models, views, dashboards, topics = [], [], [], []
 
         model_folders = self.get_folders("model-paths")
