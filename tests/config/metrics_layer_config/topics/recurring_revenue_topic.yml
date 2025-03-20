@@ -1,0 +1,10 @@
+type: topic
+label: Recurring Revenue
+base_view: mrr
+model_name: test_model
+description: Recurring revenue topic description
+
+views:
+  accounts: {}
+  child_account: {}
+  parent_account: {}

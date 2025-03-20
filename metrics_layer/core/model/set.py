@@ -87,13 +87,13 @@ class Set(MetricsLayerBase):
 
             # This means we're removing a field from the result
             elif "-" in field_name:
-                _, view_name, field_name = self.field_name_parts(field_name.replace("-", ""))
+                view_name, field_name = self.field_name_parts(field_name.replace("-", ""))
                 view_name = self._get_view_name(view_name, field_name)
                 names_to_exclude.append(f"{view_name}.{field_name}")
 
             # This is just a field that we're adding to the result
             else:
-                _, view_name, field_name = self.field_name_parts(field_name)
+                view_name, field_name = self.field_name_parts(field_name)
                 view_name = self._get_view_name(view_name, field_name)
                 all_field_names.append(f"{view_name}.{field_name}")
 
@@ -109,7 +109,7 @@ class Set(MetricsLayerBase):
             )
             return [f"{f.view.name}.{f.alias()}" for f in all_fields]
 
-        _, view_name, set_name = self.field_name_parts(set_name)
+        view_name, set_name = self.field_name_parts(set_name)
         _set = self.project.get_set(set_name, view_name=view_name)
         if _set is None:
             print(f"WARNING: Could not find set with name {set_name}, disregarding those fields")

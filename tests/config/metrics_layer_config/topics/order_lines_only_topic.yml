@@ -1,0 +1,4 @@
+type: topic
+label: Order lines ONLY
+base_view: order_lines
+model_name: test_model

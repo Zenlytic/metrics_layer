@@ -10,17 +10,22 @@ from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.filter import Filter
 from metrics_layer.core.model.join import ZenlyticJoinRelationship
+from metrics_layer.core.model.topic import Topic
 
 
 class MetricsLayerDesign:
-    """ """
-
-    def __init__(self, no_group_by: bool, query_type: str, field_lookup: dict, model, project) -> None:
+    def __init__(
+        self, no_group_by: bool, query_type: str, field_lookup: dict, model, project, topic=None
+    ) -> None:
         self.no_group_by = no_group_by
         self.query_type = query_type
         self.field_lookup = field_lookup
         self.project = project
         self.model = model
+        if topic is not None:
+            self.topic = topic
+        else:
+            self.topic = None
         self.date_spine_cte_name = "date_spine"
         self.base_cte_name = "base"
         self._joins = None
@@ -38,6 +43,23 @@ class MetricsLayerDesign:
 
     @functools.lru_cache(maxsize=1)
     def joins(self) -> List[MetricsLayerBase]:
+        if self.topic:
+            return self._joins_with_topic()
+        else:
+            return self._joins_with_no_topic()
+
+    def _joins_with_topic(self) -> List[MetricsLayerBase]:
+        base_view = self.topic.base_view
+        required_views = self.topic.order_required_views(self.required_views())
+        joins = []
+        for view_name in required_views:
+            if view_name != base_view:
+                join = self.topic.get_join(view_name)
+                # Case where the join exists in the join graph
+                joins.append(join)
+        return joins
+
+    def _joins_with_no_topic(self) -> List[MetricsLayerBase]:
         required_views = self.required_views()
 
         self._join_subgraph = self.project.join_graph.subgraph(required_views)
@@ -262,30 +284,61 @@ class MetricsLayerDesign:
     def get_access_filter(self):
         views_in_request = self._fields_to_unique_views(list(self.field_lookup.values()))
         conditions, fields = [], []
+
+        topic_assigned_user_attributes = set([])
+        if self.topic and self.topic.access_filters:
+            for condition_set in self.topic.access_filters:
+                added_conditions, added_fields = self._process_access_filter_condition_set(condition_set)
+                conditions.extend(added_conditions)
+                fields.extend(added_fields)
+                topic_assigned_user_attributes.add(condition_set["user_attribute"])
+
         for view_name in views_in_request:
             view = self.get_view(view_name)
             if view.access_filters:
+                if self.topic:
+                    topic_level_view_overrides = self.topic.get_view_overrides(view_name)
+                    let_topic_override_view_access_filters = topic_level_view_overrides.get(
+                        "override_access_filters", False
+                    )
+                else:
+                    let_topic_override_view_access_filters = False
                 for condition_set in view.access_filters:
-                    field = self.project.get_field(condition_set["field"])
-                    field_sql = field.sql_query(self.query_type)
-                    user_attribute_value = condition_set["user_attribute"]
-                    if self.project._user and self.project._user.get(user_attribute_value):
-                        f = Filter(
-                            {
-                                "field": condition_set["field"],
-                                "value": self.project._user[user_attribute_value],
-                            }
+                    skip_access_filter_assignment = (
+                        let_topic_override_view_access_filters
+                        and condition_set["user_attribute"] in topic_assigned_user_attributes
+                    )
+
+                    if not skip_access_filter_assignment:
+                        added_conditions, added_fields = self._process_access_filter_condition_set(
+                            condition_set
                         )
-                        fields.append(field)
-                        for filter_dict in f.filter_dict():
-                            filter_sql = Filter.sql_query(
-                                field_sql, filter_dict["expression"], filter_dict["value"], field.type
-                            )
-                            conditions.append(str(filter_sql))
+                        conditions.extend(added_conditions)
+                        fields.extend(added_fields)
 
         if conditions and fields:
             return " and ".join(conditions), fields
         return None, []
+
+    def _process_access_filter_condition_set(self, condition_set: dict):
+        conditions, fields = [], []
+        field = self.project.get_field(condition_set["field"])
+        field_sql = field.sql_query(self.query_type)
+        user_attribute_value = condition_set["user_attribute"]
+        if self.project._user and self.project._user.get(user_attribute_value):
+            f = Filter(
+                {
+                    "field": condition_set["field"],
+                    "value": self.project._user[user_attribute_value],
+                }
+            )
+            fields.append(field)
+            for filter_dict in f.filter_dict():
+                filter_sql = Filter.sql_query(
+                    field_sql, filter_dict["expression"], filter_dict["value"], field.type
+                )
+                conditions.append(str(filter_sql))
+        return conditions, fields
 
     @property
     def base_view_name(self):

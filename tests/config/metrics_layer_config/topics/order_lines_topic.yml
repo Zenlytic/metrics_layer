@@ -1,0 +1,29 @@
+type: topic
+label: Order lines Topic
+base_view: order_lines
+model_name: test_model
+description: Vanilla order lines topic description
+zoe_description: Secret info that is only shown to zoe
+hidden: false
+
+required_access_grants: ['test_access_grant_department_topic']
+always_filter:
+  - field: orders.revenue_dimension
+    value: -NULL
+
+views:
+  orders: {}
+
+  customers: {}
+
+  discounts:
+    join:
+      join_type: left_outer
+      relationship: many_to_many
+      sql_on: ${order_lines.order_id} = ${discounts.order_id} and ${discounts.order_date} is not null
+
+  discount_detail:
+    join:
+      join_type: left_outer
+      relationship: one_to_one
+      sql_on: ${discounts.discount_id} = ${discount_detail.discount_id} and ${orders.order_id} = ${discount_detail.discount_order_id}
