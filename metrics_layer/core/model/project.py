@@ -261,15 +261,15 @@ class Project:
             self._topics = current_topics
             self.refresh_cache()
 
-    def validate_with_replaced_objects(self, replaced_objects: list):
+    def validate_with_replaced_objects(self, replaced_objects: list, views_must_be_in_topics: bool = False):
         with self.replace_objects(replaced_objects):
-            return self.validate()
+            return self.validate(views_must_be_in_topics)
 
     def _error(self, error: str, extra: dict = {}):
         # For project level errors we cannot attribute a line or column
         return {**extra, "message": error, "line": None, "column": None}
 
-    def validate(self):
+    def validate(self, views_must_be_in_topics: bool = False):
         all_errors = []
         for model in self.models():
             try:
@@ -284,6 +284,15 @@ class Project:
             except QueryError as e:
                 # If we have an error building the topic, we cannot continue
                 return [self._error(str(e))]
+
+        if views_must_be_in_topics:
+            view_names = [v.name for v in self.views()]
+            views_in_topics = set([v.name for topic in self.topics() for v in topic._views()])
+            for view_name in view_names:
+                if view_name not in views_in_topics:
+                    all_errors.append(
+                        self._error(f"View {view_name} is not in a topic", {"view_name": view_name})
+                    )
 
         try:
             all_errors.extend(self.join_graph.collect_errors())
