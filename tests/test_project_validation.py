@@ -2579,3 +2579,36 @@ def test_validation_with_replaced_topic_properties(connection, name, value, erro
     response = project.validate_with_replaced_objects(replaced_objects=[topic])
 
     assert [e["message"] for e in response] == errors
+
+
+@pytest.mark.validation
+@pytest.mark.parametrize(
+    "name,value,errors",
+    [
+        (
+            "extra",
+            {"random": "key"},
+            [
+                "View country_detail is not in a topic",
+                "View sessions is not in a topic",
+                "View events is not in a topic",
+                "View login_events is not in a topic",
+                "View traffic is not in a topic",
+                "View clicked_on_page is not in a topic",
+                "View submitted_form is not in a topic",
+                "View aa_acquired_accounts is not in a topic",
+                "View z_customer_accounts is not in a topic",
+                "View other_db_traffic is not in a topic",
+                "View created_workspace is not in a topic",
+                "View monthly_aggregates is not in a topic",
+            ],
+        ),
+    ],
+)
+def test_validation_with_views_present_in_topics(connection, name, value, errors):
+    project = connection.project
+    topic = json.loads(json.dumps(project._topics[0]))
+    topic[name] = value
+    response = project.validate_with_replaced_objects(replaced_objects=[topic], views_must_be_in_topics=True)
+
+    assert [e["message"] for e in response] == errors
