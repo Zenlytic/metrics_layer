@@ -920,7 +920,7 @@ def test_merged_query_merged_results_joined_filter(connection):
             {"field": "customers.region", "expression": "isin", "value": ["West", "South"]},
             {"field": "sessions.utm_source", "expression": "equal_to", "value": "google"},
         ],
-        order_by=[{"field": "number_of_orders", "direction": "desc"}],
+        order_by=[{"field": "number_of_orders", "sort": "desc"}],
         limit=10,
     )
 
@@ -1387,7 +1387,7 @@ def test_query_number_metric_with_non_matching_canon_dates(connection):
                 "value": datetime.datetime(2023, 6, 26, 23, 59, 59),
             },
         ],
-        order_by=[{"field": "date", "direction": "desc"}],
+        order_by=[{"field": "date", "sort": "desc"}],
     )
 
     cte_1 = "submitted_form_sent_at__cte_subquery_0"
