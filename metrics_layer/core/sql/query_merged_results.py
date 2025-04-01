@@ -39,7 +39,7 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
                     arg["field"] = field.alias(with_view=True)
                 except Exception:
                     continue
-                order = Order.desc if arg.get("direction") == "desc" else Order.asc
+                order = Order.desc if arg.get("sort") and arg.get("sort").lower() == "desc" else Order.asc
                 complete_query = complete_query.orderby(
                     LiteralValue(arg["field"]), order=order, nulls=NullSorting.last
                 )
