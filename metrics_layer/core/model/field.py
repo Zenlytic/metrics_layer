@@ -2654,6 +2654,14 @@ class Field(MetricsLayerBase, SQLReplacement):
                         f"Field {self.name} in view {self.view.name} contains invalid field reference {ref}."
                     )
                     errors.append(error_func(sql, error_text))
+                elif isinstance(ref, Field) and ref.id() == self.id():
+                    error_text = (
+                        f"Field {self.name} in view {self.view.name} contains a reference to itself. This is"
+                        " invalid. Please remove the reference. If you're trying to reference a column in a"
+                        " table, you can use ${TABLE}."
+                    )
+                    error_text += self.name
+                    errors.append(error_func(sql, error_text))
                 elif (
                     self.field_type != ZenlyticFieldType.measure
                     and isinstance(ref, Field)
