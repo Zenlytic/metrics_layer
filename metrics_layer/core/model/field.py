@@ -2632,13 +2632,6 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def collect_sql_errors(self, sql: str, property_name: str, error_func):
         errors = []
-        if sql and sql == "${" + self.name + "}":
-            error_text = (
-                f"Field {self.name} references itself in its '{property_name}' property. You need to"
-                " reference a column using the ${TABLE}.myfield_name syntax or reference another dimension"
-                " or measure."
-            )
-            errors.append(error_func(sql, error_text))
 
         refs = self.get_referenced_sql_query(strings_only=False)
         if refs is None:
@@ -2653,6 +2646,14 @@ class Field(MetricsLayerBase, SQLReplacement):
                     error_text = (
                         f"Field {self.name} in view {self.view.name} contains invalid field reference {ref}."
                     )
+                    errors.append(error_func(sql, error_text))
+                elif isinstance(ref, Field) and ref.id() == self.id():
+                    error_text = (
+                        f"Field {self.name} in view {self.view.name} contains a reference to itself. This is"
+                        " invalid. Please remove the reference. If you're trying to reference a column in a"
+                        " table, you can use ${TABLE}."
+                    )
+                    error_text += self.name
                     errors.append(error_func(sql, error_text))
                 elif (
                     self.field_type != ZenlyticFieldType.measure

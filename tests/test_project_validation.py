@@ -1603,6 +1603,16 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             ],
         ),
         (
+            "parent_channel",
+            "sql",
+            "${parent_channel} || 'hi'",
+            [
+                "Field parent_channel in view order_lines contains a reference to itself. This is invalid."
+                " Please remove the reference. If you're trying to reference a column in a table, you can use"
+                " ${TABLE}.parent_channel"
+            ],
+        ),
+        (
             "waiting",
             "timeframes",
             ["time"],

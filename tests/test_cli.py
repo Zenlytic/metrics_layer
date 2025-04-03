@@ -707,7 +707,7 @@ def test_cli_validate_metric_self_reference(connection, fresh_project, mocker):
     assert result.exit_code == 0
     assert result.output == (
         "Found 1 error in the project:\n\n"
-        "\nField number_of_customers references itself in its 'sql' property. You need to reference a column using the ${TABLE}.myfield_name syntax or reference another dimension or measure.\n\n"  # noqa
+        "\nField number_of_customers in view customers contains a reference to itself. This is invalid. Please remove the reference. If you're trying to reference a column in a table, you can use ${TABLE}.number_of_customers\n\n"  # noqa
     )
 
 
