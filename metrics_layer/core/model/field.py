@@ -2632,13 +2632,6 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def collect_sql_errors(self, sql: str, property_name: str, error_func):
         errors = []
-        if sql and sql == "${" + self.name + "}":
-            error_text = (
-                f"Field {self.name} references itself in its '{property_name}' property. You need to"
-                " reference a column using the ${TABLE}.myfield_name syntax or reference another dimension"
-                " or measure."
-            )
-            errors.append(error_func(sql, error_text))
 
         refs = self.get_referenced_sql_query(strings_only=False)
         if refs is None:
