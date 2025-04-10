@@ -470,8 +470,8 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
     else:
         end = pendulum.now("America/New_York").end_of("day").subtract(days=1).strftime(date_format)
 
-    if query_type in {Definitions.snowflake, Definitions.redshift}:
-        ttype = "TIMESTAMP" if query_type == Definitions.redshift else "TIMESTAMP_NTZ"
+    if query_type == Definitions.snowflake:
+        ttype = "TIMESTAMP_NTZ"
         if field == "previous_order":
             result_lookup = {"date": "DATE_TRUNC('DAY', simple.previous_order_date)"}
         else:
@@ -489,6 +489,27 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
             "WHERE DATE_TRUNC('DAY', CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) "
             f"AS {ttype}) AS TIMESTAMP))>='{start}' AND DATE_TRUNC('DAY', "
             f"CAST(CAST(CONVERT_TIMEZONE('America/New_York', simple.order_date) AS {ttype}) AS TIMESTAMP))<='{end}'"  # noqa
+        )
+        order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
+    elif query_type == Definitions.redshift:
+        ttype = "TIMESTAMP"
+        if field == "previous_order":
+            result_lookup = {"date": "DATE_TRUNC('DAY', simple.previous_order_date)"}
+        else:
+            result_lookup = {
+                "date": (  # noqa
+                    "DATE_TRUNC('DAY', CAST(CAST(CONVERT_TIMEZONE('America/New_York', CAST(simple.order_date AS TIMESTAMP)) AS"
+                    f" {ttype}) AS TIMESTAMP))"
+                ),
+                "week": (  # noqa
+                    "DATE_TRUNC('WEEK', CAST(CAST(CAST(CONVERT_TIMEZONE('America/New_York',"
+                    f" CAST(simple.order_date AS TIMESTAMP)) AS {ttype}) AS TIMESTAMP) AS DATE) + 1) - 1"
+                ),
+            }
+        where = (
+            "WHERE DATE_TRUNC('DAY', CAST(CAST(CONVERT_TIMEZONE('America/New_York', CAST(simple.order_date AS TIMESTAMP)) "
+            f"AS {ttype}) AS TIMESTAMP))>='{start}' AND DATE_TRUNC('DAY', "
+            f"CAST(CAST(CONVERT_TIMEZONE('America/New_York', CAST(simple.order_date AS TIMESTAMP)) AS {ttype}) AS TIMESTAMP))<='{end}'"  # noqa
         )
         order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
     elif query_type == Definitions.databricks:
@@ -1070,11 +1091,15 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "month": "DATE_TRUNC('MONTH', CAST(simple.order_date AS TIMESTAMP))",
             "quarter": "DATE_TRUNC('QUARTER', CAST(simple.order_date AS TIMESTAMP))",
             "year": "DATE_TRUNC('YEAR', CAST(simple.order_date AS TIMESTAMP))",
-            "fiscal_month": "DATE_TRUNC('MONTH', CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))",  # noqa
+            "fiscal_month": (
+                "DATE_TRUNC('MONTH', CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
+            ),  # noqa
             "fiscal_quarter": (  # noqa
                 "DATE_TRUNC('QUARTER', CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
             ),
-            "fiscal_year": "DATE_TRUNC('YEAR', CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))",  # noqa
+            "fiscal_year": (
+                "DATE_TRUNC('YEAR', CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
+            ),  # noqa
             "fiscal_month_of_year_index": (  # noqa
                 f"EXTRACT(MONTH FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
             ),
@@ -1103,9 +1128,9 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         }
         if query_type == Definitions.trino:
             result_lookup["month_of_year"] = "FORMAT_DATETIME(CAST(simple.order_date AS TIMESTAMP), 'MMM')"
-            result_lookup[
-                "month_of_year_full_name"
-            ] = "FORMAT_DATETIME(CAST(simple.order_date AS TIMESTAMP), 'MMMM')"
+            result_lookup["month_of_year_full_name"] = (
+                "FORMAT_DATETIME(CAST(simple.order_date AS TIMESTAMP), 'MMMM')"
+            )
             result_lookup["hour_of_day"] = "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))"
             result_lookup["day_of_week"] = "FORMAT_DATETIME(CAST(simple.order_date AS TIMESTAMP), 'EEE')"
             result_lookup["day_of_month"] = "EXTRACT(DAY FROM CAST(simple.order_date AS TIMESTAMP))"
@@ -1117,43 +1142,43 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             order_by = ""
 
         if query_type == Definitions.databricks:
-            result_lookup[
-                "fiscal_month"
-            ] = "DATE_TRUNC('MONTH', CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
-            result_lookup[
-                "fiscal_quarter"
-            ] = "DATE_TRUNC('QUARTER', CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
-            result_lookup[
-                "fiscal_year"
-            ] = "DATE_TRUNC('YEAR', CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
-            result_lookup[
-                "fiscal_month_of_year_index"
-            ] = f"EXTRACT(MONTH FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
-            result_lookup[
-                "fiscal_month_index"
-            ] = f"EXTRACT(MONTH FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
-            result_lookup[
-                "fiscal_quarter_of_year"
-            ] = "EXTRACT(QUARTER FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            result_lookup["fiscal_month"] = (
+                "DATE_TRUNC('MONTH', CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            )
+            result_lookup["fiscal_quarter"] = (
+                "DATE_TRUNC('QUARTER', CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            )
+            result_lookup["fiscal_year"] = (
+                "DATE_TRUNC('YEAR', CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            )
+            result_lookup["fiscal_month_of_year_index"] = (
+                f"EXTRACT(MONTH FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            )
+            result_lookup["fiscal_month_index"] = (
+                f"EXTRACT(MONTH FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            )
+            result_lookup["fiscal_quarter_of_year"] = (
+                "EXTRACT(QUARTER FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            )
             result_lookup["month_of_year"] = "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'MMM')"
-            result_lookup[
-                "month_of_year_full_name"
-            ] = "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'MMMM')"  # noqa
+            result_lookup["month_of_year_full_name"] = (
+                "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'MMMM')"  # noqa
+            )
             result_lookup["hour_of_day"] = "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))"
             result_lookup["day_of_week"] = "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'E')"
             result_lookup["day_of_month"] = "EXTRACT(DAY FROM CAST(simple.order_date AS TIMESTAMP))"
             result_lookup["day_of_year"] = "EXTRACT(DOY FROM CAST(simple.order_date AS TIMESTAMP))"
         if query_type == Definitions.druid:
-            result_lookup[
-                "month_of_year"
-            ] = "CASE EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'Jan' WHEN 2 THEN 'Feb' WHEN 3 THEN 'Mar' WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun' WHEN 7 THEN 'Jul' WHEN 8 THEN 'Aug' WHEN 9 THEN 'Sep' WHEN 10 THEN 'Oct' WHEN 11 THEN 'Nov' WHEN 12 THEN 'Dec' ELSE 'Invalid Month' END"  # noqa
-            result_lookup[
-                "month_of_year_full_name"
-            ] = "CASE EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'January' WHEN 2 THEN 'February' WHEN 3 THEN 'March' WHEN 4 THEN 'April' WHEN 5 THEN 'May' WHEN 6 THEN 'June' WHEN 7 THEN 'July' WHEN 8 THEN 'August' WHEN 9 THEN 'September' WHEN 10 THEN 'October' WHEN 11 THEN 'November' WHEN 12 THEN 'December' ELSE 'Invalid Month' END"  # noqa
+            result_lookup["month_of_year"] = (
+                "CASE EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'Jan' WHEN 2 THEN 'Feb' WHEN 3 THEN 'Mar' WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun' WHEN 7 THEN 'Jul' WHEN 8 THEN 'Aug' WHEN 9 THEN 'Sep' WHEN 10 THEN 'Oct' WHEN 11 THEN 'Nov' WHEN 12 THEN 'Dec' ELSE 'Invalid Month' END"  # noqa
+            )
+            result_lookup["month_of_year_full_name"] = (
+                "CASE EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'January' WHEN 2 THEN 'February' WHEN 3 THEN 'March' WHEN 4 THEN 'April' WHEN 5 THEN 'May' WHEN 6 THEN 'June' WHEN 7 THEN 'July' WHEN 8 THEN 'August' WHEN 9 THEN 'September' WHEN 10 THEN 'October' WHEN 11 THEN 'November' WHEN 12 THEN 'December' ELSE 'Invalid Month' END"  # noqa
+            )
             result_lookup["hour_of_day"] = "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))"
-            result_lookup[
-                "day_of_week"
-            ] = "CASE EXTRACT(DOW FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'Mon' WHEN 2 THEN 'Tue' WHEN 3 THEN 'Wed' WHEN 4 THEN 'Thu' WHEN 5 THEN 'Fri' WHEN 6 THEN 'Sat' WHEN 7 THEN 'Sun' ELSE 'Invalid Day' END"  # noqa
+            result_lookup["day_of_week"] = (
+                "CASE EXTRACT(DOW FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'Mon' WHEN 2 THEN 'Tue' WHEN 3 THEN 'Wed' WHEN 4 THEN 'Thu' WHEN 5 THEN 'Fri' WHEN 6 THEN 'Sat' WHEN 7 THEN 'Sun' ELSE 'Invalid Day' END"  # noqa
+            )
             result_lookup["day_of_month"] = "EXTRACT(DAY FROM CAST(simple.order_date AS TIMESTAMP))"
             result_lookup["day_of_year"] = "EXTRACT(DOY FROM CAST(simple.order_date AS TIMESTAMP))"
             semi = ""
