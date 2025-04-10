@@ -1463,7 +1463,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         elif query_type == Definitions.bigquery:
             return f"CAST(DATETIME(CAST({sql} AS TIMESTAMP), '{timezone}') AS {self.datatype.upper()})"
         elif query_type == Definitions.redshift:
-            return f"CAST(CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP) AS {self.datatype.upper()})"  # noqa
+            return f"CAST(CAST(CONVERT_TIMEZONE('{timezone}', CAST({sql} AS TIMESTAMP)) AS TIMESTAMP) AS {self.datatype.upper()})"  # noqa
         elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.trino}:
             return f"CAST(CAST({sql} AS TIMESTAMP) at time zone 'UTC' at time zone '{timezone}' AS {self.datatype.upper()})"  # noqa
         elif query_type == Definitions.mysql:
