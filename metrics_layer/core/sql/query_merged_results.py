@@ -1,11 +1,16 @@
 from collections import defaultdict
 
-from pypika import AliasedQuery, Criterion
+from pypika import AliasedQuery, Criterion, Order
+from pypika.terms import LiteralValue
 
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.filter import LiteralValueCriterion
 from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
-from metrics_layer.core.sql.query_dialect import if_null_lookup, query_lookup
+from metrics_layer.core.sql.query_dialect import (
+    NullSorting,
+    if_null_lookup,
+    query_lookup,
+)
 
 
 class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
@@ -26,6 +31,18 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
         if self.having:
             where = self.get_where_with_aliases(self.having, project=self.project)
             complete_query = complete_query.where(Criterion.all(where))
+
+        if self.order_by:
+            for arg in self.order_by:
+                try:
+                    field = self.project.get_field(arg["field"])
+                    arg["field"] = field.alias(with_view=True)
+                except Exception:
+                    continue
+                order = Order.desc if arg.get("sort") and arg.get("sort").lower() == "desc" else Order.asc
+                complete_query = complete_query.orderby(
+                    LiteralValue(arg["field"]), order=order, nulls=NullSorting.last
+                )
 
         completed_query = complete_query.limit(self.limit)
         if self.return_pypika_query:

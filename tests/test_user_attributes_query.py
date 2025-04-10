@@ -75,3 +75,24 @@ def test_query_user_attribute_in_filter_sql_error_state(connection):
         " country_detail ORDER BY country_detail_avg_rainfall_adj DESC NULLS LAST;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_query_query_attribute_dimension_group(connection):
+    connection.project.set_user({"owned_region": "Europe"})
+    query = connection.get_sql_query(metrics=["avg_rainfall"], dimensions=["rainfall_at_date"])
+
+    correct = (
+        "SELECT DATE_TRUNC('DAY', case when 'date' = 'raw' then country_detail.rain_date when 'date' = 'date'"
+        " then time_bucket('1 day', country_detail.rain_date) when 'date' = 'week' then time_bucket('1 week',"
+        " country_detail.rain_date) when 'date' = 'month' then time_bucket('1 month',"
+        " country_detail.rain_date) end) as country_detail_rainfall_at_date,AVG(country_detail.rain) as"
+        " country_detail_avg_rainfall FROM (SELECT * FROM ANALYTICS.COUNTRY_DETAIL WHERE 'Europe' ="
+        " COUNTRY_DETAIL.REGION) as country_detail GROUP BY DATE_TRUNC('DAY', case when 'date' = 'raw' then"
+        " country_detail.rain_date when 'date' = 'date' then time_bucket('1 day', country_detail.rain_date)"
+        " when 'date' = 'week' then time_bucket('1 week', country_detail.rain_date) when 'date' = 'month'"
+        " then time_bucket('1 month', country_detail.rain_date) end) ORDER BY country_detail_avg_rainfall"
+        " DESC NULLS LAST;"
+    )
+    connection.project.set_user({})
+    assert query == correct

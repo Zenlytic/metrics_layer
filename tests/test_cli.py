@@ -518,14 +518,15 @@ def test_cli_validate(connection, fresh_project, mocker):
     # assert result.exit_code == 0
     assert (
         result.output
-        == "Found 7 errors in the project:\n\n"
-        "\nCould not locate reference revenue_dimension in field total_item_costs in view order_lines\n\n"
-        "\nField total_item_costs in view order_lines contains invalid field reference revenue_dimension.\n\n"
-        "\nCould not locate reference revenue_dimension in field revenue_in_cents in view orders\n\n"
-        "\nCould not locate reference revenue_dimension in field total_revenue in view orders\n\n"
-        "\nDefault date sessions.session_date in view orders does not exist.\n\n"
-        "\nField revenue_in_cents in view orders contains invalid field reference revenue_dimension.\n\n"
-        "\nField total_revenue in view orders contains invalid field reference revenue_dimension.\n\n"
+        == "Found 8 errors in the project:\n\n\nAlways filter in Topic Order lines Topic is referencing a"
+        " field, orders.revenue_dimension that does not exist\n\n\nCould not locate reference"
+        " revenue_dimension in field total_item_costs in view order_lines\n\n\nField total_item_costs in"
+        " view order_lines contains invalid field reference revenue_dimension.\n\n\nCould not locate"
+        " reference revenue_dimension in field revenue_in_cents in view orders\n\n\nCould not locate"
+        " reference revenue_dimension in field total_revenue in view orders\n\n\nDefault date"
+        " sessions.session_date in view orders does not exist.\n\n\nField revenue_in_cents in view orders"
+        " contains invalid field reference revenue_dimension.\n\n\nField total_revenue in view orders"
+        " contains invalid field reference revenue_dimension.\n\n"
     )
 
 
@@ -706,7 +707,7 @@ def test_cli_validate_metric_self_reference(connection, fresh_project, mocker):
     assert result.exit_code == 0
     assert result.output == (
         "Found 1 error in the project:\n\n"
-        "\nField number_of_customers references itself in its 'sql' property. You need to reference a column using the ${TABLE}.myfield_name syntax or reference another dimension or measure.\n\n"  # noqa
+        "\nField number_of_customers in view customers contains a reference to itself. This is invalid. Please remove the reference. If you're trying to reference a column in a table, you can use ${TABLE}.number_of_customers\n\n"  # noqa
     )
 
 
@@ -1130,7 +1131,7 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
             "Found 21"
             " views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nmrr\nmonthly_aggregates\nchild_account\nparent_account\n"  # noqa
         ),
-        "fields": "Found 2 fields:\n\ndiscount_promo_name\ndiscount_usd\n",
+        "fields": "Found 3 fields:\n\ndiscount_order_id\ndiscount_promo_name\ndiscount_usd\n",
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",
         "metrics": "Found 2 metrics:\n\ntotal_discount_amt\ndiscount_per_order\n",  # noqa
     }

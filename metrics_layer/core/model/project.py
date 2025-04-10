@@ -2,7 +2,7 @@ import functools
 import json
 from collections import Counter
 from contextlib import contextmanager
-from typing import List, Union
+from typing import List, Optional, Union
 
 from metrics_layer.core.exceptions import (
     AccessDeniedOrDoesNotExistException,
@@ -13,6 +13,7 @@ from .dashboard import Dashboard
 from .field import Field
 from .join_graph import JoinGraph
 from .model import AccessGrant, Model
+from .topic import Topic
 from .view import View
 
 
@@ -26,6 +27,7 @@ class Project:
         models: list,
         views: list,
         dashboards: list = [],
+        topics: list = [],
         looker_env: Union[None, str] = None,
         connection_lookup: dict = {},
         manifest=None,
@@ -34,6 +36,7 @@ class Project:
         self._models = models
         self._views = self._handle_join_as_duplication(views)
         self._dashboards = dashboards
+        self._topics = topics
         self.looker_env = looker_env
         self.connection_lookup = connection_lookup
         self.manifest = manifest
@@ -68,8 +71,9 @@ class Project:
         model_str = json.dumps(self._models, sort_keys=True)
         view_str = json.dumps(self._views, sort_keys=True)
         dash_str = json.dumps(self._dashboards, sort_keys=True)
+        topic_str = json.dumps(self._topics, sort_keys=True)
         conn_str = json.dumps(self.connection_lookup, sort_keys=True)
-        string_to_hash = model_str + view_str + dash_str + conn_str + str(self.looker_env)
+        string_to_hash = model_str + view_str + dash_str + topic_str + conn_str + str(self.looker_env)
         return hash(string_to_hash)
 
     def set_user(self, user: dict):
@@ -208,7 +212,7 @@ class Project:
 
     @contextmanager
     def replace_objects(self, replaced_objects: list):
-        replaced_views, replaced_models, replaced_dashboards = [], [], []
+        replaced_views, replaced_models, replaced_dashboards, replaced_topics = [], [], [], []
         for dict_obj in replaced_objects:
             if isinstance(dict_obj, dict):
                 if dict_obj.get("type") == "view":
@@ -217,8 +221,10 @@ class Project:
                     replaced_models.append(dict_obj)
                 elif dict_obj.get("type") == "dashboard":
                     replaced_dashboards.append(dict_obj)
+                elif dict_obj.get("type") == "topic":
+                    replaced_topics.append(dict_obj)
                 else:
-                    # We cannot use the object if it is not a view, model or dashboard
+                    # We cannot use the object if it is not a view, model, dashboard or topic
                     pass
 
         # Replace model files
@@ -236,27 +242,34 @@ class Project:
         unchanged_dashboards = [d for d in self._dashboards if d["name"] not in replaced_dashboard_names]
         current_dashboards = json.loads(json.dumps(self._dashboards))
 
+        # Replace topic files
+        replaced_topic_names = set([t["label"] for t in replaced_topics])
+        unchanged_topics = [t for t in self._topics if t["label"] not in replaced_topic_names]
+        current_topics = json.loads(json.dumps(self._topics))
+
         try:
             self._models = unchanged_models + replaced_models
             self._views = unchanged_views + replaced_views
             self._dashboards = unchanged_dashboards + replaced_dashboards
+            self._topics = unchanged_topics + replaced_topics
             self.refresh_cache()
             yield
         finally:
             self._dashboards = current_dashboards
             self._views = current_views
             self._models = current_models
+            self._topics = current_topics
             self.refresh_cache()
 
-    def validate_with_replaced_objects(self, replaced_objects: list):
+    def validate_with_replaced_objects(self, replaced_objects: list, views_must_be_in_topics: bool = False):
         with self.replace_objects(replaced_objects):
-            return self.validate()
+            return self.validate(views_must_be_in_topics)
 
     def _error(self, error: str, extra: dict = {}):
         # For project level errors we cannot attribute a line or column
         return {**extra, "message": error, "line": None, "column": None}
 
-    def validate(self):
+    def validate(self, views_must_be_in_topics: bool = False):
         all_errors = []
         for model in self.models():
             try:
@@ -264,6 +277,22 @@ class Project:
             except QueryError as e:
                 # If we have an error building the model, we cannot continue
                 return [self._error(str(e))]
+
+        for topic in self.topics():
+            try:
+                all_errors.extend(topic.collect_errors())
+            except QueryError as e:
+                # If we have an error building the topic, we cannot continue
+                return [self._error(str(e))]
+
+        if views_must_be_in_topics:
+            view_names = [v.name for v in self.views()]
+            views_in_topics = set([v.name for topic in self.topics() for v in topic._views()])
+            for view_name in view_names:
+                if view_name not in views_in_topics:
+                    all_errors.append(
+                        self._error(f"View {view_name} is not in a topic", {"view_name": view_name})
+                    )
 
         try:
             all_errors.extend(self.join_graph.collect_errors())
@@ -400,6 +429,24 @@ class Project:
                 object_type="model",
             )
 
+    def topics(self) -> list:
+        topics = []
+        for t in self._topics:
+            topic = Topic(t, project=self)
+            if self.can_access_topic(topic):
+                topics.append(topic)
+        return topics
+
+    def get_topic(self, topic_label: str) -> Topic:
+        try:
+            return next((t for t in self.topics() if t.label == topic_label))
+        except StopIteration:
+            raise AccessDeniedOrDoesNotExistException(
+                f"Could not find or you do not have access to topic {topic_label}",
+                object_name=topic_label,
+                object_type="topic",
+            )
+
     def access_grants(self):
         return [AccessGrant(g, model=m) for m in self.models() for g in m.access_grants]
 
@@ -411,6 +458,9 @@ class Project:
 
     def can_access_dashboard(self, dashboard: Dashboard):
         return self._can_access_object(dashboard)
+
+    def can_access_topic(self, topic: Topic):
+        return self._can_access_object(topic)
 
     def can_access_view(self, view: View):
         return self._can_access_object(view)
@@ -487,24 +537,44 @@ class Project:
     def fields(
         self,
         view_name: Union[str, None] = None,
+        topic_label: Union[str, None] = None,
         show_hidden: bool = True,
         expand_dimension_groups: bool = False,
         model: Union[Model, None] = None,
     ) -> list:
-        if view_name is None:
+        if view_name is None and topic_label is None:
             return self._all_fields(show_hidden, expand_dimension_groups, model)
-        else:
+        elif topic_label is not None and view_name is None:
+            return self._topic_fields(topic_label, show_hidden, expand_dimension_groups, model)
+        elif view_name is not None and topic_label is None:
             return self._view_fields(view_name, show_hidden, expand_dimension_groups, model)
+        else:
+            raise QueryError(
+                "Ambiguous query: you must specify either a view_name or a topic_label, but not both."
+            )
 
     def _all_fields(self, show_hidden: bool, expand_dimension_groups: bool, model: Model):
         return [f for v in self.views(model=model) for f in v.fields(show_hidden, expand_dimension_groups)]
+
+    def _topic_fields(
+        self,
+        topic_label: str,
+        show_hidden: bool = True,
+        expand_dimension_groups: bool = False,
+        model: Optional[Model] = None,
+    ):
+        topic = self.get_topic(topic_label)
+        if not topic:
+            plus_model = f" in model {model.name}" if model else ""
+            raise QueryError(f"Could not find a topic matching the label {topic_label}{plus_model}")
+        return [f for v in topic._views() for f in v.fields(show_hidden, expand_dimension_groups)]
 
     def _view_fields(
         self,
         view_name: str,
         show_hidden: bool = True,
         expand_dimension_groups: bool = False,
-        model: Model = None,
+        model: Optional[Model] = None,
     ):
         view = self.get_view(view_name, model=model)
         if not view:
@@ -564,7 +634,7 @@ class Project:
     def _parse_field_and_view_name(self, field_name: str, view_name: str):
         # Handle the case where the view syntax is passed: view_name.field_name
         if "." in field_name:
-            _, specified_view_name, field_name = Field.field_name_parts(field_name)
+            specified_view_name, field_name = Field.field_name_parts(field_name)
             if view_name and specified_view_name != view_name:
                 raise QueryError(
                     f"You specified two different view names {specified_view_name} and {view_name}"

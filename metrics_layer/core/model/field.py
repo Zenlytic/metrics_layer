@@ -425,7 +425,10 @@ class Field(MetricsLayerBase, SQLReplacement):
         return False
 
     def sql_replacement_func(self, sql: str):
-        return self.view.jinja_replacements(sql, {"user_attributes": self.view.project._user})
+        query_attributes = {"dimension_group": self.dimension_group}
+        return self.view.jinja_replacements(
+            sql, {"user_attributes": self.view.project._user, "query_attributes": query_attributes}
+        )
 
     def loses_join_ability_with_other_views(self):
         if "is_merged_result" in self._definition:
@@ -649,6 +652,10 @@ class Field(MetricsLayerBase, SQLReplacement):
             return self._sum_symmetric_aggregate_postgres(sql, primary_key_sql, alias_only, factor)
         elif query_type == Definitions.bigquery:
             return self._sum_symmetric_aggregate_bigquery(sql, primary_key_sql, alias_only, factor)
+        elif query_type in {Definitions.azure_synapse, Definitions.sql_server}:
+            return self._sum_symmetric_aggregate_azure_synapse(sql, primary_key_sql, alias_only, factor)
+        else:
+            raise QueryError(f"Symmetric aggregate not supported in {query_type}")
 
     def _sum_symmetric_aggregate_bigquery(
         self, sql: str, primary_key_sql: str, alias_only: bool, factor: int = 1_000_000
@@ -732,6 +739,31 @@ class Field(MetricsLayerBase, SQLReplacement):
         result = f"{backed_out_cast} / CAST(({factor}*1.0) AS DOUBLE PRECISION), 0)"
         return result
 
+    def _sum_symmetric_aggregate_azure_synapse(
+        self, sql: str, primary_key_sql: str, alias_only: bool, factor: int = 1_000_000
+    ):
+        if not primary_key_sql:
+            raw_primary_key_sql = self.view.primary_key.sql_query(
+                Definitions.azure_synapse, alias_only=alias_only
+            )
+            primary_key_sql = self._get_sql_distinct_key(
+                raw_primary_key_sql, Definitions.azure_synapse, alias_only
+            )
+
+        adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS DECIMAL(38,0)))"
+
+        pk_sum = (
+            f"ABS(CAST(HASHBYTES('MD5', CAST({primary_key_sql} AS NVARCHAR(MAX))) AS BIGINT)) %"
+            " 10000000000000000000000000"
+        )
+
+        sum_with_pk_backout = f"SUM(DISTINCT {adjusted_sum} + {pk_sum}) - SUM(DISTINCT {pk_sum})"
+
+        backed_out_cast = f"COALESCE(CAST(({sum_with_pk_backout}) AS FLOAT)"
+
+        result = f"{backed_out_cast} / CAST(({factor}*1.0) AS FLOAT), 0)"
+        return result
+
     def _count_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
         if (
             query_type in Definitions.symmetric_aggregates_supported_warehouses
@@ -752,7 +784,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         alias_only: bool = False,
         factor: int = 1_000_000,
     ):
-        # This works for both query types
+        # This works for both all types
         return self._count_symmetric_aggregate_snowflake(
             sql, query_type, primary_key_sql=primary_key_sql, alias_only=alias_only
         )
@@ -910,7 +942,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def equal(self, field_name: str):
         # Determine if the field name passed in references this field
-        _, view_name, field_name_only = self.field_name_parts(field_name)
+        view_name, field_name_only = self.field_name_parts(field_name)
         if view_name and view_name != self.view.name:
             return False
 
@@ -1438,7 +1470,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         elif query_type == Definitions.bigquery:
             return f"CAST(DATETIME(CAST({sql} AS TIMESTAMP), '{timezone}') AS {self.datatype.upper()})"
         elif query_type == Definitions.redshift:
-            return f"CAST(CAST(CONVERT_TIMEZONE('{timezone}', {sql}) AS TIMESTAMP) AS {self.datatype.upper()})"  # noqa
+            return f"CAST(CAST(CONVERT_TIMEZONE('{timezone}', CAST({sql} AS TIMESTAMP)) AS TIMESTAMP) AS {self.datatype.upper()})"  # noqa
         elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.trino}:
             return f"CAST(CAST({sql} AS TIMESTAMP) at time zone 'UTC' at time zone '{timezone}' AS {self.datatype.upper()})"  # noqa
         elif query_type == Definitions.mysql:
@@ -1467,7 +1499,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.druid, Definitions.trino}:
             return f"{sql} + INTERVAL '{offset_in_months}' MONTH"
         elif query_type in {Definitions.bigquery, Definitions.mysql}:
-            return f"DATE_ADD({sql}, INTERVAL {offset_in_months} MONTH)"
+            return f"DATE_ADD(CAST({sql} AS DATE), INTERVAL {offset_in_months} MONTH)"
         else:
             raise QueryError(
                 f"Unable to find a valid method for running fiscal offset with query type {query_type}"
@@ -2618,13 +2650,6 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def collect_sql_errors(self, sql: str, property_name: str, error_func):
         errors = []
-        if sql and sql == "${" + self.name + "}":
-            error_text = (
-                f"Field {self.name} references itself in its '{property_name}' property. You need to"
-                " reference a column using the ${TABLE}.myfield_name syntax or reference another dimension"
-                " or measure."
-            )
-            errors.append(error_func(sql, error_text))
 
         refs = self.get_referenced_sql_query(strings_only=False)
         if refs is None:
@@ -2639,6 +2664,14 @@ class Field(MetricsLayerBase, SQLReplacement):
                     error_text = (
                         f"Field {self.name} in view {self.view.name} contains invalid field reference {ref}."
                     )
+                    errors.append(error_func(sql, error_text))
+                elif isinstance(ref, Field) and ref.id() == self.id():
+                    error_text = (
+                        f"Field {self.name} in view {self.view.name} contains a reference to itself. This is"
+                        " invalid. Please remove the reference. If you're trying to reference a column in a"
+                        " table, you can use ${TABLE}."
+                    )
+                    error_text += self.name
                     errors.append(error_func(sql, error_text))
                 elif (
                     self.field_type != ZenlyticFieldType.measure
@@ -2801,7 +2834,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         return clean_sql.strip()
 
     def get_field_with_view_info(self, field: str, specified_view: str = None):
-        _, view_name, field_name = self.field_name_parts(field)
+        view_name, field_name = self.field_name_parts(field)
         if view_name is None and specified_view is None:
             view_name = self.view.name
         elif view_name is None and specified_view:

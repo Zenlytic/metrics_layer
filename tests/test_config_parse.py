@@ -2,9 +2,13 @@ import os
 
 import pytest
 
+from metrics_layer.core.parse import (
+    MetricflowProjectReader,
+    MetricsLayerProjectReader,
+    ProjectLoader,
+)
 from metrics_layer.core.parse.github_repo import BaseRepo
 from metrics_layer.core.query.query import MetricsLayerConnection
-from metrics_layer.core.parse import MetricsLayerProjectReader, ProjectLoader, MetricflowProjectReader
 
 BASE_PATH = os.path.dirname(__file__)
 
@@ -58,7 +62,7 @@ def test_get_branch_options():
 
 def test_config_load_yaml():
     reader = MetricsLayerProjectReader(repo=repo_mock(repo_type="metrics_layer"))
-    models, views, dashboards = reader.load()
+    models, views, dashboards, topics = reader.load()
 
     model = models[0]
 
@@ -82,6 +86,8 @@ def test_config_load_yaml():
     assert isinstance(field["field_type"], str)
     assert isinstance(field["type"], str)
     assert isinstance(field["sql"], str)
+
+    assert len(topics) == 0
 
     assert len(dashboards) == 0
 
@@ -118,7 +124,7 @@ def test_config_load_metricflow():
     mock = repo_mock(repo_type="metricflow")
     mock.dbt_path = os.path.join(BASE_PATH, "config/metricflow/")
     reader = MetricflowProjectReader(repo=mock)
-    models, views, dashboards = reader.load()
+    models, views, dashboards, topics = reader.load()
 
     model = models[0]
 
