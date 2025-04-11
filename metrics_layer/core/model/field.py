@@ -1458,7 +1458,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             lookup["fiscal_month_index"] = lookup["fiscal_month_of_year_index"]
             lookup["week_of_year"] = lookup["week_index"]
 
-        if self.view.project.timezone and self.convert_timezone:
+        if self.view.project.timezone and self.convert_timezone and self.dimension_group != "raw":
             sql = self._apply_timezone_to_sql(sql, self.view.project.timezone, query_type)
         return meta_lookup[query_type][self.dimension_group](sql, query_type)
 
