@@ -222,7 +222,7 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
             c_where = self._replace_cumulative_where(cumulative_metric, date_spine_reference)
             less_than_now = less_than_now + " AND " + c_where
 
-        # TODO For a 7 day window
+        # E.g. for a 7 day window
         # window = f"{cte_alias}.{date_field_name}>DATEADD(day, -7, {self.date_spine_cte_name}.date)"
         criteria = LiteralValueCriterion(less_than_now)
         from_query = from_query.join(Table(cte_alias), JoinType.inner).on(criteria)
