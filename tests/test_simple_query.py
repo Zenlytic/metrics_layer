@@ -596,11 +596,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
                 " 'America/New_York') AS TIMESTAMP) AS DATE) + 1, WEEK) - 1 AS TIMESTAMP) AS TIMESTAMP)"
             ),
         }
-        where = (
-            "WHERE CAST(DATETIME(CAST(simple.order_date AS TIMESTAMP), 'America/New_York')"
-            f" AS TIMESTAMP)>=CAST('{start}' AS TIMESTAMP) AND CAST(DATETIME(CAST(simple.order_date "
-            f"AS TIMESTAMP), 'America/New_York') AS TIMESTAMP)<=CAST('{end}' AS TIMESTAMP)"
-        )
+        where = f"WHERE simple.order_date>=CAST('{start}' AS TIMESTAMP) AND simple.order_date<=CAST('{end}' AS TIMESTAMP)"  # noqa
         order_by = ""
     elif query_type == Definitions.druid:
         if field == "previous_order":
