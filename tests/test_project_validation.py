@@ -2273,6 +2273,16 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 " 512 characters."
             ],
         ),
+        (
+            "new_vs_repeat_status",
+            "window",
+            1,
+            [
+                "Field new_vs_repeat_status in view order_lines has an invalid window value of"
+                " 1. window must be a boolean (true or false)."
+            ],
+        ),
+        ("new_vs_repeat_status", "window", True, []),
     ],
 )
 def test_validation_with_replaced_field_properties(connection, field_name, property_name, value, errors):

@@ -64,6 +64,8 @@ def test_sets(connection):
         "orders.quarters_between_orders",
         "orders.years_between_orders",
         "orders.revenue_in_cents",
+        "orders.last_order_channel",
+        "orders.last_order_warehouse_location",
         "orders.warehouse_location",
         "orders.campaign",
         "orders.number_of_orders",

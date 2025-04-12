@@ -4,10 +4,10 @@ import pytest
 @pytest.mark.project
 def test_list_metrics(connection):
     metrics = connection.list_metrics()
-    assert len(metrics) == 62
+    assert len(metrics) == 64
 
     metrics = connection.list_metrics(view_name="order_lines", names_only=True)
-    assert len(metrics) == 11
+    assert len(metrics) == 13
     assert set(metrics) == {
         "average_order_revenue",
         "costs_per_session",
@@ -16,6 +16,8 @@ def test_list_metrics(connection):
         "should_be_number",
         "net_per_session",
         "number_of_email_purchased_items",
+        "number_of_new_purchased_items",
+        "pct_of_total_item_revenue",
         "revenue_per_session",
         "total_item_costs",
         "total_item_costs_pct",
@@ -26,10 +28,10 @@ def test_list_metrics(connection):
 @pytest.mark.project
 def test_list_dimensions(connection):
     dimensions = connection.list_dimensions(show_hidden=True)
-    assert len(dimensions) == 103
+    assert len(dimensions) == 107
 
     dimensions = connection.list_dimensions()
-    assert len(dimensions) == 69
+    assert len(dimensions) == 73
 
     dimensions = connection.list_dimensions(view_name="order_lines", names_only=True, show_hidden=True)
     dimensions_present = {
@@ -44,10 +46,12 @@ def test_list_dimensions(connection):
         "product_name_lang",
         "inventory_qty",
         "is_on_sale_sql",
+        "order_sequence",
+        "new_vs_repeat_status",
         "is_on_sale_case",
         "order_tier",
     }
-    assert len(dimensions) == 13
+    assert len(dimensions) == 15
     assert set(dimensions) == dimensions_present
 
 
