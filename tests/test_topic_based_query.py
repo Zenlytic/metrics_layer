@@ -18,7 +18,7 @@ def test_topic_attributes(connection):
     assert topic.required_access_grants == ["test_access_grant_department_topic"]
 
 
-@pytest.mark.queryy
+@pytest.mark.query
 def test_query_topic_with_one_view(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"], dimensions=["channel"], topic="Order lines ONLY"

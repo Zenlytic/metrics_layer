@@ -871,7 +871,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                 else:
                     field = self.get_field_with_view_info(field_name)
                     to_replace = field.sql_query(query_type, functional_pk, alias_only=alias_only)
-                replaced = replaced.replace(proper_to_replace, f"({to_replace})")
+                    to_replace = f"({to_replace})"
+                replaced = replaced.replace(proper_to_replace, to_replace)
         else:
             raise NotImplementedError(f"handle case for sql: {sql}")
         return replaced
