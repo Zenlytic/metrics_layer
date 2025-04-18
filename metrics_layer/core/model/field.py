@@ -1096,13 +1096,13 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "date": lambda s, qt: f"DATE_TRUNC('DAY', {s})",
                 "week": self._week_dimension_group_time_sql,
                 "month": lambda s, qt: f"DATE_TRUNC('MONTH', {s})",
-                "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', {s})",
+                "quarter": lambda s, qt: f"CONCAT(EXTRACT(YEAR FROM {s}), '-Q', EXTRACT(QUARTER FROM {s}))",
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', {s})",
                 "fiscal_month": lambda s, qt: (
                     f"DATE_TRUNC('MONTH', {self._fiscal_offset_to_timestamp(s, qt)})"
                 ),
                 "fiscal_quarter": lambda s, qt: (
-                    f"DATE_TRUNC('QUARTER', {self._fiscal_offset_to_timestamp(s, qt)})"
+                    f"CONCAT(EXTRACT(YEAR FROM {self._fiscal_offset_to_timestamp(s, qt)}), '-Q', EXTRACT(QUARTER FROM {self._fiscal_offset_to_timestamp(s, qt)}))"  # noqa
                 ),
                 "fiscal_year": lambda s, qt: f"DATE_TRUNC('YEAR', {self._fiscal_offset_to_timestamp(s, qt)})",
                 "week_index": lambda s, qt: (
@@ -1135,13 +1135,15 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "date": lambda s, qt: f"DATE_TRUNC('DAY', CAST({s} AS TIMESTAMP))",
                 "week": self._week_dimension_group_time_sql,
                 "month": lambda s, qt: f"DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))",
-                "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', CAST({s} AS TIMESTAMP))",
+                "quarter": (
+                    lambda s, qt: f"CONCAT(EXTRACT(YEAR FROM CAST({s} AS TIMESTAMP)), '-Q', EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP)))"
+                ),  # noqa
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
                 "fiscal_month": lambda s, qt: (
                     f"DATE_TRUNC('MONTH', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
                 ),
                 "fiscal_quarter": lambda s, qt: (
-                    f"DATE_TRUNC('QUARTER', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                    f"CONCAT(EXTRACT(YEAR FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP)), '-Q', EXTRACT(QUARTER FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP)))"  # noqa
                 ),
                 "fiscal_year": lambda s, qt: (
                     f"DATE_TRUNC('YEAR', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
@@ -1177,13 +1179,15 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "date": lambda s, qt: f"DATE_TRUNC('DAY', CAST({s} AS TIMESTAMP))",
                 "week": self._week_dimension_group_time_sql,
                 "month": lambda s, qt: f"DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))",
-                "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', CAST({s} AS TIMESTAMP))",
+                "quarter": (
+                    lambda s, qt: f"CONCAT(EXTRACT(YEAR FROM CAST({s} AS TIMESTAMP)), '-Q', EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP)))"
+                ),  # noqa
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
                 "fiscal_month": lambda s, qt: (
                     f"DATE_TRUNC('MONTH', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
                 ),
                 "fiscal_quarter": lambda s, qt: (
-                    f"DATE_TRUNC('QUARTER', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                    f"CONCAT(EXTRACT(YEAR FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP)), '-Q', EXTRACT(QUARTER FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP)))"  # noqa
                 ),
                 "fiscal_year": lambda s, qt: (
                     f"DATE_TRUNC('YEAR', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
@@ -1219,13 +1223,15 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "date": lambda s, qt: f"DATE_TRUNC('DAY', CAST({s} AS TIMESTAMP))",
                 "week": self._week_dimension_group_time_sql,
                 "month": lambda s, qt: f"DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))",
-                "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', CAST({s} AS TIMESTAMP))",
+                "quarter": (
+                    lambda s, qt: f"CONCAT(EXTRACT(YEAR FROM CAST({s} AS TIMESTAMP)), '-Q', EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP)))"
+                ),  # noqa
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
                 "fiscal_month": lambda s, qt: (
                     f"DATE_TRUNC('MONTH', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
                 ),
                 "fiscal_quarter": lambda s, qt: (
-                    f"DATE_TRUNC('QUARTER', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                    f"CONCAT(EXTRACT(YEAR FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP)), '-Q', EXTRACT(QUARTER FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP)))"  # noqa
                 ),
                 "fiscal_year": lambda s, qt: (
                     f"DATE_TRUNC('YEAR', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
@@ -1261,14 +1267,13 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "date": lambda s, qt: f"DATE({s})",
                 "week": self._week_dimension_group_time_sql,
                 "month": lambda s, qt: f"DATE_FORMAT({s}, '%Y-%m-01')",
-                "quarter": lambda s, qt: f"MAKEDATE(YEAR({s}), 1) + INTERVAL (QUARTER({s}) - 1) QUARTER",
+                "quarter": lambda s, qt: f"CONCAT(YEAR({s}), '-Q', QUARTER({s}))",
                 "year": lambda s, qt: f"DATE_FORMAT({s}, '%Y-01-01')",
                 "fiscal_month": lambda s, qt: (
                     f"DATE_FORMAT({self._fiscal_offset_to_timestamp(s, qt)}, '%Y-%m-01')"
                 ),
                 "fiscal_quarter": lambda s, qt: (
-                    f"MAKEDATE(YEAR({self._fiscal_offset_to_timestamp(s, qt)}), 1) + "
-                    f"INTERVAL (QUARTER({self._fiscal_offset_to_timestamp(s, qt)}) - 1) QUARTER"
+                    f"CONCAT(YEAR({self._fiscal_offset_to_timestamp(s, qt)}), '-Q', QUARTER({self._fiscal_offset_to_timestamp(s, qt)}))"  # noqa
                 ),
                 "fiscal_year": lambda s, qt: (
                     f"DATE_FORMAT({self._fiscal_offset_to_timestamp(s, qt)}, '%Y-01-01')"
@@ -1297,13 +1302,15 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "date": lambda s, qt: f"DATE_TRUNC('DAY', CAST({s} AS TIMESTAMP))",
                 "week": self._week_dimension_group_time_sql,
                 "month": lambda s, qt: f"DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))",
-                "quarter": lambda s, qt: f"DATE_TRUNC('QUARTER', CAST({s} AS TIMESTAMP))",
+                "quarter": (
+                    lambda s, qt: f"CONCAT(EXTRACT(YEAR FROM CAST({s} AS TIMESTAMP)), '-Q', EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP)))"
+                ),  # noqa
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
                 "fiscal_month": lambda s, qt: (
                     f"DATE_TRUNC('MONTH', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
                 ),
                 "fiscal_quarter": lambda s, qt: (
-                    f"DATE_TRUNC('QUARTER', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                    f"CONCAT(EXTRACT(YEAR FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP)), '-Q', EXTRACT(QUARTER FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP)))"  # noqa
                 ),
                 "fiscal_year": lambda s, qt: (
                     f"DATE_TRUNC('YEAR', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
@@ -1353,15 +1360,16 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "date": lambda s, qt: f"CAST(CAST({s} AS DATE) AS DATETIME)",
                 "week": self._week_dimension_group_time_sql,
                 "month": lambda s, qt: f"DATEADD(MONTH, DATEDIFF(MONTH, 0, CAST({s} AS DATE)), 0)",
-                "quarter": lambda s, qt: f"DATEADD(QUARTER, DATEDIFF(QUARTER, 0, CAST({s} AS DATE)), 0)",
+                "quarter": (
+                    lambda s, qt: f"CONCAT(YEAR(CAST({s} AS DATE)), '-Q', DATEPART(QUARTER, CAST({s} AS DATE)))"
+                ),
                 "year": lambda s, qt: f"DATEADD(YEAR, DATEDIFF(YEAR, 0, CAST({s} AS DATE)), 0)",
                 "fiscal_month": lambda s, qt: (
                     f"DATEADD(MONTH, DATEDIFF(MONTH, 0, CAST({self._fiscal_offset_to_timestamp(s, qt)} AS"
                     " DATE)), 0)"
                 ),
                 "fiscal_quarter": lambda s, qt: (
-                    f"DATEADD(QUARTER, DATEDIFF(QUARTER, 0, CAST({self._fiscal_offset_to_timestamp(s, qt)} AS"
-                    " DATE)), 0)"
+                    f"CONCAT(YEAR(CAST({self._fiscal_offset_to_timestamp(s, qt)} AS DATE)), '-Q', DATEPART(QUARTER, CAST({self._fiscal_offset_to_timestamp(s, qt)} AS DATE)))"
                 ),
                 "fiscal_year": lambda s, qt: (
                     f"DATEADD(YEAR, DATEDIFF(YEAR, 0, CAST({self._fiscal_offset_to_timestamp(s, qt)} AS"
@@ -1408,17 +1416,14 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "month": lambda s, qt: (  # noqa
                     f"CAST(DATE_TRUNC(CAST({s} AS DATE), MONTH) AS {self.datatype.upper()})"
                 ),
-                "quarter": lambda s, qt: (  # noqa
-                    f"CAST(DATE_TRUNC(CAST({s} AS DATE), QUARTER) AS {self.datatype.upper()})"
-                ),
+                "quarter": lambda s, qt: (f"FORMAT_TIMESTAMP('%Y-Q%Q', CAST({s} AS TIMESTAMP))"),  # noqa
                 "year": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} AS DATE), YEAR) AS {self.datatype.upper()})",
                 "fiscal_month": lambda s, qt: (
                     f"CAST(DATE_TRUNC(CAST({self._fiscal_offset_to_timestamp(s, qt)} AS DATE), MONTH) AS"
                     f" {self.datatype.upper()})"
                 ),
                 "fiscal_quarter": lambda s, qt: (
-                    f"CAST(DATE_TRUNC(CAST({self._fiscal_offset_to_timestamp(s, qt)} AS DATE), QUARTER) AS"
-                    f" {self.datatype.upper()})"
+                    f"FORMAT_TIMESTAMP('%Y-Q%Q', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
                 ),
                 "fiscal_year": lambda s, qt: (
                     f"CAST(DATE_TRUNC(CAST({self._fiscal_offset_to_timestamp(s, qt)} AS DATE), YEAR) AS"
