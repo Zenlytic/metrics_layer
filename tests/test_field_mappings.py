@@ -61,7 +61,7 @@ def test_mapping_metric_mapped_date_and_filter(connection, time_grain):
     elif time_grain == "month_of_year":
         date_part = "TO_CHAR(CAST(orders.order_date AS TIMESTAMP), 'Mon')"
     elif time_grain == "quarter":
-        date_part = "DATE_TRUNC('QUARTER', orders.order_date)"
+        date_part = "CONCAT(EXTRACT(YEAR FROM orders.order_date), '-Q', EXTRACT(QUARTER FROM orders.order_date))"  # noqa
     elif time_grain == "year":
         date_part = "DATE_TRUNC('YEAR', orders.order_date)"
 
