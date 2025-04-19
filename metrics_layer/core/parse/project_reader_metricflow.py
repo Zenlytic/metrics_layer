@@ -1,4 +1,4 @@
-from metricflow_to_zenlytic.metricflow_to_zenlytic import (
+from metrics_layer.integrations.metricflow.metricflow_to_zenlytic import (
     convert_mf_project_to_zenlytic_project,
     load_mf_project,
 )
