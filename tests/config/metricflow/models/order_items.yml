@@ -69,7 +69,23 @@ metrics:
     type: simple
     type_params:
       measure: food_revenue
-
+  - name: food_customers
+    description: Unique count of customers who placed orders and had food.
+    label: Food Customers
+    type: simple
+    type_params:
+      measure: customers_with_orders
+    filter: |
+      {{ Metric('food_revenue', group_by=['order_id']) }} > 0
+  - name: food_valid_new_and_jan_or_feb_customers
+    description: Unique count of customers with many filters
+    label: Food Customers
+    type: simple
+    type_params:
+      measure: customers_with_orders
+    filter: |
+      {{ Dimension('customer__customer_type') }} = 'new'
+      and ( {{ TimeDimension('customer__first_ordered_at') }} = '2024-01-01' or  {{ TimeDimension('customer__first_ordered_at') }} = '2024-02-01' or {{ TimeDimension('customer__first_ordered_at') }} is null)
   #Ratio Metrics
   - name: food_revenue_pct
     description: The % of order revenue from food.

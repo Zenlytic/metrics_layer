@@ -30,7 +30,6 @@ colorama = "^0.4.4"
 "ruamel.yaml" = "^0.17.20"
 pendulum = "^3.0.0"
 PyYAML = "^6.0"
-metricflow-to-zenlytic = "^0.1.5"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
