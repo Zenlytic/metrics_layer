@@ -205,17 +205,17 @@ def convert_mf_metric_to_zenlytic_measure(mf_metric: dict, measures: list) -> li
     }
 
     additional_measures = []
-    if mf_metric["type"].lower() == "cumulative":
+    if mf_metric["type"].lower() == MetricflowMetricTypes.cumulative:
         metric_dict["type"] = "cumulative"
         metric_dict["measure"] = "_" + mf_metric["type_params"]["measure"]
 
-    elif mf_metric["type"].lower() == "simple":
+    elif mf_metric["type"].lower() == MetricflowMetricTypes.simple:
         associated_measure = _get_measure(mf_metric["type_params"]["measure"], measures)
         metric_dict, _ = apply_filter_to_metric(
             associated_measure, mf_metric, extra_metric_params=metric_dict
         )
 
-    elif mf_metric["type"].lower() == "ratio":
+    elif mf_metric["type"].lower() == MetricflowMetricTypes.ratio:
         metric_dict["type"] = "ratio"
         numerator = mf_metric["type_params"]["numerator"]
         denominator = mf_metric["type_params"]["denominator"]
@@ -250,7 +250,7 @@ def convert_mf_metric_to_zenlytic_measure(mf_metric: dict, measures: list) -> li
         metric_dict["sql"] = numerator_sql + " / " + denominator_sql
         metric_dict["type"] = "number"
 
-    elif mf_metric["type"].lower() == "derived":
+    elif mf_metric["type"].lower() == MetricflowMetricTypes.derived:
         metric_dict["type"] = "number"
         expr = mf_metric["type_params"]["expr"]
         referenced_metrics = mf_metric["type_params"]["metrics"]
