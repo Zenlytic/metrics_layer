@@ -17,7 +17,10 @@ class MetricflowParsingException(Exception):
 class MetricflowProjectReader(ProjectReaderBase):
     def load(self) -> tuple:
         if self.dbt_project is None:
-            raise MetricflowParsingException("No dbt project found")
+            raise MetricflowParsingException(
+                "No dbt project found. Make sure you have a dbt_project.yml file, and it is accessible to"
+                " Zenlytic."
+            )
 
         self.project_name = self.dbt_project["name"]
 
