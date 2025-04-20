@@ -62,7 +62,7 @@ def test_get_branch_options():
 
 def test_config_load_yaml():
     reader = MetricsLayerProjectReader(repo=repo_mock(repo_type="metrics_layer"))
-    models, views, dashboards, topics = reader.load()
+    models, views, dashboards, topics, conversion_errors = reader.load()
 
     model = models[0]
 
@@ -90,6 +90,8 @@ def test_config_load_yaml():
     assert len(topics) == 0
 
     assert len(dashboards) == 0
+
+    assert len(conversion_errors) == 0
 
 
 def test_automatic_choosing():
@@ -124,7 +126,16 @@ def test_config_load_metricflow():
     mock = repo_mock(repo_type="metricflow")
     mock.dbt_path = os.path.join(BASE_PATH, "config/metricflow/")
     reader = MetricflowProjectReader(repo=mock)
-    models, views, dashboards, topics = reader.load()
+    models, views, dashboards, topics, conversion_errors = reader.load()
+
+    assert len(conversion_errors) == 2
+    assert conversion_errors[0] == {
+        "message": (
+            "In view orders metric conversion failed for food_customers: Metric type filters are not"
+            " supported"
+        ),
+        "view_name": "orders",
+    }
 
     model = models[0]
 
@@ -154,7 +165,7 @@ def test_config_load_metricflow():
 
     assert food_bool["type"] == "string"
     assert food_bool["field_type"] == "dimension"
-    assert food_bool["sql"] == "is_food_item"
+    assert food_bool["sql"] == "${TABLE}.is_food_item"
 
     assert revenue_measure["type"] == "sum"
     assert revenue_measure["field_type"] == "measure"

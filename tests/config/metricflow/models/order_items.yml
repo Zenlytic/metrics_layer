@@ -25,6 +25,8 @@ semantic_models:
         type: categorical
       - name: is_drink_item
         type: categorical
+      - name: is_ad_item
+        type: categorical
     measures:
       - name: revenue
         description: The revenue generated for each order item. Revenue is calculated as a sum of revenue associated with each product in an order.
@@ -42,6 +44,11 @@ semantic_models:
         description: The median revenue generated for each order item.
         agg: median
         expr: product_price
+      - name: number_of_orders
+        description: 'The unique number of orders placed.'
+        agg: count_distinct
+        expr: order_id
+        create_metric: true
 
 metrics:
   # Simple metrics
@@ -50,38 +57,97 @@ metrics:
     type: simple
     label: Revenue
     type_params:
-      measure: revenue
+      measure:
+        name: revenue
+  - name: ad_revenue
+    description: Sum of the product revenue for each order item. Excludes tax.
+    type: simple
+    label: Revenue
+    type_params:
+      measure:
+        name: revenue
+    filter: |
+      {{ Dimension('is_ad_item') }} = 1
   - name: order_cost
     description: Sum of cost for each order item.
     label: Order Cost
     type: simple
     type_params:
-      measure: order_cost
+      measure:
+        name: order_cost
   - name: median_revenue
     description: The median revenue for each order item. Excludes tax.
     type: simple
     label: Median Revenue
     type_params:
-      measure: median_revenue
+      measure:
+        name: median_revenue
   - name: food_revenue
     description: The revenue from food in each order
     label: Food Revenue
     type: simple
     type_params:
-      measure: food_revenue
-
+      measure:
+        name: food_revenue
+  - name: food_customers
+    description: Unique count of customers who placed orders and had food.
+    label: Food Customers
+    type: simple
+    type_params:
+      measure:
+        name: customers_with_orders
+    filter: |
+      {{ Metric('food_revenue', group_by=['order_id']) }} > 0
+  - name: food_valid_new_and_jan_or_feb_customers
+    description: Unique count of customers with many filters
+    label: Food Customers
+    type: simple
+    type_params:
+      measure:
+        name: customers_with_orders
+    filter: |
+      {{ Dimension('customer__customer_type') }} = 'new'
+      and ( {{ TimeDimension('customer__first_ordered_at') }} = '2024-01-01' or  {{ TimeDimension('customer__first_ordered_at') }} = '2024-02-01' or {{ TimeDimension('customer__first_ordered_at') }} is null)
   #Ratio Metrics
   - name: food_revenue_pct
     description: The % of order revenue from food.
     label: Food Revenue %
     type: ratio
     type_params:
-      numerator: food_revenue
+      numerator:
+        name: food_revenue
       denominator: revenue
+  - name: food_revenue_pct_diff_calc # TODO test this
+    description: The % of order revenue from food.
+    label: Food Revenue %
+    type: ratio
+    type_params:
+      numerator:
+        name: revenue
+        filter: |
+          {{ Dimension('is_food_item') }} = 1
+      denominator: revenue
+  - name: number_of_repeat_orders
+    type: simple
+    label: 'Repeat orders'
+    type_params:
+      measure:
+        name: number_of_orders
+    filter: |
+      {{ Dimension('NEW_VS_REPEAT') }} != 'Repeat'
+  - name: repurchase_rate
+    description: 'Share of orders that are repeat'
+    type: ratio
+    label: 'Repurchase Rate'
+    type_params:
+      numerator:
+        name: number_of_repeat_orders
+      denominator:
+        name: number_of_orders
 
   #Derived Metrics
   - name: revenue_growth_mom
-    description: "Percentage growth of revenue compared to 1 month ago. Excluded tax"
+    description: 'Percentage growth of revenue compared to 1 month ago. Excluded tax'
     type: derived
     label: Revenue Growth % M/M
     type_params:
@@ -102,6 +168,15 @@ metrics:
         - name: revenue
         - name: order_cost
           alias: cost
+  - name: pct_rev_from_ads
+    description: Percentage of revenue from advertising.
+    type: derived
+    label: Percentage of Revenue from Advertising
+    type_params:
+      expr: ad_revenue / revenue
+      metrics:
+        - name: ad_revenue
+        - name: revenue
 
   #Cumulative Metrics
   - name: cumulative_revenue
@@ -109,4 +184,5 @@ metrics:
     label: Cumulative Revenue (All Time)
     type: cumulative
     type_params:
-      measure: revenue
+      measure:
+        name: revenue

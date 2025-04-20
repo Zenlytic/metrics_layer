@@ -32,6 +32,7 @@ class Project:
         connection_lookup: dict = {},
         manifest=None,
         commit_hash=None,
+        conversion_errors: list = [],
     ):
         self._models = models
         self._views = self._handle_join_as_duplication(views)
@@ -47,6 +48,7 @@ class Project:
         self._required_access_filter_user_attributes = []
         self._join_graph = None
         self.commit_hash = commit_hash
+        self._conversion_errors = conversion_errors
 
     def __repr__(self):
         text = "models" if len(self._models) != 1 else "model"
@@ -270,7 +272,7 @@ class Project:
         return {**extra, "message": error, "line": None, "column": None}
 
     def validate(self, views_must_be_in_topics: bool = False):
-        all_errors = []
+        all_errors = [] + self._conversion_errors
         for model in self.models():
             try:
                 all_errors.extend(model.collect_errors())
