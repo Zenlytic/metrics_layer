@@ -39,26 +39,4 @@ class MetricsLayerProjectReader(ProjectReaderBase):
                     "or 'topic'"
                 )
 
-        return models, views, dashboards, topics
-
-    def search_for_yaml_files(self, folders: list):
-        file_names = self.repo.search("*.yml", folders) + self.repo.search("*.yaml", folders)
-        return list(set(file_names))
-
-    def get_folders(self, key: str, default: str = None, raise_errors: bool = True):
-        if not self.zenlytic_project:
-            return []
-
-        if key in self.zenlytic_project:
-            return [self._abs_path(p) for p in self.zenlytic_project[key]]
-        elif raise_errors:
-            raise KeyError(
-                f"Missing required key '{key}' in zenlytic_project.yml \n"
-                "Learn more about setting these keys here: https://docs.zenlytic.com"
-            )
-        return []
-
-    def _abs_path(self, path: str):
-        if not os.path.isabs(path):
-            path = os.path.join(self.repo.folder, path)
-        return path
+        return models, views, dashboards, topics, []

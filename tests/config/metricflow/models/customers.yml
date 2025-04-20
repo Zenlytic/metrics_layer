@@ -1,6 +1,5 @@
 models:
   - name: customers
-    description: Customer overview data mart, offering key details for each unique customer. One row per customer.
     columns:
       - name: customer_id
         description: The unique key of the orders mart.
@@ -23,17 +22,17 @@ models:
         description: Options are 'new' or 'returning', indicating if a customer has ordered more than once or has only placed their first order to date.
         tests:
           - accepted_values:
-              values: ["new", "returning"]
+              values: ['new', 'returning']
 
 semantic_models:
   - name: customers
     defaults:
       agg_time_dimension: first_ordered_at
-    description: |
-      Customer grain mart.
     model: ref('customers')
     meta:
       sql_table_name: 'my-bigquery-project.my_dataset.customers'
+      zenlytic:
+        zoe_description: 'Customers table'
     entities:
       - name: customer
         expr: customer_id
@@ -65,22 +64,24 @@ semantic_models:
 metrics:
   # Simple metrics
   - name: customers_with_orders
-    description: "Unique count of customers placing orders"
+    description: 'Unique count of customers placing orders'
     type: simple
     label: Customers w/ Orders
     config:
-      group: "Customer"
+      group: 'Customer'
       meta:
         zenlytic:
-          zoe_description: "Distinct count of customers placing orders"
+          zoe_description: 'Distinct count of customers placing orders'
     type_params:
-      measure: customers_with_orders
+      measure:
+        name: customers_with_orders
   - name: new_customer
     description: Unique count of new customers.
     label: New Customers
     type: simple
     type_params:
-      measure: customers_with_orders
+      measure:
+        name: customers_with_orders
     filter: |
       {{ Dimension('customer__customer_type') }}  = 'new'
   - name: jan_customers
@@ -88,8 +89,7 @@ metrics:
     label: January Customers
     type: simple
     type_params:
-      measure: customers_with_orders
+      measure:
+        name: customers_with_orders
     filter: |
       {{ TimeDimension('customer__first_ordered_at') }}  = '2024-01-01'
-
-

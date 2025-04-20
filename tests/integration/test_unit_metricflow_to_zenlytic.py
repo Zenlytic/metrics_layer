@@ -1,10 +1,11 @@
 import pytest
+
 from metrics_layer.integrations.metricflow.metricflow_to_zenlytic import (
-    convert_mf_dimension_to_zenlytic_dimension,
-    convert_mf_measure_to_zenlytic_measure,
-    convert_mf_entity_to_zenlytic_identifier,
-    convert_mf_metric_to_zenlytic_measure,
     ZenlyticUnsupportedError,
+    convert_mf_dimension_to_zenlytic_dimension,
+    convert_mf_entity_to_zenlytic_identifier,
+    convert_mf_measure_to_zenlytic_measure,
+    convert_mf_metric_to_zenlytic_measure,
 )
 
 
@@ -13,9 +14,10 @@ from metrics_layer.integrations.metricflow.metricflow_to_zenlytic import (
     "mf_dimension",
     [
         {"name": "no_sql", "type": "categorical", "label": "No SQL"},
+        {"name": "basic_sql", "type": "categorical", "expr": "basic_sql_col"},
         {
             "name": "is_bulk_transaction",
-            "type": "categorical",
+            "type": "Categorical",
             "expr": "case when quantity > 10 then true else false end",
         },
         {
@@ -37,6 +39,7 @@ def test_dimension_conversion(mf_dimension):
             "field_type": "dimension",
             "type": "string",
             "sql": "case when quantity > 10 then true else false end",
+            "searchable": True,
         }
     elif mf_dimension["name"] == "deleted_at":
         correct = {
@@ -54,7 +57,16 @@ def test_dimension_conversion(mf_dimension):
             "label": "No SQL",
             "field_type": "dimension",
             "type": "string",
-            "sql": "no_sql",
+            "sql": "${TABLE}.no_sql",
+            "searchable": True,
+        }
+    elif mf_dimension["name"] == "basic_sql":
+        correct = {
+            "name": "basic_sql",
+            "field_type": "dimension",
+            "type": "string",
+            "sql": "${TABLE}.basic_sql_col",
+            "searchable": True,
         }
 
     assert converted == correct
@@ -83,6 +95,17 @@ def test_dimension_conversion(mf_dimension):
             "config": {"meta": {"zenlytic": {"zoe_description": "Quick buy transactions"}}},
         },
         {"name": "last_purchase", "agg": "max", "expr": "purchase_date", "create_metric": True},
+        {
+            "name": "mrr",
+            "agg": "sum",
+            "expr": "sub_rev",
+            "create_metric": True,
+            "non_additive_dimension": {
+                "name": "order_date",
+                "window_choice": "max",
+                "window_groupings": ["customer_id"],
+            },
+        },
     ],
 )
 def test_measure_conversion(mf_measure):
@@ -118,6 +141,18 @@ def test_measure_conversion(mf_measure):
         }
     elif mf_measure["name"] == "last_purchase":
         correct = {"name": "last_purchase", "field_type": "measure", "sql": "purchase_date", "type": "max"}
+    elif mf_measure["name"] == "mrr":
+        correct = {
+            "name": "mrr",
+            "field_type": "measure",
+            "sql": "sub_rev",
+            "type": "sum",
+            "non_additive_dimension": {
+                "name": "order_date_raw",
+                "window_choice": "max",
+                "window_groupings": ["customer_id"],
+            },
+        }
 
     assert converted == correct
 
@@ -132,9 +167,8 @@ def test_measure_conversion(mf_measure):
             "type": "cumulative",
             "label": "C Metric",
             "type_params": {
-                "measure": "total_revenue",
-                "window": "7 days",
-                "grain_to_date": "month",
+                "measure": {"name": "total_revenue"},
+                "cumulative_type_params": {"window": "7 days"},
             },  # NOTE: we do not support, window or grain_to_date
         },
         {
@@ -142,14 +176,14 @@ def test_measure_conversion(mf_measure):
             "description": "Count of customers",
             "type": "simple",
             "label": "Count of customers",
-            "type_params": {"measure": "customers"},
+            "type_params": {"measure": {"name": "customers"}},
         },
         {
             "name": "large_orders",
             "description": "Order with order values over 20.",
             "type": "SIMPLE",
             "label": "Large Orders",
-            "type_params": {"measure": "orders"},
+            "type_params": {"measure": {"name": "orders"}},
             "config": {
                 "meta": {"zenlytic": {"zoe_description": "Order with order values over 20."}},
                 "enabled": False,
@@ -161,7 +195,7 @@ def test_measure_conversion(mf_measure):
             "description": "Unique count of customers with many filters",
             "type": "SIMPLE",
             "label": "Many Filters",
-            "type_params": {"measure": "customers"},
+            "type_params": {"measure": {"name": "customers"}},
             "filter": (
                 "{{ Metric('food_revenue', group_by=['order_id']) }} > 0 "
                 "and {{ Entity('product') }} in ('P3150104', 'P3150105') "
@@ -176,7 +210,7 @@ def test_measure_conversion(mf_measure):
             "description": "Unique count of customers with many filters",
             "type": "SIMPLE",
             "label": "Many Filters",
-            "type_params": {"measure": "customers"},
+            "type_params": {"measure": {"name": "customers"}},
             "filter": (
                 "{{ Dimension('customer__customer_type') }} = 'new' "
                 "and ( {{ TimeDimension('customer__first_ordered_at', 'month') }} = '2024-01-01' "
@@ -189,7 +223,7 @@ def test_measure_conversion(mf_measure):
             "description": "The food order count as a ratio of the total order count",
             "label": "Food Order Ratio",
             "type": "ratio",
-            "type_params": {"numerator": "food_orders", "denominator": "orders"},
+            "type_params": {"numerator": {"name": "food_orders"}, "denominator": "orders"},
         },
         {
             "name": "frequent_purchaser_ratio",
@@ -215,6 +249,19 @@ def test_measure_conversion(mf_measure):
                 "metrics": [
                     {"name": "order_total", "alias": "revenue"},
                     {"name": "order_cost", "alias": "cost"},
+                ],
+            },
+        },
+        {
+            "name": "pct_rev_from_ads",
+            "description": "Percentage of revenue from advertising.",
+            "type": "derived",
+            "label": "Percentage of Revenue from Advertising",
+            "type_params": {
+                "expr": "ad_total_revenue / total_revenue",
+                "metrics": [
+                    {"name": "ad_total_revenue"},
+                    {"name": "total_revenue", "alias": "total_revenue"},
                 ],
             },
         },
@@ -255,17 +302,21 @@ def test_metric_conversion(mf_metric):
     except ZenlyticUnsupportedError as e:
         if "Entity type filters are not supported" in str(e) and mf_metric["name"] == "many_filters_fail":
             converted = {}
+        elif "It is a cumulative metric," in str(e):
+            converted = {}
         else:
             raise e
 
     if mf_metric["name"] == "cumulative_metric":
+        correct = {}
+    elif mf_metric["name"] == "pct_rev_from_ads":
         correct = {
-            "name": "cumulative_metric",
+            "name": "pct_rev_from_ads",
             "field_type": "measure",
-            "measure": "_total_revenue",
-            "type": "cumulative",
-            "label": "C Metric",
-            "description": "The metric description",
+            "sql": "${ad_total_revenue} / ${total_revenue}",
+            "type": "number",
+            "label": "Percentage of Revenue from Advertising",
+            "description": "Percentage of revenue from advertising.",
         }
     elif mf_metric["name"] == "customers":
         correct = {
@@ -311,7 +362,7 @@ def test_metric_conversion(mf_metric):
         correct = {
             "name": "food_order_pct",
             "field_type": "measure",
-            "sql": "${_food_orders} / ${_orders}",
+            "sql": "${food_orders} / ${orders}",
             "type": "number",
             "label": "Food Order Ratio",
             "description": "The food order count as a ratio of the total order count",
@@ -320,7 +371,7 @@ def test_metric_conversion(mf_metric):
         correct = {
             "name": "frequent_purchaser_ratio",
             "field_type": "measure",
-            "sql": "${frequent_purchaser_ratio_numerator} / ${_distinct_purchasers}",
+            "sql": "${frequent_purchaser_ratio_numerator} / ${distinct_purchasers}",
             "type": "number",
             "label": "Frequent Purchaser Ratio",
             "description": "Fraction of active users who qualify as frequent purchasers",
@@ -329,7 +380,7 @@ def test_metric_conversion(mf_metric):
         correct = {
             "name": "order_gross_profit",
             "field_type": "measure",
-            "sql": "${_order_total} - ${_order_cost}",
+            "sql": "${order_total} - ${order_cost}",
             "type": "number",
             "label": "Order Gross Profit",
             "description": "Gross profit from each order.",

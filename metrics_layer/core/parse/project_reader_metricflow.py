@@ -1,4 +1,5 @@
-from metrics_layer.core.exceptions import QueryError
+import os
+
 from metrics_layer.core.model import Project
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.integrations.metricflow.metricflow_to_zenlytic import (
@@ -9,14 +10,24 @@ from metrics_layer.integrations.metricflow.metricflow_to_zenlytic import (
 from .project_reader_base import ProjectReaderBase
 
 
+class MetricflowParsingException(Exception):
+    pass
+
+
 class MetricflowProjectReader(ProjectReaderBase):
     def load(self) -> tuple:
         if self.dbt_project is None:
-            raise QueryError("No dbt project found")
+            raise MetricflowParsingException("No dbt project found")
 
         self.project_name = self.dbt_project["name"]
 
-        metricflow_project = load_mf_project(self.dbt_folder)
+        if self.zenlytic_project and "metricflow-path" in self.zenlytic_project:
+            metricflow_path = self.zenlytic_project["metricflow-path"]
+            metricflow_path = os.path.join(self.repo.folder, metricflow_path)
+        else:
+            metricflow_path = self.dbt_folder
+
+        metricflow_project = load_mf_project(metricflow_path)
 
         dbt_profile_name = self.dbt_project.get("profile", self.project_name)
         if self.zenlytic_project:
@@ -24,14 +35,42 @@ class MetricflowProjectReader(ProjectReaderBase):
         else:
             self.profile_name = dbt_profile_name
 
-        models, views = convert_mf_project_to_zenlytic_project(
-            metricflow_project, self.profile_name, self.profile_name
-        )
-        topics = self.derive_topics(models, views)
-        # models, views, dashboards, topics
-        return models, views, [], topics
+        topic_folders = self.get_folders("topic-paths", raise_errors=False)
+        model_folders = self.get_folders("model-paths", raise_errors=False)
+        all_folders = model_folders + topic_folders
 
-    def derive_topics(self, models: list, views: list) -> list:
+        file_names = self.search_for_yaml_files(all_folders)
+
+        models = []
+        topics = []
+        for fn in file_names:
+            yaml_dict = self.read_yaml_file(fn)
+            yaml_dict["_file_path"] = os.path.relpath(fn, start=self.repo.folder)
+
+            yaml_type = yaml_dict.get("type")
+            if yaml_type == "model":
+                models.append(yaml_dict)
+            elif yaml_type == "topic":
+                topics.append(yaml_dict)
+
+        if len(models) == 1:
+            model_dict = models[0]
+        elif len(models) > 1:
+            raise MetricflowParsingException(
+                "Multiple models found in model-paths. Only one model is supported with Metricflow."
+            )
+        else:
+            model_dict = {}
+
+        models, views, errors = convert_mf_project_to_zenlytic_project(
+            metricflow_project, self.profile_name, self.profile_name, model_dict
+        )
+        if self.zenlytic_project.get("use_default_topics", True):
+            topics += self.derive_topics(models, views, models[0]["name"])
+
+        return models, views, [], topics, errors
+
+    def derive_topics(self, models: list, views: list, model_name: str) -> list:
         project = Project(models, views)
         graph = project.join_graph.graph
         sorted_components = project.join_graph._strongly_connected_components(graph)
@@ -75,6 +114,7 @@ class MetricflowProjectReader(ProjectReaderBase):
             topic_data = {
                 "label": f"{base_view.replace('_', ' ').title()}",
                 "base_view": base_view,
+                "model_name": model_name,
                 "views": {},
             }
             for view in topic_view_list[1:]:
