@@ -1140,7 +1140,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 "Field parent_channel in view order_lines is missing the required key 'type'.",
                 (
                     "Field parent_channel in view order_lines has an invalid type None. Valid "
-                    "types for dimensions are: ['string', 'yesno', 'number', 'tier']"
+                    "types for dimensions are: ['string', 'yesno', 'number', 'tier', 'time']"
                 ),
             ],
         ),
@@ -1150,7 +1150,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "count",
             [
                 "Field parent_channel in view order_lines has an invalid type count. Valid "
-                "types for dimensions are: ['string', 'yesno', 'number', 'tier']"
+                "types for dimensions are: ['string', 'yesno', 'number', 'tier', 'time']"
             ],
         ),
         (
@@ -1184,13 +1184,26 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
         (
             "total_item_costs",
             "type",
-            "time",
+            "tim",
             [
                 (
-                    "Field total_item_costs in view order_lines has an invalid type time. Valid "
+                    "Field total_item_costs in view order_lines has an invalid type tim. Valid "
                     "types for measures are: ['count', 'count_distinct', 'sum', 'sum_distinct', "
                     "'average', 'average_distinct', 'median', 'max', 'min', 'number', "
-                    "'cumulative']"
+                    "'cumulative', 'string', 'yesno', 'time']"
+                ),
+            ],
+        ),
+        (
+            "total_item_costs",
+            "type",
+            "tier",
+            [
+                (
+                    "Field total_item_costs in view order_lines has an invalid type tier. Valid "
+                    "types for measures are: ['count', 'count_distinct', 'sum', 'sum_distinct', "
+                    "'average', 'average_distinct', 'median', 'max', 'min', 'number', "
+                    "'cumulative', 'string', 'yesno', 'time']"
                 ),
             ],
         ),
@@ -1383,11 +1396,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "total_item_costs",
             "type",
             "string",
-            [
-                "Field total_item_costs in view order_lines has an invalid type string. Valid types for"
-                " measures are: ['count', 'count_distinct', 'sum', 'sum_distinct', 'average',"
-                " 'average_distinct', 'median', 'max', 'min', 'number', 'cumulative']"
-            ],
+            [],
         ),
         (
             "parent_channel",
@@ -1395,7 +1404,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "count",
             [
                 "Field parent_channel in view order_lines has an invalid type count. Valid types for"
-                " dimensions are: ['string', 'yesno', 'number', 'tier']"
+                " dimensions are: ['string', 'yesno', 'number', 'tier', 'time']"
             ],
         ),
         (
@@ -2031,10 +2040,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
         ),
         (
             "parent_channel",
-            "datatype",
+            "dtype",
             "timestamp",
             [
-                "Property datatype is present on Field parent_channel in view order_lines, but "
+                "Property dtype is present on Field parent_channel in view order_lines, but "
                 "it is not a valid property. Did you mean type?"
             ],
         ),
@@ -2049,10 +2058,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
         ),
         (
             "total_item_costs",
-            "datatype",
+            "dtype",
             "timestamp",
             [
-                "Property datatype is present on Field total_item_costs in view order_lines, but "
+                "Property dtype is present on Field total_item_costs in view order_lines, but "
                 "it is not a valid property. Did you mean type?"
             ],
         ),
