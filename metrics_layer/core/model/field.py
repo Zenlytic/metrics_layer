@@ -128,7 +128,7 @@ class ZenlyticType:
     time = "time"
     duration = "duration"
     cumulative = "cumulative"
-    dimension_options = [string, yesno, number, tier]
+    dimension_options = [string, yesno, number, tier, time]
     dimension_group_options = [time, duration]
     measure_options = [
         count,
@@ -142,7 +142,11 @@ class ZenlyticType:
         min,
         number,
         cumulative,
+        string,
+        yesno,
+        time,
     ]
+    non_aggregating_measure_options = [number, string, yesno, time]
     requires_sql_distinct_key = [sum_distinct, average_distinct]
     options = list(sorted(list(set(dimension_options + dimension_group_options + measure_options))))
 
@@ -152,6 +156,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         "name",
         "field_type",
         "type",
+        "datatype",
         "label",
         "group_label",
         "description",
@@ -232,7 +237,6 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "sql_end",
                 "convert_tz",
                 "convert_timezone",
-                "datatype",
                 "link",
             )
             return self.shared_properties + dimension_group_only
@@ -253,6 +257,25 @@ class Field(MetricsLayerBase, SQLReplacement):
     @property
     def hidden(self):
         return self._definition.get("hidden", False)
+
+    @property
+    def result_type(self):
+        _type = self._definition.get("type")
+        if _type in {ZenlyticType.string, ZenlyticType.tier}:
+            return ZenlyticType.string
+        elif _type == ZenlyticType.yesno:
+            return ZenlyticType.yesno
+        elif _type == ZenlyticType.time:
+            return ZenlyticType.time
+        elif _type in {
+            ZenlyticType.number,
+            ZenlyticType.duration,
+            ZenlyticType.cumulative,
+            *ZenlyticType.measure_options,
+        }:
+            return ZenlyticType.number
+        # string is the default type if none is specified
+        return ZenlyticType.string
 
     @property
     def sql(self):
@@ -536,7 +559,10 @@ class Field(MetricsLayerBase, SQLReplacement):
         )
 
     def raw_sql_query(self, query_type: str, alias_only: bool = False, render_window_functions: bool = False):
-        if self.field_type == ZenlyticFieldType.measure and self.type == "number":
+        if (
+            self.field_type == ZenlyticFieldType.measure
+            and self.type in ZenlyticType.non_aggregating_measure_options
+        ):
             return self.get_referenced_sql_query()
         elif alias_only:
             return self.alias(with_view=True)
@@ -549,16 +575,19 @@ class Field(MetricsLayerBase, SQLReplacement):
     def aggregate_sql_query(self, query_type: str, functional_pk: str, alias_only: bool = False):
         sql = self.raw_sql_query(query_type, alias_only=alias_only)
         type_lookup = {
-            "sum": self._sum_aggregate_sql,
-            "sum_distinct": self._sum_distinct_aggregate_sql,
-            "count": self._count_aggregate_sql,
-            "count_distinct": self._count_distinct_aggregate_sql,
-            "average": self._average_aggregate_sql,
-            "average_distinct": self._average_distinct_aggregate_sql,
-            "median": self._median_aggregate_sql,
-            "max": self._max_aggregate_sql,
-            "min": self._min_aggregate_sql,
-            "number": self._number_aggregate_sql,
+            ZenlyticType.sum: self._sum_aggregate_sql,
+            ZenlyticType.sum_distinct: self._sum_distinct_aggregate_sql,
+            ZenlyticType.count: self._count_aggregate_sql,
+            ZenlyticType.count_distinct: self._count_distinct_aggregate_sql,
+            ZenlyticType.average: self._average_aggregate_sql,
+            ZenlyticType.average_distinct: self._average_distinct_aggregate_sql,
+            ZenlyticType.median: self._median_aggregate_sql,
+            ZenlyticType.max: self._max_aggregate_sql,
+            ZenlyticType.min: self._min_aggregate_sql,
+            ZenlyticType.number: self._non_aggregating_measure_sql,
+            ZenlyticType.string: self._non_aggregating_measure_sql,
+            ZenlyticType.yesno: self._non_aggregating_measure_sql,
+            ZenlyticType.time: self._non_aggregating_measure_sql,
         }
         if self.type not in type_lookup:
             raise QueryError(
@@ -575,7 +604,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             else:
                 field = self.get_field_with_view_info(to_replace)
                 if field:
-                    if field.is_merged_result or field.type == "number":
+                    if field.is_merged_result or field.type in ZenlyticType.non_aggregating_measure_options:
                         sql_replace = "(" + field.strict_replaced_query() + ")"
                     else:
                         sql_replace = field.alias(with_view=True)
@@ -857,7 +886,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         # Min works natively with symmetric aggregates, so there's just the one return
         return f"MIN({sql})"
 
-    def _number_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
+    def _non_aggregating_measure_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
         if isinstance(sql, list):
             replaced = copy(self.sql)
             for field_name in self.fields_to_replace(self.sql):
@@ -874,7 +903,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                     to_replace = f"({to_replace})"
                 replaced = replaced.replace(proper_to_replace, to_replace)
         else:
-            raise NotImplementedError(f"handle case for sql: {sql}")
+            raise NotImplementedError(f"Invalid case for non-aggregating measure sql: {sql}")
         return replaced
 
     def required_views(self):
@@ -914,7 +943,10 @@ class Field(MetricsLayerBase, SQLReplacement):
     def to_dict(self, query_type: str = None):
         output = {**self._definition}
         output["sql_raw"] = copy(self.sql)
-        if output["field_type"] == ZenlyticFieldType.measure and output["type"] == "number":
+        if (
+            output["field_type"] == ZenlyticFieldType.measure
+            and output["type"] in ZenlyticType.non_aggregating_measure_options
+        ):
             output["sql"] = self.get_referenced_sql_query()
         elif output["field_type"] == ZenlyticFieldType.dimension_group and self.dimension_group is None:
             output["sql"] = copy(self.sql)
