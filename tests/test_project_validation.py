@@ -1,7 +1,6 @@
 import json
 
 import pytest
-import ruamel.yaml
 
 
 def _get_view_by_name(project, view_name):
@@ -23,6 +22,20 @@ def test_validation_with_no_replaced_objects(connection):
     project = connection.project
     response = project.validate_with_replaced_objects(replaced_objects=[])
     assert response == []
+
+
+@pytest.mark.validation
+def test_validation_with_duplicate_model_names(fresh_project):
+    project = fresh_project
+    project._models[1]["name"] = "test_model"
+    response = project.validate_with_replaced_objects(replaced_objects=project._models)
+    assert [e["message"] for e in response] == [
+        "Duplicate model name: test_model. Model names must be unique.",
+        (
+            "Could not find a model in the view other_db_traffic. Use the model_name "
+            "property to specify the model."
+        ),
+    ]
 
 
 # Note: line / column validation only works if the property is
