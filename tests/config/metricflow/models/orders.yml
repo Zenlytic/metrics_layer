@@ -92,6 +92,22 @@ semantic_models:
       - name: order_cost
         description: The cost for each order item. Cost is calculated as a sum of the supply cost for each order item.
         agg: sum
+      - name: p75_order_total
+        description: The 75th percentile order total
+        expr: order_total
+        agg: percentile
+        create_metric: true
+        agg_params:
+          percentile: .75
+          use_discrete_percentile: False
+      - name: p99_order_total
+        description: The 99th percentile order total
+        expr: order_total
+        agg: percentile
+        create_metric: true
+        agg_params:
+          percentile: .99
+          use_discrete_percentile: True
 
 metrics:
   - name: order_total
