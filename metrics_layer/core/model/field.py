@@ -547,9 +547,15 @@ class Field(MetricsLayerBase, SQLReplacement):
         functional_pk: Union[str, None] = None,
         alias_only: bool = False,
         render_window_functions: bool = False,
+        model_format: bool = False,
     ):
         if not query_type:
             query_type = self._derive_query_type()
+        if model_format and self._field_uses_non_standard_model_format_sql():
+            # If the field uses non-standard model format for SQL, that implies its sql
+            # is logically impossible to render as-is to the model due to dependencies higher up.
+            # We need to return a UDF which the model can use and we can re-reference as needed.
+            return f"{self.view.name}.{self.name}()"
         if self.type == "cumulative" and alias_only:
             return f"{self.cte_prefix()}.{self.measure.alias(with_view=True)}"
         if self.field_type == ZenlyticFieldType.measure:
@@ -557,6 +563,11 @@ class Field(MetricsLayerBase, SQLReplacement):
         return self.raw_sql_query(
             query_type, alias_only=alias_only, render_window_functions=render_window_functions
         )
+
+    def _field_uses_non_standard_model_format_sql(self):
+        if self.field_type == ZenlyticFieldType.measure and self.non_additive_dimension:
+            return True
+        return False
 
     def raw_sql_query(self, query_type: str, alias_only: bool = False, render_window_functions: bool = False):
         if (
