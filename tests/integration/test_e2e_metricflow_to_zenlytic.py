@@ -32,16 +32,19 @@ def test_e2e_conversions():
     )
 
     print(views)
-    # This will fail but actually test it
-    assert len(errors) == 2
+    assert len(errors) == 3
     assert errors[0] == {
+        "message": "In view orders discrete percentile is not supported for the measure p99_order_total",
+        "view_name": "orders",
+    }
+    assert errors[1] == {
         "message": (
             "In view orders metric conversion failed for food_customers: Metric type filters are"
             " not supported"
         ),
         "view_name": "orders",
     }
-    assert errors[1] == {
+    assert errors[2] == {
         "message": (
             "In view order_item metric conversion failed for cumulative_revenue: It is a cumulative metric,"
             " which is not supported."

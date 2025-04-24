@@ -156,6 +156,20 @@ simple_view = {
             "name": "net_to_gross_pct",
         },
         {
+            "field_type": "measure",
+            "type": "percentile",
+            "percentile": 75,
+            "sql": "${TABLE}.revenue",
+            "name": "revenue_75th_percentile",
+        },
+        {
+            "field_type": "measure",
+            "type": "percentile",
+            "percentile": 99,
+            "sql": "${discount_amt}",
+            "name": "discount_99th_percentile",
+        },
+        {
             "field_type": "dimension",
             "type": "yesno",
             "sql": "CASE WHEN ${channel} != 'fraud' THEN TRUE ELSE FALSE END",
@@ -210,11 +224,71 @@ def test_simple_query(connections):
 
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
-    )
-    correct += (
         "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC NULLS LAST;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+@pytest.mark.parametrize(
+    "measure,query_type",
+    [
+        ("revenue_75th_percentile", Definitions.snowflake),
+        ("discount_99th_percentile", Definitions.snowflake),
+        ("revenue_75th_percentile", Definitions.databricks),
+        ("discount_99th_percentile", Definitions.databricks),
+        ("revenue_75th_percentile", Definitions.redshift),
+        ("discount_99th_percentile", Definitions.redshift),
+        ("revenue_75th_percentile", Definitions.postgres),
+        ("discount_99th_percentile", Definitions.postgres),
+        ("revenue_75th_percentile", Definitions.duck_db),
+        ("discount_99th_percentile", Definitions.duck_db),
+        ("revenue_75th_percentile", Definitions.azure_synapse),
+        ("discount_99th_percentile", Definitions.azure_synapse),
+        ("revenue_75th_percentile", Definitions.sql_server),
+        ("discount_99th_percentile", Definitions.sql_server),
+        ("revenue_75th_percentile", Definitions.bigquery),
+        ("revenue_75th_percentile", Definitions.trino),
+        ("revenue_75th_percentile", Definitions.druid),
+        ("revenue_75th_percentile", Definitions.mysql),
+    ],
+)
+def test_simple_query_percentile(connections, measure, query_type):
+    project = Project(models=[simple_model], views=[simple_view])
+    conn = MetricsLayerConnection(project=project, connections=connections)
+
+    if query_type in {
+        Definitions.snowflake,
+        Definitions.databricks,
+        Definitions.redshift,
+        Definitions.postgres,
+        Definitions.duck_db,
+        Definitions.azure_synapse,
+        Definitions.sql_server,
+    }:
+        lookup = {
+            "revenue_75th_percentile": "PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY simple.revenue)",
+            "discount_99th_percentile": "PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY simple.discount_amt)",
+        }
+        if query_type in {Definitions.snowflake, Definitions.redshift, Definitions.duck_db}:
+            order_by = f" ORDER BY simple_{measure} DESC NULLS LAST"
+        else:
+            order_by = ""
+        correct = (
+            f"SELECT simple.sales_channel as simple_channel,{lookup[measure]} as simple_{measure} FROM"
+            f" analytics.orders simple GROUP BY simple.sales_channel{order_by};"
+        )
+        query = conn.get_sql_query(metrics=[measure], dimensions=["channel"], query_type=query_type)
+        assert query == correct
+    else:
+        with pytest.raises(QueryError) as exc_info:
+            conn.get_sql_query(metrics=[measure], dimensions=["channel"], query_type=query_type)
+
+        assert (
+            exc_info.value.args[0]
+            == f"Percentile is not supported in {query_type}. Please choose another aggregate function for"
+            f" the simple.{measure} measure."
+        )
 
 
 @pytest.mark.query
@@ -967,13 +1041,14 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "date": "DATE_TRUNC('DAY', simple.order_date)",
             "week": "DATE_TRUNC('WEEK', CAST(simple.order_date AS DATE) + 1) - 1",
             "month": "DATE_TRUNC('MONTH', simple.order_date)",
-            "quarter": (
+            "quarter": (  # noqa
                 "CONCAT(EXTRACT(YEAR FROM simple.order_date), '-Q', EXTRACT(QUARTER FROM simple.order_date))"
-            ),  # noqa
+            ),
             "year": "DATE_TRUNC('YEAR', simple.order_date)",
             "fiscal_month": "DATE_TRUNC('MONTH', DATEADD(MONTH, 1, simple.order_date))",
             "fiscal_quarter": (
-                "CONCAT(EXTRACT(YEAR FROM DATEADD(MONTH, 1, simple.order_date)), '-Q', EXTRACT(QUARTER FROM DATEADD(MONTH, 1, simple.order_date)))"
+                "CONCAT(EXTRACT(YEAR FROM DATEADD(MONTH, 1, simple.order_date)), '-Q', EXTRACT(QUARTER FROM"
+                " DATEADD(MONTH, 1, simple.order_date)))"
             ),
             "fiscal_year": "DATE_TRUNC('YEAR', DATEADD(MONTH, 1, simple.order_date))",
             "fiscal_month_of_year_index": f"EXTRACT(MONTH FROM DATEADD(MONTH, 1, simple.order_date))",
@@ -1019,7 +1094,8 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
                 "DATE_FORMAT(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH), '%Y-%m-01')"
             ),
             "fiscal_quarter": (
-                "CONCAT(YEAR(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH)), '-Q', QUARTER(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH)))"
+                "CONCAT(YEAR(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH)), '-Q',"
+                " QUARTER(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH)))"
             ),
             "fiscal_year": (
                 "DATE_FORMAT(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH), '%Y-01-01')"
@@ -1054,14 +1130,16 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             ),
             "month": "DATEADD(MONTH, DATEDIFF(MONTH, 0, CAST(simple.order_date AS DATE)), 0)",
             "quarter": (
-                "CONCAT(YEAR(CAST(simple.order_date AS DATE)), '-Q', DATEPART(QUARTER, CAST(simple.order_date AS DATE)))"
+                "CONCAT(YEAR(CAST(simple.order_date AS DATE)), '-Q', DATEPART(QUARTER, CAST(simple.order_date"
+                " AS DATE)))"
             ),
             "year": "DATEADD(YEAR, DATEDIFF(YEAR, 0, CAST(simple.order_date AS DATE)), 0)",
             "fiscal_month": (
                 "DATEADD(MONTH, DATEDIFF(MONTH, 0, CAST(DATEADD(MONTH, 1, simple.order_date) AS DATE)), 0)"
             ),
             "fiscal_quarter": (
-                "CONCAT(YEAR(CAST(DATEADD(MONTH, 1, simple.order_date) AS DATE)), '-Q', DATEPART(QUARTER, CAST(DATEADD(MONTH, 1, simple.order_date) AS DATE)))"
+                "CONCAT(YEAR(CAST(DATEADD(MONTH, 1, simple.order_date) AS DATE)), '-Q', DATEPART(QUARTER,"
+                " CAST(DATEADD(MONTH, 1, simple.order_date) AS DATE)))"
             ),
             "fiscal_year": (
                 "DATEADD(YEAR, DATEDIFF(YEAR, 0, CAST(DATEADD(MONTH, 1, simple.order_date) AS DATE)), 0)"
@@ -1109,18 +1187,16 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             ),
             "month": "DATE_TRUNC('MONTH', CAST(simple.order_date AS TIMESTAMP))",
             "quarter": (
-                "CONCAT(EXTRACT(YEAR FROM CAST(simple.order_date AS TIMESTAMP)), '-Q', EXTRACT(QUARTER FROM CAST(simple.order_date AS TIMESTAMP)))"
+                "CONCAT(EXTRACT(YEAR FROM CAST(simple.order_date AS TIMESTAMP)), '-Q', EXTRACT(QUARTER FROM"
+                " CAST(simple.order_date AS TIMESTAMP)))"
             ),
             "year": "DATE_TRUNC('YEAR', CAST(simple.order_date AS TIMESTAMP))",
-            "fiscal_month": (
-                "DATE_TRUNC('MONTH', CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
-            ),  # noqa  # noqa
+            "fiscal_month": "DATE_TRUNC('MONTH', CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))",  # noqa  # noqa  # noqa  # noqa
             "fiscal_quarter": (  # noqa
-                "CONCAT(EXTRACT(YEAR FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP)), '-Q', EXTRACT(QUARTER FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP)))"
+                "CONCAT(EXTRACT(YEAR FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP)), '-Q',"
+                " EXTRACT(QUARTER FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP)))"
             ),
-            "fiscal_year": (
-                "DATE_TRUNC('YEAR', CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
-            ),  # noqa  # noqa
+            "fiscal_year": "DATE_TRUNC('YEAR', CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))",  # noqa  # noqa  # noqa  # noqa
             "fiscal_month_of_year_index": (  # noqa
                 f"EXTRACT(MONTH FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
             ),
@@ -1149,9 +1225,9 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         }
         if query_type == Definitions.trino:
             result_lookup["month_of_year"] = "FORMAT_DATETIME(CAST(simple.order_date AS TIMESTAMP), 'MMM')"
-            result_lookup["month_of_year_full_name"] = (
-                "FORMAT_DATETIME(CAST(simple.order_date AS TIMESTAMP), 'MMMM')"
-            )
+            result_lookup[
+                "month_of_year_full_name"
+            ] = "FORMAT_DATETIME(CAST(simple.order_date AS TIMESTAMP), 'MMMM')"
             result_lookup["hour_of_day"] = "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))"
             result_lookup["day_of_week"] = "FORMAT_DATETIME(CAST(simple.order_date AS TIMESTAMP), 'EEE')"
             result_lookup["day_of_month"] = "EXTRACT(DAY FROM CAST(simple.order_date AS TIMESTAMP))"
@@ -1163,43 +1239,44 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             order_by = ""
 
         if query_type == Definitions.databricks:
-            result_lookup["fiscal_month"] = (
-                "DATE_TRUNC('MONTH', CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
-            )
+            result_lookup[
+                "fiscal_month"
+            ] = "DATE_TRUNC('MONTH', CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
             result_lookup["fiscal_quarter"] = (
-                "CONCAT(EXTRACT(YEAR FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP)), '-Q', EXTRACT(QUARTER FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP)))"
+                "CONCAT(EXTRACT(YEAR FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP)), '-Q',"
+                " EXTRACT(QUARTER FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP)))"
             )
-            result_lookup["fiscal_year"] = (
-                "DATE_TRUNC('YEAR', CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
-            )
-            result_lookup["fiscal_month_of_year_index"] = (
-                f"EXTRACT(MONTH FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
-            )
-            result_lookup["fiscal_month_index"] = (
-                f"EXTRACT(MONTH FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
-            )
-            result_lookup["fiscal_quarter_of_year"] = (
-                "EXTRACT(QUARTER FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
-            )
+            result_lookup[
+                "fiscal_year"
+            ] = "DATE_TRUNC('YEAR', CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            result_lookup[
+                "fiscal_month_of_year_index"
+            ] = f"EXTRACT(MONTH FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            result_lookup[
+                "fiscal_month_index"
+            ] = f"EXTRACT(MONTH FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
+            result_lookup[
+                "fiscal_quarter_of_year"
+            ] = "EXTRACT(QUARTER FROM CAST(DATEADD(MONTH, 1, simple.order_date) AS TIMESTAMP))"
             result_lookup["month_of_year"] = "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'MMM')"
-            result_lookup["month_of_year_full_name"] = (
-                "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'MMMM')"  # noqa
-            )
+            result_lookup[
+                "month_of_year_full_name"
+            ] = "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'MMMM')"  # noqa
             result_lookup["hour_of_day"] = "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))"
             result_lookup["day_of_week"] = "DATE_FORMAT(CAST(simple.order_date AS TIMESTAMP), 'E')"
             result_lookup["day_of_month"] = "EXTRACT(DAY FROM CAST(simple.order_date AS TIMESTAMP))"
             result_lookup["day_of_year"] = "EXTRACT(DOY FROM CAST(simple.order_date AS TIMESTAMP))"
         if query_type == Definitions.druid:
-            result_lookup["month_of_year"] = (
-                "CASE EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'Jan' WHEN 2 THEN 'Feb' WHEN 3 THEN 'Mar' WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun' WHEN 7 THEN 'Jul' WHEN 8 THEN 'Aug' WHEN 9 THEN 'Sep' WHEN 10 THEN 'Oct' WHEN 11 THEN 'Nov' WHEN 12 THEN 'Dec' ELSE 'Invalid Month' END"  # noqa
-            )
-            result_lookup["month_of_year_full_name"] = (
-                "CASE EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'January' WHEN 2 THEN 'February' WHEN 3 THEN 'March' WHEN 4 THEN 'April' WHEN 5 THEN 'May' WHEN 6 THEN 'June' WHEN 7 THEN 'July' WHEN 8 THEN 'August' WHEN 9 THEN 'September' WHEN 10 THEN 'October' WHEN 11 THEN 'November' WHEN 12 THEN 'December' ELSE 'Invalid Month' END"  # noqa
-            )
+            result_lookup[
+                "month_of_year"
+            ] = "CASE EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'Jan' WHEN 2 THEN 'Feb' WHEN 3 THEN 'Mar' WHEN 4 THEN 'Apr' WHEN 5 THEN 'May' WHEN 6 THEN 'Jun' WHEN 7 THEN 'Jul' WHEN 8 THEN 'Aug' WHEN 9 THEN 'Sep' WHEN 10 THEN 'Oct' WHEN 11 THEN 'Nov' WHEN 12 THEN 'Dec' ELSE 'Invalid Month' END"  # noqa
+            result_lookup[
+                "month_of_year_full_name"
+            ] = "CASE EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'January' WHEN 2 THEN 'February' WHEN 3 THEN 'March' WHEN 4 THEN 'April' WHEN 5 THEN 'May' WHEN 6 THEN 'June' WHEN 7 THEN 'July' WHEN 8 THEN 'August' WHEN 9 THEN 'September' WHEN 10 THEN 'October' WHEN 11 THEN 'November' WHEN 12 THEN 'December' ELSE 'Invalid Month' END"  # noqa
             result_lookup["hour_of_day"] = "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))"
-            result_lookup["day_of_week"] = (
-                "CASE EXTRACT(DOW FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'Mon' WHEN 2 THEN 'Tue' WHEN 3 THEN 'Wed' WHEN 4 THEN 'Thu' WHEN 5 THEN 'Fri' WHEN 6 THEN 'Sat' WHEN 7 THEN 'Sun' ELSE 'Invalid Day' END"  # noqa
-            )
+            result_lookup[
+                "day_of_week"
+            ] = "CASE EXTRACT(DOW FROM CAST(simple.order_date AS TIMESTAMP)) WHEN 1 THEN 'Mon' WHEN 2 THEN 'Tue' WHEN 3 THEN 'Wed' WHEN 4 THEN 'Thu' WHEN 5 THEN 'Fri' WHEN 6 THEN 'Sat' WHEN 7 THEN 'Sun' ELSE 'Invalid Day' END"  # noqa
             result_lookup["day_of_month"] = "EXTRACT(DAY FROM CAST(simple.order_date AS TIMESTAMP))"
             result_lookup["day_of_year"] = "EXTRACT(DOY FROM CAST(simple.order_date AS TIMESTAMP))"
             semi = ""
@@ -1222,7 +1299,8 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
                 " MONTH) AS TIMESTAMP)"
             ),
             "fiscal_quarter": (
-                "FORMAT_TIMESTAMP('%Y-Q%Q', CAST(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH) AS TIMESTAMP))"
+                "FORMAT_TIMESTAMP('%Y-Q%Q', CAST(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH)"
+                " AS TIMESTAMP))"
             ),
             "fiscal_year": (
                 "CAST(DATE_TRUNC(CAST(DATE_ADD(CAST(simple.order_date AS DATE), INTERVAL 1 MONTH) AS DATE),"

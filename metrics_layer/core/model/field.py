@@ -119,6 +119,7 @@ class ZenlyticType:
     average = "average"
     average_distinct = "average_distinct"
     median = "median"
+    percentile = "percentile"
     max = "max"
     min = "min"
     number = "number"
@@ -145,6 +146,7 @@ class ZenlyticType:
         string,
         yesno,
         time,
+        percentile,
     ]
     non_aggregating_measure_options = [number, string, yesno, time]
     requires_sql_distinct_key = [sum_distinct, average_distinct]
@@ -249,6 +251,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "is_merged_result",
                 "cumulative_where",
                 "update_where_timeframe",
+                "percentile",
             )
             return self.shared_properties + measure_only
         else:
@@ -547,9 +550,15 @@ class Field(MetricsLayerBase, SQLReplacement):
         functional_pk: Union[str, None] = None,
         alias_only: bool = False,
         render_window_functions: bool = False,
+        model_format: bool = False,
     ):
         if not query_type:
             query_type = self._derive_query_type()
+        if model_format and self._field_uses_non_standard_model_format_sql():
+            # If the field uses non-standard model format for SQL, that implies its sql
+            # is logically impossible to render as-is to the model due to dependencies higher up.
+            # We need to return a UDF which the model can use and we can re-reference as needed.
+            return f"{self.view.name}.{self.name}()"
         if self.type == "cumulative" and alias_only:
             return f"{self.cte_prefix()}.{self.measure.alias(with_view=True)}"
         if self.field_type == ZenlyticFieldType.measure:
@@ -557,6 +566,11 @@ class Field(MetricsLayerBase, SQLReplacement):
         return self.raw_sql_query(
             query_type, alias_only=alias_only, render_window_functions=render_window_functions
         )
+
+    def _field_uses_non_standard_model_format_sql(self):
+        if self.field_type == ZenlyticFieldType.measure and self.non_additive_dimension:
+            return True
+        return False
 
     def raw_sql_query(self, query_type: str, alias_only: bool = False, render_window_functions: bool = False):
         if (
@@ -582,6 +596,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             ZenlyticType.average: self._average_aggregate_sql,
             ZenlyticType.average_distinct: self._average_distinct_aggregate_sql,
             ZenlyticType.median: self._median_aggregate_sql,
+            ZenlyticType.percentile: self._percentile_aggregate_sql,
             ZenlyticType.max: self._max_aggregate_sql,
             ZenlyticType.min: self._min_aggregate_sql,
             ZenlyticType.number: self._non_aggregating_measure_sql,
@@ -877,6 +892,23 @@ class Field(MetricsLayerBase, SQLReplacement):
             )
         # Medians do not work with symmetric aggregates, so there's just the one return
         return f"MEDIAN({sql})"
+
+    def _percentile_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
+        if query_type not in {
+            Definitions.snowflake,
+            Definitions.redshift,
+            Definitions.postgres,
+            Definitions.sql_server,
+            Definitions.duck_db,
+            Definitions.databricks,
+            Definitions.azure_synapse,
+        }:
+            raise QueryError(
+                f"Percentile is not supported in {query_type}. Please choose another "
+                f"aggregate function for the {self.id()} measure."
+            )
+        # Percentiles do not work with symmetric aggregates, so there's just the one return
+        return f"PERCENTILE_CONT({self.percentile / 100.0}) WITHIN GROUP (ORDER BY {sql})"
 
     def _max_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
         # Max works natively with symmetric aggregates, so there's just the one return
@@ -1753,6 +1785,27 @@ class Field(MetricsLayerBase, SQLReplacement):
                     (
                         f"Field {self.name} in view {self.view.name} has an invalid window value of"
                         f" {self.window}. window must be a boolean (true or false)."
+                    ),
+                )
+            )
+
+        if "percentile" in self._definition and not isinstance(self.percentile, int):
+            errors.append(
+                self._error(
+                    self._definition["percentile"],
+                    (
+                        f"Field {self.name} in view {self.view.name} has an invalid percentile value of"
+                        f" {self.percentile}. percentile must be an integer between 1 and 99."
+                    ),
+                )
+            )
+        elif "percentile" in self._definition and self.percentile not in range(1, 100):
+            errors.append(
+                self._error(
+                    self._definition["percentile"],
+                    (
+                        f"Field {self.name} in view {self.view.name} has an invalid percentile value of"
+                        f" {self.percentile}. percentile must be an integer between 1 and 99."
                     ),
                 )
             )

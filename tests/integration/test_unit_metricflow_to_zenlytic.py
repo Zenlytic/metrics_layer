@@ -96,6 +96,20 @@ def test_dimension_conversion(mf_dimension):
         },
         {"name": "last_purchase", "agg": "max", "expr": "purchase_date", "create_metric": True},
         {
+            "name": "p75_order_total",
+            "expr": "order_total",
+            "agg": "percentile",
+            "agg_params": {"percentile": 0.75, "use_discrete_percentile": False},
+            "create_metric": True,
+        },
+        {
+            "name": "p99_order_total",
+            "expr": "order_total",
+            "agg": "percentile",
+            "agg_params": {"percentile": 0.99, "use_discrete_percentile": True},
+            "create_metric": True,
+        },
+        {
             "name": "mrr",
             "agg": "sum",
             "expr": "sub_rev",
@@ -109,7 +123,13 @@ def test_dimension_conversion(mf_dimension):
     ],
 )
 def test_measure_conversion(mf_measure):
-    converted = convert_mf_measure_to_zenlytic_measure(mf_measure)
+    try:
+        converted = convert_mf_measure_to_zenlytic_measure(mf_measure)
+    except ZenlyticUnsupportedError as e:
+        if "discrete percentile is not supported for the measure" in str(e):
+            converted = {}
+        else:
+            raise e
 
     if mf_measure["name"] == "total_revenue":
         correct = {
@@ -153,6 +173,16 @@ def test_measure_conversion(mf_measure):
                 "window_groupings": ["customer_id"],
             },
         }
+    elif mf_measure["name"] == "p75_order_total":
+        correct = {
+            "name": "p75_order_total",
+            "field_type": "measure",
+            "sql": "order_total",
+            "type": "percentile",
+            "percentile": 75,
+        }
+    elif mf_measure["name"] == "p99_order_total":
+        correct = {}
 
     assert converted == correct
 

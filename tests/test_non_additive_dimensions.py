@@ -4,6 +4,22 @@ from metrics_layer.core.model import Definitions
 
 
 @pytest.mark.query
+def test_non_additive_model_format_sql(connection):
+    query = connection.project.get_field(f"mrr_end_of_month").sql_query(
+        query_type="SNOWFLAKE", model_format=True
+    )
+
+    correct = "mrr.mrr_end_of_month()"
+    assert query == correct
+
+    query = connection.project.get_field(f"number_of_billed_accounts").sql_query(
+        query_type="SNOWFLAKE", model_format=True
+    )
+    correct = "COUNT(mrr.parent_account_id)"
+    assert query == correct
+
+
+@pytest.mark.query
 @pytest.mark.parametrize("metric_suffix", ["end_of_month", "beginning_of_month"])
 def test_mrr_non_additive_dimension_no_group_by_max(connection, metric_suffix):
     query = connection.get_sql_query(metrics=[f"mrr_{metric_suffix}"])
