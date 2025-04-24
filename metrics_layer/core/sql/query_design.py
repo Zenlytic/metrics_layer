@@ -10,7 +10,6 @@ from metrics_layer.core.model.base import MetricsLayerBase
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.filter import Filter
 from metrics_layer.core.model.join import ZenlyticJoinRelationship
-from metrics_layer.core.model.topic import Topic
 from metrics_layer.core.model.view import View
 
 
@@ -148,7 +147,7 @@ class MetricsLayerDesign:
                 pairs = self._add_missing_views(missing_views, pairs, len(missing_views))
                 return pairs
 
-    def _add_missing_views(self, missing_views: str, pairs: list, missing_n: int):
+    def _add_missing_views(self, missing_views: list, pairs: list, missing_n: int):
         potential_anchors = [pairs[0][0]] + [p[-1] for p in pairs]
         still_missing = []
         for view_name in sorted(missing_views):

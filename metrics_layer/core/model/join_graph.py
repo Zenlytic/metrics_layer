@@ -112,10 +112,12 @@ class JoinGraph(SQLReplacement):
         joins = []
         joined_views = []
         for base_view, join_view in view_pairs:
-            join = self.get_join(base_view, join_view)
-            if join_view not in joined_views:
-                joins.append(join)
-            joined_views.append(join_view)
+            # A view joining to itself with the same logic is not a valid join
+            if base_view != join_view:
+                join = self.get_join(base_view, join_view)
+                if join_view not in joined_views:
+                    joins.append(join)
+                joined_views.append(join_view)
         return joins
 
     def collect_errors(self):
