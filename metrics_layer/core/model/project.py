@@ -541,27 +541,39 @@ class Project:
         view_name: Union[str, None] = None,
         topic_label: Union[str, None] = None,
         show_hidden: bool = True,
+        show_dynamic_fields: bool = False,
         expand_dimension_groups: bool = False,
         model: Union[Model, None] = None,
     ) -> list:
         if view_name is None and topic_label is None:
-            return self._all_fields(show_hidden, expand_dimension_groups, model)
+            return self._all_fields(show_hidden, show_dynamic_fields, expand_dimension_groups, model)
         elif topic_label is not None and view_name is None:
-            return self._topic_fields(topic_label, show_hidden, expand_dimension_groups, model)
+            return self._topic_fields(
+                topic_label, show_hidden, show_dynamic_fields, expand_dimension_groups, model
+            )
         elif view_name is not None and topic_label is None:
-            return self._view_fields(view_name, show_hidden, expand_dimension_groups, model)
+            return self._view_fields(
+                view_name, show_hidden, show_dynamic_fields, expand_dimension_groups, model
+            )
         else:
             raise QueryError(
                 "Ambiguous query: you must specify either a view_name or a topic_label, but not both."
             )
 
-    def _all_fields(self, show_hidden: bool, expand_dimension_groups: bool, model: Model):
-        return [f for v in self.views(model=model) for f in v.fields(show_hidden, expand_dimension_groups)]
+    def _all_fields(
+        self, show_hidden: bool, show_dynamic_fields: bool, expand_dimension_groups: bool, model: Model
+    ):
+        return [
+            f
+            for v in self.views(model=model)
+            for f in v.fields(show_hidden, show_dynamic_fields, expand_dimension_groups)
+        ]
 
     def _topic_fields(
         self,
         topic_label: str,
         show_hidden: bool = True,
+        show_dynamic_fields: bool = False,
         expand_dimension_groups: bool = False,
         model: Optional[Model] = None,
     ):
@@ -569,12 +581,17 @@ class Project:
         if not topic:
             plus_model = f" in model {model.name}" if model else ""
             raise QueryError(f"Could not find a topic matching the label {topic_label}{plus_model}")
-        return [f for v in topic._views() for f in v.fields(show_hidden, expand_dimension_groups)]
+        return [
+            f
+            for v in topic._views()
+            for f in v.fields(show_hidden, show_dynamic_fields, expand_dimension_groups)
+        ]
 
     def _view_fields(
         self,
         view_name: str,
         show_hidden: bool = True,
+        show_dynamic_fields: bool = False,
         expand_dimension_groups: bool = False,
         model: Optional[Model] = None,
     ):
@@ -582,7 +599,7 @@ class Project:
         if not view:
             plus_model = f" in model {model.name}" if model else ""
             raise QueryError(f"Could not find a view matching the name {view_name}{plus_model}")
-        return view.fields(show_hidden, expand_dimension_groups)
+        return view.fields(show_hidden, show_dynamic_fields, expand_dimension_groups)
 
     def joinable_fields(self, field_list: list, expand_dimension_groups: bool = False):
         join_graph_options = set()
@@ -597,7 +614,9 @@ class Project:
     def get_field(self, field_name: str, view_name: str = None, model: Model = None) -> Field:
         field_name, view_name = self._parse_field_and_view_name(field_name, view_name)
 
-        fields = self.fields(view_name=view_name, expand_dimension_groups=True, model=model)
+        fields = self.fields(
+            view_name=view_name, expand_dimension_groups=True, show_dynamic_fields=True, model=model
+        )
         matching_fields = [f for f in fields if f.equal(field_name)]
         return self._matching_field_handler(matching_fields, field_name, view_name)
 
@@ -611,7 +630,9 @@ class Project:
     @functools.lru_cache(maxsize=None)
     def get_field_by_name(self, field_name: str, view_name: str = None, model: Model = None):
         field_name, view_name = self._parse_field_and_view_name(field_name, view_name)
-        fields = self.fields(view_name=view_name, expand_dimension_groups=False, model=model)
+        fields = self.fields(
+            view_name=view_name, expand_dimension_groups=False, show_dynamic_fields=True, model=model
+        )
         matching_fields = [f for f in fields if f.name == field_name]
         return self._matching_field_handler(matching_fields, field_name, view_name)
 
@@ -620,7 +641,9 @@ class Project:
         self, tag_name: str, view_name: str = None, join_graphs: tuple = None, model: Model = None
     ):
         tag_options = {tag_name, f"{tag_name}s"} if tag_name[-1] != "s" else {tag_name, tag_name[:-1]}
-        fields = self.fields(view_name=view_name, expand_dimension_groups=True, model=model)
+        fields = self.fields(
+            view_name=view_name, expand_dimension_groups=True, show_dynamic_fields=True, model=model
+        )
         matching_fields = [f for f in fields if f.tags and any(t in tag_options for t in f.tags)]
         if join_graphs:
             matching_fields = [f for f in matching_fields if any(j in f.join_graphs() for j in join_graphs)]
