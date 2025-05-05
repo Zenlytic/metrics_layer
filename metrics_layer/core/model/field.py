@@ -340,6 +340,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             and definition.get("type") == "tier"
             and "tiers" in definition
             and isinstance(definition["tiers"], list)
+            and definition["tiers"]
         ):
             definition["sql"] = self._translate_looker_tier_to_sql(definition["sql"], definition["tiers"])
 
@@ -945,7 +946,14 @@ class Field(MetricsLayerBase, SQLReplacement):
         return output
 
     def to_yaml_properties_format(self):
-        return {k: self._definition[k] for k in self.valid_properties & self._definition.keys()}
+        properties = {}
+        for attr in self.valid_properties:
+            if hasattr(self.__class__, attr) and isinstance(getattr(self.__class__, attr), property):
+                print(f"getting {attr}: {getattr(self, attr)}")
+                properties[attr] = getattr(self, attr)
+            elif attr in self._definition:
+                properties[attr] = self._definition[attr]
+        return properties
 
     def printable_attributes(self):
         to_print = [
