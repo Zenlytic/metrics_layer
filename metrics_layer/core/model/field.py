@@ -372,9 +372,9 @@ class Field(MetricsLayerBase, SQLReplacement):
     def label(self):
         if "label" in self._definition:
             label = self._definition["label"]
-            if self.type == "time" and self.dimension_group and not self.is_dynamic_field:
+            if self.type == "time" and self.dimension_group:
                 formatted_label = f"{label} {self.dimension_group.replace('_', ' ').title()}"
-            elif self.type == "duration" and self.dimension_group and not self.is_dynamic_field:
+            elif self.type == "duration" and self.dimension_group:
                 formatted_label = f"{self.dimension_group.replace('_', ' ').title()} {label}"
             else:
                 formatted_label = label
