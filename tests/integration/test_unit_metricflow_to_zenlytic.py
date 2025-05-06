@@ -209,6 +209,13 @@ def test_measure_conversion(mf_measure):
             "type_params": {"measure": {"name": "customers"}},
         },
         {
+            "name": "customers_old_syntax",
+            "description": "Count of customers",
+            "type": "simple",
+            "label": "Count of customers",
+            "type_params": {"measure": "customers"},
+        },
+        {
             "name": "large_orders",
             "description": "Order with order values over 20.",
             "type": "SIMPLE",
@@ -358,6 +365,16 @@ def test_metric_conversion(mf_metric):
             "label": "Count of customers",
             "description": "Count of customers",
         }
+    elif mf_metric["name"] == "customers_old_syntax":
+        correct = {
+            "name": "customers_old_syntax",
+            "field_type": "measure",
+            "sql": "id_customer",
+            "hidden": False,
+            "type": "count_distinct",
+            "label": "Count of customers",
+            "description": "Count of customers",
+        }
     elif mf_metric["name"] == "large_orders":
         # Push down the filter to a new filtered measure
         correct = {
@@ -434,17 +451,40 @@ def test_metric_conversion(mf_metric):
     [
         {"name": "transaction", "type": "primary", "expr": "id_transaction"},
         {"name": "order", "type": "foreign", "expr": "id_order"},
-        {"name": "order_line", "type": "unique", "expr": "CAST(id_order_line AS STRING)"},
+        {"name": "order_line_id", "type": "unique", "expr": "id_order_line"},
+        {"name": "id_order_line", "type": "unique"},
+        {
+            "name": "order_line_unique_id",
+            "type": "unique",
+            "config": {
+                "meta": {
+                    "zenlytic": {"sql": "CAST(id_order_line AS STRING)", "allow_fanouts": ["my_other_view"]}
+                }
+            },
+        },
     ],
 )
 def test_entity_conversion(mf_entity):
-    converted = convert_mf_entity_to_zenlytic_identifier(mf_entity)
+    if mf_entity["name"] in {"order_line_id", "id_order_line"}:
+        fields = [{"name": "id_order_line", "sql": "CAST(order_line_unique_id AS STRING)"}]
+    else:
+        fields = []
+
+    converted = convert_mf_entity_to_zenlytic_identifier(mf_entity, fields=fields)
 
     if mf_entity["name"] == "transaction":
-        correct = {"name": "transaction", "type": "primary", "sql": "${id_transaction}"}
+        correct = {"name": "transaction", "type": "primary", "sql": "${TABLE}.id_transaction"}
     elif mf_entity["name"] == "order":
-        correct = {"name": "order", "type": "foreign", "sql": "${id_order}"}
-    elif mf_entity["name"] == "order_line":
-        correct = {"name": "order_line", "type": "primary", "sql": "CAST(id_order_line AS STRING)"}
-
+        correct = {"name": "order", "type": "foreign", "sql": "${TABLE}.id_order"}
+    elif mf_entity["name"] == "order_line_id":
+        correct = {"name": "order_line_id", "type": "primary", "sql": "${id_order_line}"}
+    elif mf_entity["name"] == "id_order_line":
+        correct = {"name": "id_order_line", "type": "primary", "sql": "${id_order_line}"}
+    elif mf_entity["name"] == "order_line_unique_id":
+        correct = {
+            "name": "order_line_unique_id",
+            "type": "primary",
+            "sql": "CAST(id_order_line AS STRING)",
+            "allow_fanouts": ["my_other_view"],
+        }
     assert converted == correct

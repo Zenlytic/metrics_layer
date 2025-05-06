@@ -1,4 +1,5 @@
 import re
+import hashlib
 from typing import TYPE_CHECKING, Union
 
 from jinja2 import StrictUndefined, Template
@@ -8,6 +9,7 @@ from metrics_layer.core.exceptions import (
     QueryError,
 )
 
+from .definitions import Definitions
 from .base import MetricsLayerBase, SQLReplacement
 from .field import Field, ZenlyticFieldType
 from .join import ZenlyticJoinRelationship, ZenlyticJoinType
@@ -55,6 +57,9 @@ class View(MetricsLayerBase, SQLReplacement):
         self.project: Project = project
         self.validate(definition)
         super().__init__(definition)
+
+    def id(self):
+        return self.name
 
     @property
     def sql_table_name(self):
@@ -168,6 +173,17 @@ class View(MetricsLayerBase, SQLReplacement):
             if model and model.week_start_day:
                 return model.week_start_day.lower()
         return "monday"
+
+    def sql_hash(self):
+        if self.derived_table_sql:
+            sql_definition = self.derived_table_sql
+        else:
+            sql_definition = self.sql_table_name
+
+        if sql_definition is not None:
+            result = hashlib.md5(sql_definition.encode("utf-8"))  # nosec
+            return result.hexdigest()
+        return None
 
     def sql_replacement_func(self, sql: str):
         return self.jinja_replacements(sql, {"user_attributes": self.project._user})

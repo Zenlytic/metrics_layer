@@ -450,6 +450,11 @@ class Field(MetricsLayerBase, SQLReplacement):
             return len(referenced_canon_dates) > 1
         return False
 
+    def sql_hash(self):
+        # The query type doesn't matter for generating the hash
+        result = hashlib.md5(self.sql_query(query_type=Definitions.snowflake).encode("utf-8"))  # nosec
+        return result.hexdigest()
+
     def sql_replacement_func(self, sql: str):
         query_attributes = {"dimension_group": self.dimension_group}
         return self.view.jinja_replacements(
@@ -1491,7 +1496,9 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "month": lambda s, qt: (  # noqa
                     f"CAST(DATE_TRUNC(CAST({s} AS DATE), MONTH) AS {self.datatype.upper()})"
                 ),
-                "quarter": lambda s, qt: f"FORMAT_TIMESTAMP('%Y-Q%Q', CAST({s} AS TIMESTAMP))",  # noqa  # noqa
+                "quarter": (
+                    lambda s, qt: f"FORMAT_TIMESTAMP('%Y-Q%Q', CAST({s} AS TIMESTAMP))"
+                ),  # noqa  # noqa
                 "year": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} AS DATE), YEAR) AS {self.datatype.upper()})",
                 "fiscal_month": lambda s, qt: (
                     f"CAST(DATE_TRUNC(CAST({self._fiscal_offset_to_timestamp(s, qt)} AS DATE), MONTH) AS"
@@ -2821,7 +2828,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                     field = None
                 to_replace_type = None if field is None else field.type
 
-                if to_replace_type == "number":
+                if to_replace_type == ZenlyticType.number and field.field_type == ZenlyticFieldType.measure:
                     reference_fields_raw = field.get_referenced_sql_query(strings_only=False)
                     if reference_fields_raw is not None:
                         reference_fields.extend(reference_fields_raw)
