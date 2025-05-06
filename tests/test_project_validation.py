@@ -1,7 +1,6 @@
 import json
 
 import pytest
-import ruamel.yaml
 
 
 def _get_view_by_name(project, view_name):
@@ -23,6 +22,20 @@ def test_validation_with_no_replaced_objects(connection):
     project = connection.project
     response = project.validate_with_replaced_objects(replaced_objects=[])
     assert response == []
+
+
+@pytest.mark.validation
+def test_validation_with_duplicate_model_names(fresh_project):
+    project = fresh_project
+    project._models[1]["name"] = "test_model"
+    response = project.validate_with_replaced_objects(replaced_objects=project._models)
+    assert [e["message"] for e in response] == [
+        "Duplicate model name: test_model. Model names must be unique.",
+        (
+            "Could not find a model in the view other_db_traffic. Use the model_name "
+            "property to specify the model."
+        ),
+    ]
 
 
 # Note: line / column validation only works if the property is
@@ -1140,7 +1153,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 "Field parent_channel in view order_lines is missing the required key 'type'.",
                 (
                     "Field parent_channel in view order_lines has an invalid type None. Valid "
-                    "types for dimensions are: ['string', 'yesno', 'number', 'tier']"
+                    "types for dimensions are: ['string', 'yesno', 'number', 'tier', 'time']"
                 ),
             ],
         ),
@@ -1150,7 +1163,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "count",
             [
                 "Field parent_channel in view order_lines has an invalid type count. Valid "
-                "types for dimensions are: ['string', 'yesno', 'number', 'tier']"
+                "types for dimensions are: ['string', 'yesno', 'number', 'tier', 'time']"
             ],
         ),
         (
@@ -1184,13 +1197,26 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
         (
             "total_item_costs",
             "type",
-            "time",
+            "tim",
             [
                 (
-                    "Field total_item_costs in view order_lines has an invalid type time. Valid "
+                    "Field total_item_costs in view order_lines has an invalid type tim. Valid "
                     "types for measures are: ['count', 'count_distinct', 'sum', 'sum_distinct', "
                     "'average', 'average_distinct', 'median', 'max', 'min', 'number', "
-                    "'cumulative']"
+                    "'cumulative', 'string', 'yesno', 'time', 'percentile']"
+                ),
+            ],
+        ),
+        (
+            "total_item_costs",
+            "type",
+            "tier",
+            [
+                (
+                    "Field total_item_costs in view order_lines has an invalid type tier. Valid "
+                    "types for measures are: ['count', 'count_distinct', 'sum', 'sum_distinct', "
+                    "'average', 'average_distinct', 'median', 'max', 'min', 'number', "
+                    "'cumulative', 'string', 'yesno', 'time', 'percentile']"
                 ),
             ],
         ),
@@ -1383,11 +1409,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "total_item_costs",
             "type",
             "string",
-            [
-                "Field total_item_costs in view order_lines has an invalid type string. Valid types for"
-                " measures are: ['count', 'count_distinct', 'sum', 'sum_distinct', 'average',"
-                " 'average_distinct', 'median', 'max', 'min', 'number', 'cumulative']"
-            ],
+            [],
         ),
         (
             "parent_channel",
@@ -1395,7 +1417,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "count",
             [
                 "Field parent_channel in view order_lines has an invalid type count. Valid types for"
-                " dimensions are: ['string', 'yesno', 'number', 'tier']"
+                " dimensions are: ['string', 'yesno', 'number', 'tier', 'time']"
             ],
         ),
         (
@@ -2012,6 +2034,24 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             ],
         ),
         (
+            "total_item_costs",
+            "percentile",
+            "50",
+            [
+                "Field total_item_costs in view order_lines has an invalid percentile value of 50. "
+                "percentile must be an integer between 1 and 99."
+            ],
+        ),
+        (
+            "total_item_costs",
+            "percentile",
+            100,
+            [
+                "Field total_item_costs in view order_lines has an invalid percentile value of 100. "
+                "percentile must be an integer between 1 and 99."
+            ],
+        ),
+        (
             "parent_channel",
             "random_key",
             "yay",
@@ -2031,10 +2071,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
         ),
         (
             "parent_channel",
-            "datatype",
+            "dtype",
             "timestamp",
             [
-                "Property datatype is present on Field parent_channel in view order_lines, but "
+                "Property dtype is present on Field parent_channel in view order_lines, but "
                 "it is not a valid property. Did you mean type?"
             ],
         ),
@@ -2049,10 +2089,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
         ),
         (
             "total_item_costs",
-            "datatype",
+            "dtype",
             "timestamp",
             [
-                "Property datatype is present on Field total_item_costs in view order_lines, but "
+                "Property dtype is present on Field total_item_costs in view order_lines, but "
                 "it is not a valid property. Did you mean type?"
             ],
         ),

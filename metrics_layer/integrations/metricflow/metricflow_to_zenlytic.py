@@ -229,6 +229,14 @@ def convert_mf_measure_to_zenlytic_measure(mf_measure: dict):
         field_dict["type"] = "sum"
         field_dict["sql"] = f"CAST({field_dict['sql']} AS INT)"
 
+    if field_dict["type"] == "percentile":
+        field_dict["type"] = "percentile"
+        field_dict["percentile"] = int(float(mf_measure["agg_params"]["percentile"]) * 100)
+        if mf_measure["agg_params"]["use_discrete_percentile"]:
+            raise ZenlyticUnsupportedError(
+                f"discrete percentile is not supported for the measure {mf_measure['name']}"
+            )
+
     if canon_date := mf_measure.get("agg_time_dimension"):
         field_dict["canon_date"] = canon_date
 

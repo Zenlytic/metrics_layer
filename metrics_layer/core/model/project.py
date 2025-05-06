@@ -273,12 +273,20 @@ class Project:
 
     def validate(self, views_must_be_in_topics: bool = False):
         all_errors = [] + self._conversion_errors
+
+        model_names = []
         for model in self.models():
+            model_names.append(model.name)
             try:
                 all_errors.extend(model.collect_errors())
             except QueryError as e:
                 # If we have an error building the model, we cannot continue
                 return [self._error(str(e))]
+
+        # Check for duplicate model names
+        duplicate_models = [name for name, count in Counter(model_names).items() if count > 1]
+        for model_name in duplicate_models:
+            all_errors.append(self._error(f"Duplicate model name: {model_name}. Model names must be unique."))
 
         for topic in self.topics():
             try:

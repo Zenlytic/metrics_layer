@@ -21,6 +21,85 @@ def test_query_no_join_with_limit(connection):
 
 
 @pytest.mark.query
+@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery])
+def test_query_no_join_with_time_dimension(connection, query_type):
+    query = connection.get_sql_query(
+        metrics=["number_of_sessions"],
+        dimensions=["session_adj_week", "session_adj_month"],
+        where=[
+            {
+                "field": "session_adj_week",
+                "expression": "greater_than",
+                "value": datetime(year=2025, month=1, day=1),
+            },
+            {
+                "field": "session_adj_month",
+                "expression": "less_than",
+                "value": datetime(year=2025, month=1, day=1),
+            },
+        ],
+        query_type=query_type,
+    )
+
+    if query_type == Definitions.snowflake:
+        correct = (
+            "SELECT date_trunc('week', dateadd(day, 1, sessions.session_date)) as"
+            " sessions_session_adj_week,date_trunc('month', dateadd(day, 1, sessions.session_date)) as"
+            " sessions_session_adj_month,COUNT(sessions.id) as sessions_number_of_sessions FROM"
+            " analytics.sessions sessions WHERE date_trunc('week', dateadd(day, 1,"
+            " sessions.session_date))>'2025-01-01T00:00:00' AND date_trunc('month', dateadd(day, 1,"
+            " sessions.session_date))<'2025-01-01T00:00:00' GROUP BY date_trunc('week', dateadd(day, 1,"
+            " sessions.session_date)),date_trunc('month', dateadd(day, 1, sessions.session_date)) ORDER BY"
+            " sessions_number_of_sessions DESC NULLS LAST;"
+        )
+    else:
+        correct = (
+            "SELECT date_trunc('week', dateadd(day, 1, sessions.session_date)) as"
+            " sessions_session_adj_week,date_trunc('month', dateadd(day, 1, sessions.session_date)) as"
+            " sessions_session_adj_month,COUNT(sessions.id) as sessions_number_of_sessions FROM"
+            " analytics.sessions sessions WHERE date_trunc('week', dateadd(day, 1,"
+            " sessions.session_date))>CAST('2025-01-01 00:00:00' AS TIMESTAMP) AND"
+            " date_trunc('month', dateadd(day, 1, sessions.session_date))<CAST(CAST('2025-01-01 00:00:00' AS"
+            " TIMESTAMP) AS DATETIME) GROUP BY sessions_session_adj_week,sessions_session_adj_month;"
+        )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_no_join_with_non_number_measures(connection):
+    query = connection.get_sql_query(
+        metrics=[
+            "most_recent_session_date",
+            "most_recent_session_date_is_today",
+            "list_of_devices_used",
+            "list_of_sources",
+        ],
+        dimensions=["sessions.session_year"],
+        having=[
+            {"field": "most_recent_session_date", "expression": "greater_than", "value": "2025-01-01"},
+            {"field": "most_recent_session_date_is_today", "expression": "equal_to", "value": True},
+            {"field": "list_of_devices_used", "expression": "contains", "value": "mobile"},
+            {"field": "list_of_sources", "expression": "does_not_contain", "value": "organic"},
+        ],
+    )
+
+    correct = (
+        "SELECT DATE_TRUNC('YEAR', sessions.session_date) as sessions_session_year,max((DATE_TRUNC('DAY',"
+        " sessions.session_date))) as sessions_most_recent_session_date,((max((DATE_TRUNC('DAY',"
+        " sessions.session_date)))) = current_date()) as"
+        " sessions_most_recent_session_date_is_today,LISTAGG((sessions.session_device), ', ') as"
+        " sessions_list_of_devices_used,LISTAGG(sessions.utm_source || ' - ' || (sessions.utm_campaign), ',"
+        " ') as sessions_list_of_sources FROM analytics.sessions sessions GROUP BY DATE_TRUNC('YEAR',"
+        " sessions.session_date) HAVING max((DATE_TRUNC('DAY', sessions.session_date)))>'2025-01-01' AND"
+        " ((max((DATE_TRUNC('DAY', sessions.session_date)))) = current_date()) AND"
+        " LISTAGG((sessions.session_device), ', ') LIKE '%mobile%' AND LISTAGG(sessions.utm_source || ' - '"
+        " || (sessions.utm_campaign), ', ') NOT LIKE '%organic%' ORDER BY sessions_most_recent_session_date"
+        " DESC NULLS LAST;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_alias_only_query(connection):
     metric = connection.get_metric(metric_name="total_item_revenue")
     query = metric.sql_query(query_type="SNOWFLAKE", alias_only=True)
