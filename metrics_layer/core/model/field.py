@@ -375,7 +375,15 @@ class Field(MetricsLayerBase, SQLReplacement):
             if self.type == "time" and self.dimension_group:
                 formatted_label = f"{label} {self.dimension_group.replace('_', ' ').title()}"
             elif self.type == "duration" and self.dimension_group:
-                formatted_label = f"{self.dimension_group.replace('_', ' ').title()} {label}"
+                label_list = label.split(" ")
+                if self.is_dynamic_field and label_list[0].lower() == "duplicate":
+                    label_prefix = label_list[0].title()
+                    label_suffix = " ".join(label_list[1:])
+                    formatted_label = (
+                        f"{label_prefix} {self.dimension_group.replace('_', ' ')} {label_suffix}"
+                    )
+                else:
+                    formatted_label = f"{self.dimension_group.replace('_', ' ').title()} {label}"
             else:
                 formatted_label = label
         else:
