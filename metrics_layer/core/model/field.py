@@ -450,6 +450,11 @@ class Field(MetricsLayerBase, SQLReplacement):
             return len(referenced_canon_dates) > 1
         return False
 
+    def sql_hash(self):
+        # The query type doesn't matter for generating the hash
+        result = hashlib.md5(self.sql_query(query_type=Definitions.snowflake).encode("utf-8"))  # nosec
+        return result.hexdigest()
+
     def sql_replacement_func(self, sql: str):
         query_attributes = {"dimension_group": self.dimension_group}
         return self.view.jinja_replacements(

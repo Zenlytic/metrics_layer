@@ -44,6 +44,9 @@ class AccessGrant(MetricsLayerBase):
                     name_str = f" {definition.get('name')}"
                 raise QueryError(f"Access Grant{name_str} missing required key {k}")
 
+    def id(self):
+        return self.name
+
     def _error(self, element, error):
         return self.model._error(element, error)
 
@@ -122,6 +125,9 @@ class Model(MetricsLayerBase):
                 if k != "name":
                     name_str = f" in the model {definition.get('name')}"
                 raise QueryError(f"Model missing required key {k}{name_str}")
+
+    def id(self):
+        return self.name
 
     @property
     def fiscal_month_offset(self):

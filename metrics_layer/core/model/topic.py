@@ -48,6 +48,9 @@ class Topic(MetricsLayerBase):
                     name_str = f" in the topic {definition.get('label')}"
                 raise QueryError(f"Topic missing required key {k}{name_str}")
 
+    def id(self):
+        return self.label
+
     @property
     def model(self):
         return self.project.get_model(self.model_name)

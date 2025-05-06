@@ -4,6 +4,46 @@ from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException
 
 
 @pytest.mark.project
+def test_object_id_functions(connection):
+    """
+    Tests the object id functions for all possible metrics layer objects.
+    """
+
+    field = connection.project.get_field("order_lines.product_name")
+    assert field.id() == "order_lines.product_name"
+
+    view = connection.project.get_view("order_lines")
+    assert view.id() == "order_lines"
+
+    access_grant = connection.project.get_access_grant("test_access_grant_department_topic")
+    assert access_grant.id() == "test_access_grant_department_topic"
+
+    topic = connection.project.get_topic("Order lines Topic")
+    assert topic.id() == "Order lines Topic"
+
+    model = connection.project.get_model("test_model")
+    assert model.id() == "test_model"
+
+    assert isinstance(connection.project.id(), int)
+
+
+@pytest.mark.project
+def test_sql_hash_functions(connection):
+    """
+    Tests the sql hash functions for all possible metrics layer objects.
+    """
+
+    field = connection.project.get_field("order_lines.product_name")
+    assert field.sql_hash() == "16b5d9e2a983e8ff4d7dada2f6676572"
+
+    view = connection.project.get_view("order_lines")
+    assert view.sql_hash() == "33adf8dca16dfb1fd04ee79d0bd806e6"
+
+    derived_table_view = connection.project.get_view("country_detail")
+    assert derived_table_view.sql_hash() == "f4e06fda5cbcf620289c0e4efd294758"
+
+
+@pytest.mark.project
 def test_result_types(connection):
     """
     Tests the result_type property for all possible ZenlyticType options.
