@@ -145,7 +145,7 @@ def test_e2e_conversions():
 
     assert order_item_view["identifiers"][0]["name"] == "order_item"
     assert order_item_view["identifiers"][0]["type"] == "primary"
-    assert order_item_view["identifiers"][0]["sql"] == "${order_item_id}"
+    assert order_item_view["identifiers"][0]["sql"] == "${TABLE}.order_item_id"
     assert order_item_view["identifiers"][1]["name"] == "order_id"
     assert order_item_view["identifiers"][1]["type"] == "foreign"
-    assert order_item_view["identifiers"][1]["sql"] == "${order_id}"
+    assert order_item_view["identifiers"][1]["sql"] == "CAST(order_id AS VARCHAR)"
