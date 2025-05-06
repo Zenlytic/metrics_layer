@@ -1491,7 +1491,9 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "month": lambda s, qt: (  # noqa
                     f"CAST(DATE_TRUNC(CAST({s} AS DATE), MONTH) AS {self.datatype.upper()})"
                 ),
-                "quarter": lambda s, qt: f"FORMAT_TIMESTAMP('%Y-Q%Q', CAST({s} AS TIMESTAMP))",  # noqa  # noqa
+                "quarter": (
+                    lambda s, qt: f"FORMAT_TIMESTAMP('%Y-Q%Q', CAST({s} AS TIMESTAMP))"
+                ),  # noqa  # noqa
                 "year": lambda s, qt: f"CAST(DATE_TRUNC(CAST({s} AS DATE), YEAR) AS {self.datatype.upper()})",
                 "fiscal_month": lambda s, qt: (
                     f"CAST(DATE_TRUNC(CAST({self._fiscal_offset_to_timestamp(s, qt)} AS DATE), MONTH) AS"
@@ -2821,7 +2823,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                     field = None
                 to_replace_type = None if field is None else field.type
 
-                if to_replace_type == "number":
+                if to_replace_type == ZenlyticType.number and field.field_type == ZenlyticFieldType.measure:
                     reference_fields_raw = field.get_referenced_sql_query(strings_only=False)
                     if reference_fields_raw is not None:
                         reference_fields.extend(reference_fields_raw)

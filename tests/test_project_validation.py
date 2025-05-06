@@ -1100,6 +1100,16 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             ["Field name: date in view order_lines is a reserved word and cannot be used as a field name."],
         ),
         (
+            None,
+            "__ADD__",
+            {"name": "field", "field_type": "dimension", "type": "number", "sql": "${FIELD}"},
+            [
+                "Field field in view order_lines contains a reference to itself. This is invalid. Please "
+                "remove the reference. If you're trying to reference a column in a table, you can "
+                "use ${TABLE}.field"
+            ],
+        ),
+        (
             "parent_channel",
             "name",
             "h@#ffw",
