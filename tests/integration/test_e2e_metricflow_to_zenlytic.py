@@ -33,18 +33,21 @@ def test_e2e_conversions():
 
     print(views)
     assert len(errors) == 3
-    assert errors[0] == {
+    percentile_error = next(e for e in errors if "p99_order_total" in e["message"])
+    assert percentile_error == {
         "message": "In view orders discrete percentile is not supported for the measure p99_order_total",
         "view_name": "orders",
     }
-    assert errors[1] == {
+    food_customers_error = next(e for e in errors if "food_customers" in e["message"])
+    assert food_customers_error == {
         "message": (
             "In view orders metric conversion failed for food_customers: Metric type filters are"
             " not supported"
         ),
         "view_name": "orders",
     }
-    assert errors[2] == {
+    cumulative_revenue_error = next(e for e in errors if "cumulative_revenue" in e["message"])
+    assert cumulative_revenue_error == {
         "message": (
             "In view order_item metric conversion failed for cumulative_revenue: It is a cumulative metric,"
             " which is not supported."
@@ -145,7 +148,7 @@ def test_e2e_conversions():
 
     assert order_item_view["identifiers"][0]["name"] == "order_item"
     assert order_item_view["identifiers"][0]["type"] == "primary"
-    assert order_item_view["identifiers"][0]["sql"] == "${order_item_id}"
+    assert order_item_view["identifiers"][0]["sql"] == "${TABLE}.order_item_id"
     assert order_item_view["identifiers"][1]["name"] == "order_id"
     assert order_item_view["identifiers"][1]["type"] == "foreign"
-    assert order_item_view["identifiers"][1]["sql"] == "${order_id}"
+    assert order_item_view["identifiers"][1]["sql"] == "CAST(order_id AS VARCHAR)"

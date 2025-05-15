@@ -58,6 +58,9 @@ class Project:
         user_str = "" if not self._user else json.dumps(self._user, sort_keys=True)
         return self._content_hash + hash(user_str)
 
+    def id(self):
+        return hash(self)
+
     def refresh_cache(self):
         # Clear LRU Caches
         self.fields.cache_clear()
@@ -288,12 +291,21 @@ class Project:
         for model_name in duplicate_models:
             all_errors.append(self._error(f"Duplicate model name: {model_name}. Model names must be unique."))
 
+        topic_names = []
         for topic in self.topics():
+            topic_names.append(topic.label)
             try:
                 all_errors.extend(topic.collect_errors())
             except QueryError as e:
                 # If we have an error building the topic, we cannot continue
                 return [self._error(str(e))]
+
+        # Check for duplicate topic names
+        duplicate_topics = [name for name, count in Counter(topic_names).items() if count > 1]
+        for topic_name in duplicate_topics:
+            all_errors.append(
+                self._error(f"Duplicate topic label: {topic_name}. Topic labels must be unique.")
+            )
 
         if views_must_be_in_topics:
             view_names = [v.name for v in self.views()]

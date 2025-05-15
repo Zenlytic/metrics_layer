@@ -11,7 +11,7 @@ semantic_models:
         expr: order_item_id
       - name: order_id
         type: foreign
-        expr: order_id
+        expr: CAST(order_id AS VARCHAR)
       - name: product
         type: foreign
         expr: product_id

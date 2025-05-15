@@ -51,17 +51,10 @@ def load_mf_project(models_folder: str):
         referenced_metrics = []
 
         if metric["type"] in {MetricflowMetricTypes.simple, MetricflowMetricTypes.cumulative}:
-            referenced_metrics.append(type_params["measure"]["name"])
+            referenced_metrics.append(get_name_or_string_literal(type_params["measure"]))
         elif metric["type"] == MetricflowMetricTypes.ratio:
-            if isinstance(type_params["numerator"], str):
-                referenced_metrics.append(type_params["numerator"])
-            else:
-                referenced_metrics.append(type_params["numerator"]["name"])
-
-            if isinstance(type_params["denominator"], str):
-                referenced_metrics.append(type_params["denominator"])
-            else:
-                referenced_metrics.append(type_params["denominator"]["name"])
+            referenced_metrics.append(get_name_or_string_literal(type_params["numerator"]))
+            referenced_metrics.append(get_name_or_string_literal(type_params["denominator"]))
         elif metric["type"] == MetricflowMetricTypes.derived:
             for ref_metric in type_params["metrics"]:
                 referenced_metrics.append(ref_metric["name"])
@@ -164,7 +157,7 @@ def convert_mf_view_to_zenlytic_view(
     # entities to identifiers
     for entity in mf_semantic_model["entities"]:
         if "name" in entity:
-            identifier = convert_mf_entity_to_zenlytic_identifier(entity)
+            identifier = convert_mf_entity_to_zenlytic_identifier(entity, fields=zenlytic_data["fields"])
             zenlytic_data["identifiers"].append(identifier)
 
     return zenlytic_data, errors
@@ -174,7 +167,7 @@ def convert_mf_dimension_to_zenlytic_dimension(mf_dimension: dict):
     if "expr" in mf_dimension:
         expr = mf_dimension["expr"].strip()
         # Check if expression is more than a simple column reference
-        if any(op in expr for op in ["+", "-", "*", "/", "(", ")", " ", ","]):
+        if sql_has_operations(expr):
             sql = expr
         else:
             sql = "${TABLE}." + expr
@@ -259,21 +252,36 @@ def convert_mf_measure_to_zenlytic_measure(mf_measure: dict):
     return field_dict
 
 
-def convert_mf_entity_to_zenlytic_identifier(mf_entity: dict):
+def convert_mf_entity_to_zenlytic_identifier(mf_entity: dict, fields: list = []):
     # if expr is a simple string, use it as the sql otherwise use it as given as a sql snippet
-    if "expr" in mf_entity:
-        if any(char in mf_entity["expr"] for char in [" ", "(", ")"]):
-            sql = mf_entity["expr"]
-        else:
-            sql = "${" + mf_entity["expr"] + "}"
-    else:
-        sql = "${" + mf_entity["name"] + "}"
-
-    return {
+    entity_dict = {
         "name": mf_entity["name"],
         "type": mf_entity["type"] if mf_entity["type"] != "unique" else "primary",
-        "sql": sql,
     }
+    sql_expr = mf_entity["expr"] if "expr" in mf_entity else mf_entity["name"]
+
+    is_field_reference = False
+    for f in fields:
+        # If the sql expression equals the field name, use a reference to the field
+        if f["name"] == sql_expr:
+            entity_dict["sql"] = "${" + f["name"] + "}"
+            is_field_reference = True
+            break
+
+    # If the sql expression is not a field reference, use it as given as a sql snippet
+    # If it's an operation, use it as-is, but if it's a single column
+    # reference, add ${TABLE} to it, so the join works
+    if not is_field_reference:
+        sql_expr = sql_expr.strip()
+        if sql_has_operations(sql_expr):
+            entity_dict["sql"] = sql_expr
+        else:
+            entity_dict["sql"] = "${TABLE}." + sql_expr
+
+    if mf_entity.get("config", {}).get("meta") and isinstance(mf_entity["config"]["meta"], dict):
+        entity_dict = {**entity_dict, **mf_entity["config"]["meta"].get("zenlytic", {})}
+
+    return entity_dict
 
 
 def convert_mf_metric_to_zenlytic_measure(mf_metric: dict, measures: list) -> tuple:
@@ -294,9 +302,8 @@ def convert_mf_metric_to_zenlytic_measure(mf_metric: dict, measures: list) -> tu
         )
 
     elif mf_metric["type"].lower() == MetricflowMetricTypes.simple:
-        associated_measure = _get_measure(
-            mf_metric["type_params"]["measure"]["name"], measures, metric_name=mf_metric["name"]
-        )
+        measure_name = get_name_or_string_literal(mf_metric["type_params"]["measure"])
+        associated_measure = _get_measure(measure_name, measures, metric_name=mf_metric["name"])
         metric_dict, _ = apply_filter_to_metric(
             associated_measure, mf_metric, extra_metric_params=metric_dict
         )
@@ -305,37 +312,32 @@ def convert_mf_metric_to_zenlytic_measure(mf_metric: dict, measures: list) -> tu
         metric_dict["type"] = "ratio"
         numerator = mf_metric["type_params"]["numerator"]
         denominator = mf_metric["type_params"]["denominator"]
-        if isinstance(numerator, str):
-            numerator_sql = "${" + numerator + "}"
-        else:
-            # If there's a filter, re-write the sql to include the filter
-            if "filter" in numerator:
-                associated_numerator = _get_measure(
-                    numerator["name"], measures, metric_name=mf_metric["name"]
-                )
-                numerator_dict, numerator_measures = apply_filter_to_metric(
-                    associated_numerator, numerator, new_measure_name=mf_metric["name"] + "_numerator"
-                )
-                numerator_sql = "${" + numerator_dict["name"] + "}"
-                additional_measures.extend(numerator_measures)
-            else:
-                numerator_sql = "${" + numerator["name"] + "}"
+        numerator_measure_name = get_name_or_string_literal(numerator)
+        denominator_measure_name = get_name_or_string_literal(denominator)
 
-        if isinstance(denominator, str):
-            denominator_sql = "${" + denominator + "}"
+        # If there's a filter, re-write the sql to include the filter
+        if isinstance(numerator, dict) and "filter" in numerator:
+            associated_numerator = _get_measure(numerator["name"], measures, metric_name=mf_metric["name"])
+            numerator_dict, numerator_measures = apply_filter_to_metric(
+                associated_numerator, numerator, new_measure_name=mf_metric["name"] + "_numerator"
+            )
+            numerator_sql = "${" + numerator_dict["name"] + "}"
+            additional_measures.extend(numerator_measures)
         else:
-            # If there's a filter, re-write the sql to include the filter
-            if "filter" in denominator:
-                associated_denominator = _get_measure(
-                    denominator["name"], measures, metric_name=mf_metric["name"]
-                )
-                denominator_dict, denominator_measures = apply_filter_to_metric(
-                    associated_denominator, denominator, new_measure_name=mf_metric["name"] + "_denominator"
-                )
-                denominator_sql = "${" + denominator_dict["name"] + "}"
-                additional_measures.extend(denominator_measures)
-            else:
-                denominator_sql = "${" + denominator["name"] + "}"
+            numerator_sql = "${" + numerator_measure_name + "}"
+
+        # If there's a filter, re-write the sql to include the filter
+        if isinstance(denominator, dict) and "filter" in denominator:
+            associated_denominator = _get_measure(
+                denominator["name"], measures, metric_name=mf_metric["name"]
+            )
+            denominator_dict, denominator_measures = apply_filter_to_metric(
+                associated_denominator, denominator, new_measure_name=mf_metric["name"] + "_denominator"
+            )
+            denominator_sql = "${" + denominator_dict["name"] + "}"
+            additional_measures.extend(denominator_measures)
+        else:
+            denominator_sql = "${" + denominator_measure_name + "}"
 
         metric_dict["sql"] = numerator_sql + " / " + denominator_sql
         metric_dict["type"] = "number"
@@ -441,6 +443,19 @@ def _extract_filter_sql(filter_string):
         replacement = "${" + f"{column_name}_{time_grain}" + "}"
         filter_string = filter_string.replace(f"TimeDimension('{match[0]}', '{match[1]}')", replacement)
     return filter_string.replace("{{", "").replace("}}", "")
+
+
+def get_name_or_string_literal(s):
+    if isinstance(s, str):
+        return s
+    elif isinstance(s, dict):
+        return s["name"]
+    else:
+        raise ValueError(f"Invalid type: {type(s)}")
+
+
+def sql_has_operations(sql: str) -> bool:
+    return any(op in sql for op in ["+", "-", "*", "/", "(", ")", " ", ","])
 
 
 def convert_yml_to_dict(path):
