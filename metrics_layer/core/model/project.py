@@ -622,9 +622,7 @@ class Project:
     def get_field(self, field_name: str, view_name: str = None, model: Model = None) -> Field:
         field_name, view_name = self._parse_field_and_view_name(field_name, view_name)
 
-        fields = self.fields(
-            view_name=view_name, expand_dimension_groups=True, show_dynamic_fields=True, model=model
-        )
+        fields = self.fields(view_name=view_name, expand_dimension_groups=True, model=model)
         matching_fields = [f for f in fields if f.equal(field_name)]
         return self._matching_field_handler(matching_fields, field_name, view_name)
 
@@ -638,9 +636,7 @@ class Project:
     @functools.lru_cache(maxsize=None)
     def get_field_by_name(self, field_name: str, view_name: str = None, model: Model = None):
         field_name, view_name = self._parse_field_and_view_name(field_name, view_name)
-        fields = self.fields(
-            view_name=view_name, expand_dimension_groups=False, show_dynamic_fields=True, model=model
-        )
+        fields = self.fields(view_name=view_name, expand_dimension_groups=False, model=model)
         matching_fields = [f for f in fields if f.name == field_name]
         return self._matching_field_handler(matching_fields, field_name, view_name)
 
@@ -649,9 +645,7 @@ class Project:
         self, tag_name: str, view_name: str = None, join_graphs: tuple = None, model: Model = None
     ):
         tag_options = {tag_name, f"{tag_name}s"} if tag_name[-1] != "s" else {tag_name, tag_name[:-1]}
-        fields = self.fields(
-            view_name=view_name, expand_dimension_groups=True, show_dynamic_fields=True, model=model
-        )
+        fields = self.fields(view_name=view_name, expand_dimension_groups=True, model=model)
         matching_fields = [f for f in fields if f.tags and any(t in tag_options for t in f.tags)]
         if join_graphs:
             matching_fields = [f for f in matching_fields if any(j in f.join_graphs() for j in join_graphs)]

@@ -1008,39 +1008,33 @@ class View(MetricsLayerBase, SQLReplacement):
     def fields(
         self,
         show_hidden: bool = True,
-        show_dynamic_fields: bool = False,
         expand_dimension_groups: bool = False,
     ) -> list:
         if not self.__all_fields:
-            self.__all_fields = self._all_fields(
-                expand_dimension_groups=expand_dimension_groups, show_dynamic_fields=show_dynamic_fields
-            )
+            self.__all_fields = self._all_fields(expand_dimension_groups=expand_dimension_groups)
         all_fields = self.__all_fields
         if show_hidden:
             return all_fields
         return [field for field in all_fields if not field.hidden]
 
-    def _all_fields(self, expand_dimension_groups: bool, show_dynamic_fields: bool):
+    def _all_fields(self, expand_dimension_groups: bool):
         fields = []
         for f in self._definition.get("fields", []):
             if self.field_prefix:
                 f["label_prefix"] = self.field_prefix
             field = Field(f, view=self)
             if self.project.can_access_field(field):
-                if not field.is_dynamic_field or show_dynamic_fields:
-                    if expand_dimension_groups and field.field_type == "dimension_group":
-                        if field.timeframes:
-                            for timeframe in field.timeframes:
-                                additional = {"hidden": True} if timeframe == "raw" else {}
-                                fields.append(
-                                    Field({**f, **additional, "dimension_group": timeframe}, view=self)
-                                )
+                if expand_dimension_groups and field.field_type == "dimension_group":
+                    if field.timeframes:
+                        for timeframe in field.timeframes:
+                            additional = {"hidden": True} if timeframe == "raw" else {}
+                            fields.append(Field({**f, **additional, "dimension_group": timeframe}, view=self))
 
-                        elif field.intervals:
-                            for interval in field.intervals:
-                                fields.append(Field({**f, "dimension_group": f"{interval}s"}, view=self))
-                    else:
-                        fields.append(field)
+                    elif field.intervals:
+                        for interval in field.intervals:
+                            fields.append(Field({**f, "dimension_group": f"{interval}s"}, view=self))
+                else:
+                    fields.append(field)
         return fields
 
     def _field_name_to_remove(self, field_expr: str):

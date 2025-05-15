@@ -192,28 +192,6 @@ class Field(MetricsLayerBase, SQLReplacement):
         self.validate(definition)
         super().__init__(definition)
 
-    # def __hash__(self) -> int:
-    #     attributes_not_to_hash = ("id", "name", "label", "is_dynamic_field", "is_merged_result")
-
-    #     attributes_to_hash = {}
-
-    #     for attr in self.valid_properties:
-    #         if attr not in attributes_not_to_hash:
-    #             if hasattr(self.__class__, attr) and isinstance(getattr(self.__class__, attr), property):
-    #                 value = getattr(self, attr)
-    #             else:
-    #                 value = self._definition.get(attr, None)
-
-    #             if value:
-    #                 if isinstance(value, (dict, list)):
-    #                     value = json.dumps(value, sort_keys=True)
-    #                 attributes_to_hash[attr] = value
-
-    #     attributes_to_hash_str = json.dumps(attributes_to_hash, sort_keys=True)
-
-    #     hashed_attributes = hashlib.md5(attributes_to_hash_str.encode("utf-8"))
-    #     return int(hashed_attributes.hexdigest(), base=16)
-
     def __hash__(self) -> int:
         result = hashlib.md5(self.id().encode("utf-8"))
         id_int = int(result.hexdigest(), base=16)
@@ -1021,7 +999,6 @@ class Field(MetricsLayerBase, SQLReplacement):
         properties = {}
         for attr in self.valid_properties:
             if hasattr(self.__class__, attr) and isinstance(getattr(self.__class__, attr), property):
-                print(f"getting {attr}: {getattr(self, attr)}")
                 properties[attr] = getattr(self, attr)
             elif attr in self._definition:
                 properties[attr] = self._definition[attr]
