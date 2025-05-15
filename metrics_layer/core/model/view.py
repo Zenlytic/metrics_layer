@@ -1,5 +1,5 @@
-import re
 import hashlib
+import re
 from typing import TYPE_CHECKING, Union
 
 from jinja2 import StrictUndefined, Template
@@ -9,8 +9,8 @@ from metrics_layer.core.exceptions import (
     QueryError,
 )
 
-from .definitions import Definitions
 from .base import MetricsLayerBase, SQLReplacement
+from .definitions import Definitions
 from .field import Field, ZenlyticFieldType
 from .join import ZenlyticJoinRelationship, ZenlyticJoinType
 from .join_graph import IdentifierTypes
