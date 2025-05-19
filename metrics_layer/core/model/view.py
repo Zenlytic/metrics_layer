@@ -1,5 +1,5 @@
-import re
 import hashlib
+import re
 from typing import TYPE_CHECKING, Union
 
 from jinja2 import StrictUndefined, Template
@@ -9,8 +9,8 @@ from metrics_layer.core.exceptions import (
     QueryError,
 )
 
-from .definitions import Definitions
 from .base import MetricsLayerBase, SQLReplacement
+from .definitions import Definitions
 from .field import Field, ZenlyticFieldType
 from .join import ZenlyticJoinRelationship, ZenlyticJoinType
 from .join_graph import IdentifierTypes
@@ -1012,7 +1012,7 @@ class View(MetricsLayerBase, SQLReplacement):
                 referenced_sql = field.get_referenced_sql_query(strings_only=False)
                 if referenced_sql is not None:
                     for reference in referenced_sql:
-                        if isinstance(reference, str) and field.is_personal_field:
+                        if isinstance(reference, str) and field.is_dynamic_field:
                             all_fields.append((field, f"Warning: {reference}"))
                         elif isinstance(reference, str):
                             all_fields.append((field, reference))
@@ -1021,7 +1021,11 @@ class View(MetricsLayerBase, SQLReplacement):
             result.extend(all_fields)
         return result
 
-    def fields(self, show_hidden: bool = True, expand_dimension_groups: bool = False) -> list:
+    def fields(
+        self,
+        show_hidden: bool = True,
+        expand_dimension_groups: bool = False,
+    ) -> list:
         if not self.__all_fields:
             self.__all_fields = self._all_fields(expand_dimension_groups=expand_dimension_groups)
         all_fields = self.__all_fields

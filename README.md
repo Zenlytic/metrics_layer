@@ -6,7 +6,7 @@
 
 # What is a Metrics Layer?
 
-Metrics Layer is an open source project with the goal of making access to metrics consistent throughout an organization. We believe you should be able to access consistent metrics from any tool you use to access data. This metrics layer is designed to work with [Zenlytic](https://zenlytic.com) as a BI tool. 
+Metrics Layer is an open source project with the goal of making access to metrics consistent throughout an organization. We believe you should be able to access consistent metrics from any tool you use to access data. This metrics layer is designed to work with [Zenlytic](https://zenlytic.com) as a BI tool.
 
 ## How does it work?
 
@@ -28,7 +28,6 @@ For Redshift run `pip install metrics-layer[redshift]`
 
 For Postgres run `pip install metrics-layer[postgres]`
 
-
 ## Profile set up
 
 There are several ways to set up a profile, we're going to look at the fastest one here.
@@ -36,7 +35,6 @@ There are several ways to set up a profile, we're going to look at the fastest o
 The fastest way to get connected is to pass the necessary information directly into Metrics Layer. Once you've installed the library with the warehouse you need, you should be able to run the code snippet below and start querying.
 
 You'll pull the repo from Github for this example. For more detail on getting set up, check out the [documentation](https://docs.zenlytic.com)!
-
 
 ```
 from metrics_layer import MetricsLayerConnection
@@ -63,4 +61,4 @@ conn = MetricsLayerConnection(**config)
 df = conn.query(metrics=["total_revenue"], dimensions=["channel", "region"])
 ```
 
-For more advanced methods of connection and more information about the project check out [the docs](https://docs.zenlytic.com).
+For more advanced methods of connection and more information about the project check out [the docs](https://docs.zenlytic.com)

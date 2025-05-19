@@ -173,7 +173,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         "extra",
         "window",
     )
-    internal_properties = ("is_personal_field",)
+    internal_properties = ("is_dynamic_field",)
 
     def __init__(self, definition: dict, view) -> None:
         self.defaults = {"type": "string", "primary_key": False, "datatype": "timestamp"}
@@ -344,6 +344,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             and definition.get("type") == "tier"
             and "tiers" in definition
             and isinstance(definition["tiers"], list)
+            and definition["tiers"]
         ):
             definition["sql"] = self._translate_looker_tier_to_sql(definition["sql"], definition["tiers"])
 
@@ -378,7 +379,15 @@ class Field(MetricsLayerBase, SQLReplacement):
             if self.type == "time" and self.dimension_group:
                 formatted_label = f"{label} {self.dimension_group.replace('_', ' ').title()}"
             elif self.type == "duration" and self.dimension_group:
-                formatted_label = f"{self.dimension_group.replace('_', ' ').title()} {label}"
+                label_list = label.split(" ")
+                if self.is_dynamic_field and label_list[0].lower() == "duplicate":
+                    label_prefix = label_list[0].title()
+                    label_suffix = " ".join(label_list[1:])
+                    formatted_label = (
+                        f"{label_prefix} {self.dimension_group.replace('_', ' ')} {label_suffix}"
+                    )
+                else:
+                    formatted_label = f"{self.dimension_group.replace('_', ' ').title()} {label}"
             else:
                 formatted_label = label
         else:
@@ -992,7 +1001,13 @@ class Field(MetricsLayerBase, SQLReplacement):
         return output
 
     def to_yaml_properties_format(self):
-        return {k: self._definition[k] for k in self.valid_properties & self._definition.keys()}
+        properties = {}
+        for attr in self.valid_properties:
+            if hasattr(self.__class__, attr) and isinstance(getattr(self.__class__, attr), property):
+                properties[attr] = getattr(self, attr)
+            elif attr in self._definition:
+                properties[attr] = self._definition[attr]
+        return properties
 
     def printable_attributes(self):
         to_print = [
@@ -2749,8 +2764,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                 error_func=self._error,
             )
         )
-        # For personal fields everything is a warning
-        if self.is_personal_field:
+        # For dynamic fields everything is a warning
+        if self.is_dynamic_field:
             errors = [
                 {**e, "message": f"{warning_prefix} {e['message']}"}
                 for e in errors

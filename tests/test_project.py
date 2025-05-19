@@ -247,14 +247,14 @@ def test_add_with_join_graphs_field_cache(connection):
 
 
 @pytest.mark.project
-def test_add_field_personal_fields_are_warnings(connection):
+def test_add_field_dynamic_fields_are_warnings(connection):
     connection.project.add_field(
         {
             "name": "total_new_revenue!",
             "type": "sum",
             "field_type": "measure",
             "sql": "${TABLE}.revenue",
-            "is_personal_field": True,
+            "is_dynamic_field": True,
         },
         view_name="orders",
     )
