@@ -551,10 +551,10 @@ def test_cli_validate_broken_canon_date(connection, fresh_project, mocker):
 
 
 @pytest.mark.cli
-def test_cli_validate_personal_field(connection, fresh_project, mocker):
+def test_cli_validate_dynamic_field(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
-    project._views[2]["fields"][2]["is_personal_field"] = True
+    project._views[2]["fields"][2]["is_dynamic_field"] = True
     project._views[2]["fields"][2].pop("type")
 
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])
@@ -574,10 +574,10 @@ def test_cli_validate_personal_field(connection, fresh_project, mocker):
 
 
 @pytest.mark.cli
-def test_cli_validate_personal_field_view_level_error(connection, fresh_project, mocker):
+def test_cli_validate_dynamic_field_view_level_error(connection, fresh_project, mocker):
     # Break something so validation fails
     project = fresh_project
-    project._views[2]["fields"][2]["is_personal_field"] = True
+    project._views[2]["fields"][2]["is_dynamic_field"] = True
     project._views[2]["fields"][2]["sql"] = "${some_crazy_ref}"
 
     conn = MetricsLayerConnection(project=project, connections=connection._raw_connections[0])

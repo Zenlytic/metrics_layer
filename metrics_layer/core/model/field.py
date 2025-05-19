@@ -2764,8 +2764,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                 error_func=self._error,
             )
         )
-        # For personal fields everything is a warning
-        if self.is_personal_field:
+        # For dynamic fields everything is a warning
+        if self.is_dynamic_field:
             errors = [
                 {**e, "message": f"{warning_prefix} {e['message']}"}
                 for e in errors

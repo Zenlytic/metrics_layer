@@ -1012,7 +1012,7 @@ class View(MetricsLayerBase, SQLReplacement):
                 referenced_sql = field.get_referenced_sql_query(strings_only=False)
                 if referenced_sql is not None:
                     for reference in referenced_sql:
-                        if isinstance(reference, str) and field.is_personal_field:
+                        if isinstance(reference, str) and field.is_dynamic_field:
                             all_fields.append((field, f"Warning: {reference}"))
                         elif isinstance(reference, str):
                             all_fields.append((field, reference))
