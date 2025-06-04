@@ -451,12 +451,15 @@ class Project:
                 object_type="model",
             )
 
-    def topics(self) -> list:
+    def topics(self, show_hidden: bool = False) -> list[Topic]:
         topics = []
         for t in self._topics:
             topic = Topic(t, project=self)
+
             if self.can_access_topic(topic):
-                topics.append(topic)
+                if show_hidden or not topic.hidden:
+                    topics.append(topic)
+
         return topics
 
     def get_topic(self, topic_label: str) -> Topic:
