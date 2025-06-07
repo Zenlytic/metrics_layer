@@ -277,19 +277,19 @@ class Project:
     def validate(self, views_must_be_in_topics: bool = False):
         all_errors = [] + self._conversion_errors
 
-        model_names = []
-        for model in self.models():
-            model_names.append(model.name)
-            try:
-                all_errors.extend(model.collect_errors())
-            except QueryError as e:
-                # If we have an error building the model, we cannot continue
-                return [self._error(str(e))]
+        model_names = [model.name for model in self.models()]
 
         # Check for duplicate model names
         duplicate_models = [name for name, count in Counter(model_names).items() if count > 1]
         for model_name in duplicate_models:
-            all_errors.append(self._error(f"Duplicate model name: {model_name}. Model names must be unique."))
+            return [self._error(f"Duplicate model name: {model_name}. Model names must be unique.")]
+
+        for model in self.models():
+            try:
+                all_errors.extend(model.collect_errors())
+            except (QueryError, AccessDeniedOrDoesNotExistException) as e:
+                # If we have an error building the model, we cannot continue
+                return [self._error(str(e))]
 
         topic_names = []
         for topic in self.topics():
@@ -439,7 +439,12 @@ class Project:
             )
 
     def models(self) -> list:
-        return [Model(m, project=self) for m in self._models]
+        models = []
+        for m in self._models:
+            model = Model(m, project=self)
+            if self.can_access_model(model):
+                models.append(model)
+        return models
 
     def get_model(self, model_name: str) -> Model:
         try:
@@ -470,7 +475,8 @@ class Project:
             )
 
     def access_grants(self):
-        return [AccessGrant(g, model=m) for m in self.models() for g in m.access_grants]
+        all_models = [Model(m, project=self) for m in self._models]
+        return [AccessGrant(g, model=m) for m in all_models for g in m.access_grants]
 
     def get_access_grant(self, grant_name: str):
         try:
@@ -482,10 +488,13 @@ class Project:
         return self._can_access_object(dashboard)
 
     def can_access_topic(self, topic: Topic):
-        return self._can_access_object(topic)
+        return self._can_access_object(topic) and self.can_access_model(topic.model)
 
     def can_access_view(self, view: View):
-        return self._can_access_object(view)
+        return self._can_access_object(view) and self.can_access_model(view.model)
+
+    def can_access_model(self, model: Model):
+        return self._can_access_object(model)
 
     def can_access_field(self, field):
         can_access_view = self.can_access_view(field.view)

@@ -597,13 +597,19 @@ class SeedMetricsLayer:
             Definitions.postgres,
             Definitions.sql_server,
             Definitions.azure_synapse,
-            Definitions.duck_db,
         }:
             query = (
                 "SELECT table_catalog as table_database, table_schema as table_schema, "
                 "table_name as table_name, table_type as table_type "
                 f"FROM {self.database}.INFORMATION_SCHEMA.TABLES "
                 "WHERE table_schema not in ('pg_catalog', 'information_schema')"
+            )
+        elif self.database and self.connection.type == Definitions.duck_db:
+            query = (
+                "SELECT table_catalog as table_database, table_schema as table_schema, "
+                "table_name as table_name, table_type as table_type "
+                f"FROM INFORMATION_SCHEMA.TABLES "
+                "WHERE table_schema not in ('information_schema')"
             )
         elif self.connection.type == Definitions.databricks:
             database_str = f"{self.database}." if self.database else ""
