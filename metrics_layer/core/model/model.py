@@ -144,7 +144,7 @@ class Model(MetricsLayerBase):
                 raise QueryError(
                     f"The access_grants property, {self._definition['access_grants']} must be a list"
                 )
-            elif all([not isinstance(grant, dict) for grant in self._definition["access_grants"]]):
+            elif not all([isinstance(grant, dict) for grant in self._definition["access_grants"]]):
                 raise QueryError(f"All access_grants in the access_grants property must be dictionaries")
             return self._definition["access_grants"]
         return []

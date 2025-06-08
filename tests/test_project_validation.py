@@ -218,6 +218,32 @@ def test_validation_view_with_fully_qualified_results(connection, name, value, e
         ),
         (
             "access_grants",
+            [],
+            [
+                (
+                    "The access grant test_access_grant_region_model in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
+                    "The access grant test_access_grant_department_topic in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
+                    "The access grant test_access_grant_department_view in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
+                    "The access grant test_access_grant_department_field in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
+                    "The access grant test_access_grant_department_customers in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+            ],
+        ),
+        (
+            "access_grants",
             [1],
             [
                 (
