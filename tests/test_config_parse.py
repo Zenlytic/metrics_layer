@@ -129,12 +129,26 @@ def test_config_load_metricflow():
     models, views, dashboards, topics, conversion_errors = reader.load()
 
     assert len(conversion_errors) == 3
-    assert conversion_errors[1] == {
+    percentile_error = next(e for e in conversion_errors if "p99_order_total" in e["message"])
+    assert percentile_error == {
+        "message": "In view orders discrete percentile is not supported for the measure p99_order_total",
+        "view_name": "orders",
+    }
+    food_customers_error = next(e for e in conversion_errors if "food_customers" in e["message"])
+    assert food_customers_error == {
         "message": (
-            "In view orders metric conversion failed for food_customers: Metric type filters are not"
-            " supported"
+            "In view orders metric conversion failed for food_customers: Metric type filters are"
+            " not supported"
         ),
         "view_name": "orders",
+    }
+    cumulative_revenue_error = next(e for e in conversion_errors if "cumulative_revenue" in e["message"])
+    assert cumulative_revenue_error == {
+        "message": (
+            "In view order_item metric conversion failed for cumulative_revenue: It is a cumulative metric,"
+            " which is not supported."
+        ),
+        "view_name": "order_item",
     }
 
     model = models[0]
