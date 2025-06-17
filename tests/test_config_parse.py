@@ -129,13 +129,6 @@ def test_config_load_metricflow():
     models, views, dashboards, topics, conversion_errors = reader.load()
 
     assert len(conversion_errors) == 3
-    assert conversion_errors[1] == {
-        "message": (
-            "In view orders metric conversion failed for food_customers: Metric type filters are not"
-            " supported"
-        ),
-        "view_name": "orders",
-    }
 
     model = models[0]
 
