@@ -169,7 +169,7 @@ def test_cli_seed_metrics_layer(
             social = next((f for f in data["fields"] if f["name"] == "on_social_network"))
             acq_date = next((f for f in data["fields"] if f["name"] == "acquisition_date"))
 
-            if query_type in {Definitions.snowflake, Definitions.databricks}:
+            if query_type in {Definitions.snowflake, Definitions.databricks, Definitions.bigquery}:
                 assert order_id["description"] == "I am an order id"
 
             assert social["type"] == "yesno"
