@@ -365,7 +365,7 @@ class SeedMetricsLayer:
 
         fields = []
         searchable_field_candidates = []
-        if self.connection.type in {Definitions.snowflake, Definitions.databricks}:
+        if self.connection.type in {Definitions.snowflake, Definitions.databricks, Definitions.bigquery}:
             data_to_iterate = column_data[["COLUMN_NAME", "DATA_TYPE", "COMMENT"]]
         else:
             data_to_iterate = column_data[["COLUMN_NAME", "DATA_TYPE"]]
@@ -533,6 +533,8 @@ class SeedMetricsLayer:
     def columns_query(self):
         if self.connection.type in {Definitions.snowflake, Definitions.databricks}:
             comment_statement = ", comment as comment"
+        elif self.connection.type == Definitions.bigquery:
+            comment_statement = ", max(description) as comment"
         else:
             comment_statement = ""
         query = (
@@ -557,7 +559,7 @@ class SeedMetricsLayer:
                 "FROM INFORMATION_SCHEMA.COLUMNS"
             )
         elif self.database and self.schema and self.connection.type == Definitions.bigquery:
-            query += f"`{self.database}.{self.schema}`.INFORMATION_SCHEMA.COLUMNS"
+            query += f"`{self.database}.{self.schema}`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS"
         elif not self.schema and self.connection.type == Definitions.bigquery:
             raise ValueError(
                 "You must specify a database (project) AND a schema (dataset) for seeding in BigQuery"
@@ -571,6 +573,8 @@ class SeedMetricsLayer:
         elif not self.table and self.schema:
             query += f" WHERE TABLE_SCHEMA = '{self.schema}'"
 
+        if self.connection.type == Definitions.bigquery:
+            query += " GROUP BY 1, 2, 3, 4, 5"
         # Snowflake had a metadata error when not using the limit statement, so we add this
         if self.connection.type == Definitions.snowflake:
             # 10k columns is a reasonable max for a single table
