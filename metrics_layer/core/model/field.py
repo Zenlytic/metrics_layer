@@ -414,6 +414,13 @@ class Field(MetricsLayerBase, SQLReplacement):
         return
 
     @property
+    def timeframes(self):
+        timeframes = self._definition.get("timeframes", [])
+        if timeframes and isinstance(timeframes, list) and "raw" not in timeframes:
+            return ["raw"] + timeframes
+        return timeframes
+
+    @property
     def filters(self):
         filters = self._definition.get("filters")
         if filters:
@@ -1042,7 +1049,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
     def dimension_group_names(self):
         if self.field_type == ZenlyticFieldType.dimension_group and self.type == "time":
-            return [f"{self.name}_{t}" for t in self._definition.get("timeframes", [])]
+            return [f"{self.name}_{t}" for t in self.timeframes]
         if self.field_type == ZenlyticFieldType.dimension_group and self.type == "duration":
             return [f"{t}s_{self.name}" for t in self._definition.get("intervals", self.default_intervals)]
         return []
