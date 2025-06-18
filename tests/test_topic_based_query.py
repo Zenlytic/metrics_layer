@@ -248,3 +248,84 @@ def test_query_join_as_in_topic(connection):
         " ORDER BY mrr_number_of_billed_accounts DESC NULLS LAST;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_query_with_merged_result_outside_of_topic(connection):
+    query = connection.get_sql_query(
+        metrics=["costs_per_session"],
+        dimensions=["sessions.utm_source"],
+        topic="Order lines unfiltered",
+    )
+
+    correct = (
+        "WITH order_lines_order__cte_subquery_0 AS (SELECT orders.sub_channel as "
+        "orders_sub_channel,SUM(case when order_lines.product_name='Portable Charger'"
+        " and order_lines.product_name IN ('Portable Charger','Dual Charger') "
+        "and orders.revenue * 100>100 then order_lines.item_costs end) as "
+        "order_lines_total_item_costs,COUNT(case when order_lines.sales_channel"
+        "='Email' then order_lines.order_id end) as "
+        "order_lines_number_of_email_purchased_items FROM analytics.order_line_items "
+        "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id"
+        "=orders.id GROUP BY orders.sub_channel ORDER BY order_lines_total_item_costs "
+        "DESC NULLS LAST) ,sessions_session__cte_subquery_1 AS (SELECT sessions.utm_source"
+        " as sessions_utm_source,COUNT(sessions.id) as sessions_number_of_sessions FROM "
+        "analytics.sessions sessions GROUP BY sessions.utm_source "
+        "ORDER BY sessions_number_of_sessions DESC NULLS LAST) SELECT "
+        "order_lines_order__cte_subquery_0.order_lines_total_item_costs as "
+        "order_lines_total_item_costs,order_lines_order__cte_subquery_0."
+        "order_lines_number_of_email_purchased_items as order_lines_number_of_email_purchased_items,"
+        "sessions_session__cte_subquery_1.sessions_number_of_sessions as sessions_number_of_sessions,"
+        "ifnull(order_lines_order__cte_subquery_0.orders_sub_channel, "
+        "sessions_session__cte_subquery_1.sessions_utm_source) as orders_sub_channel,"
+        "ifnull(sessions_session__cte_subquery_1.sessions_utm_source, order_lines_order__cte_subquery_0"
+        ".orders_sub_channel) as sessions_utm_source,(order_lines_total_item_costs * "
+        "order_lines_number_of_email_purchased_items) / nullif(sessions_number_of_sessions, 0)"
+        " as order_lines_costs_per_session FROM order_lines_order__cte_subquery_0 FULL OUTER "
+        "JOIN sessions_session__cte_subquery_1 ON order_lines_order__cte_subquery_0."
+        "orders_sub_channel=sessions_session__cte_subquery_1.sessions_utm_source;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_with_merged_result_outside_of_topic_join_implicit_merge(connection):
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["sessions.utm_source"],
+        topic="Order lines unfiltered",
+    )
+
+    correct = (
+        "WITH order_lines_order__cte_subquery_0 AS (SELECT orders.sub_channel as "
+        "orders_sub_channel,SUM(order_lines.revenue) as order_lines_total_item_revenue "
+        "FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders orders "
+        "ON order_lines.order_unique_id=orders.id GROUP BY orders.sub_channel "
+        "ORDER BY order_lines_total_item_revenue DESC NULLS LAST) ,"
+        "sessions_session__cte_subquery_1 AS (SELECT sessions.utm_source as "
+        "sessions_utm_source FROM analytics.sessions sessions GROUP BY "
+        "sessions.utm_source ORDER BY sessions_utm_source ASC NULLS LAST) "
+        "SELECT order_lines_order__cte_subquery_0.order_lines_total_item_revenue "
+        "as order_lines_total_item_revenue,ifnull(order_lines_order__cte_subquery_0."
+        "orders_sub_channel, sessions_session__cte_subquery_1.sessions_utm_source) "
+        "as orders_sub_channel,ifnull(sessions_session__cte_subquery_1.sessions_utm_source,"
+        " order_lines_order__cte_subquery_0.orders_sub_channel) as sessions_utm_source "
+        "FROM order_lines_order__cte_subquery_0 FULL OUTER JOIN "
+        "sessions_session__cte_subquery_1 ON order_lines_order__cte_subquery_0."
+        "orders_sub_channel=sessions_session__cte_subquery_1.sessions_utm_source;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_query_with_merged_result_outside_of_topic_join_error(connection):
+    with pytest.raises(QueryError) as exc_info:
+        connection.get_sql_query(
+            metrics=["total_item_revenue"],
+            dimensions=["sessions.session_device"],
+            topic="Order lines unfiltered",
+        )
+
+    error_message = "The following views are not included in the topic Order lines unfiltered: sessions"
+    assert isinstance(exc_info.value, QueryError)
+    assert error_message in str(exc_info.value)

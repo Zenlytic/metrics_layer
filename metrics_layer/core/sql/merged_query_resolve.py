@@ -63,6 +63,8 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
 
             # Overwrite the limit arg because these are subqueries
             kws = {**self.kwargs, "limit": None, "return_pypika_query": True}
+            # Remove the topic when trying to execute a merged result
+            kws.pop("topic", None)
             resolver = SingleSQLQueryResolver(
                 metrics=metrics,
                 dimensions=dimensions,

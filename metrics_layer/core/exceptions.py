@@ -9,8 +9,9 @@ class AccessDeniedOrDoesNotExistException(Exception):
 
 
 class QueryError(Exception):
-    def __init__(self, message: str):
+    def __init__(self, message: str, location: str = None):
         self.message = message
+        self.location = location
 
     def __str__(self):
         return self.message

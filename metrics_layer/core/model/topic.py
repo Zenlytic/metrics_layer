@@ -6,7 +6,7 @@ from metrics_layer.core.exceptions import (
     AccessDeniedOrDoesNotExistException,
     QueryError,
 )
-
+from metrics_layer.core.exceptions import JoinError
 from .base import MetricsLayerBase
 from .field import Field
 from .join import Join, ZenlyticJoinRelationship, ZenlyticJoinType
@@ -491,9 +491,10 @@ class Topic(MetricsLayerBase):
         invalid_views = set(requested_views) - set(available_views)
         if invalid_views:
             invalid_views_str = ", ".join(sorted(invalid_views))
-            raise QueryError(
+            raise JoinError(
                 f"The following views are not included in the topic {self.label}: {invalid_views_str}\n\nYou"
-                " can add them to the topic by adding the requested views to the topic."
+                " can add them to the topic by adding the requested views to the topic.",
+                location="topic",
             )
 
     def order_required_views(self, view_names: List[str]) -> List[str]:
