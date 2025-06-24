@@ -55,6 +55,10 @@ class Topic(MetricsLayerBase):
     def model(self):
         return self.project.get_model(self.model_name)
 
+    @property
+    def hidden(self):
+        return bool(self._definition.get("hidden", False))
+
     def _views(self):
         topic_view_names = [self.base_view]
         if self.views and isinstance(self.views, dict):
@@ -173,11 +177,11 @@ class Topic(MetricsLayerBase):
                         )
                     )
         if "hidden" in self._definition:
-            if not isinstance(self.hidden, bool):
+            if not isinstance(self._definition["hidden"], bool):
                 errors.append(
                     self._error(
-                        self.hidden,
-                        f"The hidden property, {self.hidden} must be a boolean in the topic {self.label}",
+                        self._definition["hidden"],
+                        f"The hidden property, {self._definition['hidden']} must be a boolean in the topic {self.label}",
                     )
                 )
 

@@ -225,7 +225,7 @@ def test_measure_conversion(mf_measure):
                 "meta": {"zenlytic": {"zoe_description": "Order with order values over 20."}},
                 "enabled": False,
             },
-            "filter": "{{Dimension('customer__order_total_dim')}} >= 20",
+            "filter": "{{Dimension('order_id__order_total_dim')}} >= 20",
         },
         {
             "name": "many_filters_fail",
@@ -313,12 +313,12 @@ def test_measure_conversion(mf_measure):
                     {
                         "name": "order_total",
                         "alias": "revenue",
-                        "filter": "{{ Dimension('order__is_food_order') }} = True",
+                        "filter": "{{ Dimension('order_id__is_food_order') }} = True",
                     },
                     {
                         "name": "order_cost",
                         "alias": "cost",
-                        "filter": "{{ Dimension('order__is_food_order') }} = True",
+                        "filter": "{{ Dimension('order_id__is_food_order') }} = True",
                     },
                 ],
             },
@@ -334,8 +334,9 @@ def test_metric_conversion(mf_metric):
         {"name": "order_total", "agg": "sum", "expr": "num_order_total"},
         {"name": "order_cost", "agg": "sum", "expr": "num_order_cost"},
     ]
+    primary_key_mapping = {"order_id": "orders", "customer": "customers"}
     try:
-        converted, _ = convert_mf_metric_to_zenlytic_measure(mf_metric, measures)
+        converted, _ = convert_mf_metric_to_zenlytic_measure(mf_metric, measures, primary_key_mapping)
     except ZenlyticUnsupportedError as e:
         if "Entity type filters are not supported" in str(e) and mf_metric["name"] == "many_filters_fail":
             converted = {}
@@ -381,7 +382,7 @@ def test_metric_conversion(mf_metric):
             "name": "large_orders",
             "field_type": "measure",
             "hidden": True,
-            "sql": "case when ${customer.order_total_dim} >= 20 then id_order else null end",
+            "sql": "case when ${orders.order_total_dim} >= 20 then id_order else null end",
             "type": "count_distinct",
             "label": "Large Orders",
             "description": "Order with order values over 20.",
@@ -395,10 +396,10 @@ def test_metric_conversion(mf_metric):
             "field_type": "measure",
             "hidden": False,
             "sql": (
-                "case when  ${customer.customer_type}  = 'new' and (  "
-                "${customer.first_ordered_at_month}  = '2024-01-01' or   "
-                "${customer.first_ordered_at_month}  = '2024-02-01' or  "
-                "${customer.first_ordered_at_date}  is null) then id_customer else "
+                "case when  ${customers.customer_type}  = 'new' and (  "
+                "${customers.first_ordered_at_month}  = '2024-01-01' or   "
+                "${customers.first_ordered_at_month}  = '2024-02-01' or  "
+                "${customers.first_ordered_at_date}  is null) then id_customer else "
                 "null end"
             ),
             "type": "count_distinct",
@@ -453,6 +454,7 @@ def test_metric_conversion(mf_metric):
         {"name": "order", "type": "foreign", "expr": "id_order"},
         {"name": "order_line_id", "type": "unique", "expr": "id_order_line"},
         {"name": "id_order_line", "type": "unique"},
+        {"name": "id_order_line_2", "type": "natural"},
         {
             "name": "order_line_unique_id",
             "type": "unique",
@@ -480,6 +482,8 @@ def test_entity_conversion(mf_entity):
         correct = {"name": "order_line_id", "type": "primary", "sql": "${id_order_line}"}
     elif mf_entity["name"] == "id_order_line":
         correct = {"name": "id_order_line", "type": "primary", "sql": "${id_order_line}"}
+    elif mf_entity["name"] == "id_order_line_2":
+        correct = {"name": "id_order_line_2", "type": "primary", "sql": "${TABLE}.id_order_line_2"}
     elif mf_entity["name"] == "order_line_unique_id":
         correct = {
             "name": "order_line_unique_id",

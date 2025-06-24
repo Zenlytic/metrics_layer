@@ -885,7 +885,6 @@ class Field(MetricsLayerBase, SQLReplacement):
         if query_type in {
             Definitions.druid,
             Definitions.postgres,
-            Definitions.bigquery,
             Definitions.sql_server,
             Definitions.azure_synapse,
             Definitions.trino,
@@ -896,6 +895,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                 f"aggregate function for the {self.id()} measure."
             )
         # Medians do not work with symmetric aggregates, so there's just the one return
+        if query_type == Definitions.bigquery:
+            return f"APPROX_QUANTILES({sql}, 100)[OFFSET(50)]"
         return f"MEDIAN({sql})"
 
     def _percentile_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):

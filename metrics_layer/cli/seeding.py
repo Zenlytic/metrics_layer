@@ -573,6 +573,11 @@ class SeedMetricsLayer:
         elif not self.table and self.schema:
             query += f" WHERE TABLE_SCHEMA = '{self.schema}'"
 
+        if "WHERE" in query and self.connection.type == Definitions.bigquery:
+            query += " AND NOT FIELD_PATH LIKE '%.%'"
+        elif self.connection.type == Definitions.bigquery:
+            query += " WHERE NOT FIELD_PATH LIKE '%.%'"
+
         if self.connection.type == Definitions.bigquery:
             query += " GROUP BY 1, 2, 3, 4, 5"
         # Snowflake had a metadata error when not using the limit statement, so we add this
