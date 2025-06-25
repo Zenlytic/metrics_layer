@@ -31,10 +31,6 @@ def test_validation_with_duplicate_model_names(fresh_project):
     response = project.validate_with_replaced_objects(replaced_objects=project._models)
     assert [e["message"] for e in response] == [
         "Duplicate model name: test_model. Model names must be unique.",
-        (
-            "Could not find a model in the view other_db_traffic. Use the model_name "
-            "property to specify the model."
-        ),
     ]
 
 
@@ -93,6 +89,36 @@ def test_validation_view_with_fully_qualified_results(connection, name, value, e
         ("connection", None, ["The connection property, None must be a string in the model test_model"]),
         ("connection", 1, ["The connection property, 1 must be a string in the model test_model"]),
         ("connection", "test", []),
+        (
+            "required_access_grants",
+            None,
+            ["The required_access_grants property, None must be a list in model test_model"],
+        ),
+        (
+            "required_access_grants",
+            [1],
+            [
+                "The access grant reference 1 in the required_access_grants property must be a"
+                " string in model test_model"
+            ],
+        ),
+        (
+            "required_access_grants",
+            [{"name": "test"}],
+            [
+                "The access grant reference {'name': 'test'} in the "
+                "required_access_grants property must be a string in model test_model"
+            ],
+        ),
+        (
+            "required_access_grants",
+            ["test"],
+            [
+                "The access grant test in the required_access_grants property does not exist "
+                "in model test_model"
+            ],
+        ),
+        ("required_access_grants", ["test_access_grant_department_customers"], []),
         ("label", None, ["The label property, None must be a string in the model test_model"]),
         ("label", "My Model!", []),
         (
@@ -169,6 +195,36 @@ def test_validation_view_with_fully_qualified_results(connection, name, value, e
             [
                 "The access_grants property, None must be a list in the model test_model",
                 (
+                    "The access grant test_access_grant_region_model in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
+                    "The access grant test_access_grant_department_topic in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
+                    "The access grant test_access_grant_department_view in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
+                    "The access grant test_access_grant_department_field in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
+                    "The access grant test_access_grant_department_customers in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+            ],
+        ),
+        (
+            "access_grants",
+            [],
+            [
+                (
+                    "The access grant test_access_grant_region_model in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
                     "The access grant test_access_grant_department_topic in the "
                     "required_access_grants property does not exist in model test_model"
                 ),
@@ -195,6 +251,10 @@ def test_validation_view_with_fully_qualified_results(connection, name, value, e
                     "model test_model"
                 ),
                 (
+                    "The access grant test_access_grant_region_model in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
                     "The access grant test_access_grant_department_topic in the "
                     "required_access_grants property does not exist in model test_model"
                 ),
@@ -217,6 +277,10 @@ def test_validation_view_with_fully_qualified_results(connection, name, value, e
             [{"name": "test"}],
             [
                 "Access Grant test missing required key user_attribute in the model test_model",
+                (
+                    "The access grant test_access_grant_region_model in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
                 (
                     "The access grant test_access_grant_department_topic in the "
                     "required_access_grants property does not exist in model test_model"
@@ -241,6 +305,10 @@ def test_validation_view_with_fully_qualified_results(connection, name, value, e
             [
                 "Access Grant missing required key name in the model test_model",
                 (
+                    "The access grant test_access_grant_region_model in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
                     "The access grant test_access_grant_department_topic in the "
                     "required_access_grants property does not exist in model test_model"
                 ),
@@ -263,6 +331,10 @@ def test_validation_view_with_fully_qualified_results(connection, name, value, e
             [{"name": "test", "user_attribute": "test", "allowed_values": "test"}],
             [
                 "The allowed_values property, test must be a list in the Access Grant test",
+                (
+                    "The access grant test_access_grant_region_model in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
                 (
                     "The access grant test_access_grant_department_topic in the "
                     "required_access_grants property does not exist in model test_model"
@@ -287,6 +359,10 @@ def test_validation_view_with_fully_qualified_results(connection, name, value, e
             [
                 "All values in the allowed_values property must be strings in the Access Grant test",
                 (
+                    "The access grant test_access_grant_region_model in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
                     "The access grant test_access_grant_department_topic in the "
                     "required_access_grants property does not exist in model test_model"
                 ),
@@ -309,6 +385,10 @@ def test_validation_view_with_fully_qualified_results(connection, name, value, e
             [{"name": "test", "user_attribute": None, "allowed_values": ["1", "2"]}],
             [
                 "The user_attribute property, None must be a string in the Access Grant test",
+                (
+                    "The access grant test_access_grant_region_model in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
                 (
                     "The access grant test_access_grant_department_topic in the "
                     "required_access_grants property does not exist in model test_model"
@@ -343,6 +423,10 @@ def test_validation_view_with_fully_qualified_results(connection, name, value, e
                     " Did you mean allowed_values?"
                 ),
                 (
+                    "The access grant test_access_grant_region_model in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
+                (
                     "The access grant test_access_grant_department_topic in the "
                     "required_access_grants property does not exist in model test_model"
                 ),
@@ -364,6 +448,10 @@ def test_validation_view_with_fully_qualified_results(connection, name, value, e
             "access_grants",
             [{"name": "test", "user_attribute": "products", "allowed_values": ["blush", "eyeliner"]}],
             [
+                (
+                    "The access grant test_access_grant_region_model in the "
+                    "required_access_grants property does not exist in model test_model"
+                ),
                 (
                     "The access grant test_access_grant_department_topic in the "
                     "required_access_grants property does not exist in model test_model"
@@ -470,16 +558,14 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
             "model_name",
             None,
             [
-                "Could not find a model in the view order_lines. Use the model_name property to specify the"
-                " model."
+                "Could not find or you do not have access to model None in view order_lines",
             ],
         ),
         (
             "model_name",
             "missing_model",
             [
-                "Could not find a model in the view order_lines. Use the model_name property to specify the"
-                " model."
+                "Could not find or you do not have access to model missing_model in view order_lines",
             ],
         ),
         (

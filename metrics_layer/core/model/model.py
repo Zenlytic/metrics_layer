@@ -11,6 +11,7 @@ from metrics_layer.core.exceptions import (
 
 from .base import MetricsLayerBase
 from .week_start_day_types import WeekStartDayTypes
+from .view import View
 
 if TYPE_CHECKING:
     from metrics_layer.core.model.project import Project
@@ -108,6 +109,7 @@ class Model(MetricsLayerBase):
         "fiscal_month_offset",
         "access_grants",
         "mappings",
+        "required_access_grants",
     ]
     internal_properties = ["_file_path"]
 
@@ -142,7 +144,7 @@ class Model(MetricsLayerBase):
                 raise QueryError(
                     f"The access_grants property, {self._definition['access_grants']} must be a list"
                 )
-            elif all([not isinstance(grant, dict) for grant in self._definition["access_grants"]]):
+            elif not all([isinstance(grant, dict) for grant in self._definition["access_grants"]]):
                 raise QueryError(f"All access_grants in the access_grants property must be dictionaries")
             return self._definition["access_grants"]
         return []
@@ -261,6 +263,15 @@ class Model(MetricsLayerBase):
             errors.append(
                 self._error(self._definition["access_grants"], str(e) + f" in the model {self.name}")
             )
+        errors.extend(
+            View.collect_required_access_grant_errors(
+                self._definition,
+                self.project,
+                f"in model {self.name}",
+                f"in model {self.name}",
+                error_func=self._error,
+            )
+        )
         valid_mappings_properties = ["fields", "group_label", "description", "link", "label"]
         try:
             mappings = self.mappings

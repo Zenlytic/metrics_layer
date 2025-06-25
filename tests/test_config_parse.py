@@ -129,6 +129,7 @@ def test_config_load_metricflow():
     models, views, dashboards, topics, conversion_errors = reader.load()
 
     assert len(conversion_errors) == 3
+
     percentile_error = next(e for e in conversion_errors if "p99_order_total" in e["message"])
     assert percentile_error == {
         "message": "In view orders discrete percentile is not supported for the measure p99_order_total",

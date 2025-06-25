@@ -67,11 +67,13 @@ class SQLQueryResolver(SingleSQLQueryResolver):
     def get_query(self, semicolon: bool = True):
         err_msg = ""
         is_explicit_merge = self.is_merged_result
+        single_error = None
         if not is_explicit_merge:
             try:
                 self.query_kind = QueryKindTypes.single
                 return self._get_single_query(semicolon=semicolon)
             except JoinError as e:
+                single_error = e
                 err_msg = "Could not execute the query as a single query. Trying as a merged result query."
                 if self.single_query:
                     raise e
@@ -80,7 +82,10 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         self.query_kind = QueryKindTypes.merged
         try:
             return self._get_merged_result_query(semicolon=semicolon)
-        except QueryError as e:
+        except Exception as merged_error:
+            if single_error and single_error.location == "topic":
+                raise single_error
+
             appended = (
                 "Zenlytic tries to merge query results by default if there is no join path between "
                 "the views. If you'd like to disable this behavior pass single_query=True to the "
@@ -88,12 +93,12 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                 "primary or foreign key, make sure you have the right identifiers set on the views."
             )
             error_message = (
-                f"{err_msg}\n\n{appended}\n\n{deepcopy(e.message)}"
+                f"{err_msg}\n\n{appended}\n\n{deepcopy(merged_error.message)}"
                 if self.verbose
-                else f"{deepcopy(e.message)}"
+                else f"{deepcopy(merged_error.message)}"
             )
-            e.message = error_message
-            raise e
+            merged_error.message = error_message
+            raise merged_error
 
     def _get_single_query(self, semicolon: bool):
         resolver = SingleSQLQueryResolver(

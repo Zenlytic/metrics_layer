@@ -29,10 +29,11 @@ semantic_models:
     defaults:
       agg_time_dimension: first_ordered_at
     model: ref('customers')
-    meta:
-      sql_table_name: 'my-bigquery-project.my_dataset.customers'
-      zenlytic:
-        zoe_description: 'Customers table'
+    config:
+      meta:
+        zenlytic:
+          sql_table_name: 'my-bigquery-project.my_dataset.customers'
+          zoe_description: 'Customers table'
     entities:
       - name: customer
         expr: customer_id

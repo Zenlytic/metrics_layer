@@ -8,9 +8,40 @@ def test_access_grants_exist(connection):
     connection.project.set_user({"email": "user@example.com"})
 
     assert isinstance(model.access_grants, list)
-    assert model.access_grants[0]["name"] == "test_access_grant_department_view"
-    assert model.access_grants[0]["user_attribute"] == "department"
-    assert model.access_grants[0]["allowed_values"] == ["finance", "executive", "sales"]
+    assert model.access_grants[1]["name"] == "test_access_grant_department_view"
+    assert model.access_grants[1]["user_attribute"] == "department"
+    assert model.access_grants[1]["allowed_values"] == ["finance", "executive", "sales"]
+
+
+def test_access_grants_model_visible(connection):
+    connection.project.set_user(None)
+    connection.get_model("test_model")
+
+    connection.project.set_user({"region": "east"})
+    connection.get_model("test_model")
+
+    connection.project.set_user({"region": "south"})
+
+    with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
+        connection.get_model("test_model")
+
+    assert exc_info.value
+    assert exc_info.value.object_name == "test_model"
+    assert exc_info.value.object_type == "model"
+
+    with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
+        connection.get_view("orders")
+
+    assert exc_info.value
+    assert exc_info.value.object_name == "test_model"
+    assert exc_info.value.object_type == "model"
+
+    with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
+        connection.get_field("order_lines.customer_id")
+
+    assert exc_info.value
+    assert exc_info.value.object_name == "test_model"
+    assert exc_info.value.object_type == "model"
 
 
 def test_access_grants_view_visible(connection):

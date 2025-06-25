@@ -1274,6 +1274,15 @@ def test_median_aggregate_function(connection, query_type):
             "FROM analytics.customers customers ORDER BY customers_median_customer_ltv DESC NULLS LAST;"
         )
         assert query == correct
+    elif query_type == Definitions.bigquery:
+        query = connection.get_sql_query(
+            metrics=["median_customer_ltv"], dimensions=[], query_type=query_type
+        )
+        correct = (
+            "SELECT APPROX_QUANTILES(customers.customer_ltv, 100)[OFFSET(50)] as customers_median_customer_ltv "
+            "FROM analytics.customers customers;"
+        )
+        assert query == correct
     else:
         with pytest.raises(QueryError) as exc_info:
             connection.get_sql_query(metrics=["median_customer_ltv"], dimensions=[], query_type=query_type)

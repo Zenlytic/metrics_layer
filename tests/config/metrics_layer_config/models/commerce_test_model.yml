@@ -30,7 +30,13 @@ mappings:
     fields: [events.device, sessions.session_device, login_events.device]
     description: 'Device that made the request'
 
+required_access_grants:
+  - test_access_grant_region_model
+
 access_grants:
+  - name: test_access_grant_region_model
+    user_attribute: region
+    allowed_values: ['east', 'west']
   - name: test_access_grant_department_view
     user_attribute: department
     allowed_values: ['finance', 'executive', 'sales']
