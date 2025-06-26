@@ -81,7 +81,7 @@ def test_e2e_conversions():
     )
     assert customers_with_fields_metric["field_type"] == "measure"
     assert not customers_with_fields_metric["hidden"]
-    assert customers_with_fields_metric["sql"] == "customer_id"
+    assert customers_with_fields_metric["sql"] == "${TABLE}.customer_id"
     assert customers_with_fields_metric["type"] == "count_distinct"
     assert customers_with_fields_metric["label"] == "Customers w/ Orders"
     assert customers_with_fields_metric["description"] == "Unique count of customers placing orders"
@@ -113,7 +113,10 @@ def test_e2e_conversions():
     food_revenue_field = next(f for f in order_item_view["fields"] if "food_revenue" == f["name"])
     assert food_revenue_field["field_type"] == "measure"
     assert food_revenue_field["type"] == "sum"
-    assert food_revenue_field["sql"] == "case when is_food_item = 1 then product_price else 0 end"
+    assert (
+        food_revenue_field["sql"]
+        == "CASE WHEN ${TABLE}.is_food_item = 1 THEN ${TABLE}.product_price ELSE 0 END"
+    )
     assert food_revenue_field["label"] == "Food Revenue"
     assert not food_revenue_field.get("hidden", False)
 
@@ -131,7 +134,7 @@ def test_e2e_conversions():
     revenue_field = next(f for f in order_item_view["fields"] if "revenue" == f["name"])
     assert revenue_field["field_type"] == "measure"
     assert revenue_field["type"] == "sum"
-    assert revenue_field["sql"] == "product_price"
+    assert revenue_field["sql"] == "${TABLE}.product_price"
     assert revenue_field["label"] == "Revenue"
     assert not revenue_field.get("hidden", False)
 
@@ -151,4 +154,4 @@ def test_e2e_conversions():
     assert order_item_view["identifiers"][0]["sql"] == "${TABLE}.order_item_id"
     assert order_item_view["identifiers"][1]["name"] == "order_id"
     assert order_item_view["identifiers"][1]["type"] == "foreign"
-    assert order_item_view["identifiers"][1]["sql"] == "CAST(order_id AS VARCHAR)"
+    assert order_item_view["identifiers"][1]["sql"] == "CAST(${TABLE}.order_id AS VARCHAR)"

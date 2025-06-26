@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "metrics_layer"
-version = "0.14.3.4"
+version = "0.14.3.5"
 description = "The open source metrics layer."
 authors = ["Paul Blankley <paul@zenlytic.com>"]
 keywords = ["Metrics Layer", "Business Intelligence", "Analytics"]
@@ -30,6 +30,7 @@ colorama = "^0.4.4"
 "ruamel.yaml" = "^0.17.20"
 pendulum = "^3.0.0"
 PyYAML = "^6.0"
+sqlglot = "^20.7.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
