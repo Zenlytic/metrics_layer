@@ -2576,18 +2576,18 @@ sqlcipher = ["sqlcipher3_binary"]
 
 [[package]]
 name = "sqlglot"
-version = "26.30.0"
+version = "20.11.0"
 description = "An easily customizable SQL parser and transpiler"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.7"
 files = [
-    {file = "sqlglot-26.30.0-py3-none-any.whl", hash = "sha256:7e6db3a4c4a7c421413339027b2166cfae4504b785dfabcfceb47f5c813ba8d0"},
-    {file = "sqlglot-26.30.0.tar.gz", hash = "sha256:c136f00850d730d357d800d23f7d7f35e962d76b248c172b86f9dcc77115c9fa"},
+    {file = "sqlglot-20.11.0-py3-none-any.whl", hash = "sha256:658509272da15e90dd1c59d9ca5281d7bff2e87121f87e6f9e6541067a057c9c"},
+    {file = "sqlglot-20.11.0.tar.gz", hash = "sha256:79a1510ffad1f1e4c5915751f0ed978c099e7e83cd4010ecbd471c00331b6902"},
 ]
 
 [package.extras]
-dev = ["duckdb (>=0.6)", "maturin (>=1.4,<2.0)", "mypy", "pandas", "pandas-stubs", "pdoc", "pre-commit", "pyperf", "python-dateutil", "pytz", "ruff (==0.7.2)", "types-python-dateutil", "types-pytz", "typing_extensions"]
-rs = ["sqlglotrs (==0.6.1)"]
+dev = ["autoflake", "black", "duckdb (>=0.6)", "isort", "maturin (>=1.4,<2.0)", "mypy (>=0.990)", "pandas", "pdoc", "pre-commit", "pyspark", "python-dateutil", "types-python-dateutil", "typing-extensions"]
+rs = ["sqlglotrs (==0.1.0)"]
 
 [[package]]
 name = "sqlparse"
@@ -2833,4 +2833,4 @@ snowflake = ["pyarrow", "snowflake-connector-python"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1, <3.13"
-content-hash = "38d74eb5b7fa72fe4f2f9d548aaf2cd90095cdf439748c2ce91e944b84103070"
+content-hash = "b5203c28055b40f2ece59bd929ceb440ef6dc341d1730cae514b964ca0934424"
