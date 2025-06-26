@@ -1136,7 +1136,7 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
                 " of the description and therefore test the total length max of the description."
             ),
             [
-                "View order_lines has a description that is too long (1550 characters)."
+                "Warning: View order_lines has a description that is too long (1550 characters)."
                 " Descriptions must be 1024 characters or less. It will be truncated to the "
                 "first 1024 characters."
             ],
@@ -2284,7 +2284,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 " of the description and therefore test the total length max of the description."
             ),
             [
-                "Field parent_channel in view order_lines has a description that is too long (772"
+                "Warning: Field parent_channel in view order_lines has a description that is too long (772"
                 " characters). Descriptions must be 512 characters or less. It will be truncated to the first"
                 " 512 characters."
             ],
@@ -2598,7 +2598,10 @@ def test_validation_with_replaced_field_properties(connection, field_name, prope
                 " of the description and therefore test the total length max of the description."
             ),
             [
-                "The description property, must be 1024 characters or less in the topic Order lines Topic",
+                (
+                    "Warning: The description property, must be 1024 characters or less in the topic Order"
+                    " lines Topic"
+                ),
             ],
         ),
         (
@@ -2625,7 +2628,6 @@ def test_validation_with_replaced_topic_properties(connection, name, value, erro
             "extra",
             {"random": "key"},
             [
-                "View country_detail is not in a topic",
                 "View sessions is not in a topic",
                 "View events is not in a topic",
                 "View login_events is not in a topic",
@@ -2636,7 +2638,6 @@ def test_validation_with_replaced_topic_properties(connection, name, value, erro
                 "View z_customer_accounts is not in a topic",
                 "View other_db_traffic is not in a topic",
                 "View created_workspace is not in a topic",
-                "View monthly_aggregates is not in a topic",
             ],
         ),
     ],

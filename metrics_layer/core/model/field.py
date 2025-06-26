@@ -1837,7 +1837,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                     self._error(
                         self._definition["description"],
                         (
-                            f"Field {self.name} in view {self.view.name} has a description that is too long"
+                            f"Warning: Field {self.name} in view {self.view.name} has a description that is too long"
                             f" ({len(self.description)} characters). Descriptions must be"
                             f" {description_max_chars} characters or less. It will be truncated to the first"
                             f" {description_max_chars} characters."
@@ -1861,7 +1861,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                     self._error(
                         self._definition["zoe_description"],
                         (
-                            f"Field {self.name} in view {self.view.name} has a zoe_description that is too"
+                            f"Warning: Field {self.name} in view {self.view.name} has a zoe_description that is too"
                             f" long. Descriptions must be {description_max_chars} characters or less. It will"
                             f" be truncated to the first {description_max_chars} characters."
                         ),

@@ -73,6 +73,46 @@ class MetricsLayerDesign:
 
         return self.project.join_graph.ordered_joins(ordered_view_pairs)
 
+    def view_symmetric_aggregate(self, view_name: str):
+        sorted_joins = self.joins()
+
+        # First, identify views that are directly involved in fan-out relationships
+        one_to_many_joins = [
+            join for join in sorted_joins if join.relationship == ZenlyticJoinRelationship.one_to_many
+        ]
+        many_to_many_joins = [
+            join for join in sorted_joins if join.relationship == ZenlyticJoinRelationship.many_to_many
+        ]
+
+        # If there are more than one fan out join, we need symmetric
+        # aggregates because the table is really fanned out, and
+        # all views need to use the symmetric aggregate
+        if len(one_to_many_joins) > 1 or len(many_to_many_joins) > 0:
+            return Definitions.does_not_exist
+
+        # If there are no fan out joins, the only case
+        # that needs a symmetric aggregate is a many_to_one join
+        elif len(one_to_many_joins) == 0 and len(many_to_many_joins) == 0:
+            for join in sorted_joins:
+                if (
+                    join.relationship == ZenlyticJoinRelationship.many_to_one
+                    and join.join_view_name == view_name
+                ):
+                    return Definitions.does_not_exist
+            return None
+        # If there is one fan out join, we need to check if the view is fanned out
+        # If it is, we need to use the symmetric aggregate
+        elif len(one_to_many_joins) == 1 and len(many_to_many_joins) == 0:
+            for join in sorted_joins:
+                if (
+                    join.relationship not in {ZenlyticJoinRelationship.one_to_many}
+                    and join.join_view_name == view_name
+                ) or view_name == self.base_view_name:
+                    return Definitions.does_not_exist
+            return None
+        else:
+            raise ValueError("This state should not be possible")
+
     def determine_join_order(self, required_views: list):
         if len(required_views) == 1:
             return []
