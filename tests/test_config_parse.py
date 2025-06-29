@@ -184,12 +184,12 @@ def test_config_load_metricflow():
 
     assert revenue_measure["type"] == "sum"
     assert revenue_measure["field_type"] == "measure"
-    assert revenue_measure["sql"] == "product_price"
+    assert revenue_measure["sql"] == "${TABLE}.product_price"
     assert revenue_measure["hidden"]
 
     assert median_revenue_metric["type"] == "median"
     assert median_revenue_metric["field_type"] == "measure"
-    assert median_revenue_metric["sql"] == "product_price"
+    assert median_revenue_metric["sql"] == "${TABLE}.product_price"
     assert median_revenue_metric["label"] == "Median Revenue"
     assert not median_revenue_metric["hidden"]
 

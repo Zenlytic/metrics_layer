@@ -223,10 +223,10 @@ def test_query_invalid_field_in_topic(connection):
         connection.get_sql_query(
             metrics=["total_item_revenue"],
             dimensions=["rainfall"],
-            topic="Order lines unfiltered",
+            topic="Order lines Topic",
         )
 
-    error_message = "The following views are not included in the topic Order lines unfiltered: country_detail"
+    error_message = "The following views are not included in the topic Order lines Topic: country_detail"
     assert isinstance(exc_info.value, QueryError)
     assert error_message in str(exc_info.value)
 
@@ -329,3 +329,181 @@ def test_query_with_merged_result_outside_of_topic_join_error(connection):
     error_message = "The following views are not included in the topic Order lines unfiltered: sessions"
     assert isinstance(exc_info.value, QueryError)
     assert error_message in str(exc_info.value)
+
+
+@pytest.mark.query
+def test_query_with_date_mapping_in_filter_in_topic(connection):
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["order_lines.order_month", "monthly_aggregates.division"],
+        where=[
+            {"field": "date", "expression": "greater_than", "value": "2024-10-01"},
+            {"field": "date", "expression": "less_than", "value": "2024-10-31"},
+        ],
+        topic="Order lines unfiltered",
+    )
+
+    correct = (
+        "SELECT DATE_TRUNC('MONTH', order_lines.order_date) as order_lines_order_month,"
+        "monthly_aggregates.division as monthly_aggregates_division,SUM(order_lines.revenue) "
+        "as order_lines_total_item_revenue FROM analytics.order_line_items order_lines "
+        "LEFT JOIN analytics.monthly_rollup monthly_aggregates ON DATE_TRUNC('MONTH', "
+        "monthly_aggregates.record_date) = order_lines.order_unique_id "
+        "WHERE DATE_TRUNC('DAY', order_lines.order_date)>'2024-10-01' AND DATE_TRUNC('DAY', "
+        "order_lines.order_date)<'2024-10-31' GROUP BY DATE_TRUNC('MONTH', order_lines.order_date),"
+        "monthly_aggregates.division ORDER BY order_lines_total_item_revenue DESC NULLS LAST;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_symmetric_aggregate_state_many_to_one_join_unfiltered_topic(connection):
+    """
+    Test state 1: Many_to_many joins should trigger symmetric aggregates.
+    Uses existing "Order lines unfiltered" which has many_to_many and
+    many_to_one joins.
+    """
+    # Generate SQL using existing topic with multiple join relationships
+    query = connection.get_sql_query(
+        metrics=["order_lines.total_item_revenue", "orders.average_order_value"],
+        dimensions=["channel"],
+        topic="Order lines unfiltered",
+    )
+
+    # This will fail and show the actual SQL generated
+    assert (
+        query
+        == "SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) as"
+        " order_lines_total_item_revenue,(COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue,"
+        " 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(orders.id),"
+        " 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) - SUM(DISTINCT"
+        " (TO_NUMBER(MD5(orders.id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0))) AS"
+        " DOUBLE PRECISION) / CAST((1000000*1.0) AS DOUBLE PRECISION), 0) / NULLIF(COUNT(DISTINCT CASE"
+        " WHEN  (orders.revenue)  IS NOT NULL THEN  orders.id  ELSE NULL END), 0)) as"
+        " orders_average_order_value FROM analytics.order_line_items order_lines LEFT JOIN"
+        " analytics.orders orders ON order_lines.order_unique_id=orders.id GROUP BY"
+        " order_lines.sales_channel ORDER BY order_lines_total_item_revenue DESC NULLS LAST;"
+    )
+
+
+@pytest.mark.query
+def test_symmetric_aggregate_state_one_to_one_join_unfiltered_topic(connection):
+    """
+    Test using existing "Order lines unfiltered" topic.
+    This topic uses accounts as base_view with one_to_one joins.
+    """
+    # Generate SQL using existing order lines unfiltered topic
+    query = connection.get_sql_query(
+        metrics=["order_lines.total_item_revenue", "accounts.n_created_accounts"],
+        dimensions=["accounts.account_name"],
+        topic="Order lines unfiltered",
+    )
+
+    # This will fail and show the actual SQL generated
+    assert (
+        query
+        == "SELECT accounts.name as accounts_account_name,SUM(order_lines.revenue) as"
+        " order_lines_total_item_revenue,COUNT(accounts.account_id) as accounts_n_created_accounts FROM"
+        " analytics.order_line_items order_lines LEFT JOIN analytics.accounts accounts ON"
+        " accounts.account_id = order_lines.customer_id GROUP BY accounts.name ORDER BY"
+        " order_lines_total_item_revenue DESC NULLS LAST;"
+    )
+
+
+@pytest.mark.query
+def test_symmetric_aggregate_state_many_to_many_join_unfiltered_topic(connection):
+    """
+    Test symmetric aggregates with discount metrics in existing topic.
+    Uses "Order lines unfiltered" to test metrics from fanned out views.
+    This test will fail to show the actual generated SQL.
+    """
+    # Generate SQL with discount metric (should use symmetric aggregates)
+    query = connection.get_sql_query(
+        metrics=["order_lines.total_item_revenue", "discounts.total_discount_amt"],
+        dimensions=["discount_code"],
+        topic="Order lines unfiltered",
+    )
+
+    # This will fail and show the actual SQL generated
+    assert (
+        query
+        == "SELECT discounts.code as discounts_discount_code,COALESCE(CAST((SUM(DISTINCT"
+        " (CAST(FLOOR(COALESCE(order_lines.revenue, 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) +"
+        " (TO_NUMBER(MD5(order_lines.order_line_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') %"
+        " 1.0e27)::NUMERIC(38, 0)) - SUM(DISTINCT (TO_NUMBER(MD5(order_lines.order_line_id),"
+        " 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) /"
+        " CAST((1000000*1.0) AS DOUBLE PRECISION), 0) as"
+        " order_lines_total_item_revenue,COALESCE(CAST((SUM(DISTINCT"
+        " (CAST(FLOOR(COALESCE(discounts.discount_amt, 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) +"
+        " (TO_NUMBER(MD5(discounts.discount_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') %"
+        " 1.0e27)::NUMERIC(38, 0)) - SUM(DISTINCT (TO_NUMBER(MD5(discounts.discount_id),"
+        " 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) /"
+        " CAST((1000000*1.0) AS DOUBLE PRECISION), 0) as discounts_total_discount_amt FROM"
+        " analytics.order_line_items order_lines LEFT JOIN analytics_live.discounts discounts ON"
+        " order_lines.order_unique_id = discounts.order_id and DATE_TRUNC('DAY', discounts.order_date) is"
+        " not null GROUP BY discounts.code ORDER BY order_lines_total_item_revenue DESC NULLS LAST;"
+    )
+
+
+@pytest.mark.query
+def test_symmetric_aggregate_state_one_to_many_join_unfiltered_topic(connection):
+    """
+    Test with metrics from different views in existing topic.
+    Uses "Order lines unfiltered" to test how different metrics behave.
+    This test will fail to show the actual generated SQL.
+    """
+    # Generate SQL with metrics from both order_lines and discounts views
+    query = connection.get_sql_query(
+        metrics=["order_lines.total_item_revenue", "country_detail.avg_rainfall"],
+        dimensions=["channel"],
+        topic="Order lines unfiltered",
+    )
+
+    # This will fail and show the actual SQL generated
+    assert (
+        query
+        == "SELECT order_lines.sales_channel as order_lines_channel,COALESCE(CAST((SUM(DISTINCT"
+        " (CAST(FLOOR(COALESCE(order_lines.revenue, 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) +"
+        " (TO_NUMBER(MD5(order_lines.order_line_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') %"
+        " 1.0e27)::NUMERIC(38, 0)) - SUM(DISTINCT (TO_NUMBER(MD5(order_lines.order_line_id),"
+        " 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) /"
+        " CAST((1000000*1.0) AS DOUBLE PRECISION), 0) as"
+        " order_lines_total_item_revenue,AVG(country_detail.rain) as country_detail_avg_rainfall FROM"
+        " analytics.order_line_items order_lines LEFT JOIN (SELECT * FROM ANALYTICS.COUNTRY_DETAIL WHERE"
+        " '{{ user_attributes['owned_region'] }}' = COUNTRY_DETAIL.REGION) as country_detail ON"
+        " country_detail.country = order_lines.sales_channel GROUP BY order_lines.sales_channel ORDER BY"
+        " order_lines_total_item_revenue DESC NULLS LAST;"
+    )
+
+
+@pytest.mark.query
+def test_symmetric_aggregate_state_hop_join_in_topic(connection):
+    """
+    Test with hop join (discount_detail via discounts) in existing topic.
+    Uses "Order lines unfiltered" to test complex join paths.
+    This test will fail to show the actual generated SQL.
+    """
+    # Generate SQL with metric requiring hop through discounts to discount_detail
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["discount_promo_name"],
+        topic="Order lines unfiltered",
+    )
+
+    # This will fail and show the actual SQL generated
+    assert (
+        query
+        == "SELECT discount_detail.promo_name as"
+        " discount_detail_discount_promo_name,COALESCE(CAST((SUM(DISTINCT"
+        " (CAST(FLOOR(COALESCE(order_lines.revenue, 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) +"
+        " (TO_NUMBER(MD5(order_lines.order_line_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') %"
+        " 1.0e27)::NUMERIC(38, 0)) - SUM(DISTINCT (TO_NUMBER(MD5(order_lines.order_line_id),"
+        " 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) /"
+        " CAST((1000000*1.0) AS DOUBLE PRECISION), 0) as order_lines_total_item_revenue FROM"
+        " analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON"
+        " order_lines.order_unique_id=orders.id LEFT JOIN analytics_live.discounts discounts ON"
+        " order_lines.order_unique_id = discounts.order_id and DATE_TRUNC('DAY', discounts.order_date) is"
+        " not null LEFT JOIN analytics.discount_detail discount_detail ON discounts.discount_id ="
+        " discount_detail.discount_id and orders.id = discount_detail.order_id GROUP BY"
+        " discount_detail.promo_name ORDER BY order_lines_total_item_revenue DESC NULLS LAST;"
+    )

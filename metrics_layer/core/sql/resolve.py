@@ -148,6 +148,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             d for d in self.kwargs.get("mapping_lookup_dimensions", []) if d not in self._all_fields
         ]
         field_ids = self._all_fields + lookup_only_fields
+        topic_join_graphs = self.topic.join_graphs() if self.topic else []
         for do_replace, field_name in zip(replace_bools, field_ids):
             mapped_field = self.project.get_mapped_field(field_name, model=self.model)
             if mapped_field:
@@ -155,7 +156,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             else:
                 field_obj = self.project.get_field(field_name, model=self.model)
                 self.field_object_lookup[field_name] = field_obj
-                self.field_lookup[field_name] = field_obj.join_graphs()
+                self.field_lookup[field_name] = field_obj.join_graphs() + topic_join_graphs
 
         if not self.mapping_lookup:
             # We need to call this here because the 'field' value in the

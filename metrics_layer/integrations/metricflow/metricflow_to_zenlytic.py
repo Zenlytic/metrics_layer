@@ -3,6 +3,7 @@ import re
 from glob import glob
 
 import ruamel.yaml
+import sqlglot
 
 from .metricflow_types import MetricflowMetricTypes
 
@@ -203,12 +204,7 @@ def convert_mf_view_to_zenlytic_view(
 
 def convert_mf_dimension_to_zenlytic_dimension(mf_dimension: dict):
     if "expr" in mf_dimension:
-        expr = mf_dimension["expr"].strip()
-        # Check if expression is more than a simple column reference
-        if sql_has_operations(expr):
-            sql = expr
-        else:
-            sql = "${TABLE}." + expr
+        sql = append_table_reference(mf_dimension["expr"])
     else:
         sql = "${TABLE}." + mf_dimension["name"]
 
@@ -245,12 +241,11 @@ def convert_mf_dimension_to_zenlytic_dimension(mf_dimension: dict):
 
 
 def convert_mf_measure_to_zenlytic_measure(mf_measure: dict):
-    field_dict = {
-        "name": mf_measure["name"],
-        "sql": str(mf_measure["expr"]) if "expr" in mf_measure else mf_measure["name"],
-        "type": mf_measure["agg"],
-        "field_type": "measure",
-    }
+    field_dict = {"name": mf_measure["name"], "type": mf_measure["agg"], "field_type": "measure"}
+    if "expr" in mf_measure:
+        field_dict["sql"] = append_table_reference(str(mf_measure["expr"]))
+    else:
+        field_dict["sql"] = "${TABLE}." + mf_measure["name"]
 
     if not mf_measure.get("create_metric", False):
         field_dict["hidden"] = True
@@ -299,25 +294,17 @@ def convert_mf_entity_to_zenlytic_identifier(mf_entity: dict, fields: list = [])
         "name": mf_entity["name"],
         "type": "primary" if mf_entity["type"] in {"unique", "natural", "primary"} else "foreign",
     }
-    sql_expr = mf_entity["expr"] if "expr" in mf_entity else mf_entity["name"]
+    if "expr" in mf_entity:
+        sql_expr = append_table_reference(str(mf_entity["expr"]))
+    else:
+        sql_expr = "${TABLE}." + mf_entity["name"]
+    entity_dict["sql"] = sql_expr
 
-    is_field_reference = False
     for f in fields:
         # If the sql expression equals the field name, use a reference to the field
-        if f["name"] == sql_expr:
+        if "${TABLE}." + f["name"] == sql_expr:
             entity_dict["sql"] = "${" + f["name"] + "}"
-            is_field_reference = True
             break
-
-    # If the sql expression is not a field reference, use it as given as a sql snippet
-    # If it's an operation, use it as-is, but if it's a single column
-    # reference, add ${TABLE} to it, so the join works
-    if not is_field_reference:
-        sql_expr = sql_expr.strip()
-        if sql_has_operations(sql_expr):
-            entity_dict["sql"] = sql_expr
-        else:
-            entity_dict["sql"] = "${TABLE}." + sql_expr
 
     if mf_entity.get("config", {}).get("meta") and isinstance(mf_entity["config"]["meta"], dict):
         entity_dict = {**entity_dict, **mf_entity["config"]["meta"].get("zenlytic", {})}
@@ -513,6 +500,26 @@ def _extract_filter_sql(filter_string, primary_key_mapping: dict):
         replacement = "${" + f"{column_name}_{time_grain}" + "}"
         filter_string = filter_string.replace(f"TimeDimension('{match[0]}', '{match[1]}')", replacement)
     return filter_string.replace("{{", "").replace("}}", "")
+
+
+def append_table_reference(sql: str):
+    try:
+        # Parse the SQL to identify column references
+        parsed = sqlglot.parse_one(sql.strip())
+
+        # Transform column references to include ${TABLE}. prefix
+        def transform_columns(node):
+            if isinstance(node, sqlglot.expressions.Column) and not node.table:
+                # Only add ${TABLE}. if the column doesn't already have a table reference
+                node.set("table", sqlglot.expressions.Identifier(this="${TABLE}"))
+            return node
+
+        # Apply the transformation
+        transformed = parsed.transform(transform_columns)
+        return str(transformed)
+    except Exception:
+        # Fallback to simple string concatenation if parsing fails
+        return sql.strip()
 
 
 def get_name_or_string_literal(s):

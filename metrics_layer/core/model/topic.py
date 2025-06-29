@@ -149,7 +149,7 @@ class Topic(MetricsLayerBase):
                         self._error(
                             self.description,
                             (
-                                "The description property, must be"
+                                "Warning: The description property, must be"
                                 f" {topic_description_max_chars} characters or less in the topic {self.label}"
                             ),
                         )
@@ -171,7 +171,7 @@ class Topic(MetricsLayerBase):
                         self._error(
                             self.zoe_description,
                             (
-                                "The zoe_description property, must be"
+                                "Warning: The zoe_description property, must be"
                                 f" {topic_description_max_chars} characters or less in the topic {self.label}"
                             ),
                         )
@@ -550,3 +550,9 @@ class Topic(MetricsLayerBase):
             return join
         except KeyError:
             raise ValueError(f"Join not found between {self.base_view} and {view_name}")
+
+    def join_graphs(self):
+        join_graphs = []
+        for view in self._views():
+            join_graphs.append(self.project.join_graph.join_graph_hash(view.name))
+        return join_graphs

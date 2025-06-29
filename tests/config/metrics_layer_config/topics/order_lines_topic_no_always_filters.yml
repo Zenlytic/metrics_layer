@@ -26,7 +26,24 @@ views:
 
   discount_detail:
     join:
-      # REMEBER TO TEST AS syntax
       join_type: left_outer
       relationship: one_to_one
       sql_on: ${discounts.discount_id} = ${discount_detail.discount_id} and ${orders.order_id} = ${discount_detail.discount_order_id}
+
+  monthly_aggregates:
+    join:
+      join_type: left_outer
+      relationship: many_to_one
+      sql_on: ${monthly_aggregates.record_month} = ${order_lines.order_id}
+
+  accounts:
+    join:
+      join_type: left_outer
+      relationship: one_to_one
+      sql_on: ${accounts.account_id} = ${order_lines.customer_id}
+
+  country_detail:
+    join:
+      join_type: left_outer
+      relationship: one_to_many
+      sql_on: ${country_detail.country_id} = ${order_lines.channel}

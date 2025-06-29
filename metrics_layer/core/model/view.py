@@ -283,7 +283,7 @@ class View(MetricsLayerBase, SQLReplacement):
                     self._error(
                         self._definition["description"],
                         (
-                            f"View {self.name} has a description that is too long"
+                            f"Warning: View {self.name} has a description that is too long"
                             f" ({len(self.description)} characters). Descriptions must be"
                             f" {view_description_max_chars} characters or less. It will be truncated to the"
                             f" first {view_description_max_chars} characters."

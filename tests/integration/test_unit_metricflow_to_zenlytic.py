@@ -38,7 +38,7 @@ def test_dimension_conversion(mf_dimension):
             "name": "is_bulk_transaction",
             "field_type": "dimension",
             "type": "string",
-            "sql": "case when quantity > 10 then true else false end",
+            "sql": "CASE WHEN ${TABLE}.quantity > 10 THEN TRUE ELSE FALSE END",
             "searchable": True,
         }
     elif mf_dimension["name"] == "deleted_at":
@@ -46,7 +46,7 @@ def test_dimension_conversion(mf_dimension):
             "name": "deleted_at",
             "field_type": "dimension_group",
             "type": "time",
-            "sql": "date_trunc('day', ts_deleted)",
+            "sql": "DATE_TRUNC('DAY', ${TABLE}.ts_deleted)",
             "timeframes": ["raw", "date", "week", "month", "quarter", "year", "month_of_year"],
             "zoe_description": "Deleted at field",
         }
@@ -135,7 +135,7 @@ def test_measure_conversion(mf_measure):
         correct = {
             "name": "_total_revenue",
             "field_type": "measure",
-            "sql": "revenue",
+            "sql": "${TABLE}.revenue",
             "type": "sum",
             "label": "Total Revenue (USD)",
             "canon_date": "created_at",
@@ -146,7 +146,7 @@ def test_measure_conversion(mf_measure):
         correct = {
             "name": "_aov",
             "field_type": "measure",
-            "sql": "case when email not ilike '%internal.com' then revenue end",
+            "sql": "CASE WHEN NOT ${TABLE}.email ILIKE '%internal.com' THEN ${TABLE}.revenue END",
             "type": "average",
             "hidden": True,
         }
@@ -154,18 +154,23 @@ def test_measure_conversion(mf_measure):
         correct = {
             "name": "_quick_buy_transactions",
             "field_type": "measure",
-            "sql": "CAST(quick_buy_transactions AS INT)",
+            "sql": "CAST(${TABLE}.quick_buy_transactions AS INT)",
             "type": "sum",
             "hidden": True,
             "zoe_description": "Quick buy transactions",
         }
     elif mf_measure["name"] == "last_purchase":
-        correct = {"name": "last_purchase", "field_type": "measure", "sql": "purchase_date", "type": "max"}
+        correct = {
+            "name": "last_purchase",
+            "field_type": "measure",
+            "sql": "${TABLE}.purchase_date",
+            "type": "max",
+        }
     elif mf_measure["name"] == "mrr":
         correct = {
             "name": "mrr",
             "field_type": "measure",
-            "sql": "sub_rev",
+            "sql": "${TABLE}.sub_rev",
             "type": "sum",
             "non_additive_dimension": {
                 "name": "order_date_raw",
@@ -177,7 +182,7 @@ def test_measure_conversion(mf_measure):
         correct = {
             "name": "p75_order_total",
             "field_type": "measure",
-            "sql": "order_total",
+            "sql": "${TABLE}.order_total",
             "type": "percentile",
             "percentile": 75,
         }
@@ -360,7 +365,7 @@ def test_metric_conversion(mf_metric):
         correct = {
             "name": "customers",
             "field_type": "measure",
-            "sql": "id_customer",
+            "sql": "${TABLE}.id_customer",
             "hidden": False,
             "type": "count_distinct",
             "label": "Count of customers",
@@ -370,7 +375,7 @@ def test_metric_conversion(mf_metric):
         correct = {
             "name": "customers_old_syntax",
             "field_type": "measure",
-            "sql": "id_customer",
+            "sql": "${TABLE}.id_customer",
             "hidden": False,
             "type": "count_distinct",
             "label": "Count of customers",
@@ -382,7 +387,7 @@ def test_metric_conversion(mf_metric):
             "name": "large_orders",
             "field_type": "measure",
             "hidden": True,
-            "sql": "case when ${orders.order_total_dim} >= 20 then id_order else null end",
+            "sql": "case when ${orders.order_total_dim} >= 20 then ${TABLE}.id_order else null end",
             "type": "count_distinct",
             "label": "Large Orders",
             "description": "Order with order values over 20.",
@@ -399,7 +404,7 @@ def test_metric_conversion(mf_metric):
                 "case when  ${customers.customer_type}  = 'new' and (  "
                 "${customers.first_ordered_at_month}  = '2024-01-01' or   "
                 "${customers.first_ordered_at_month}  = '2024-02-01' or  "
-                "${customers.first_ordered_at_date}  is null) then id_customer else "
+                "${customers.first_ordered_at_date}  is null) then ${TABLE}.id_customer else "
                 "null end"
             ),
             "type": "count_distinct",

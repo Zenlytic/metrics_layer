@@ -38,7 +38,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         # The former case is for building the cte to reference later on
         # The latter case is for building the final query
         self.render_window_functions = definition.get("render_window_functions", False)
-
+        print(self.design.topic)
         self.parse_definition(definition)
 
         super().__init__(definition)
@@ -593,7 +593,9 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
     # Code for formatting values
     def get_sql(self, field, alias: Union[None, str] = None, use_symmetric: bool = False):
         extra_args = {"render_window_functions": self.render_window_functions}
-        if use_symmetric:
+        if use_symmetric and self.design.topic is None:
             extra_args["functional_pk"] = self.design.functional_pk()
+        elif use_symmetric and self.design.topic is not None:
+            extra_args["functional_pk"] = self.design.view_symmetric_aggregate(field.view.name)
         query = field.sql_query(query_type=self.query_type, **extra_args)
         return self.sql(query, alias)

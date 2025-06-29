@@ -1279,8 +1279,8 @@ def test_median_aggregate_function(connection, query_type):
             metrics=["median_customer_ltv"], dimensions=[], query_type=query_type
         )
         correct = (
-            "SELECT APPROX_QUANTILES(customers.customer_ltv, 100)[OFFSET(50)] as customers_median_customer_ltv "
-            "FROM analytics.customers customers;"
+            "SELECT APPROX_QUANTILES(customers.customer_ltv, 100)[OFFSET(50)] as"
+            " customers_median_customer_ltv FROM analytics.customers customers;"
         )
         assert query == correct
     else:
