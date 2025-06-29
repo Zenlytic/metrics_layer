@@ -4,6 +4,16 @@ from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException
 
 
 @pytest.mark.project
+def test_adding_raw_timeframe_to_dimension_group(connection):
+
+    field = connection.project.get_field_by_name("discounts.order")
+    assert "raw" in field.timeframes
+
+    field = connection.project.get_field("discounts.order_raw")
+    assert field.id() == "discounts.order_raw"
+
+
+@pytest.mark.project
 def test_object_id_functions(connection):
     """
     Tests the object id functions for all possible metrics layer objects.
@@ -247,14 +257,14 @@ def test_add_with_join_graphs_field_cache(connection):
 
 
 @pytest.mark.project
-def test_add_field_personal_fields_are_warnings(connection):
+def test_add_field_dynamic_fields_are_warnings(connection):
     connection.project.add_field(
         {
             "name": "total_new_revenue!",
             "type": "sum",
             "field_type": "measure",
             "sql": "${TABLE}.revenue",
-            "is_personal_field": True,
+            "is_dynamic_field": True,
         },
         view_name="orders",
     )
