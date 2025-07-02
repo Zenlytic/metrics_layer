@@ -38,7 +38,6 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         # The former case is for building the cte to reference later on
         # The latter case is for building the final query
         self.render_window_functions = definition.get("render_window_functions", False)
-        print(self.design.topic)
         self.parse_definition(definition)
 
         super().__init__(definition)
