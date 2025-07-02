@@ -753,7 +753,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
         adjusted_sum = f"(CAST(FLOOR(COALESCE({sql}, 0) * ({factor} * 1.0)) AS DECIMAL(38,0)))"
 
-        pk_sum = f"(HASHTEXTEXTENDED({primary_key_sql}, 0))::NUMERIC(38, 0)"
+        pk_sum = f"(HASHTEXTEXTENDED(CAST({primary_key_sql} AS TEXT), 0))::NUMERIC(38, 0)"
 
         sum_with_pk_backout = f"SUM(DISTINCT {adjusted_sum} + {pk_sum}) - SUM(DISTINCT {pk_sum})"
 
@@ -1859,8 +1859,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                     self._error(
                         self._definition["description"],
                         (
-                            f"Warning: Field {self.name} in view {self.view.name} has a description that is too long"
-                            f" ({len(self.description)} characters). Descriptions must be"
+                            f"Warning: Field {self.name} in view {self.view.name} has a description that is"
+                            f" too long ({len(self.description)} characters). Descriptions must be"
                             f" {description_max_chars} characters or less. It will be truncated to the first"
                             f" {description_max_chars} characters."
                         ),
@@ -1883,9 +1883,9 @@ class Field(MetricsLayerBase, SQLReplacement):
                     self._error(
                         self._definition["zoe_description"],
                         (
-                            f"Warning: Field {self.name} in view {self.view.name} has a zoe_description that is too"
-                            f" long. Descriptions must be {description_max_chars} characters or less. It will"
-                            f" be truncated to the first {description_max_chars} characters."
+                            f"Warning: Field {self.name} in view {self.view.name} has a zoe_description that"
+                            f" is too long. Descriptions must be {description_max_chars} characters or less."
+                            f" It will be truncated to the first {description_max_chars} characters."
                         ),
                     )
                 )

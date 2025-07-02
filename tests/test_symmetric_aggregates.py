@@ -43,9 +43,9 @@ def test_query_sum_with_sql(connection, query_type):
     elif query_type in {Definitions.postgres}:
         sa = (
             "COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue, 0) * (1000000 * 1.0)) AS"
-            " DECIMAL(38,0))) + (HASHTEXTEXTENDED(orders.id, 0))::NUMERIC(38, 0)) - SUM(DISTINCT"
-            " (HASHTEXTEXTENDED(orders.id, 0))::NUMERIC(38, 0))) AS DOUBLE PRECISION) / CAST((1000000*1.0) AS"
-            " DOUBLE PRECISION), 0)"
+            " DECIMAL(38,0))) + (HASHTEXTEXTENDED(CAST(orders.id AS TEXT), 0))::NUMERIC(38, 0)) -"
+            " SUM(DISTINCT (HASHTEXTEXTENDED(CAST(orders.id AS TEXT), 0))::NUMERIC(38, 0))) AS DOUBLE"
+            " PRECISION) / CAST((1000000*1.0) AS DOUBLE PRECISION), 0)"
         )
         order_by = ""
     elif query_type == Definitions.bigquery:
