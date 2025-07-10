@@ -580,6 +580,8 @@ class Field(MetricsLayerBase, SQLReplacement):
             # is logically impossible to render as-is to the model due to dependencies higher up.
             # We need to return a UDF which the model can use and we can re-reference as needed.
             return f"{self.view.name}.{self.name}()"
+        elif model_format:
+            render_window_functions = True
         if self.type == "cumulative" and alias_only:
             return f"{self.cte_prefix()}.{self.measure.alias(with_view=True)}"
         if self.field_type == ZenlyticFieldType.measure:

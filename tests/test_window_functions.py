@@ -4,6 +4,19 @@ from metrics_layer.core.exceptions import QueryError
 
 
 @pytest.mark.query
+def test_window_function_model_format_sql(connection):
+    query = connection.project.get_field(f"order_sequence").sql_query(
+        query_type="SNOWFLAKE", model_format=True
+    )
+
+    correct = (
+        "dense_rank() over (partition by order_lines.customer_id order by DATE_TRUNC('DAY',"
+        " order_lines.order_date) asc)"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_query_window_function_as_dimension(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
