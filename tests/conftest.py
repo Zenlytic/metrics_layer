@@ -52,6 +52,7 @@ created_workspaces_view_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/views/test_created_workspace.yml"
 )
 other_db_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/other_db_traffic.yml")
+other_model_topic_path = os.path.join(BASE_PATH, "config/metrics_layer_config/topics/other_model_topic.yml")
 order_lines_topic_path = os.path.join(BASE_PATH, "config/metrics_layer_config/topics/order_lines_topic.yml")
 order_lines_topic_no_always_filters_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/topics/order_lines_topic_no_always_filters.yml"
@@ -68,6 +69,7 @@ topic_paths = [
     order_lines_topic_no_always_filters_path,
     recurring_revenue_topic_path,
     order_lines_only_topic_path,
+    other_model_topic_path,
 ]
 view_paths = [
     order_lines_view_path,

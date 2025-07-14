@@ -200,7 +200,7 @@ class JoinGraph(SQLReplacement):
     def _build_merged_results_graph(self, model):
         with_dates = [
             field
-            for field in self.project.fields(model=model)
+            for field in self.project.fields(model_name=model.name)
             if field.canon_date and field.field_type == "measure"
         ]
         mappings = model.get_mappings(dimensions_only=True)
@@ -229,11 +229,11 @@ class JoinGraph(SQLReplacement):
             )
 
             # Add any fields that accessible via a join to both join_group_hash_1 and join_group_hash_2
-            for view in self.project.views(model=model):
+            for view in self.project.views(model_name=model.name):
                 join_hashes = self.project.join_graph.weak_join_graph_hashes(view.name)
                 if all(join_hash in join_hashes for join_hash in pair):
                     view_fields = self.project.fields(
-                        view_name=view.name, model=model, expand_dimension_groups=True
+                        view_name=view.name, model_name=model.name, expand_dimension_groups=True
                     )
                     for field in view_fields:
                         for node in existing_sub_root_nodes:

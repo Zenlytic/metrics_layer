@@ -22,6 +22,11 @@ def test_access_grants_model_visible(connection):
 
     connection.project.set_user({"region": "south"})
 
+    connection.project.get_model("new_model")
+    connection.project.get_topic("Other DB Traffic")
+    connection.project.get_view("other_db_traffic")
+    connection.project.get_field("other_db_traffic.other_traffic_source")
+
     with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
         connection.get_model("test_model")
 
@@ -33,15 +38,15 @@ def test_access_grants_model_visible(connection):
         connection.get_view("orders")
 
     assert exc_info.value
-    assert exc_info.value.object_name == "test_model"
-    assert exc_info.value.object_type == "model"
+    assert exc_info.value.object_name == "orders"
+    assert exc_info.value.object_type == "view"
 
     with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
         connection.get_field("order_lines.customer_id")
 
     assert exc_info.value
-    assert exc_info.value.object_name == "test_model"
-    assert exc_info.value.object_type == "model"
+    assert exc_info.value.object_name == "order_lines"
+    assert exc_info.value.object_type == "view"
 
 
 def test_access_grants_view_visible(connection):

@@ -187,7 +187,7 @@ class MetricsLayerConnection:
         models = self.list_models()
         kws = {}
         if len(models) == 1:
-            kws = {"model": models[0]}
+            kws = {"model_name": models[0].name}
         return self.project.get_field(field_name, view_name=view_name, **kws)
 
     def list_metrics(self, view_name: str = None, names_only: bool = False, show_hidden: bool = False):

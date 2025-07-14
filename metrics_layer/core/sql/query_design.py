@@ -39,7 +39,7 @@ class MetricsLayerDesign:
         return self.model.week_start_day
 
     def views(self) -> List[MetricsLayerBase]:
-        return self.project.views(model=self.model)
+        return self.project.views(model_name=self.model.name)
 
     @functools.lru_cache(maxsize=1)
     def joins(self) -> List[MetricsLayerBase]:
@@ -313,13 +313,13 @@ class MetricsLayerDesign:
         return primary_key
 
     def get_view(self, name: str) -> View:
-        return self.project.get_view(name, model=self.model)
+        return self.project.get_view(name, model_name=self.model.name)
 
     def get_join(self, name: str) -> MetricsLayerBase:
         return next((j for j in self.joins() if j.name == name), None)
 
     def get_field(self, field_name: str) -> MetricsLayerBase:
-        return self.project.get_field(field_name, model=self.model)
+        return self.project.get_field(field_name, model_name=self.model.name)
 
     def get_access_filter(self):
         views_in_request = self._fields_to_unique_views(list(self.field_lookup.values()))

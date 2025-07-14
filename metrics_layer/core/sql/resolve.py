@@ -154,7 +154,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             if mapped_field:
                 self.mapping_lookup[field_name] = {**mapped_field, "do_replace": do_replace}
             else:
-                field_obj = self.project.get_field(field_name, model=self.model)
+                field_obj = self.project.get_field(field_name, model_name=self.model.name)
                 self.field_object_lookup[field_name] = field_obj
                 self.field_lookup[field_name] = field_obj.join_graphs() + topic_join_graphs
 
@@ -332,7 +332,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                     # Only the group by field needs to be joinable or merge-able to the query
                     # The field in the group by where clause is not required to be joinable
                     # to the whole query, just to the group by field
-                    group_by_field = self.project.get_field(cond["group_by"], model=self.model)
+                    group_by_field = self.project.get_field(cond["group_by"], model_name=self.model.name)
                     join_graphs = group_by_field.join_graphs()
 
                     # Here we need to check if the field is a mapped field
@@ -400,7 +400,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
         elif only_search_lookup:
             return None
         else:
-            metric_field = self.project.get_field(field_name, model=self.model)
+            metric_field = self.project.get_field(field_name, model_name=self.model.name)
         return metric_field
 
     def determine_field_to_replace_with(self, mapped_field, joinable_graphs, mergeable_graphs):
