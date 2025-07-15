@@ -119,7 +119,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             "limit": self.limit,
             "return_pypika_query": self.return_pypika_query,
             "project": self.project,
-            "is_using_topic": len(self.merged_metrics) == 0 and should_use_topic,
+            "is_using_topic": should_use_topic,
         }
         # Druid does not allow semicolons
         if self.query_type in Definitions.no_semicolon_warehouses:
