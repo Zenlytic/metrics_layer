@@ -540,7 +540,7 @@ class Topic(MetricsLayerBase):
         # Build a subgraph that only contains the required joins
         subG = G.subgraph(required_views).copy()
 
-        sorted_views = list(nx.topological_sort(subG))
+        sorted_views = list(nx.lexicographical_topological_sort(subG))
         return sorted_views
 
     def get_join(self, view_name: str) -> Join:

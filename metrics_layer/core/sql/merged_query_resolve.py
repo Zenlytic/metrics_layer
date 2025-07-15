@@ -44,7 +44,13 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
 
     def get_query(self, semicolon: bool = True):
         self.parse_field_names(self.where, self.having, self.order_by)
-        self.derive_sub_queries()
+        try:
+            self.derive_sub_queries()
+        except QueryError as e:
+            if self.kwargs.get("topic"):
+                self.derive_sub_queries(topic=self.kwargs.get("topic"))
+            else:
+                raise e
 
         queries_to_join = {}
         join_hashes = list(self.query_metrics.keys())
@@ -63,8 +69,19 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
 
             # Overwrite the limit arg because these are subqueries
             kws = {**self.kwargs, "limit": None, "return_pypika_query": True}
-            # Remove the topic when trying to execute a merged result
-            kws.pop("topic", None)
+            # Remove the topic when trying to execute a merged result if and only if
+            # there are merged metrics. This is because the topic is not supported in
+            # merged result queries.
+            if topic := self.kwargs.get("topic"):
+                topic_view_names = [v.name for v in topic._views()]
+                all_dimensions_in_topic = all(d.split(".")[0] in topic_view_names for d in dimensions)
+            else:
+                all_dimensions_in_topic = False
+
+            should_use_topic = len(self.merged_metrics) == 0 and all_dimensions_in_topic
+            if not should_use_topic:
+                kws.pop("topic", None)
+
             resolver = SingleSQLQueryResolver(
                 metrics=metrics,
                 dimensions=dimensions,
@@ -102,6 +119,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
             "limit": self.limit,
             "return_pypika_query": self.return_pypika_query,
             "project": self.project,
+            "is_using_topic": len(self.merged_metrics) == 0 and self.kwargs.get("topic"),
         }
         # Druid does not allow semicolons
         if self.query_type in Definitions.no_semicolon_warehouses:
@@ -112,7 +130,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
 
         return query
 
-    def derive_sub_queries(self):
+    def derive_sub_queries(self, topic=None):
         self.query_metrics = defaultdict(list)
         self.merged_metrics = []
         self.secondary_metrics = []
@@ -201,6 +219,10 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                     ref_field = self.project.get_field(key)
                     self.query_dimensions[mapping_info["from_join_hash"]].append(ref_field)
             else:
+                if topic:
+                    for join_key in self.query_metrics.keys():
+                        self.query_dimensions[join_key].append(field)
+                    continue
                 not_in_metrics = True
                 for join_hash in used_join_hashes:
                     # If the dimension is available in the same join subgraph as the metric, attach it
