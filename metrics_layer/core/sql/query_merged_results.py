@@ -139,6 +139,13 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
                         f for f in mapping_lookup[field.id()] if f["field"] in all_dimension_ids
                     ]
                     if_null_func = if_null_lookup[self.query_type]
+                    # If the field is not present in the mapping lookup, but we are using a topic
+                    # We can safely assume the field is present in all sub queries
+                    if present_fields == [] and self.is_using_topic:
+                        present_fields = [
+                            {"field": field.id(), "cte": join_hash}
+                            for join_hash in sorted(self.query_dimensions.keys())
+                        ]
                     nested_sql = self.nested_if_null(present_fields, if_null_func)
                     dimension_sql[alias] = f"{if_null_func}({join_hash}.{alias}, {nested_sql})"
 

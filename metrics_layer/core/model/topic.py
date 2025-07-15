@@ -4,9 +4,10 @@ import networkx as nx
 
 from metrics_layer.core.exceptions import (
     AccessDeniedOrDoesNotExistException,
+    JoinError,
     QueryError,
 )
-from metrics_layer.core.exceptions import JoinError
+
 from .base import MetricsLayerBase
 from .field import Field
 from .join import Join, ZenlyticJoinRelationship, ZenlyticJoinType
@@ -63,7 +64,7 @@ class Topic(MetricsLayerBase):
         topic_view_names = [self.base_view]
         if self.views and isinstance(self.views, dict):
             topic_view_names += list(self.views.keys())
-        return [v for v in self.project.views(model=self.model) if v.name in topic_view_names]
+        return [v for v in self.project.views(model_name=self.model_name) if v.name in topic_view_names]
 
     def _error(self, element, error, extra: dict = {}):
         line, column = self.line_col(element)
@@ -181,7 +182,10 @@ class Topic(MetricsLayerBase):
                 errors.append(
                     self._error(
                         self._definition["hidden"],
-                        f"The hidden property, {self._definition['hidden']} must be a boolean in the topic {self.label}",
+                        (
+                            f"The hidden property, {self._definition['hidden']} must be a boolean in the"
+                            f" topic {self.label}"
+                        ),
                     )
                 )
 
@@ -496,8 +500,11 @@ class Topic(MetricsLayerBase):
         if invalid_views:
             invalid_views_str = ", ".join(sorted(invalid_views))
             raise JoinError(
-                f"The following views are not included in the topic {self.label}: {invalid_views_str}\n\nYou"
-                " can add them to the topic by adding the requested views to the topic.",
+                (
+                    f"The following views are not included in the topic {self.label}:"
+                    f" {invalid_views_str}\n\nYou can add them to the topic by adding the requested views to"
+                    " the topic."
+                ),
                 location="topic",
             )
 
@@ -533,7 +540,7 @@ class Topic(MetricsLayerBase):
         # Build a subgraph that only contains the required joins
         subG = G.subgraph(required_views).copy()
 
-        sorted_views = list(nx.topological_sort(subG))
+        sorted_views = list(nx.lexicographical_topological_sort(subG))
         return sorted_views
 
     def get_join(self, view_name: str) -> Join:

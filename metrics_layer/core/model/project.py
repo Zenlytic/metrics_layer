@@ -446,6 +446,13 @@ class Project:
                 models.append(model)
         return models
 
+    def _all_models(self) -> List[Model]:
+        """No permission checks are applied to this method BE CAREFUL"""
+        return [Model(m, project=self) for m in self._models]
+
+    def _model_exists(self, model_name: str) -> bool:
+        return any(m.name == model_name for m in self._all_models())
+
     def get_model(self, model_name: str) -> Model:
         try:
             return next((m for m in self.models() if m.name == model_name))
@@ -476,8 +483,7 @@ class Project:
             )
 
     def access_grants(self):
-        all_models = [Model(m, project=self) for m in self._models]
-        return [AccessGrant(g, model=m) for m in all_models for g in m.access_grants]
+        return [AccessGrant(g, model=m) for m in self._all_models() for g in m.access_grants]
 
     def get_access_grant(self, grant_name: str):
         try:
@@ -489,10 +495,26 @@ class Project:
         return self._can_access_object(dashboard)
 
     def can_access_topic(self, topic: Topic):
-        return self._can_access_object(topic) and self.can_access_model(topic.model)
+        try:
+            return self._can_access_object(topic) and self.can_access_model(topic.model)
+        except AccessDeniedOrDoesNotExistException as e:
+            if self._model_exists(topic.model_name):
+                # If we're not able to access the model, we can't access the topic
+                return False
+            else:
+                # Otherwise, the model is named incorrectly, and we should raise the error
+                raise e
 
     def can_access_view(self, view: View):
-        return self._can_access_object(view) and self.can_access_model(view.model)
+        try:
+            return self._can_access_object(view) and self.can_access_model(view.model)
+        except AccessDeniedOrDoesNotExistException as e:
+            if self._model_exists(view.model_name):
+                # If we're not able to access the model, we can't access the view
+                return False
+            else:
+                # Otherwise, the model is named incorrectly, and we should raise the error
+                raise e
 
     def can_access_model(self, model: Model):
         return self._can_access_object(model)
@@ -519,21 +541,27 @@ class Project:
                 return all(decisions)
         return True
 
-    def _all_views(self, model, show_hidden: bool = True):
+    def _views_for_a_model(self, model_name: str, show_hidden: bool = True):
+        return [v for v in self._all_views(show_hidden=show_hidden) if v.model_name == model_name]
+
+    def _all_views(self, show_hidden: bool = True):
         views = []
         for v in self._views:
-            view = View({**v, "model": model}, project=self)
+            view = View(v, project=self)
             view_is_visible = show_hidden or view.hidden is False
             if self.can_access_view(view) and view_is_visible:
                 views.append(view)
         return views
 
-    def views(self, model: Union[Model, None] = None, show_hidden: bool = True) -> list:
-        return self._all_views(model, show_hidden)
+    def views(self, model_name: Union[str, None] = None, show_hidden: bool = True) -> list:
+        if model_name:
+            return self._views_for_a_model(model_name, show_hidden)
+        else:
+            return self._all_views(show_hidden)
 
-    def get_view(self, view_name: str, model: Union[Model, None] = None) -> View:
+    def get_view(self, view_name: str, model_name: Union[str, None] = None) -> View:
         try:
-            return next((v for v in self.views(model=model) if v.name == view_name))
+            return next((v for v in self.views(model_name=model_name) if v.name == view_name))
         except StopIteration:
             raise AccessDeniedOrDoesNotExistException(
                 f"Could not find or you do not have access to view {view_name}",
@@ -572,46 +600,48 @@ class Project:
         topic_label: Union[str, None] = None,
         show_hidden: bool = True,
         expand_dimension_groups: bool = False,
-        model: Union[Model, None] = None,
+        model_name: Union[str, None] = None,
     ) -> list:
         if view_name is None and topic_label is None:
-            return self._all_fields(show_hidden, expand_dimension_groups, model)
+            return self._all_fields(show_hidden, expand_dimension_groups, model_name)
         elif topic_label is not None and view_name is None:
-            return self._topic_fields(topic_label, show_hidden, expand_dimension_groups, model)
+            return self._topic_fields(topic_label, show_hidden, expand_dimension_groups, model_name)
         elif view_name is not None and topic_label is None:
-            return self._view_fields(view_name, show_hidden, expand_dimension_groups, model)
+            return self._view_fields(view_name, show_hidden, expand_dimension_groups)
         else:
             raise QueryError(
                 "Ambiguous query: you must specify either a view_name or a topic_label, but not both."
             )
 
-    def _all_fields(self, show_hidden: bool, expand_dimension_groups: bool, model: Model):
-        return [f for v in self.views(model=model) for f in v.fields(show_hidden, expand_dimension_groups)]
+    def _all_fields(
+        self,
+        show_hidden: bool,
+        expand_dimension_groups: bool,
+        model_name: Union[str, None] = None,
+    ):
+        return [
+            f
+            for v in self.views(model_name=model_name)
+            for f in v.fields(show_hidden, expand_dimension_groups)
+        ]
 
     def _topic_fields(
         self,
         topic_label: str,
         show_hidden: bool = True,
         expand_dimension_groups: bool = False,
-        model: Optional[Model] = None,
+        model_name: Union[str, None] = None,
     ):
         topic = self.get_topic(topic_label)
         if not topic:
-            plus_model = f" in model {model.name}" if model else ""
+            plus_model = f" in model {model_name}" if model_name else ""
             raise QueryError(f"Could not find a topic matching the label {topic_label}{plus_model}")
         return [f for v in topic._views() for f in v.fields(show_hidden, expand_dimension_groups)]
 
-    def _view_fields(
-        self,
-        view_name: str,
-        show_hidden: bool = True,
-        expand_dimension_groups: bool = False,
-        model: Optional[Model] = None,
-    ):
-        view = self.get_view(view_name, model=model)
+    def _view_fields(self, view_name: str, show_hidden: bool = True, expand_dimension_groups: bool = False):
+        view = self.get_view(view_name)
         if not view:
-            plus_model = f" in model {model.name}" if model else ""
-            raise QueryError(f"Could not find a view matching the name {view_name}{plus_model}")
+            raise QueryError(f"Could not find a view matching the name {view_name}")
         return view.fields(show_hidden, expand_dimension_groups)
 
     def joinable_fields(self, field_list: list, expand_dimension_groups: bool = False):
@@ -624,14 +654,16 @@ class Project:
         return field_options
 
     @functools.lru_cache(maxsize=None)
-    def get_field(self, field_name: str, view_name: str = None, model: Model = None) -> Field:
+    def get_field(
+        self, field_name: str, view_name: Union[str, None] = None, model_name: Union[str, None] = None
+    ) -> Field:
         field_name, view_name = self._parse_field_and_view_name(field_name, view_name)
 
-        fields = self.fields(view_name=view_name, expand_dimension_groups=True, model=model)
+        fields = self.fields(view_name=view_name, expand_dimension_groups=True, model_name=model_name)
         matching_fields = [f for f in fields if f.equal(field_name)]
         return self._matching_field_handler(matching_fields, field_name, view_name)
 
-    def get_mapped_field(self, field_name: str, model: Model = None):
+    def get_mapped_field(self, field_name: str, model: Model):
         if model.mappings:
             field_data = model.mappings.get(field_name.lower())
             if field_data:
@@ -639,31 +671,42 @@ class Project:
         return None
 
     @functools.lru_cache(maxsize=None)
-    def get_field_by_name(self, field_name: str, view_name: str = None, model: Model = None):
+    def get_field_by_name(
+        self, field_name: str, view_name: Union[str, None] = None, model_name: Union[str, None] = None
+    ):
         field_name, view_name = self._parse_field_and_view_name(field_name, view_name)
-        fields = self.fields(view_name=view_name, expand_dimension_groups=False, model=model)
+        fields = self.fields(view_name=view_name, expand_dimension_groups=False, model_name=model_name)
         matching_fields = [f for f in fields if f.name == field_name]
         return self._matching_field_handler(matching_fields, field_name, view_name)
 
     @functools.lru_cache(maxsize=None)
     def get_field_by_tag(
-        self, tag_name: str, view_name: str = None, join_graphs: tuple = None, model: Model = None
+        self,
+        tag_name: str,
+        view_name: Union[str, None] = None,
+        join_graphs: Union[tuple, None] = None,
+        model_name: Union[str, None] = None,
     ):
         tag_options = {tag_name, f"{tag_name}s"} if tag_name[-1] != "s" else {tag_name, tag_name[:-1]}
-        fields = self.fields(view_name=view_name, expand_dimension_groups=True, model=model)
+        fields = self.fields(view_name=view_name, expand_dimension_groups=True, model_name=model_name)
         matching_fields = [f for f in fields if f.tags and any(t in tag_options for t in f.tags)]
         if join_graphs:
             matching_fields = [f for f in matching_fields if any(j in f.join_graphs() for j in join_graphs)]
         return self._matching_field_handler(matching_fields, tag_name, view_name)
 
-    def does_field_exist(self, field_name: str, view_name: str = None, model: Model = None):
+    def does_field_exist(
+        self,
+        field_name: str,
+        view_name: Union[str, None] = None,
+        model_name: Union[str, None] = None,
+    ):
         try:
-            self.get_field(field_name, view_name, model)
+            self.get_field(field_name, view_name, model_name)
             return True
         except AccessDeniedOrDoesNotExistException:
             return False
 
-    def _parse_field_and_view_name(self, field_name: str, view_name: str):
+    def _parse_field_and_view_name(self, field_name: str, view_name: Union[str, None]):
         # Handle the case where the view syntax is passed: view_name.field_name
         if "." in field_name:
             specified_view_name, field_name = Field.field_name_parts(field_name)
@@ -674,7 +717,7 @@ class Project:
             view_name = specified_view_name
         return field_name.lower(), view_name
 
-    def _matching_field_handler(self, matching_fields: list, field_name: str, view_name: str = None):
+    def _matching_field_handler(self, matching_fields: list, field_name: str, view_name: Union[str, None]):
         if len(matching_fields) == 1:
             return matching_fields[0]
 

@@ -155,7 +155,7 @@ class View(MetricsLayerBase, SQLReplacement):
         return None
 
     @property
-    def model(self):
+    def model(self) -> "Model":
         try:
             if "model_name" in self._definition:
                 model: Model = self.project.get_model(self._definition["model_name"])
@@ -163,6 +163,12 @@ class View(MetricsLayerBase, SQLReplacement):
             elif "model" in self._definition:
                 model: Model = self._definition["model"]
                 return model
+            else:
+                raise AccessDeniedOrDoesNotExistException(
+                    f"Could not find or you do not have access to model {self.model_name}",
+                    object_name=self.model_name,
+                    object_type="model",
+                )
         except AccessDeniedOrDoesNotExistException as e:
             e.message = str(e) + f" in view {self.name}"
             raise e

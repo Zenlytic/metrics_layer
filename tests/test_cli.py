@@ -545,7 +545,8 @@ def test_cli_validate_broken_canon_date(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert (
-        result.output == "Found 1 error in the project:\n\n"
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nCanon date customers.does_not_exist is unreachable in field total_sessions.\n\n"
     )
 
@@ -802,8 +803,9 @@ def test_cli_validate_model_name_in_view(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert (
-        result.output == "Found 1 error in the project:\n\n"
-        "\nCould not find a model in the view orders. Use the model_name property to specify the model.\n\n"
+        result.output
+        == "Found 1 error in the project:\n\n"
+        "\nCould not find or you do not have access to model None in view orders\n\n"
     )
 
 
@@ -845,7 +847,8 @@ def test_cli_dashboard_model_does_not_exist(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert (
-        result.output == "Found 1 error in the project:\n\n"
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nCould not find or you do not have access to model missing_model in dashboard sales_dashboard\n\n"
     )
 
@@ -866,7 +869,8 @@ def test_cli_canon_date_inaccessible(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert (
-        result.output == "Found 1 error in the project:\n\n"
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nCanon date orders.missing_field is unreachable in field total_revenue.\n\n"
     )
 
@@ -951,7 +955,8 @@ def test_cli_duplicate_field_names(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert (
-        result.output == "Found 1 error in the project:\n\n"
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nDuplicate field names in view customers: number_of_customers\n\n"
     )
 

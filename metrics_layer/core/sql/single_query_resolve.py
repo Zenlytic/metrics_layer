@@ -189,7 +189,7 @@ class SingleSQLQueryResolver:
             self.field_lookup[name] = self.get_field_with_error_handling(name, "Order by field")
 
     def get_field_with_error_handling(self, field_name: str, error_prefix: str):
-        field = self.project.get_field(field_name, model=self.model)
+        field = self.project.get_field(field_name, model_name=self.model.name)
         if field is None:
             raise QueryError(f"{error_prefix} {field_name} not found")
         return field
