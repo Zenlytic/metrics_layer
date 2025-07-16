@@ -1,0 +1,38 @@
+version: 1
+type: topic
+base_view: orders # 1 metric from
+model_name: test_model
+label: orders_chained_topic
+description: contains anything related to orders
+views:
+  discount_detail: # v_zn_loan_master
+    join:
+      join_type: inner
+      relationship: one_to_many
+      sql_on: >-
+        ${orders.order_id}=${discount_detail.discount_order_id}
+  customers: # v_zn_loan_positions
+    join:
+      join_type: inner
+      relationship: one_to_many
+      sql_on: >-
+        ${customers.customer_id}=${discount_detail.discount_order_id}
+  order_lines: # v_zn_loan_position_balances
+    join:
+      join_type: inner
+      relationship: one_to_many
+      sql_on: >-
+        ${customers.customer_id}=${order_lines.customer_id}
+  monthly_aggregates: # v_zn_party_master_internal:
+    join:
+      join_type: left_outer
+      relationship: one_to_one
+      sql_on: >-
+        ${customers.customer_id}=${monthly_aggregates.division}
+  discounts: #  v_zn_loan_metrics
+    join:
+      join_type: left_outer
+      relationship: one_to_many
+      sql_on: >-
+        ${discount_detail.discount_order_id}=${discounts.order_id}
+        and ${accounts.created_month}=${discounts.order_month}

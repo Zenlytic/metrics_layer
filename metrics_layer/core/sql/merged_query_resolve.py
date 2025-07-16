@@ -203,8 +203,23 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                     dimension_mapping[key].append(
                         {"from_join_hash": mapping_data["from_join_hash"], **map_to}
                     )
+        # We need to get the join hashes for all dimensions, so if we are in a topic
+        # we can add all non-canon date dimensions to each join hash
+        dimension_join_hashes = set()
+        for dimension in self.dimensions:
+            field = self.project.get_field(dimension)
+            field_key = f"{field.view.name}.{field.name}"
+            join_group_hash = self._join_hash_key(field)
+            if field_key in canon_dates:
+                join_hash = f'{field_key.replace(".", "_")}__{join_group_hash}'
+                dimension_join_hashes.add(join_hash)
+
+                dimension_group = field.dimension_group
+                for mapping_info in dimension_mapping[field_key]:
+                    dimension_join_hashes.add(mapping_info["from_join_hash"])
 
         self.query_dimensions = defaultdict(list)
+        all_join_hashes = set(self.query_metrics.keys()).union(dimension_join_hashes)
         for dimension in self.dimensions:
             field = self.project.get_field(dimension)
             field_key = f"{field.view.name}.{field.name}"
@@ -220,7 +235,7 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
                     self.query_dimensions[mapping_info["from_join_hash"]].append(ref_field)
             else:
                 if topic:
-                    for join_key in self.query_metrics.keys():
+                    for join_key in all_join_hashes:
                         self.query_dimensions[join_key].append(field)
                     continue
                 not_in_metrics = True

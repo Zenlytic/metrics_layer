@@ -1029,26 +1029,26 @@ def test_cli_validate_required_access_filters(connection, fresh_project, mocker)
         " filters, but an access filter with user attribute products is required.\n\n\nView discounts does"
         " not have any access filters, but an access filter with user attribute products is"
         " required.\n\n\nView discount_detail does not have any access filters, but an access filter with"
-        " user attribute products is required.\n\n\nView country_detail does not have any access filters,"
-        " but an access filter with user attribute products is required.\n\n\nView sessions does not have"
+        " user attribute products is required.\n\n\nView country_detail does not have an access filter"
+        " with the required user attribute products\n\n\nView sessions does not have any access filters,"
+        " but an access filter with user attribute products is required.\n\n\nView events does not have"
         " any access filters, but an access filter with user attribute products is required.\n\n\nView"
-        " events does not have any access filters, but an access filter with user attribute products is"
-        " required.\n\n\nView login_events does not have any access filters, but an access filter with"
-        " user attribute products is required.\n\n\nView traffic does not have any access filters, but an"
-        " access filter with user attribute products is required.\n\n\nView clicked_on_page does not have"
+        " login_events does not have any access filters, but an access filter with user attribute products"
+        " is required.\n\n\nView traffic does not have any access filters, but an access filter with user"
+        " attribute products is required.\n\n\nView clicked_on_page does not have any access filters, but"
+        " an access filter with user attribute products is required.\n\n\nView accounts does not have any"
+        " access filters, but an access filter with user attribute products is required.\n\n\nView"
+        " aa_acquired_accounts does not have any access filters, but an access filter with user attribute"
+        " products is required.\n\n\nView z_customer_accounts does not have any access filters, but an"
+        " access filter with user attribute products is required.\n\n\nView other_db_traffic does not have"
         " any access filters, but an access filter with user attribute products is required.\n\n\nView"
-        " accounts does not have any access filters, but an access filter with user attribute products is"
-        " required.\n\n\nView aa_acquired_accounts does not have any access filters, but an access filter"
-        " with user attribute products is required.\n\n\nView z_customer_accounts does not have any access"
-        " filters, but an access filter with user attribute products is required.\n\n\nView"
-        " other_db_traffic does not have any access filters, but an access filter with user attribute"
-        " products is required.\n\n\nView created_workspace does not have any access filters, but an"
-        " access filter with user attribute products is required.\n\n\nView mrr does not have any access"
-        " filters, but an access filter with user attribute products is required.\n\n\nView"
-        " monthly_aggregates does not have any access filters, but an access filter with user attribute"
-        " products is required.\n\n\nView child_account does not have any access filters, but an access"
-        " filter with user attribute products is required.\n\n\nView parent_account does not have any"
-        " access filters, but an access filter with user attribute products is required.\n\n"
+        " created_workspace does not have an access filter with the required user attribute"
+        " products\n\n\nView mrr does not have any access filters, but an access filter with user"
+        " attribute products is required.\n\n\nView monthly_aggregates does not have any access filters,"
+        " but an access filter with user attribute products is required.\n\n\nView child_account does not"
+        " have any access filters, but an access filter with user attribute products is"
+        " required.\n\n\nView parent_account does not have any access filters, but an access filter with"
+        " user attribute products is required.\n\n"
     )
 
 
@@ -1126,8 +1126,8 @@ def test_cli_list(connection, mocker, object_type: str, extra_args: list):
         "models": "Found 2 models:\n\ntest_model\nnew_model\n",
         "connections": "Found 3 connections:\n\ntesting_snowflake\ntesting_bigquery\ntesting_databricks\n",
         "views": (  # noqa
-            "Found 21"
-            " views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nmrr\nmonthly_aggregates\nchild_account\nparent_account\n"  # noqa
+            "Found 22"
+            " views:\n\norder_lines\norders\ncustomers\ndiscounts\ndiscount_detail\ncountry_detail\nsessions\nevents\nlogin_events\ntraffic\nclicked_on_page\nsubmitted_form\naccounts\naa_acquired_accounts\nz_customer_accounts\nother_db_traffic\ncreated_workspace\nquery_in_workspace\nmrr\nmonthly_aggregates\nchild_account\nparent_account\n"  # noqa
         ),
         "fields": "Found 3 fields:\n\ndiscount_order_id\ndiscount_promo_name\ndiscount_usd\n",
         "dimensions": "Found 3 dimensions:\n\ncountry\norder\ndiscount_code\n",

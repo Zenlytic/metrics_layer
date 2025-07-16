@@ -93,11 +93,10 @@ class SQLQueryResolver(SingleSQLQueryResolver):
                 "primary or foreign key, make sure you have the right identifiers set on the views."
             )
             error_message = (
-                f"{err_msg}\n\n{appended}\n\n{deepcopy(merged_error.message)}"
+                f"{err_msg}\n\n{appended}\n\n{deepcopy(str(merged_error))}"
                 if self.verbose
-                else f"{deepcopy(merged_error.message)}"
+                else f"{deepcopy(str(merged_error))}"
             )
-            merged_error.message = error_message
             raise merged_error
 
     def _get_single_query(self, semicolon: bool):

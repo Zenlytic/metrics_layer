@@ -1,7 +1,7 @@
 import functools
 import itertools
 from copy import deepcopy
-from typing import List
+from typing import List, Union
 
 import networkx
 
@@ -321,8 +321,11 @@ class MetricsLayerDesign:
     def get_field(self, field_name: str) -> MetricsLayerBase:
         return self.project.get_field(field_name, model_name=self.model.name)
 
-    def get_access_filter(self):
-        views_in_request = self._fields_to_unique_views(list(self.field_lookup.values()))
+    def get_access_filter(self, specific_view: Union[View, None] = None):
+        if specific_view:
+            views_in_request = [specific_view.name]
+        else:
+            views_in_request = self._fields_to_unique_views(list(self.field_lookup.values()))
         conditions, fields = [], []
 
         topic_assigned_user_attributes = set([])
