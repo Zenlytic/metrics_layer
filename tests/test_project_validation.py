@@ -1287,6 +1287,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 ),
                 (
                     "Canon date order_lines.order is not of field_type: dimension_group and type: "
+                    "time in field total_on_hand_items in view orders"
+                ),
+                (
+                    "Canon date order_lines.order is not of field_type: dimension_group and type: "
                     "time in field avg_rainfall in view country_detail"
                 ),
                 (
@@ -1538,6 +1542,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 (
                     "Could not find field order_date in join between country_detail and "
                     "order_lines referencing view order_lines"
+                ),
+                (
+                    "Canon date order_lines.order is not of field_type: dimension_group and type: "
+                    "time in field total_on_hand_items in view orders"
                 ),
                 (
                     "Canon date order_lines.order is not of field_type: dimension_group and type: "
@@ -2637,6 +2645,7 @@ def test_validation_with_replaced_topic_properties(connection, name, value, erro
                 "View aa_acquired_accounts is not in a topic",
                 "View z_customer_accounts is not in a topic",
                 "View created_workspace is not in a topic",
+                "View query_in_workspace is not in a topic",
             ],
         ),
     ],

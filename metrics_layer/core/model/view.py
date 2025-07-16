@@ -10,8 +10,8 @@ from metrics_layer.core.exceptions import (
 )
 
 from .base import MetricsLayerBase, SQLReplacement
-from .definitions import Definitions
 from .field import Field, ZenlyticFieldType
+from .filter import Filter
 from .join import ZenlyticJoinRelationship, ZenlyticJoinType
 from .join_graph import IdentifierTypes
 from .set import Set
@@ -60,6 +60,94 @@ class View(MetricsLayerBase, SQLReplacement):
 
     def id(self):
         return self.name
+
+    def secure_from_statement(self, query_type: str) -> str:
+        """
+        Generate a secure FROM statement that applies access filters to the query.
+
+        This method respects the sql_table_name first when present, and the derived_table
+        when the derived_table is present. Access filters are applied the same way they are
+        in the query design framework.
+
+        Returns
+        -------
+        str
+            A secure FROM statement with access filters applied, or the base table/view reference
+            if no access filters are present.
+        """
+        from metrics_layer.core.sql.query_design import MetricsLayerDesign
+
+        self.design = MetricsLayerDesign(
+            no_group_by=False,
+            query_type=query_type,
+            field_lookup={},
+            topic=None,
+            model=self.model,
+            project=self.project,
+        )
+        access_filter_literal, access_filter_fields = self.design.get_access_filter(specific_view=self)
+        always_filter_literal = self._always_filter_literal()
+        if access_filter_fields:
+            for field in access_filter_fields:
+                if field.view.name != self.name:
+                    raise QueryError(
+                        f"Access filter with field {field.id()} in the view {self.name} is not supported in"
+                        " exploratory mode because the field is in a different view. Please use a derived"
+                        " table to join the views needed to apply access filter logic across multiple views."
+                    )
+        if access_filter_literal and always_filter_literal:
+            filter_literal = access_filter_literal + " and " + always_filter_literal
+        elif access_filter_literal and not always_filter_literal:
+            filter_literal = access_filter_literal
+        elif not access_filter_literal and always_filter_literal:
+            filter_literal = always_filter_literal
+        else:
+            filter_literal = None
+
+        # Get the base table reference - prioritize sql_table_name, then derived_table
+        if self.derived_table_sql:
+            base_clause = f"({self.derived_table_sql})"
+        elif self.sql_table_name:
+            base_clause = f"{self.sql_table_name}"
+        else:
+            raise QueryError(f"View {self.name} has neither sql_table_name nor derived_table defined")
+
+        if filter_literal:
+            return f"(select * from {base_clause} WHERE {filter_literal}) as {self.name}"
+        else:
+            return f"{base_clause} as {self.name}"
+
+    def _always_filter_literal(self):
+        to_add = {"week_start_day": self.model.week_start_day, "timezone": self.project.timezone}
+        parsed_filters = []
+        if self.always_filter:
+            for f in self.always_filter:
+                if "." in f["field"]:
+                    view_name = f["field"].split(".")[0]
+                    if view_name != self.name:
+                        raise QueryError(
+                            f"Always filter field {f['field']} in the view {self.name} is not supported in"
+                            " exploratory mode because it is in a different view. Please use a derived table"
+                            " to apply always filter logic across multiple views."
+                        )
+                if "." not in f["field"]:
+                    f["field"] = f"{self.name}.{f['field']}"
+                filter_dicts = Filter({**f, **to_add}).filter_dict(json_safe=False)
+                for filter_dict in filter_dicts:
+                    field_datatype = self.project.get_field(f["field"]).type
+                    parsed_filters.append(
+                        str(
+                            Filter.sql_query(
+                                f["field"],
+                                filter_dict["expression"],
+                                filter_dict["value"],
+                                field_datatype,
+                            )
+                        )
+                    )
+        if parsed_filters:
+            return " and ".join(parsed_filters)
+        return None
 
     @property
     def sql_table_name(self):

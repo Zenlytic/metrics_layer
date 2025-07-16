@@ -576,3 +576,88 @@ def test_topic_default_date_join_in_topic(connection):
         " and accounts_created__cte_subquery_0.accounts_account_name=monthly_aggregates_record__cte_subquery_2.accounts_account_name;"  # noqa
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_topic_default_date_join_in_topic_dim_no_presence_in_measures(connection):
+    query = connection.get_sql_query(
+        metrics=[
+            "orders.total_on_hand_items",
+            "discounts.total_discount_amt",
+        ],
+        dimensions=["monthly_aggregates.division", "discounts.order_month"],
+        where=[
+            {"field": "monthly_aggregates.division", "expression": "equal_to", "value": "Grainger"},
+            {"field": "date", "expression": "greater_than", "value": "2024-10-01"},
+            {"field": "date", "expression": "less_than", "value": "2024-10-31"},
+        ],
+        topic="orders_chained_topic",
+    )
+
+    correct = (
+        "WITH order_lines_order__cte_subquery_2 AS (SELECT monthly_aggregates.division as"
+        " monthly_aggregates_division,DATE_TRUNC('MONTH', order_lines.order_date) as"
+        " order_lines_order_month,COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.inventory_qty, 0) *"
+        " (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(orders.id),"
+        " 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) - SUM(DISTINCT"
+        " (TO_NUMBER(MD5(orders.id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0))) AS"
+        " DOUBLE PRECISION) / CAST((1000000*1.0) AS DOUBLE PRECISION), 0) as orders_total_on_hand_items FROM"
+        " analytics.orders orders JOIN analytics.discount_detail discount_detail ON"
+        " orders.id=discount_detail.order_id JOIN analytics.customers customers ON"
+        " customers.customer_id=discount_detail.order_id LEFT JOIN analytics.monthly_rollup"
+        " monthly_aggregates ON customers.customer_id=monthly_aggregates.division JOIN"
+        " analytics.order_line_items order_lines ON customers.customer_id=order_lines.customer_id WHERE"
+        " monthly_aggregates.division='Grainger' AND DATE_TRUNC('DAY', order_lines.order_date)>'2024-10-01'"
+        " AND DATE_TRUNC('DAY', order_lines.order_date)<'2024-10-31' GROUP BY"
+        " monthly_aggregates.division,DATE_TRUNC('MONTH', order_lines.order_date) ORDER BY"
+        " orders_total_on_hand_items DESC NULLS LAST) ,discounts_order__cte_subquery_0 AS (SELECT"
+        " monthly_aggregates.division as monthly_aggregates_division,DATE_TRUNC('MONTH',"
+        " discounts.order_date) as discounts_order_month,COALESCE(CAST((SUM(DISTINCT"
+        " (CAST(FLOOR(COALESCE(discounts.discount_amt, 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) +"
+        " (TO_NUMBER(MD5(discounts.discount_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38,"
+        " 0)) - SUM(DISTINCT (TO_NUMBER(MD5(discounts.discount_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') %"
+        " 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) / CAST((1000000*1.0) AS DOUBLE PRECISION), 0) as"
+        " discounts_total_discount_amt FROM analytics.orders orders LEFT JOIN analytics.accounts accounts ON"
+        " orders.account_id=accounts.account_id JOIN analytics.discount_detail discount_detail ON"
+        " orders.id=discount_detail.order_id JOIN analytics.customers customers ON"
+        " customers.customer_id=discount_detail.order_id LEFT JOIN analytics_live.discounts discounts ON"
+        " discount_detail.order_id=discounts.order_id and DATE_TRUNC('MONTH',"
+        " accounts.created_at)=DATE_TRUNC('MONTH', discounts.order_date) LEFT JOIN analytics.monthly_rollup"
+        " monthly_aggregates ON customers.customer_id=monthly_aggregates.division WHERE"
+        " monthly_aggregates.division='Grainger' AND DATE_TRUNC('DAY', discounts.order_date)>'2024-10-01' AND"
+        " DATE_TRUNC('DAY', discounts.order_date)<'2024-10-31' GROUP BY"
+        " monthly_aggregates.division,DATE_TRUNC('MONTH', discounts.order_date) ORDER BY"
+        " discounts_total_discount_amt DESC NULLS LAST) ,monthly_aggregates_record__cte_subquery_1 AS (SELECT"
+        " monthly_aggregates.division as monthly_aggregates_division,DATE_TRUNC('MONTH',"
+        " monthly_aggregates.record_date) as monthly_aggregates_record_month FROM analytics.orders orders"
+        " JOIN analytics.discount_detail discount_detail ON orders.id=discount_detail.order_id JOIN"
+        " analytics.customers customers ON customers.customer_id=discount_detail.order_id LEFT JOIN"
+        " analytics.monthly_rollup monthly_aggregates ON customers.customer_id=monthly_aggregates.division"
+        " WHERE monthly_aggregates.division='Grainger' AND DATE_TRUNC('DAY',"
+        " monthly_aggregates.record_date)>'2024-10-01' AND DATE_TRUNC('DAY',"
+        " monthly_aggregates.record_date)<'2024-10-31' GROUP BY"
+        " monthly_aggregates.division,DATE_TRUNC('MONTH', monthly_aggregates.record_date) ORDER BY"
+        " monthly_aggregates_division ASC NULLS LAST) SELECT"
+        " discounts_order__cte_subquery_0.discounts_total_discount_amt as"
+        " discounts_total_discount_amt,order_lines_order__cte_subquery_2.orders_total_on_hand_items as"
+        " orders_total_on_hand_items,ifnull(ifnull(discounts_order__cte_subquery_0.monthly_aggregates_division,"
+        " monthly_aggregates_record__cte_subquery_1.monthly_aggregates_division),"
+        " order_lines_order__cte_subquery_2.monthly_aggregates_division) as"
+        " monthly_aggregates_division,ifnull(discounts_order__cte_subquery_0.discounts_order_month,"
+        " ifnull(monthly_aggregates_record__cte_subquery_1.monthly_aggregates_record_month,"
+        " order_lines_order__cte_subquery_2.order_lines_order_month)) as"
+        " discounts_order_month,ifnull(monthly_aggregates_record__cte_subquery_1.monthly_aggregates_record_month,"
+        " ifnull(discounts_order__cte_subquery_0.discounts_order_month,"
+        " order_lines_order__cte_subquery_2.order_lines_order_month)) as"
+        " monthly_aggregates_record_month,ifnull(order_lines_order__cte_subquery_2.order_lines_order_month,"
+        " ifnull(discounts_order__cte_subquery_0.discounts_order_month,"
+        " monthly_aggregates_record__cte_subquery_1.monthly_aggregates_record_month)) as"
+        " order_lines_order_month FROM discounts_order__cte_subquery_0 FULL OUTER JOIN"
+        " monthly_aggregates_record__cte_subquery_1 ON"
+        " discounts_order__cte_subquery_0.monthly_aggregates_division=monthly_aggregates_record__cte_subquery_1.monthly_aggregates_division"
+        " and discounts_order__cte_subquery_0.discounts_order_month=monthly_aggregates_record__cte_subquery_1.monthly_aggregates_record_month"
+        " FULL OUTER JOIN order_lines_order__cte_subquery_2 ON"
+        " discounts_order__cte_subquery_0.monthly_aggregates_division=order_lines_order__cte_subquery_2.monthly_aggregates_division"
+        " and discounts_order__cte_subquery_0.discounts_order_month=order_lines_order__cte_subquery_2.order_lines_order_month;"
+    )
+    assert query == correct

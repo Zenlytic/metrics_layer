@@ -218,6 +218,12 @@ fields:
       and length(${TABLE}.order_id)>=12
       then ${TABLE}.revenue else 0 end"
 
+  - name: total_on_hand_items
+    field_type: 'measure'
+    type: sum
+    sql: '${TABLE}.inventory_qty'
+    canon_date: order_lines.order
+
   - name: average_order_value
     field_type: 'measure'
     type: average

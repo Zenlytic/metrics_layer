@@ -79,6 +79,7 @@ def test_sets(connection):
         "orders.ltv",
         "orders.ltr",
         "orders.total_modified_revenue",
+        "orders.total_on_hand_items",
         "orders.average_order_value_custom",
         "orders.new_order_count",
     ]

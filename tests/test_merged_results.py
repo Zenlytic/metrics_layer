@@ -158,23 +158,24 @@ def test_merged_result_join_graph(connection):
     core_tf = ["raw", "time", "date", "week", "month", "quarter", "year"]
     sub_q_cr = _blow_out_by_time_frame("m0_merged_result_canon_date_core", core_tf)
     sub_q_0_4 = _blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_4", core_tf)
-    sub_q_0_2 = _blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_7", core_tf)
+
     sub_q_0_3 = _blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_3", core_tf)
-    sub_q_0_5 = _blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_5", core_tf)
+    sub_q_0_5 = _blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_6", core_tf)
     sub_q_0_8 = _blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_8", core_tf)
     sub_q_0_9 = _blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_9", core_tf)
     sub_q_0_10 = _blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_10", core_tf)
     sub_q_0_11 = _blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_11", core_tf)
     sub_q_0_12 = _blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_12", core_tf)
     sub_q_0_14 = _blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_13", core_tf)
-    sub_q_0_15 = _blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_15", core_tf)
-    sub_q_0_16 = _blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_16", core_tf)
+    sub_q_0_15 = _blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_14", core_tf)
+    sub_q_0_2 = _blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_16", core_tf)
+    sub_q_0_16 = _blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_17", core_tf)
     sub_q_0_1 = _blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_1", core_tf)
     revenue_set = [
         *sub_q_cr,
         *sub_q_0_4,
-        *sub_q_0_2,
         *sub_q_0_3,
+        *sub_q_0_2,
         *sub_q_0_5,
         *sub_q_0_8,
         *sub_q_0_9,
@@ -200,13 +201,13 @@ def test_merged_result_join_graph(connection):
         "m0_merged_result_subquery_0_subquery_11_date",
         "m0_merged_result_subquery_0_subquery_12_date",
         "m0_merged_result_subquery_0_subquery_13_date",
-        "m0_merged_result_subquery_0_subquery_15_date",
+        "m0_merged_result_subquery_0_subquery_14_date",
         "m0_merged_result_subquery_0_subquery_16_date",
         "m0_merged_result_subquery_0_subquery_1_date",
         "m0_merged_result_subquery_0_subquery_4_date",
-        "m0_merged_result_subquery_0_subquery_7_date",
+        "m0_merged_result_subquery_0_subquery_17_date",
         "m0_merged_result_subquery_0_subquery_3_date",
-        "m0_merged_result_subquery_0_subquery_5_date",
+        "m0_merged_result_subquery_0_subquery_6_date",
         "m0_merged_result_subquery_0_subquery_8_date",
         "m0_merged_result_subquery_0_subquery_9_date",
     ]
@@ -220,13 +221,13 @@ def test_merged_result_join_graph(connection):
         "m0_merged_result_subquery_0_subquery_11_date",
         "m0_merged_result_subquery_0_subquery_12_date",
         "m0_merged_result_subquery_0_subquery_13_date",
-        "m0_merged_result_subquery_0_subquery_15_date",
+        "m0_merged_result_subquery_0_subquery_14_date",
         "m0_merged_result_subquery_0_subquery_16_date",
         "m0_merged_result_subquery_0_subquery_1_date",
         "m0_merged_result_subquery_0_subquery_4_date",
-        "m0_merged_result_subquery_0_subquery_7_date",
+        "m0_merged_result_subquery_0_subquery_17_date",
         "m0_merged_result_subquery_0_subquery_3_date",
-        "m0_merged_result_subquery_0_subquery_5_date",
+        "m0_merged_result_subquery_0_subquery_6_date",
         "m0_merged_result_subquery_0_subquery_8_date",
         "m0_merged_result_subquery_0_subquery_9_date",
     ]
@@ -249,30 +250,30 @@ def test_merged_result_join_graph(connection):
         "subquery_3",
         "subquery_1",
         "subquery_4",
-        "subquery_11",
+        "subquery_14",
         "subquery_12",
         "subquery_13",
         *_blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_1", tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_1_subquery_3", core_tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_1_subquery_4", core_tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_1_subquery_12", core_tf),
-        *_blow_out_by_time_frame("m0_merged_result_subquery_1_subquery_11", core_tf),
+        *_blow_out_by_time_frame("m0_merged_result_subquery_14_subquery_3", core_tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_3", tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_12", tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_12_subquery_3", core_tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_12_subquery_4", core_tf),
-        *_blow_out_by_time_frame("m0_merged_result_subquery_11_subquery_12", core_tf),
-        *_blow_out_by_time_frame("m0_merged_result_subquery_11_subquery_3", core_tf),
+        *_blow_out_by_time_frame("m0_merged_result_subquery_12_subquery_14", core_tf),
+        *_blow_out_by_time_frame("m0_merged_result_subquery_14_subquery_4", core_tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_3_subquery_4", core_tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_4", tf),
-        *_blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_11", tf),
+        *_blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_14", tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_13_subquery_3", core_tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_13_subquery_4", core_tf),
-        *_blow_out_by_time_frame("m0_merged_result_subquery_11_subquery_13", core_tf),
+        *_blow_out_by_time_frame("m0_merged_result_subquery_13_subquery_14", core_tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_12_subquery_13", core_tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_1_subquery_13", core_tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_13", tf),
-        *_blow_out_by_time_frame("m0_merged_result_subquery_11_subquery_4", core_tf),
+        *_blow_out_by_time_frame("m0_merged_result_subquery_1_subquery_14", core_tf),
     ]
     assert field.join_graphs() == list(sorted(gender_graphs))
 
@@ -286,10 +287,10 @@ def test_merged_result_join_graph(connection):
         *_blow_out_by_time_frame("m0_merged_result_subquery_12_subquery_4", core_tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_0_subquery_4", core_tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_3_subquery_4", core_tf),
-        *_blow_out_by_time_frame("m0_merged_result_subquery_4_subquery_7", core_tf),
-        *_blow_out_by_time_frame("m0_merged_result_subquery_4_subquery_5", core_tf),
+        *_blow_out_by_time_frame("m0_merged_result_subquery_17_subquery_4", core_tf),
+        *_blow_out_by_time_frame("m0_merged_result_subquery_4_subquery_6", core_tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_13_subquery_4", core_tf),
-        *_blow_out_by_time_frame("m0_merged_result_subquery_15_subquery_4", core_tf),
+        *_blow_out_by_time_frame("m0_merged_result_subquery_14_subquery_4", core_tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_16_subquery_4", core_tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_4_subquery_8", core_tf),
         *_blow_out_by_time_frame("m0_merged_result_subquery_4_subquery_9", core_tf),
@@ -1092,7 +1093,7 @@ def test_implicit_raise_join_errors(connection):
         )
 
     assert exc_info.value
-    assert "Zenlytic tries to merge query results by default" in exc_info.value.message
+    assert "Could not find mapping from field traffic.traffic_source to other views" in exc_info.value.message
 
 
 @pytest.mark.query

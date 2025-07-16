@@ -17,6 +17,10 @@ identifiers:
     join_type: left_outer
     sql_on: '${discounts.country}=${country_detail.country_id} and ${order_lines.order_date} is not null'
 
+access_filters:
+  - field: country_detail.country_id
+    user_attribute: employee_region
+
 fields:
   - name: country_id
     field_type: 'dimension'

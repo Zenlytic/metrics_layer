@@ -1,24 +1,19 @@
 version: 1
 type: view
-name: created_workspace
+name: query_in_workspace
 
-sql_table_name: analytics.created_workspace
+sql_table_name: analytics.query_in_workspace
 model_name: test_model
 
 default_date: created
 
-identifiers:
-  - name: customer_id
-    type: foreign
-    sql: ${TABLE}.customer_id
-
 access_filters:
-  - field: created_workspace.context_os
+  - field: query_in_workspace.context_os
     user_attribute: os_ownership
+  - field: query_in_workspace.customer_id
+    user_attribute: products
 
 always_filter:
-  - field: customers.is_churned
-    value: FALSE
   - field: context_os
     value: -NULL
   - field: context_os
@@ -51,8 +46,3 @@ fields:
     type: time
     timeframes: [raw, time, date, week, month, quarter, year]
     sql: '${TABLE}.session_date'
-
-  - name: number_of_workspace_creations
-    field_type: measure
-    type: count
-    sql: ${session_id}

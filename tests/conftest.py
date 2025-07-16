@@ -51,6 +51,9 @@ customer_accounts_view_path = os.path.join(
 created_workspaces_view_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/views/test_created_workspace.yml"
 )
+query_in_workspace_view_path = os.path.join(
+    BASE_PATH, "config/metrics_layer_config/views/test_query_in_workspace.yml"
+)
 other_db_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/other_db_traffic.yml")
 other_model_topic_path = os.path.join(BASE_PATH, "config/metrics_layer_config/topics/other_model_topic.yml")
 order_lines_topic_path = os.path.join(BASE_PATH, "config/metrics_layer_config/topics/order_lines_topic.yml")
@@ -63,6 +66,7 @@ recurring_revenue_topic_path = os.path.join(
 order_lines_only_topic_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/topics/order_lines_only_topic.yml"
 )
+orders_chained_topic_path = os.path.join(BASE_PATH, "config/metrics_layer_config/topics/chained_topic.yml")
 model_paths = [model_path, new_model_path]
 topic_paths = [
     order_lines_topic_path,
@@ -70,6 +74,7 @@ topic_paths = [
     recurring_revenue_topic_path,
     order_lines_only_topic_path,
     other_model_topic_path,
+    orders_chained_topic_path,
 ]
 view_paths = [
     order_lines_view_path,
@@ -89,6 +94,7 @@ view_paths = [
     customer_accounts_view_path,
     other_db_view_path,
     created_workspaces_view_path,
+    query_in_workspace_view_path,
     mrr_view_path,
     monthly_aggregates_view_path,
 ]
