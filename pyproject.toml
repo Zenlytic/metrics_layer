@@ -30,7 +30,7 @@ colorama = "^0.4.4"
 "ruamel.yaml" = "^0.17.20"
 pendulum = "^3.0.0"
 PyYAML = "^6.0"
-sqlglot = "^20.7.1"
+sqlglot = {version = "^20.7.1", extras = ["rs"]}
 
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
