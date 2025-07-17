@@ -17,6 +17,13 @@ def _get_field_by_name(view, field_name):
     raise ValueError(f"Field {field_name} not found in view {view['name']}")
 
 
+def _get_dashboard_by_name(project, dashboard_name):
+    for dashboard in project._dashboards:
+        if dashboard["name"] == dashboard_name:
+            return json.loads(json.dumps(dashboard))
+    raise ValueError(f"Dashboard {dashboard_name} not found in project dashboards")
+
+
 @pytest.mark.validation
 def test_validation_with_no_replaced_objects(connection):
     project = connection.project
@@ -91,6 +98,46 @@ def test_validation_with_duplicate_views_with_differently_cased_names(fresh_proj
             " Please make sure all view names are unique (note: join_as on identifiers "
             "will create a view under its that name and the name must be unique)."
         ),
+        "line": None,
+        "column": None,
+    } in response
+
+
+@pytest.mark.validation
+def test_validation_with_dashboard_with_updated_name_case(fresh_project):
+    project = fresh_project
+    dashboard = _get_dashboard_by_name(project, "sales_dashboard")
+    dashboard["name"] = "Sales_Dashboard"
+    response = project.validate_with_replaced_objects(replaced_objects=[dashboard])
+    assert {
+        "message": "Dashboard name sales_dashboard appears 2 times, make sure dashboard names are unique",
+        "line": None,
+        "column": None,
+    } not in response
+
+
+@pytest.mark.validation
+def test_validation_with_duplicate_dashboards(fresh_project):
+    project = fresh_project
+    dashboard1 = _get_dashboard_by_name(project, "sales_dashboard")
+    dashboard2 = _get_dashboard_by_name(project, "sales_dashboard")
+    response = project.validate_with_replaced_objects(replaced_objects=[dashboard1, dashboard2])
+    assert {
+        "message": "Dashboard name sales_dashboard appears 2 times, make sure dashboard names are unique",
+        "line": None,
+        "column": None,
+    } in response
+
+
+@pytest.mark.validation
+def test_validation_with_duplicate_dashboards_with_differently_cased_names(fresh_project):
+    project = fresh_project
+    dashboard1 = _get_dashboard_by_name(project, "sales_dashboard")
+    dashboard2 = _get_dashboard_by_name(project, "sales_dashboard")
+    dashboard2["name"] = "Sales_Dashboard"
+    response = project.validate_with_replaced_objects(replaced_objects=[dashboard1, dashboard2])
+    assert {
+        "message": "Dashboard name sales_dashboard appears 2 times, make sure dashboard names are unique",
         "line": None,
         "column": None,
     } in response
