@@ -220,6 +220,11 @@ class MergedSQLQueryResolver(SingleSQLQueryResolver):
 
         self.query_dimensions = defaultdict(list)
         all_join_hashes = set(self.query_metrics.keys()).union(dimension_join_hashes)
+        if topic:
+            self.mapping_lookup = {
+                k: [i for i in v if i["from_join_hash"] in all_join_hashes]
+                for k, v in self.mapping_lookup.items()
+            }
         for dimension in self.dimensions:
             field = self.project.get_field(dimension)
             field_key = f"{field.view.name}.{field.name}"
