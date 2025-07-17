@@ -44,6 +44,58 @@ def test_validation_with_duplicate_topic_labels(fresh_project):
     ]
 
 
+@pytest.mark.validation
+def test_validation_with_view_with_updated_name_case(fresh_project):
+    project = fresh_project
+    view = _get_view_by_name(project, "order_lines")
+    view["name"] = "Order_Lines"
+    response = project.validate_with_replaced_objects(replaced_objects=[view])
+    assert {
+        "message": (
+            "Duplicate view names found in your project for the name order_lines."
+            " Please make sure all view names are unique (note: join_as on identifiers "
+            "will create a view under its that name and the name must be unique)."
+        ),
+        "line": None,
+        "column": None,
+    } not in response
+
+
+@pytest.mark.validation
+def test_validation_with_duplicate_views(fresh_project):
+    project = fresh_project
+    view1 = _get_view_by_name(project, "order_lines")
+    view2 = _get_view_by_name(project, "order_lines")
+    response = project.validate_with_replaced_objects(replaced_objects=[view1, view2])
+    assert {
+        "message": (
+            "Duplicate view names found in your project for the name order_lines."
+            " Please make sure all view names are unique (note: join_as on identifiers "
+            "will create a view under its that name and the name must be unique)."
+        ),
+        "line": None,
+        "column": None,
+    } in response
+
+
+@pytest.mark.validation
+def test_validation_with_duplicate_views_with_differently_cased_names(fresh_project):
+    project = fresh_project
+    view1 = _get_view_by_name(project, "order_lines")
+    view2 = _get_view_by_name(project, "order_lines")
+    view2["name"] = "Order_Lines"
+    response = project.validate_with_replaced_objects(replaced_objects=[view1, view2])
+    assert {
+        "message": (
+            "Duplicate view names found in your project for the name order_lines."
+            " Please make sure all view names are unique (note: join_as on identifiers "
+            "will create a view under its that name and the name must be unique)."
+        ),
+        "line": None,
+        "column": None,
+    } in response
+
+
 # Note: line / column validation only works if the property is
 # read from the YAML file, not injected like this
 @pytest.mark.validation
