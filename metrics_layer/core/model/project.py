@@ -2,7 +2,7 @@ import functools
 import json
 from collections import Counter
 from contextlib import contextmanager
-from typing import List, Optional, Union
+from typing import List, Union
 
 from metrics_layer.core.exceptions import (
     AccessDeniedOrDoesNotExistException,
@@ -238,13 +238,17 @@ class Project:
         current_models = json.loads(json.dumps(self._models))
 
         # Replace view files
-        replaced_view_names = set([v["name"] for v in replaced_views])
-        unchanged_views = [v for v in self._views if v["name"] not in replaced_view_names]
+        replaced_view_names = set([View.normalize_name(v["name"]) for v in replaced_views])
+        unchanged_views = [
+            v for v in self._views if View.normalize_name(v["name"]) not in replaced_view_names
+        ]
         current_views = json.loads(json.dumps(self._views))
 
         # Replace dashboard files
-        replaced_dashboard_names = set([d["name"] for d in replaced_dashboards])
-        unchanged_dashboards = [d for d in self._dashboards if d["name"] not in replaced_dashboard_names]
+        replaced_dashboard_names = set([Dashboard.normalize_name(d["name"]) for d in replaced_dashboards])
+        unchanged_dashboards = [
+            d for d in self._dashboards if Dashboard.normalize_name(d["name"]) not in replaced_dashboard_names
+        ]
         current_dashboards = json.loads(json.dumps(self._dashboards))
 
         # Replace topic files
