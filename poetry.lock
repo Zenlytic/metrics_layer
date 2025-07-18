@@ -7,7 +7,7 @@ description = "Fast ASN.1 parser and serializer with definitions for private key
 optional = true
 python-versions = "*"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"redshift\" or extra == \"snowflake\""
+markers = "extra == \"redshift\" or extra == \"all\" or extra == \"snowflake\""
 files = [
     {file = "asn1crypto-1.5.1-py2.py3-none-any.whl", hash = "sha256:db4e40728b728508912cbb3d44f19ce188f218e9eba635821bb4b68564f8fd67"},
     {file = "asn1crypto-1.5.1.tar.gz", hash = "sha256:13ae38502be632115abf8a24cbe5f4da52e3b5231990aff31123c805306ccb9c"},
@@ -82,7 +82,7 @@ description = "Screen-scraping library"
 optional = true
 python-versions = ">=3.7.0"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"redshift\""
+markers = "extra == \"redshift\" or extra == \"all\""
 files = [
     {file = "beautifulsoup4-4.13.4-py3-none-any.whl", hash = "sha256:9bbbb14bfde9d79f38b8cd5f8c7c85f4b8f2523190ebed90e950a8dea4cb1c4b"},
     {file = "beautifulsoup4-4.13.4.tar.gz", hash = "sha256:dbb3c4e1ceae6aefebdaf2423247260cd062430a410e38c66f2baa50a8437195"},
@@ -153,7 +153,7 @@ description = "The AWS SDK for Python"
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"redshift\""
+markers = "extra == \"redshift\" or extra == \"all\""
 files = [
     {file = "boto3-1.37.37-py3-none-any.whl", hash = "sha256:d125cb11e22817f7a2581bade4bf7b75247b401888890239ceb5d3e902ccaf38"},
     {file = "boto3-1.37.37.tar.gz", hash = "sha256:752d31105a45e3e01c8c68471db14ae439990b75a35e72b591ca528e2575b28f"},
@@ -174,7 +174,7 @@ description = "Low-level, data-driven core of boto 3."
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"redshift\""
+markers = "extra == \"redshift\" or extra == \"all\""
 files = [
     {file = "botocore-1.37.37-py3-none-any.whl", hash = "sha256:eb730ff978f47c02f0c8ed07bccdc0db6d8fa098ed32ac31bee1da0e9be480d1"},
     {file = "botocore-1.37.37.tar.gz", hash = "sha256:3eadde6fed95c4cb469cc39d1c3558528b7fa76d23e7e16d4bddc77250431a64"},
@@ -198,7 +198,7 @@ description = "Extensible memoizing collections and decorators"
 optional = true
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"bigquery\""
+markers = "extra == \"bigquery\" or extra == \"all\""
 files = [
     {file = "cachetools-5.5.2-py3-none-any.whl", hash = "sha256:d26a22bcc62eb95c3beabd9f1ee5e820d3d2704fe2967cbe350e20c8ffcd3f0a"},
     {file = "cachetools-5.5.2.tar.gz", hash = "sha256:1a661caa9175d26759571b2e19580f9d6393969e5dfca11fdb1f947a23e640d4"},
@@ -211,7 +211,7 @@ description = "Python package for providing Mozilla's CA Bundle."
 optional = true
 python-versions = ">=3.6"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"bigquery\" or extra == \"redshift\" or extra == \"snowflake\""
+markers = "extra == \"redshift\" or extra == \"all\" or extra == \"snowflake\" or extra == \"bigquery\""
 files = [
     {file = "certifi-2025.1.31-py3-none-any.whl", hash = "sha256:ca78db4565a652026a4db2bcdf68f2fb589ea80d0be70e03929ed730746b84fe"},
     {file = "certifi-2025.1.31.tar.gz", hash = "sha256:3d5da6925056f6f18f119200434a4780a94263f10d1c21d032a6f6b2baa20651"},
@@ -224,7 +224,7 @@ description = "Foreign Function Interface for Python calling C code."
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"snowflake\""
+markers = "extra == \"snowflake\" or extra == \"all\""
 files = [
     {file = "cffi-1.17.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:df8b1c11f177bc2313ec4b2d46baec87a5f3e71fc8b45dab2ee7cae86d9aba14"},
     {file = "cffi-1.17.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:8f2cdc858323644ab277e9bb925ad72ae0e67f69e804f4898c070998d50b1a67"},
@@ -317,7 +317,7 @@ description = "The Real First Universal Charset Detector. Open, modern and activ
 optional = true
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"bigquery\" or extra == \"redshift\" or extra == \"snowflake\""
+markers = "extra == \"redshift\" or extra == \"all\" or extra == \"snowflake\" or extra == \"bigquery\""
 files = [
     {file = "charset_normalizer-3.4.1-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:91b36a978b5ae0ee86c394f5a54d6ef44db1de0815eb43de826d41d21e4af3de"},
     {file = "charset_normalizer-3.4.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:7461baadb4dc00fd9e0acbe254e3d7d2112e7f92ced2adc96e54ef6501c5f176"},
@@ -532,7 +532,7 @@ description = "cryptography is a package which provides cryptographic recipes an
 optional = true
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"snowflake\""
+markers = "extra == \"snowflake\" or extra == \"all\""
 files = [
     {file = "cryptography-43.0.3-cp37-abi3-macosx_10_9_universal2.whl", hash = "sha256:bf7a1932ac4176486eab36a19ed4c0492da5d97123f1406cf15e41b05e787d2e"},
     {file = "cryptography-43.0.3-cp37-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:63efa177ff54aec6e1c0aefaa1a241232dcd37413835a9b674b6e3f0ae2bfd3e"},
@@ -614,7 +614,7 @@ files = [
     {file = "filelock-3.16.1-py3-none-any.whl", hash = "sha256:2082e5703d51fbf98ea75855d9d5527e33d8ff23099bec374a134febee6946b0"},
     {file = "filelock-3.16.1.tar.gz", hash = "sha256:c249fbfcd5db47e5e2d6d62198e565475ee65e4831e2561c8e313fa7eb961435"},
 ]
-markers = {main = "extra == \"all\" or extra == \"snowflake\""}
+markers = {main = "extra == \"snowflake\" or extra == \"all\""}
 
 [package.extras]
 docs = ["furo (>=2024.8.6)", "sphinx (>=8.0.2)", "sphinx-autodoc-typehints (>=2.4.1)"]
@@ -679,7 +679,7 @@ description = "Google API client core library"
 optional = true
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"bigquery\""
+markers = "extra == \"bigquery\" or extra == \"all\""
 files = [
     {file = "google_api_core-2.24.2-py3-none-any.whl", hash = "sha256:810a63ac95f3c441b7c0e43d344e372887f62ce9071ba972eacf32672e072de9"},
     {file = "google_api_core-2.24.2.tar.gz", hash = "sha256:81718493daf06d96d6bc76a91c23874dbf2fac0adbbf542831b805ee6e974696"},
@@ -689,11 +689,11 @@ files = [
 google-auth = ">=2.14.1,<3.0.0"
 googleapis-common-protos = ">=1.56.2,<2.0.0"
 grpcio = [
-    {version = ">=1.33.2,<2.0dev", optional = true, markers = "python_version < \"3.11\" and extra == \"grpc\""},
+    {version = ">=1.33.2,<2.0dev", optional = true, markers = "extra == \"grpc\""},
     {version = ">=1.49.1,<2.0dev", optional = true, markers = "python_version >= \"3.11\" and extra == \"grpc\""},
 ]
 grpcio-status = [
-    {version = ">=1.33.2,<2.0.dev0", optional = true, markers = "python_version < \"3.11\" and extra == \"grpc\""},
+    {version = ">=1.33.2,<2.0.dev0", optional = true, markers = "extra == \"grpc\""},
     {version = ">=1.49.1,<2.0.dev0", optional = true, markers = "python_version >= \"3.11\" and extra == \"grpc\""},
 ]
 proto-plus = ">=1.22.3,<2.0.0"
@@ -713,7 +713,7 @@ description = "Google Authentication Library"
 optional = true
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"bigquery\""
+markers = "extra == \"bigquery\" or extra == \"all\""
 files = [
     {file = "google_auth-2.39.0-py2.py3-none-any.whl", hash = "sha256:0150b6711e97fb9f52fe599f55648950cc4540015565d8fbb31be2ad6e1548a2"},
     {file = "google_auth-2.39.0.tar.gz", hash = "sha256:73222d43cdc35a3aeacbfdcaf73142a97839f10de930550d89ebfe1d0a00cde7"},
@@ -741,7 +741,7 @@ description = "Google BigQuery API client library"
 optional = true
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"bigquery\""
+markers = "extra == \"bigquery\" or extra == \"all\""
 files = [
     {file = "google_cloud_bigquery-3.30.0-py2.py3-none-any.whl", hash = "sha256:f4d28d846a727f20569c9b2d2f4fa703242daadcb2ec4240905aa485ba461877"},
     {file = "google_cloud_bigquery-3.30.0.tar.gz", hash = "sha256:7e27fbafc8ed33cc200fe05af12ecd74d279fe3da6692585a3cef7aee90575b6"},
@@ -774,7 +774,7 @@ description = "Google Cloud API client core library"
 optional = true
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"bigquery\""
+markers = "extra == \"bigquery\" or extra == \"all\""
 files = [
     {file = "google_cloud_core-2.4.3-py2.py3-none-any.whl", hash = "sha256:5130f9f4c14b4fafdff75c79448f9495cfade0d8775facf1b09c3bf67e027f6e"},
     {file = "google_cloud_core-2.4.3.tar.gz", hash = "sha256:1fab62d7102844b278fe6dead3af32408b1df3eb06f5c7e8634cbd40edc4da53"},
@@ -794,7 +794,7 @@ description = "A python wrapper of the C library 'Google CRC32C'"
 optional = true
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"bigquery\""
+markers = "extra == \"bigquery\" or extra == \"all\""
 files = [
     {file = "google-crc32c-1.5.0.tar.gz", hash = "sha256:89284716bc6a5a415d4eaa11b1726d2d60a0cd12aadf5439828353662ede9dd7"},
     {file = "google_crc32c-1.5.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:596d1f98fc70232fcb6590c439f43b350cb762fb5d61ce7b0e9db4539654cc13"},
@@ -876,7 +876,7 @@ description = "Utilities for Google Media Downloads and Resumable Uploads"
 optional = true
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"bigquery\""
+markers = "extra == \"bigquery\" or extra == \"all\""
 files = [
     {file = "google_resumable_media-2.7.2-py2.py3-none-any.whl", hash = "sha256:3ce7551e9fe6d99e9a126101d2536612bb73486721951e9562fee0f90c6ababa"},
     {file = "google_resumable_media-2.7.2.tar.gz", hash = "sha256:5280aed4629f2b60b847b0d42f9857fd4935c11af266744df33d8074cae92fe0"},
@@ -896,7 +896,7 @@ description = "Common protobufs used in Google APIs"
 optional = true
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"bigquery\""
+markers = "extra == \"bigquery\" or extra == \"all\""
 files = [
     {file = "googleapis_common_protos-1.70.0-py3-none-any.whl", hash = "sha256:b8bfcca8c25a2bb253e0e0b0adaf8c00773e5e6af6fd92397576680b807e0fd8"},
     {file = "googleapis_common_protos-1.70.0.tar.gz", hash = "sha256:0e1b44e0ea153e6594f9f394fef15193a68aaaea2d843f83e2742717ca753257"},
@@ -1003,7 +1003,7 @@ description = "HTTP/2-based RPC framework"
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "python_version < \"3.10\" and (extra == \"all\" or extra == \"bigquery\")"
+markers = "python_version < \"3.10\" and (extra == \"bigquery\" or extra == \"all\")"
 files = [
     {file = "grpcio-1.70.0-cp310-cp310-linux_armv7l.whl", hash = "sha256:95469d1977429f45fe7df441f586521361e235982a0b39e33841549143ae2851"},
     {file = "grpcio-1.70.0-cp310-cp310-macosx_12_0_universal2.whl", hash = "sha256:ed9718f17fbdb472e33b869c77a16d0b55e166b100ec57b016dc7de9c8d236bf"},
@@ -1072,7 +1072,7 @@ description = "HTTP/2-based RPC framework"
 optional = true
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "python_version >= \"3.10\" and (extra == \"all\" or extra == \"bigquery\")"
+markers = "python_version >= \"3.10\" and (extra == \"bigquery\" or extra == \"all\")"
 files = [
     {file = "grpcio-1.71.0-cp310-cp310-linux_armv7l.whl", hash = "sha256:c200cb6f2393468142eb50ab19613229dcc7829b5ccee8b658a36005f6669fdd"},
     {file = "grpcio-1.71.0-cp310-cp310-macosx_12_0_universal2.whl", hash = "sha256:b2266862c5ad664a380fbbcdbdb8289d71464c42a8c29053820ee78ba0119e5d"},
@@ -1137,7 +1137,7 @@ description = "Status proto mapping for gRPC"
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "python_version < \"3.10\" and (extra == \"all\" or extra == \"bigquery\")"
+markers = "python_version < \"3.10\" and (extra == \"bigquery\" or extra == \"all\")"
 files = [
     {file = "grpcio_status-1.70.0-py3-none-any.whl", hash = "sha256:fc5a2ae2b9b1c1969cc49f3262676e6854aa2398ec69cb5bd6c47cd501904a85"},
     {file = "grpcio_status-1.70.0.tar.gz", hash = "sha256:0e7b42816512433b18b9d764285ff029bde059e9d41f8fe10a60631bd8348101"},
@@ -1155,7 +1155,7 @@ description = "Status proto mapping for gRPC"
 optional = true
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "python_version >= \"3.10\" and (extra == \"all\" or extra == \"bigquery\")"
+markers = "python_version >= \"3.10\" and (extra == \"bigquery\" or extra == \"all\")"
 files = [
     {file = "grpcio_status-1.71.0-py3-none-any.whl", hash = "sha256:843934ef8c09e3e858952887467f8256aac3910c55f077a359a65b2b3cde3e68"},
     {file = "grpcio_status-1.71.0.tar.gz", hash = "sha256:11405fed67b68f406b3f3c7c5ae5104a79d2d309666d10d61b152e91d28fb968"},
@@ -1188,7 +1188,7 @@ description = "Internationalized Domain Names in Applications (IDNA)"
 optional = true
 python-versions = ">=3.6"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"bigquery\" or extra == \"redshift\" or extra == \"snowflake\""
+markers = "extra == \"redshift\" or extra == \"all\" or extra == \"snowflake\" or extra == \"bigquery\""
 files = [
     {file = "idna-3.10-py3-none-any.whl", hash = "sha256:946d195a0d259cbba61165e88e65941f16e9b36ea6ddb97f00452bae8b1287d3"},
     {file = "idna-3.10.tar.gz", hash = "sha256:12f65c9b470abda6dc35cf8e63cc574b1c52b11df2c86030af0ac09b01b13ea9"},
@@ -1273,7 +1273,7 @@ description = "JSON Matching Expressions"
 optional = true
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"redshift\""
+markers = "extra == \"redshift\" or extra == \"all\""
 files = [
     {file = "jmespath-1.0.1-py3-none-any.whl", hash = "sha256:02e2e4cc71b5bcab88332eebf907519190dd9e6e82107fa7f83b1003a6252980"},
     {file = "jmespath-1.0.1.tar.gz", hash = "sha256:90261b206d6defd58fdd5e85f478bf633a2901798906be2ad389150c5c60edbe"},
@@ -1286,7 +1286,7 @@ description = "Powerful and Pythonic XML processing library combining libxml2/li
 optional = true
 python-versions = ">=3.6"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"redshift\""
+markers = "extra == \"redshift\" or extra == \"all\""
 files = [
     {file = "lxml-5.3.2-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:c4b84d6b580a9625dfa47269bf1fd7fbba7ad69e08b16366a46acb005959c395"},
     {file = "lxml-5.3.2-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:b4c08ecb26e4270a62f81f81899dfff91623d349e433b126931c9c4577169666"},
@@ -1303,7 +1303,7 @@ files = [
     {file = "lxml-5.3.2-cp310-cp310-musllinux_1_2_ppc64le.whl", hash = "sha256:aa837e6ee9534de8d63bc4c1249e83882a7ac22bd24523f83fad68e6ffdf41ae"},
     {file = "lxml-5.3.2-cp310-cp310-musllinux_1_2_s390x.whl", hash = "sha256:da4c9223319400b97a2acdfb10926b807e51b69eb7eb80aad4942c0516934858"},
     {file = "lxml-5.3.2-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:dc0e9bdb3aa4d1de703a437576007d366b54f52c9897cae1a3716bb44fc1fc85"},
-    {file = "lxml-5.3.2-cp310-cp310-win32.win32.whl", hash = "sha256:dd755a0a78dd0b2c43f972e7b51a43be518ebc130c9f1a7c4480cf08b4385486"},
+    {file = "lxml-5.3.2-cp310-cp310-win32.whl", hash = "sha256:5f94909a1022c8ea12711db7e08752ca7cf83e5b57a87b59e8a583c5f35016ad"},
     {file = "lxml-5.3.2-cp310-cp310-win_amd64.whl", hash = "sha256:d64ea1686474074b38da13ae218d9fde0d1dc6525266976808f41ac98d9d7980"},
     {file = "lxml-5.3.2-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:9d61a7d0d208ace43986a92b111e035881c4ed45b1f5b7a270070acae8b0bfb4"},
     {file = "lxml-5.3.2-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:856dfd7eda0b75c29ac80a31a6411ca12209183e866c33faf46e77ace3ce8a79"},
@@ -1609,7 +1609,7 @@ files = [
     {file = "packaging-25.0-py3-none-any.whl", hash = "sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484"},
     {file = "packaging-25.0.tar.gz", hash = "sha256:d443872c98d677bf60f6a1f2f8c1cb748e8fe762d2bf9d3148b5599295b0fc4f"},
 ]
-markers = {main = "extra == \"all\" or extra == \"bigquery\" or extra == \"redshift\" or extra == \"snowflake\""}
+markers = {main = "extra == \"redshift\" or extra == \"all\" or extra == \"snowflake\" or extra == \"bigquery\""}
 
 [[package]]
 name = "pandas"
@@ -1652,7 +1652,7 @@ files = [
 numpy = [
     {version = ">=1.20.3", markers = "python_version < \"3.10\""},
     {version = ">=1.23.2", markers = "python_version >= \"3.11\""},
-    {version = ">=1.21.0", markers = "python_version >= \"3.10\" and python_version < \"3.11\""},
+    {version = ">=1.21.0", markers = "python_version == \"3.10\""},
 ]
 python-dateutil = ">=2.8.1"
 pytz = ">=2020.1"
@@ -1786,7 +1786,7 @@ files = [
     {file = "platformdirs-4.3.6-py3-none-any.whl", hash = "sha256:73e575e1408ab8103900836b97580d5307456908a03e92031bab39e4554cc3fb"},
     {file = "platformdirs-4.3.6.tar.gz", hash = "sha256:357fb2acbc885b0419afd3ce3ed34564c13c9b95c89360cd9563f73aa5e2b907"},
 ]
-markers = {main = "extra == \"all\" or extra == \"snowflake\""}
+markers = {main = "extra == \"snowflake\" or extra == \"all\""}
 
 [package.extras]
 docs = ["furo (>=2024.8.6)", "proselint (>=0.14)", "sphinx (>=8.0.2)", "sphinx-autodoc-typehints (>=2.4)"]
@@ -1835,7 +1835,7 @@ description = "Beautiful, Pythonic protocol buffers"
 optional = true
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"bigquery\""
+markers = "extra == \"bigquery\" or extra == \"all\""
 files = [
     {file = "proto_plus-1.26.1-py3-none-any.whl", hash = "sha256:13285478c2dcf2abb829db158e1047e2f1e8d63a077d94263c2b88b043c75a66"},
     {file = "proto_plus-1.26.1.tar.gz", hash = "sha256:21a515a4c4c0088a773899e23c7bbade3d18f9c66c73edd4c7ee3816bc96a012"},
@@ -1851,9 +1851,10 @@ testing = ["google-api-core (>=1.31.5)"]
 name = "protobuf"
 version = "5.29.5"
 description = ""
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
+markers = "extra == \"bigquery\" or extra == \"all\""
 files = [
     {file = "protobuf-5.29.5-cp310-abi3-win32.whl", hash = "sha256:3f1c6468a2cfd102ff4703976138844f78ebd1fb45f49011afc5139e9e283079"},
     {file = "protobuf-5.29.5-cp310-abi3-win_amd64.whl", hash = "sha256:3f76e3a3675b4a4d867b52e4a5f5b78a2ef9565549d4037e06cf7b0942b1d3fc"},
@@ -1875,7 +1876,7 @@ description = "psycopg2 - Python-PostgreSQL Database Adapter"
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"postgres\""
+markers = "extra == \"postgres\" or extra == \"all\""
 files = [
     {file = "psycopg2-binary-2.9.10.tar.gz", hash = "sha256:4b3df0e6990aa98acda57d983942eff13d824135fe2250e6522edaa782a06de2"},
     {file = "psycopg2_binary-2.9.10-cp310-cp310-macosx_12_0_x86_64.whl", hash = "sha256:0ea8e3d0ae83564f2fc554955d327fa081d065c8ca5cc6d2abb643e2c9c1200f"},
@@ -1966,7 +1967,7 @@ description = "Python library for Apache Arrow"
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"bigquery\" or extra == \"snowflake\""
+markers = "extra == \"snowflake\" or extra == \"bigquery\" or extra == \"all\""
 files = [
     {file = "pyarrow-17.0.0-cp310-cp310-macosx_10_15_x86_64.whl", hash = "sha256:a5c8b238d47e48812ee577ee20c9a2779e6a5904f1708ae240f53ecbee7c9f07"},
     {file = "pyarrow-17.0.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:db023dc4c6cae1015de9e198d41250688383c3f9af8f565370ab2b4cb5f62655"},
@@ -2019,7 +2020,7 @@ description = "Pure-Python implementation of ASN.1 types and DER/BER/CER codecs 
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"bigquery\""
+markers = "extra == \"bigquery\" or extra == \"all\""
 files = [
     {file = "pyasn1-0.6.1-py3-none-any.whl", hash = "sha256:0d632f46f2ba09143da3a8afe9e33fb6f92fa2320ab7e886e2d0f7672af84629"},
     {file = "pyasn1-0.6.1.tar.gz", hash = "sha256:6f580d2bdd84365380830acf45550f2511469f673cb4a5ae3857a3170128b034"},
@@ -2032,7 +2033,7 @@ description = "A collection of ASN.1-based protocols modules"
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"bigquery\""
+markers = "extra == \"bigquery\" or extra == \"all\""
 files = [
     {file = "pyasn1_modules-0.4.2-py3-none-any.whl", hash = "sha256:29253a9207ce32b64c3ac6600edc75368f98473906e8fd1043bd6b5b1de2c14a"},
     {file = "pyasn1_modules-0.4.2.tar.gz", hash = "sha256:677091de870a80aae844b1ca6134f54652fa2c8c5a52aa396440ac3106e941e6"},
@@ -2060,7 +2061,7 @@ description = "C parser in Python"
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"snowflake\""
+markers = "extra == \"snowflake\" or extra == \"all\""
 files = [
     {file = "pycparser-2.22-py3-none-any.whl", hash = "sha256:c3702b6d3dd8c7abc1afa565d7e63d53a1d0bd86cdc24edd75470f4de499cfcc"},
     {file = "pycparser-2.22.tar.gz", hash = "sha256:491c8be9c040f5390f5bf44a5b07752bd07f56edf992381b05c701439eec10f6"},
@@ -2085,7 +2086,7 @@ description = "JSON Web Token implementation in Python"
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"snowflake\""
+markers = "extra == \"snowflake\" or extra == \"all\""
 files = [
     {file = "PyJWT-2.9.0-py3-none-any.whl", hash = "sha256:3b02fb0f44517787776cf48f2ae25d8e14f300e6d7545a4315cee571a415e850"},
     {file = "pyjwt-2.9.0.tar.gz", hash = "sha256:7e1e5b56cc735432a7369cbfa0efe50fa113ebecdc04ae6922deba8b84582d0c"},
@@ -2104,7 +2105,7 @@ description = "Python wrapper module around the OpenSSL library"
 optional = true
 python-versions = ">=3.7"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"snowflake\""
+markers = "extra == \"snowflake\" or extra == \"all\""
 files = [
     {file = "pyOpenSSL-25.0.0-py3-none-any.whl", hash = "sha256:424c247065e46e76a37411b9ab1782541c23bb658bf003772c3405fbaa128e90"},
     {file = "pyopenssl-25.0.0.tar.gz", hash = "sha256:cd2cef799efa3936bb08e8ccb9433a575722b9dd986023f1cabc4ae64e9dac16"},
@@ -2310,7 +2311,7 @@ description = "Redshift interface library"
 optional = true
 python-versions = ">=3.6"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"redshift\""
+markers = "extra == \"redshift\" or extra == \"all\""
 files = [
     {file = "redshift_connector-2.1.7-py3-none-any.whl", hash = "sha256:99c0eef62b5c38283275a33056740949ad45a0e1c0d9da7a8f7fe674cf290d8b"},
 ]
@@ -2336,7 +2337,7 @@ description = "Python HTTP for Humans."
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"bigquery\" or extra == \"redshift\" or extra == \"snowflake\""
+markers = "extra == \"redshift\" or extra == \"all\" or extra == \"snowflake\" or extra == \"bigquery\""
 files = [
     {file = "requests-2.32.4-py3-none-any.whl", hash = "sha256:27babd3cda2a6d50b30443204ee89830707d396671944c998b5975b031ac2b2c"},
     {file = "requests-2.32.4.tar.gz", hash = "sha256:27d0316682c8a29834d3264820024b62a36942083d52caf2f14c0591336d3422"},
@@ -2359,7 +2360,7 @@ description = "Pure-Python RSA implementation"
 optional = true
 python-versions = "<4,>=3.6"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"bigquery\""
+markers = "extra == \"bigquery\" or extra == \"all\""
 files = [
     {file = "rsa-4.9.1-py3-none-any.whl", hash = "sha256:68635866661c6836b8d39430f97a996acbd61bfa49406748ea243539fe239762"},
     {file = "rsa-4.9.1.tar.gz", hash = "sha256:e7bdbfdb5497da4c07dfd35530e1a902659db6ff241e39d9953cad06ebd0ae75"},
@@ -2455,7 +2456,7 @@ description = "An Amazon S3 Transfer Manager"
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"redshift\""
+markers = "extra == \"redshift\" or extra == \"all\""
 files = [
     {file = "s3transfer-0.11.5-py3-none-any.whl", hash = "sha256:757af0f2ac150d3c75bc4177a32355c3862a98d20447b69a0161812992fe0bd4"},
     {file = "s3transfer-0.11.5.tar.gz", hash = "sha256:8c8aad92784779ab8688a61aefff3e28e9ebdce43142808eaa3f0b0f402f68b7"},
@@ -2474,7 +2475,7 @@ description = "An implementation of the SCRAM protocol."
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"redshift\""
+markers = "extra == \"redshift\" or extra == \"all\""
 files = [
     {file = "scramp-1.4.5-py3-none-any.whl", hash = "sha256:50e37c464fc67f37994e35bee4151e3d8f9320e9c204fca83a5d313c121bbbe7"},
     {file = "scramp-1.4.5.tar.gz", hash = "sha256:be3fbe774ca577a7a658117dca014e5d254d158cecae3dd60332dfe33ce6d78e"},
@@ -2490,7 +2491,7 @@ description = "Easily download, build, install, upgrade, and uninstall Python pa
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"redshift\""
+markers = "extra == \"redshift\" or extra == \"all\""
 files = [
     {file = "setuptools-75.3.2-py3-none-any.whl", hash = "sha256:90ab613b6583fc02d5369cbca13ea26ea0e182d1df2d943ee9cbe81d4c61add9"},
     {file = "setuptools-75.3.2.tar.gz", hash = "sha256:3c1383e1038b68556a382c1e8ded8887cd20141b0eb5708a6c8d277de49364f5"},
@@ -2536,7 +2537,7 @@ description = "Snowflake Connector for Python"
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"snowflake\""
+markers = "extra == \"snowflake\" or extra == \"all\""
 files = [
     {file = "snowflake_connector_python-3.14.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:92f10c629c5b01dbe42b04b13b02a367b2d6014c01982bce9b8647b1bc4f7b27"},
     {file = "snowflake_connector_python-3.14.0-cp310-cp310-macosx_11_0_x86_64.whl", hash = "sha256:ff71e58f2d49db2b79c77e6618bf1488c47141887cab0dadb6e974d9b63469e5"},
@@ -2597,7 +2598,7 @@ description = "Sorted Containers -- Sorted List, Sorted Dict, Sorted Set"
 optional = true
 python-versions = "*"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"snowflake\""
+markers = "extra == \"snowflake\" or extra == \"all\""
 files = [
     {file = "sortedcontainers-2.4.0-py2.py3-none-any.whl", hash = "sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0"},
     {file = "sortedcontainers-2.4.0.tar.gz", hash = "sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88"},
@@ -2610,7 +2611,7 @@ description = "A modern CSS selector implementation for Beautiful Soup."
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"redshift\""
+markers = "extra == \"redshift\" or extra == \"all\""
 files = [
     {file = "soupsieve-2.6-py3-none-any.whl", hash = "sha256:e72c4ff06e4fb6e4b5a9f0f55fe6e81514581fca1515028625d0f299c602ccc9"},
     {file = "soupsieve-2.6.tar.gz", hash = "sha256:e2e68417777af359ec65daac1057404a3c8a5455bb8abc36f1a9866ab1a51abb"},
@@ -2718,14 +2719,95 @@ version = "20.11.0"
 description = "An easily customizable SQL parser and transpiler"
 optional = false
 python-versions = ">=3.7"
+groups = ["main"]
 files = [
     {file = "sqlglot-20.11.0-py3-none-any.whl", hash = "sha256:658509272da15e90dd1c59d9ca5281d7bff2e87121f87e6f9e6541067a057c9c"},
     {file = "sqlglot-20.11.0.tar.gz", hash = "sha256:79a1510ffad1f1e4c5915751f0ed978c099e7e83cd4010ecbd471c00331b6902"},
 ]
 
+[package.dependencies]
+sqlglotrs = {version = "0.1.0", optional = true, markers = "extra == \"rs\""}
+
 [package.extras]
 dev = ["autoflake", "black", "duckdb (>=0.6)", "isort", "maturin (>=1.4,<2.0)", "mypy (>=0.990)", "pandas", "pdoc", "pre-commit", "pyspark", "python-dateutil", "types-python-dateutil", "typing-extensions"]
 rs = ["sqlglotrs (==0.1.0)"]
+
+[[package]]
+name = "sqlglotrs"
+version = "0.1.0"
+description = ""
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+files = [
+    {file = "sqlglotrs-0.1.0-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:d6c95e2a4b8970745463b88f7620dcd5510bfc83bb84febc7b102f30699be5ee"},
+    {file = "sqlglotrs-0.1.0-cp310-cp310-macosx_10_7_x86_64.whl", hash = "sha256:7cc5d43cdc945baf7a232d9a558500d3bc9c62e5f1b8da8caf6f56e2cf72efec"},
+    {file = "sqlglotrs-0.1.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:5019e9d2b6ca701a3b4fea305a53bdfff69b1b9054716c33505052ba695752f1"},
+    {file = "sqlglotrs-0.1.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5d33829394f02268d2ae9bd7a4ff551e55500afad72237b62c82b9546f5e917a"},
+    {file = "sqlglotrs-0.1.0-cp310-cp310-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:afde5e8e8b1b4d81eec27674aaa85a276798cc8d05e6d2b641e601a3c6fafcce"},
+    {file = "sqlglotrs-0.1.0-cp310-cp310-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:0dfe80a90816e340ae88daf1863c5ade5d6a4141f339d5e8d663803122ebd76a"},
+    {file = "sqlglotrs-0.1.0-cp310-cp310-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:06dd9990a0f03dcb1f1021028dc195aef6206387bbeb76f0efd963d4173ae1fc"},
+    {file = "sqlglotrs-0.1.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bd059321d4291e71c6afcdbd4abc90d13aa18dfe4ade480fdb57a99afff6238f"},
+    {file = "sqlglotrs-0.1.0-cp310-cp310-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:efb18de0eb33fdd1c616262bc85924088b7a6c115817c612c6601a95c00102b3"},
+    {file = "sqlglotrs-0.1.0-cp310-none-win32.whl", hash = "sha256:703dab90c483c1df23dcc3a355db04d2563b28249349da97fcc970b8e5830d95"},
+    {file = "sqlglotrs-0.1.0-cp310-none-win_amd64.whl", hash = "sha256:f2fee2cfe51686419e3aa9f73fefccbeb4a58e1c42da1642ef01dd9b5d6958d7"},
+    {file = "sqlglotrs-0.1.0-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:88148f26820568a436c491e241d56f1265d6ae0bcd884e1925480f6fd081d3cb"},
+    {file = "sqlglotrs-0.1.0-cp311-cp311-macosx_10_7_x86_64.whl", hash = "sha256:a201773d630b285a059c61fb7a2d8512d6f58f784cb674e86ee4dd303c4c0a28"},
+    {file = "sqlglotrs-0.1.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:b948e1dc94ba1cb45b5813486525b32d011bee2965c80b9ac8faaa5579b5535d"},
+    {file = "sqlglotrs-0.1.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:171e1a6fd580f214eea628550255021733a05ec1b2662469baa9de9948cf6a21"},
+    {file = "sqlglotrs-0.1.0-cp311-cp311-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:d2521d2e7090f7f3e90688500d2544ec326c6e53de6ff07d65f69ecb8123ba8a"},
+    {file = "sqlglotrs-0.1.0-cp311-cp311-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:f8721b6ff69bb514b42d3fdf91a2c00ad7b5c2d26043d7b1d6f38b8e5d7dcac9"},
+    {file = "sqlglotrs-0.1.0-cp311-cp311-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:26f266b7a45fd8506f960fa7de6159383aec260dd9f425e6019e28ba82adb2a5"},
+    {file = "sqlglotrs-0.1.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:f591b217906bb1f625108e703d8a5b7b862ef8d86e66a96bfd1a50737394f86b"},
+    {file = "sqlglotrs-0.1.0-cp311-cp311-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:ab67481cf2eab4a8d078a3b494e51d576e6b06585753b4dd7f2db43fb06cfe4d"},
+    {file = "sqlglotrs-0.1.0-cp311-none-win32.whl", hash = "sha256:c98649d6eb0c4f6d3007c3170899c14b7be89f592ac466072f1cae4f036b43be"},
+    {file = "sqlglotrs-0.1.0-cp311-none-win_amd64.whl", hash = "sha256:4d2baacd1078b241a6db1be3d592a58c2ca4c22616e8df088c8703c7f400b4ea"},
+    {file = "sqlglotrs-0.1.0-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:1dc1b9fbedc5342ac4acedfe8bbbfa4860f9d9697514048e2b6134a3fbaef3e0"},
+    {file = "sqlglotrs-0.1.0-cp312-cp312-macosx_10_7_x86_64.whl", hash = "sha256:6082fdff1263ab2991c98ceb00f491ee8cc079443494efbb6c393d91ef49cb78"},
+    {file = "sqlglotrs-0.1.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:6396255ccccd6fa4fd1cf24de6cdedda895219eafd8a3256cf6fc782d8c384fc"},
+    {file = "sqlglotrs-0.1.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d1f8d895625a806a6342266021e4bc55877cd13e9a3e380b1fcd809c54a038bc"},
+    {file = "sqlglotrs-0.1.0-cp312-cp312-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:97f1801ca245d19fd5c2f00fd4c67e22374463b8f5f5ea4243ef3e03c6075492"},
+    {file = "sqlglotrs-0.1.0-cp312-cp312-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:aff377763a8ff4bbe6ba680b0924db3571928927983319601822ef7ffa4d3e90"},
+    {file = "sqlglotrs-0.1.0-cp312-cp312-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:5f6c0ea5f760aa8fedfdf8bf4a52363ae120e6adec7e90651bcd7f14d4abb6f9"},
+    {file = "sqlglotrs-0.1.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c9684879399827110d15c66864e92a6299502de724adb19f7275f26653593070"},
+    {file = "sqlglotrs-0.1.0-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:13558f9c3a96e70b08d4185766841e9a0adf51e3d4d92365b7dcfe5160fea414"},
+    {file = "sqlglotrs-0.1.0-cp312-none-win32.whl", hash = "sha256:b4e8df9c96aac28502903b780d6093ba98ee82946e6a888df24bf9cb4164d785"},
+    {file = "sqlglotrs-0.1.0-cp312-none-win_amd64.whl", hash = "sha256:cef6958edc9b9cd9682f7d08bddd64358e80f9caa566f340149f97f885b9cd84"},
+    {file = "sqlglotrs-0.1.0-cp37-cp37m-macosx_10_12_x86_64.whl", hash = "sha256:20c7454c0aafba4bba6abe12c195df0540e2b38a21cfaf9d2e26e6fe93d1434a"},
+    {file = "sqlglotrs-0.1.0-cp37-cp37m-macosx_10_7_x86_64.whl", hash = "sha256:86fd944c7c7ae205e1330c25b662b8ea5a0dbca6fb3fc5a08f940325bde3f097"},
+    {file = "sqlglotrs-0.1.0-cp37-cp37m-macosx_11_0_arm64.whl", hash = "sha256:fef9142b3185eb3f31a6615312c5aec5a2c0f259502f4daa3d9e724ba2cf72da"},
+    {file = "sqlglotrs-0.1.0-cp37-cp37m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e0e8f53b3d0a2e1946695fb35535d4dc5dbfccc081aede960369e918661bb53b"},
+    {file = "sqlglotrs-0.1.0-cp37-cp37m-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:75b35dd58855adf54f0aafff546b57b42f110cdfcbae50574d0b4b3679268d23"},
+    {file = "sqlglotrs-0.1.0-cp37-cp37m-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:6691733383b4514c5222e8b5dd7d8d5db3d1b5ae245dac09fbaff717060eaff2"},
+    {file = "sqlglotrs-0.1.0-cp37-cp37m-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:86b183b4707fbce15d5cf90243ff8e3cfd52990d7b12753e717063b5fa90c62b"},
+    {file = "sqlglotrs-0.1.0-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:dc604145304a71458c8225af3b7e26b2d276ae2c52428f5540cc780270c589b0"},
+    {file = "sqlglotrs-0.1.0-cp37-cp37m-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:5b985a548c4e44de718437cda3df30d76b51b1f129d39321eab4895475403093"},
+    {file = "sqlglotrs-0.1.0-cp37-none-win32.whl", hash = "sha256:ce41a49834b56877a6092d04d0d44c21b4cf9a212bf211743a82ec20f9000ce0"},
+    {file = "sqlglotrs-0.1.0-cp37-none-win_amd64.whl", hash = "sha256:b393053d7d6567767bdf3969f3efa94f22f1fa0c115f038c7b715daf1af893d3"},
+    {file = "sqlglotrs-0.1.0-cp38-cp38-macosx_10_12_x86_64.whl", hash = "sha256:311643b9c151bac05015f7e3b3117f0601028b48048c5f33670f2d54d4e1021e"},
+    {file = "sqlglotrs-0.1.0-cp38-cp38-macosx_10_7_x86_64.whl", hash = "sha256:b0e1c278f8a573af0a0e309c31b23dd9a04322e645391deecb0a9ae80a562bcf"},
+    {file = "sqlglotrs-0.1.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:c27b8895591a61860d876c67eefcf023c1098e35c433334b8492d78e9b14dbf3"},
+    {file = "sqlglotrs-0.1.0-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c37d8ca04bb4c983752001534c638111f31831a24911e5979a97a046774c33df"},
+    {file = "sqlglotrs-0.1.0-cp38-cp38-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:3347ab22a21a565642da690847aab27d5745b7438c61f9342a4531234b14d556"},
+    {file = "sqlglotrs-0.1.0-cp38-cp38-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:3f82e6afabfa63395b2d20d376436535abe98f6dfd7e10a01c6932eee2af45a2"},
+    {file = "sqlglotrs-0.1.0-cp38-cp38-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:15742b60f908effd0a9448f9ecf7539dc0a32ba7a68813ed5ca5d3a52370035b"},
+    {file = "sqlglotrs-0.1.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:84905e8687f893f448a905ced17b89dc0959d2e1ed933a48bf135d3d702e14ee"},
+    {file = "sqlglotrs-0.1.0-cp38-cp38-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:357619752e8f2863a0798b32551cd56640d711c61941d0f6a455c6af2ce6674a"},
+    {file = "sqlglotrs-0.1.0-cp38-none-win32.whl", hash = "sha256:75f9eef119f8148a91ce1ddca043afaf56f4c743ad79a2bb10249ff1d042e91d"},
+    {file = "sqlglotrs-0.1.0-cp38-none-win_amd64.whl", hash = "sha256:62d0c47a5b451ec4e8ac8e7610861f3f791b93749795c81ee91a81371c00f8fa"},
+    {file = "sqlglotrs-0.1.0-cp39-cp39-macosx_10_12_x86_64.whl", hash = "sha256:15843dbf72c8da74da4353b9395aa1e7543fa917f137ee4e68be75458490836a"},
+    {file = "sqlglotrs-0.1.0-cp39-cp39-macosx_10_7_x86_64.whl", hash = "sha256:157da9e7f454392935062e1ba5ef2826e87d0bd44468e19e2449c60760c572c6"},
+    {file = "sqlglotrs-0.1.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:e3b6702010434b6aaf8d93f2f91f01d767fe465832dfec563a1d8f1b6c70239e"},
+    {file = "sqlglotrs-0.1.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:6e81154d38ba2f8f1d7e32714cf6e9193d1ac7cd463971b09e9337791dd1ff85"},
+    {file = "sqlglotrs-0.1.0-cp39-cp39-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:4e80926c48a45424a55159619c4bf0653cee1f6666fbaf60fb95f0f60af783ff"},
+    {file = "sqlglotrs-0.1.0-cp39-cp39-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:fc701a11c5b998609a7ca03f68d90439be4136911a3123e78936012aa4fec40a"},
+    {file = "sqlglotrs-0.1.0-cp39-cp39-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:04c0a2546ad683df3000c21a5df01f551ab974621931a7b7b45543e37c6a5a6b"},
+    {file = "sqlglotrs-0.1.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:770f13e580f508702b72c1f6f020bbe654d18a69694377266ab3b53029c1f31c"},
+    {file = "sqlglotrs-0.1.0-cp39-cp39-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:ab175da227dc695650544862ce82fb9d2fa51909b905effc4b3f7f87ef2adb20"},
+    {file = "sqlglotrs-0.1.0-cp39-none-win32.whl", hash = "sha256:ba52c8254ad0a55d3b7400ac8d2f214d0e23905f70d28bbb05fb01668a3093a6"},
+    {file = "sqlglotrs-0.1.0-cp39-none-win_amd64.whl", hash = "sha256:7d01cd007fe845207b39d82cdf616e6e9cb39430c593aac9da4168d68a89edd6"},
+    {file = "sqlglotrs-0.1.0.tar.gz", hash = "sha256:47df4bdef247fd4e81a6e60f5c7662efcf4825596da57332d6c0ce936aadbbce"},
+]
 
 [[package]]
 name = "sqlparse"
@@ -2886,7 +2968,7 @@ description = "Style preserving TOML library"
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"snowflake\""
+markers = "extra == \"snowflake\" or extra == \"all\""
 files = [
     {file = "tomlkit-0.13.2-py3-none-any.whl", hash = "sha256:7a974427f6e119197f670fbbbeae7bef749a6c14e793db934baefc1b5f03efde"},
     {file = "tomlkit-0.13.2.tar.gz", hash = "sha256:fff5fe59a87295b278abd31bec92c15d9bc4a06885ab12bcea52c71119392e79"},
@@ -2924,7 +3006,7 @@ description = "HTTP library with thread-safe connection pooling, file post, and 
 optional = true
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,>=2.7"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"redshift\" or extra == \"bigquery\" or extra == \"snowflake\" or python_version < \"3.10\" and (extra == \"all\" or extra == \"snowflake\" or extra == \"redshift\" or extra == \"bigquery\")"
+markers = "extra == \"redshift\" or extra == \"all\" or extra == \"snowflake\" or extra == \"bigquery\" or python_version < \"3.10\" and (extra == \"snowflake\" or extra == \"all\" or extra == \"redshift\" or extra == \"bigquery\")"
 files = [
     {file = "urllib3-1.26.20-py2.py3-none-any.whl", hash = "sha256:0ed14ccfbf1c30a9072c7ca157e4319b70d65f623e91e7b32fadb2853431016e"},
     {file = "urllib3-1.26.20.tar.gz", hash = "sha256:40c2dc0c681e47eb8f90e7e27bf6ff7df2e677421fd46756da1161c39ca70d32"},
@@ -2987,4 +3069,4 @@ snowflake = ["pyarrow", "snowflake-connector-python"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.8.1, <3.13"
-content-hash = "b5203c28055b40f2ece59bd929ceb440ef6dc341d1730cae514b964ca0934424"
+content-hash = "895dc53f3f02159dfc177905c9644dcefa00e5220df3bb8e68d27028aa24f99e"

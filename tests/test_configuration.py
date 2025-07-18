@@ -142,8 +142,12 @@ def test_config_explicit_env_config(monkeypatch):
     assert loader.repo.repo_url == "https://correct.com"
 
 
-def test_config_does_not_exist():
-    # Should raise ConfigError
+def test_config_does_not_exist(monkeypatch):
+    # Should raise ConfigError when env vars are unset. We unset them explicitly in case
+    # the user has them set inside their test environment
+    monkeypatch.delenv("METRICS_LAYER_LOCATION", raising=False)
+    monkeypatch.delenv("METRICS_LAYER_BRANCH", raising=False)
+    monkeypatch.delenv("METRICS_LAYER_REPO_TYPE", raising=False)
     with pytest.raises(ConfigError) as exc_info:
         ProjectLoader(None)
 
