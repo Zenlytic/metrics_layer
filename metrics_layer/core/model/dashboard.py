@@ -108,8 +108,8 @@ class DashboardElement(MetricsLayerBase):
 
 class Dashboard(MetricsLayerBase):
     def __init__(self, definition: dict, project) -> None:
-        if definition.get("name") is not None:
-            definition["name"] = definition["name"].lower()
+        if "name" in definition:
+            definition["name"] = self.normalize_name(definition["name"])
 
         if definition.get("layout") is None:
             definition["layout"] = DashboardLayouts.grid

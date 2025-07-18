@@ -1,10 +1,12 @@
 import difflib
 import re
-from typing import Iterable
+from typing import Callable, Iterable, TypeVar, overload
 
 from metrics_layer.core.exceptions import QueryError
 
 NAME_REGEX = re.compile(r"([A-Za-z0-9\_]+)")
+
+T = TypeVar("T")
 
 
 class MetricsLayerBase:
@@ -19,6 +21,20 @@ class MetricsLayerBase:
 
     def to_dict(self):
         return {**self._definition}
+
+    @staticmethod
+    @overload
+    def normalize_name(name: str) -> str: ...
+
+    @staticmethod
+    @overload
+    def normalize_name(name: T) -> T: ...
+
+    @staticmethod
+    def normalize_name(name):
+        if isinstance(name, str):
+            return name.lower()
+        return name
 
     @staticmethod
     def valid_name(name: str):
@@ -49,7 +65,7 @@ class MetricsLayerBase:
 
     @staticmethod
     def invalid_property_error(
-        definition: dict, valid_properties: Iterable[str], entity_name: str, name: str, error_func: callable
+        definition: dict, valid_properties: Iterable[str], entity_name: str, name: str, error_func: Callable
     ):
         errors = []
         for key in definition:
