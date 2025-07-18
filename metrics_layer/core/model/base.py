@@ -1,7 +1,6 @@
 import difflib
 import re
-from collections.abc import Callable, Iterable
-from typing import TypeVar, overload
+from typing import Callable, Iterable, TypeVar, overload
 
 from metrics_layer.core.exceptions import QueryError
 
