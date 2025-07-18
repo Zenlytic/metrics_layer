@@ -233,27 +233,29 @@ class Project:
                     pass
 
         # Replace model files
-        replaced_model_names = set([m["name"] for m in replaced_models])
-        unchanged_models = [m for m in self._models if m["name"] not in replaced_model_names]
+        replaced_model_names = set([m.get("name") for m in replaced_models])
+        unchanged_models = [m for m in self._models if m.get("name") not in replaced_model_names]
         current_models = json.loads(json.dumps(self._models))
 
         # Replace view files
-        replaced_view_names = set([View.normalize_name(v["name"]) for v in replaced_views])
+        replaced_view_names = set([View.normalize_name(v.get("name")) for v in replaced_views])
         unchanged_views = [
-            v for v in self._views if View.normalize_name(v["name"]) not in replaced_view_names
+            v for v in self._views if View.normalize_name(v.get("name")) not in replaced_view_names
         ]
         current_views = json.loads(json.dumps(self._views))
 
         # Replace dashboard files
-        replaced_dashboard_names = set([Dashboard.normalize_name(d["name"]) for d in replaced_dashboards])
+        replaced_dashboard_names = set([Dashboard.normalize_name(d.get("name")) for d in replaced_dashboards])
         unchanged_dashboards = [
-            d for d in self._dashboards if Dashboard.normalize_name(d["name"]) not in replaced_dashboard_names
+            d
+            for d in self._dashboards
+            if Dashboard.normalize_name(d.get("name")) not in replaced_dashboard_names
         ]
         current_dashboards = json.loads(json.dumps(self._dashboards))
 
         # Replace topic files
-        replaced_topic_names = set([t["label"] for t in replaced_topics])
-        unchanged_topics = [t for t in self._topics if t["label"] not in replaced_topic_names]
+        replaced_topic_names = set([t.get("label") for t in replaced_topics])
+        unchanged_topics = [t for t in self._topics if t.get("label") not in replaced_topic_names]
         current_topics = json.loads(json.dumps(self._topics))
 
         try:

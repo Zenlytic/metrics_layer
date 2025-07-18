@@ -2,6 +2,8 @@ import json
 
 import pytest
 
+from metrics_layer.core.exceptions import QueryError
+
 
 def _get_view_by_name(project, view_name):
     for view in project._views:
@@ -32,6 +34,15 @@ def test_validation_with_no_replaced_objects(connection):
 
 
 @pytest.mark.validation
+def test_validation_with_model_without_name(fresh_project):
+    project = fresh_project
+    model = project._models[0]
+    del model["name"]
+    with pytest.raises(QueryError, match="Model missing required key name"):
+        project.validate_with_replaced_objects(replaced_objects=[model])
+
+
+@pytest.mark.validation
 def test_validation_with_duplicate_model_names(fresh_project):
     project = fresh_project
     project._models[1]["name"] = "test_model"
@@ -42,6 +53,15 @@ def test_validation_with_duplicate_model_names(fresh_project):
 
 
 @pytest.mark.validation
+def test_validation_with_topic_without_label(fresh_project):
+    project = fresh_project
+    topic = project._topics[0]
+    del topic["label"]
+    with pytest.raises(QueryError, match="Topic missing required key label"):
+        project.validate_with_replaced_objects(replaced_objects=[topic])
+
+
+@pytest.mark.validation
 def test_validation_with_duplicate_topic_labels(fresh_project):
     project = fresh_project
     project._topics[1]["label"] = "Order lines Topic"
@@ -49,6 +69,15 @@ def test_validation_with_duplicate_topic_labels(fresh_project):
     assert [e["message"] for e in response] == [
         "Duplicate topic label: Order lines Topic. Topic labels must be unique.",
     ]
+
+
+@pytest.mark.validation
+def test_validation_with_view_without_name(fresh_project):
+    project = fresh_project
+    view = project._views[0]
+    del view["name"]
+    response = project.validate_with_replaced_objects(replaced_objects=[view])
+    assert {"message": "View missing required key name", "line": None, "column": None} in response
 
 
 @pytest.mark.validation
@@ -101,6 +130,15 @@ def test_validation_with_duplicate_views_with_differently_cased_names(fresh_proj
         "line": None,
         "column": None,
     } in response
+
+
+@pytest.mark.validation
+def test_validation_with_dashboard_without_name(fresh_project):
+    project = fresh_project
+    dashboard = project._dashboards[0]
+    del dashboard["name"]
+    with pytest.raises(QueryError, match="Dashboard missing required key name"):
+        project.validate_with_replaced_objects(replaced_objects=[dashboard])
 
 
 @pytest.mark.validation
