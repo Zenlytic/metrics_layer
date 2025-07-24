@@ -19,6 +19,12 @@ fields:
     sql: '${TABLE}.traffic_source'
     searchable: false
 
+  - name: other_traffic_campaign
+    field_type: 'dimension'
+    type: string
+    sql: '"traffic_campaign"'
+    searchable: false
+
   - name: original_traffic
     field_type: 'dimension_group'
     type: time
