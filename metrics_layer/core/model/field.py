@@ -5,7 +5,9 @@ import re
 from copy import copy
 from typing import TYPE_CHECKING, Any, List, Union
 
+import sqlglot
 from pypika.terms import LiteralValue
+from sqlglot import expressions as exp
 
 from metrics_layer.core.exceptions import (
     AccessDeniedOrDoesNotExistException,
@@ -13,7 +15,7 @@ from metrics_layer.core.exceptions import (
 )
 
 from .base import MetricsLayerBase, SQLReplacement
-from .definitions import Definitions
+from .definitions import Definitions, sql_flavor_to_sqlglot_format
 from .filter import Filter
 from .set import Set
 
@@ -582,12 +584,28 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"{self.view.name}.{self.name}()"
         elif model_format:
             render_window_functions = True
+            wrapping_func = self.ensure_column_reference_exists
+        else:
+
+            def default_wrapping_func(x, query_type: str):
+                return x
+
+            wrapping_func = default_wrapping_func
+
         if self.type == "cumulative" and alias_only:
             return f"{self.cte_prefix()}.{self.measure.alias(with_view=True)}"
         if self.field_type == ZenlyticFieldType.measure:
-            return self.aggregate_sql_query(query_type, functional_pk, alias_only=alias_only)
-        return self.raw_sql_query(
-            query_type, alias_only=alias_only, render_window_functions=render_window_functions
+            return wrapping_func(
+                self.aggregate_sql_query(query_type, functional_pk, alias_only=alias_only),
+                query_type=query_type,
+            )
+        return wrapping_func(
+            self.raw_sql_query(
+                query_type,
+                alias_only=alias_only,
+                render_window_functions=render_window_functions,
+            ),
+            query_type=query_type,
         )
 
     def _field_uses_non_standard_model_format_sql(self):
@@ -595,7 +613,30 @@ class Field(MetricsLayerBase, SQLReplacement):
             return True
         return False
 
-    def raw_sql_query(self, query_type: str, alias_only: bool = False, render_window_functions: bool = False):
+    def ensure_column_reference_exists(self, sql, query_type: str) -> str:
+        if not isinstance(sql, str):
+            return sql
+
+        sqlglot_sql_flavor = sql_flavor_to_sqlglot_format(query_type)
+        parsed_sql = sqlglot.parse_one(sql, read=sqlglot_sql_flavor)
+
+        def add_table_if_not_present_in_column_reference(node: exp.Expression):
+            if isinstance(node, exp.Column):
+                if not node.table:
+                    return exp.Column(this=f"{self.view.name}.{node.this}", quoted=False)
+                else:
+                    return node
+            return node
+
+        transformed = parsed_sql.transform(add_table_if_not_present_in_column_reference)
+        return transformed.sql(dialect=sqlglot_sql_flavor)
+
+    def raw_sql_query(
+        self,
+        query_type: str,
+        alias_only: bool = False,
+        render_window_functions: bool = False,
+    ):
         if (
             self.field_type == ZenlyticFieldType.measure
             and self.type in ZenlyticType.non_aggregating_measure_options
