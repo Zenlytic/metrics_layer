@@ -150,6 +150,19 @@ class ZenlyticType:
         time,
         percentile,
     ]
+    numeric_measure_options = [
+        count,
+        count_distinct,
+        sum,
+        sum_distinct,
+        average,
+        average_distinct,
+        median,
+        max,
+        min,
+        number,
+        cumulative,
+    ]
     non_aggregating_measure_options = [number, string, yesno, time]
     requires_sql_distinct_key = [sum_distinct, average_distinct]
     options = list(sorted(list(set(dimension_options + dimension_group_options + measure_options))))
