@@ -23,7 +23,7 @@ class MetricsLayerQueryBase(MetricsLayerBase):
         for filter_clause in filters:
             filter_clause["query_type"] = self.query_type
             f = MetricsLayerFilter(
-                definition=filter_clause, design=None, filter_type="where", project=project
+                definition={**filter_clause}, design=None, filter_type="where", project=project
             )
             where.append(
                 f.sql_query(
