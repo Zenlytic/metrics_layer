@@ -100,7 +100,7 @@ class MetricsLayerFilter(MetricsLayerBase):
             for f in filter_group_conditions:
                 f["query_type"] = self.query_type
                 f["group_by_filter_cte_lookup"] = definition.get("group_by_filter_cte_lookup", None)
-                MetricsLayerFilter(f, self.design, self.filter_type)
+                MetricsLayerFilter({**f}, self.design, self.filter_type)
 
             if (
                 "logical_operator" in definition
@@ -189,7 +189,7 @@ class MetricsLayerFilter(MetricsLayerBase):
         pypika_conditions = []
         for condition in self.conditions:
             condition["group_by_filter_cte_lookup"] = self.group_by_filter_cte_lookup
-            condition_object = MetricsLayerFilter(condition, self.design, self.filter_type, self.project)
+            condition_object = MetricsLayerFilter({**condition}, self.design, self.filter_type, self.project)
             if condition_object.is_filter_group:
                 pypika_conditions.append(
                     condition_object.group_sql_query(
@@ -293,7 +293,7 @@ class MetricsLayerFilter(MetricsLayerBase):
             "expression": expression,
             "value": subquery,
         }
-        f = MetricsLayerFilter(definition=definition, design=None, filter_type="where")
+        f = MetricsLayerFilter(definition={**definition}, design=None, filter_type="where")
         return f.criterion(self.field.sql_query(self.query_type))
 
     def _create_legacy_group_by_is_in_query(self, cte_alias):
@@ -306,7 +306,7 @@ class MetricsLayerFilter(MetricsLayerBase):
             "expression": MetricsLayerFilterExpressionType.IsIn.value,
             "value": subquery,
         }
-        f = MetricsLayerFilter(definition=definition, design=None, filter_type="where")
+        f = MetricsLayerFilter(definition={**definition}, design=None, filter_type="where")
         return f.criterion(group_by_field.sql_query(self.query_type))
 
     def replace_fields_literal_filter(self):

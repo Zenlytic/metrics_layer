@@ -187,7 +187,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                                 f" containing the window function {field.id()} to an AND statement."
                             )
 
-                    f = MetricsLayerFilter(definition=sub_filter, **extra_kwargs)
+                    f = MetricsLayerFilter(definition={**sub_filter}, **extra_kwargs)
                     if f.is_group_by:
                         if nesting_depth > 0:
                             cte_alias = f"filter_subquery_{nesting_depth}_{cte_counter}"
@@ -214,7 +214,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                             continue
 
                 # Generate (and automatically validate) the filter and then store it
-                f = MetricsLayerFilter(definition=filter_dict, **extra_kwargs)
+                f = MetricsLayerFilter(definition={**filter_dict}, **extra_kwargs)
                 results.append(f)
 
         if len(measure_window_function_filters) > 0 and filter_type == "where":

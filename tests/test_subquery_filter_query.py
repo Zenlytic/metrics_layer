@@ -1,65 +1,76 @@
-# from datetime import datetime
+import json
 
 import pytest
 
 from metrics_layer.core.exceptions import (
     AccessDeniedOrDoesNotExistException,
-    JoinError,
     QueryError,
 )
-
-# from metrics_layer.core.model import Definitions
-# from metrics_layer.core.sql.query_errors import ParseError
 
 
 @pytest.mark.query
 def test_query_subquery_filter(connection):
+    where_logic = [
+        {
+            "conditional_filter_logic": {
+                "conditions": [
+                    {
+                        "field": "orders.order_id",
+                        "expression": "is_in_query",
+                        "value": {
+                            "query": {
+                                "metrics": [],
+                                "dimensions": ["orders.order_id"],
+                                "where": [
+                                    {
+                                        "field": "channel",
+                                        "expression": "contains_case_insensitive",
+                                        "value": "social",
+                                    },
+                                    {
+                                        "field": "orders.order_month",
+                                        "expression": "greater_than",
+                                        "value": "2025-07-01T00:00:00Z",
+                                    },
+                                ],
+                            },
+                            "field": "orders.order_id",
+                        },
+                    },
+                ],
+                "logical_operator": "AND",
+            },
+        },
+        {"field": "product_name", "expression": "not_equal_to", "value": "Shipping Protection"},
+    ]
+
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
         dimensions=["region"],
-        where=[
-            {
-                "conditional_filter_logic": {
-                    "conditions": [
-                        {
-                            "field": "orders.order_id",
-                            "expression": "is_in_query",
-                            "value": {
-                                "query": {
-                                    "metrics": [],
-                                    "dimensions": ["orders.order_id"],
-                                    "where": [
-                                        {
-                                            "field": "channel",
-                                            "expression": "contains_case_insensitive",
-                                            "value": "social",
-                                        }
-                                    ],
-                                },
-                                "field": "orders.order_id",
-                            },
-                        },
-                    ],
-                    "logical_operator": "AND",
-                }
-            },
-            {"field": "product_name", "expression": "not_equal_to", "value": "Shipping Protection"},
-        ],
+        where=where_logic,
         having=[{"field": "total_item_revenue", "expression": "less_than", "value": 300_000}],
+        query_type="BIGQUERY",
     )
+    # This also tests for a serialization issue with the datetime
+    # object when querying with BigQuery specifically
+    json.dumps(where_logic, indent=4)
 
+    # This tests for query correctness
     correct = (
-        "WITH filter_subquery_0 AS (SELECT orders.id as orders_order_id FROM analytics.order_line_items"
-        " order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id WHERE"
-        " LOWER(order_lines.sales_channel) LIKE LOWER('%social%') GROUP BY orders.id ORDER BY orders_order_id"
-        " ASC NULLS LAST) SELECT customers.region as customers_region,NULLIF(COUNT(DISTINCT CASE WHEN "
-        " (orders.id)  IS NOT NULL THEN  orders.id  ELSE NULL END), 0) as orders_number_of_orders FROM"
-        " analytics.order_line_items order_lines LEFT JOIN analytics.orders orders ON"
-        " order_lines.order_unique_id=orders.id LEFT JOIN analytics.customers customers ON"
-        " order_lines.customer_id=customers.customer_id WHERE orders.id IN (SELECT DISTINCT orders_order_id"
-        " FROM filter_subquery_0) AND order_lines.product_name<>'Shipping Protection' GROUP BY"
-        " customers.region HAVING SUM(order_lines.revenue)<300000 ORDER BY orders_number_of_orders DESC NULLS"
-        " LAST;"
+        "WITH filter_subquery_0 AS (SELECT orders.id as orders_order_id "
+        "FROM analytics.order_line_items order_lines LEFT JOIN analytics.orders "
+        "orders ON order_lines.order_unique_id=orders.id WHERE "
+        "LOWER(order_lines.sales_channel) LIKE LOWER('%social%') AND "
+        "CAST(DATE_TRUNC(CAST(orders.order_date AS DATE), MONTH) AS "
+        "TIMESTAMP)>CAST('2025-07-01T00:00:00Z' AS TIMESTAMP) GROUP BY "
+        "orders_order_id) SELECT customers.region as customers_region,NULLIF("
+        "COUNT(DISTINCT CASE WHEN  (orders.id)  IS NOT NULL THEN  orders.id  "
+        "ELSE NULL END), 0) as orders_number_of_orders FROM analytics.order_line_items "
+        "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id"
+        "=orders.id LEFT JOIN analytics.customers customers ON order_lines.customer_id"
+        "=customers.customer_id WHERE orders.id IN (SELECT DISTINCT orders_order_id "
+        "FROM filter_subquery_0) AND order_lines.product_name<>'Shipping Protection' "
+        "GROUP BY customers_region HAVING SUM(order_lines.revenue)<300000;"
     )
     assert query == correct
 
