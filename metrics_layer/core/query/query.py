@@ -3,8 +3,7 @@ import sqlparse
 from metrics_layer.core.convert import MQLConverter
 from metrics_layer.core.exceptions import QueryError
 from metrics_layer.core.parse import ProjectLoader
-from metrics_layer.core.parse.connections import BaseConnection
-from metrics_layer.core.sql import QueryRunner, SQLQueryResolver
+from metrics_layer.core.sql import SQLQueryResolver
 from metrics_layer.core.sql.arbitrary_merge_resolve import ArbitraryMergedQueryResolver
 from metrics_layer.core.sql.query_errors import ParseError
 
@@ -171,11 +170,6 @@ class MetricsLayerConnection:
         if kwargs.get("return_query_kind", False):
             return query, resolver.query_kind
         return query
-
-    def run_query(self, query: str, connection: BaseConnection, **kwargs):
-        runner = QueryRunner(query, connection)
-        df = runner.run_query(**{**self.kwargs, **kwargs})
-        return df
 
     def list_fields(self, view_name: str = None, names_only: bool = False, show_hidden: bool = False):
         all_fields = self.project.fields(view_name=view_name, show_hidden=show_hidden)
