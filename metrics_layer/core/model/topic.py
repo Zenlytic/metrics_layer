@@ -10,6 +10,7 @@ from metrics_layer.core.exceptions import (
 
 from .base import MetricsLayerBase
 from .field import Field
+from .filter import Filter
 from .join import Join, ZenlyticJoinRelationship, ZenlyticJoinType
 from .view import View
 
@@ -69,6 +70,33 @@ class Topic(MetricsLayerBase):
     def _error(self, element, error, extra: dict = {}):
         line, column = self.line_col(element)
         return {**extra, "model_name": self.model_name, "message": error, "line": line, "column": column}
+
+    def always_filter_literal(self):
+        to_add = {"week_start_day": self.model.week_start_day, "timezone": self.project.timezone}
+        parsed_filters = []
+        if self.always_filter:
+            for f in self.always_filter:
+                if "." not in f["field"]:
+                    raise QueryError(
+                        f"Always filter field {f['field']} in the topic {self.label} needs "
+                        "to contain the view name like view_name.field_name."
+                    )
+                filter_dicts = Filter({**f, **to_add}).filter_dict(json_safe=False)
+                for filter_dict in filter_dicts:
+                    field_datatype = self.project.get_field(f["field"]).type
+                    parsed_filters.append(
+                        str(
+                            Filter.sql_query(
+                                f["field"],
+                                filter_dict["expression"],
+                                filter_dict["value"],
+                                field_datatype,
+                            )
+                        )
+                    )
+        if parsed_filters:
+            return " and ".join(parsed_filters)
+        return None
 
     def collect_errors(self):
         errors = []

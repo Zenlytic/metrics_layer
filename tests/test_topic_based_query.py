@@ -372,8 +372,7 @@ def test_symmetric_aggregate_state_many_to_one_join_unfiltered_topic(connection)
 
     # This will fail and show the actual SQL generated
     assert (
-        query
-        == "SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) as"
+        query == "SELECT order_lines.sales_channel as order_lines_channel,SUM(order_lines.revenue) as"
         " order_lines_total_item_revenue,(COALESCE(CAST((SUM(DISTINCT (CAST(FLOOR(COALESCE(orders.revenue,"
         " 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(orders.id),"
         " 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) - SUM(DISTINCT"
@@ -401,8 +400,7 @@ def test_symmetric_aggregate_state_one_to_one_join_unfiltered_topic(connection):
 
     # This will fail and show the actual SQL generated
     assert (
-        query
-        == "SELECT accounts.name as accounts_account_name,SUM(order_lines.revenue) as"
+        query == "SELECT accounts.name as accounts_account_name,SUM(order_lines.revenue) as"
         " order_lines_total_item_revenue,COUNT(accounts.account_id) as accounts_n_created_accounts FROM"
         " analytics.order_line_items order_lines LEFT JOIN analytics.accounts accounts ON"
         " accounts.account_id = order_lines.customer_id GROUP BY accounts.name ORDER BY"
@@ -426,8 +424,7 @@ def test_symmetric_aggregate_state_many_to_many_join_unfiltered_topic(connection
 
     # This will fail and show the actual SQL generated
     assert (
-        query
-        == "SELECT discounts.code as discounts_discount_code,COALESCE(CAST((SUM(DISTINCT"
+        query == "SELECT discounts.code as discounts_discount_code,COALESCE(CAST((SUM(DISTINCT"
         " (CAST(FLOOR(COALESCE(order_lines.revenue, 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) +"
         " (TO_NUMBER(MD5(order_lines.order_line_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') %"
         " 1.0e27)::NUMERIC(38, 0)) - SUM(DISTINCT (TO_NUMBER(MD5(order_lines.order_line_id),"
@@ -461,8 +458,7 @@ def test_symmetric_aggregate_state_one_to_many_join_unfiltered_topic(connection)
 
     # This will fail and show the actual SQL generated
     assert (
-        query
-        == "SELECT order_lines.sales_channel as order_lines_channel,COALESCE(CAST((SUM(DISTINCT"
+        query == "SELECT order_lines.sales_channel as order_lines_channel,COALESCE(CAST((SUM(DISTINCT"
         " (CAST(FLOOR(COALESCE(order_lines.revenue, 0) * (1000000 * 1.0)) AS DECIMAL(38,0))) +"
         " (TO_NUMBER(MD5(order_lines.order_line_id), 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') %"
         " 1.0e27)::NUMERIC(38, 0)) - SUM(DISTINCT (TO_NUMBER(MD5(order_lines.order_line_id),"
@@ -726,3 +722,58 @@ def test_topic_default_date_join_in_topic_dim_no_presence_in_measures_2(connecti
         " ORDER BY discounts_total_discount_amt ASC NULLS LAST;"
     )
     assert query == correct
+
+
+@pytest.mark.query
+def test_always_filter_literal_no_filter(connection):
+    """Test always_filter_literal with topic that has no always_filter."""
+    topic = connection.project.get_topic("Order lines unfiltered")
+    assert topic.always_filter_literal() is None
+
+
+@pytest.mark.query
+def test_always_filter_literal_with_valid_filter(connection):
+    """Test always_filter_literal with topic that has valid always_filter."""
+    topic = connection.project.get_topic("Order lines Topic")
+    result = topic.always_filter_literal()
+    # Should return a SQL string for the -NULL filter
+    assert result is not None
+    assert isinstance(result, str)
+    correct = "NOT orders.revenue_dimension IS NULL"
+    assert result == correct
+
+
+@pytest.mark.query
+def test_always_filter_literal_invalid_field_format(fresh_project, connections):
+    """Test always_filter_literal raises error for field without view name."""
+    # Create a topic with invalid always_filter (missing view name prefix)
+    fresh_project._topics[0]["always_filter"] = [{"field": "invalid_field", "value": "test"}]
+    conn = MetricsLayerConnection(project=fresh_project, connections=connections)
+
+    topic = conn.project.get_topic("Order lines Topic")
+    with pytest.raises(QueryError) as exc_info:
+        topic.always_filter_literal()
+
+    assert "needs to contain the view name like view_name.field_name" in str(exc_info.value)
+
+
+@pytest.mark.query
+def test_always_filter_literal_greater_than_filter(fresh_project, connections):
+    """Test always_filter_literal with greater_than filter."""
+    fresh_project._topics[0]["always_filter"] = [
+        {"field": "order_lines.channel", "value": "Email"},
+        {"field": "orders.total_revenue", "value": ">100"},
+        {"field": "order_lines.order_id", "value": "-1234567890, -45234553"},
+    ]
+    conn = MetricsLayerConnection(project=fresh_project, connections=connections)
+
+    topic = conn.project.get_topic("Order lines Topic")
+    result = topic.always_filter_literal()
+
+    assert result is not None
+    assert isinstance(result, str)
+    correct = (
+        "order_lines.channel='Email' and orders.total_revenue>100 and "
+        "order_lines.order_id NOT IN ('1234567890','45234553')"
+    )
+    assert result == correct
