@@ -609,7 +609,9 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"{self.cte_prefix()}.{self.measure.alias(with_view=True)}"
         if self.field_type == ZenlyticFieldType.measure:
             return wrapping_func(
-                self.aggregate_sql_query(query_type, functional_pk, alias_only=alias_only),
+                self.aggregate_sql_query(
+                    query_type, functional_pk, alias_only=alias_only, model_format=model_format
+                ),
                 query_type=query_type,
             )
         return wrapping_func(
@@ -663,7 +665,9 @@ class Field(MetricsLayerBase, SQLReplacement):
             query_type, alias_only=alias_only, render_window_functions=render_window_functions
         )
 
-    def aggregate_sql_query(self, query_type: str, functional_pk: str, alias_only: bool = False):
+    def aggregate_sql_query(
+        self, query_type: str, functional_pk: str, alias_only: bool = False, model_format: bool = False
+    ):
         sql = self.raw_sql_query(query_type, alias_only=alias_only)
         type_lookup = {
             ZenlyticType.sum: self._sum_aggregate_sql,
@@ -685,7 +689,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             raise QueryError(
                 f"Aggregate type {self.type} not supported. Supported types are: {list(type_lookup.keys())}"
             )
-        return type_lookup[self.type](sql, query_type, functional_pk, alias_only)
+        return type_lookup[self.type](sql, query_type, functional_pk, alias_only, model_format)
 
     def strict_replaced_query(self):
         clean_sql = copy(self.sql)
@@ -733,10 +737,14 @@ class Field(MetricsLayerBase, SQLReplacement):
             clean_sql_distinct_key = sql_distinct_key
         return self._replace_sql_query(clean_sql_distinct_key, query_type, alias_only=alias_only)
 
-    def _count_distinct_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
+    def _count_distinct_aggregate_sql(
+        self, sql: str, query_type: str, functional_pk: str, alias_only: bool, model_format: bool = False
+    ):
         return f"COUNT(DISTINCT({sql}))"
 
-    def _sum_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
+    def _sum_aggregate_sql(
+        self, sql: str, query_type: str, functional_pk: str, alias_only: bool, model_format: bool = False
+    ):
         if (
             query_type in Definitions.symmetric_aggregates_supported_warehouses
             and self._needs_symmetric_aggregate(functional_pk)
@@ -744,7 +752,9 @@ class Field(MetricsLayerBase, SQLReplacement):
             return self._sum_symmetric_aggregate(sql, query_type, alias_only=alias_only)
         return f"SUM({sql})"
 
-    def _sum_distinct_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
+    def _sum_distinct_aggregate_sql(
+        self, sql: str, query_type: str, functional_pk: str, alias_only: bool, model_format: bool = False
+    ):
         sql_distinct_key = self._get_sql_distinct_key(
             self.sql_distinct_key, query_type, alias_only=alias_only
         )
@@ -885,7 +895,9 @@ class Field(MetricsLayerBase, SQLReplacement):
         result = f"{backed_out_cast} / CAST(({factor}*1.0) AS FLOAT), 0)"
         return result
 
-    def _count_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
+    def _count_aggregate_sql(
+        self, sql: str, query_type: str, functional_pk: str, alias_only: bool, model_format: bool = False
+    ):
         if (
             query_type in Definitions.symmetric_aggregates_supported_warehouses
             and self._needs_symmetric_aggregate(functional_pk)
@@ -920,7 +932,9 @@ class Field(MetricsLayerBase, SQLReplacement):
         result = f"NULLIF(COUNT(DISTINCT {pk_if_not_null}), 0)"
         return result
 
-    def _average_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
+    def _average_aggregate_sql(
+        self, sql: str, query_type: str, functional_pk: str, alias_only: bool, model_format: bool = False
+    ):
         if (
             query_type in Definitions.symmetric_aggregates_supported_warehouses
             and self._needs_symmetric_aggregate(functional_pk)
@@ -929,7 +943,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         return f"AVG({sql})"
 
     def _average_distinct_aggregate_sql(
-        self, sql: str, query_type: str, functional_pk: str, alias_only: bool
+        self, sql: str, query_type: str, functional_pk: str, alias_only: bool, model_format: bool = False
     ):
         if query_type not in Definitions.symmetric_aggregates_supported_warehouses:
             raise QueryError(
@@ -953,7 +967,9 @@ class Field(MetricsLayerBase, SQLReplacement):
         result = f"({sum_symmetric} / {count_symmetric})"
         return result
 
-    def _median_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
+    def _median_aggregate_sql(
+        self, sql: str, query_type: str, functional_pk: str, alias_only: bool, model_format: bool = False
+    ):
         if query_type in {
             Definitions.druid,
             Definitions.postgres,
@@ -971,7 +987,9 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"APPROX_QUANTILES({sql}, 100)[OFFSET(50)]"
         return f"MEDIAN({sql})"
 
-    def _percentile_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
+    def _percentile_aggregate_sql(
+        self, sql: str, query_type: str, functional_pk: str, alias_only: bool, model_format: bool = False
+    ):
         if query_type not in {
             Definitions.snowflake,
             Definitions.redshift,
@@ -988,15 +1006,21 @@ class Field(MetricsLayerBase, SQLReplacement):
         # Percentiles do not work with symmetric aggregates, so there's just the one return
         return f"PERCENTILE_CONT({self.percentile / 100.0}) WITHIN GROUP (ORDER BY {sql})"
 
-    def _max_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
+    def _max_aggregate_sql(
+        self, sql: str, query_type: str, functional_pk: str, alias_only: bool, model_format: bool = False
+    ):
         # Max works natively with symmetric aggregates, so there's just the one return
         return f"MAX({sql})"
 
-    def _min_aggregate_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
+    def _min_aggregate_sql(
+        self, sql: str, query_type: str, functional_pk: str, alias_only: bool, model_format: bool = False
+    ):
         # Min works natively with symmetric aggregates, so there's just the one return
         return f"MIN({sql})"
 
-    def _non_aggregating_measure_sql(self, sql: str, query_type: str, functional_pk: str, alias_only: bool):
+    def _non_aggregating_measure_sql(
+        self, sql: str, query_type: str, functional_pk: str, alias_only: bool, model_format: bool = False
+    ):
         if isinstance(sql, list):
             replaced = copy(self.sql)
             for field_name in self.fields_to_replace(self.sql):
@@ -1009,7 +1033,9 @@ class Field(MetricsLayerBase, SQLReplacement):
                         to_replace = self.view.name
                 else:
                     field = self.get_field_with_view_info(field_name)
-                    to_replace = field.sql_query(query_type, functional_pk, alias_only=alias_only)
+                    to_replace = field.sql_query(
+                        query_type, functional_pk, alias_only=alias_only, model_format=model_format
+                    )
                     to_replace = f"({to_replace})"
                 replaced = replaced.replace(proper_to_replace, to_replace)
         else:
