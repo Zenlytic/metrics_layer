@@ -50,6 +50,16 @@ def test_measure_with_model_format_with_non_additive_dimension(connection):
 
 
 @pytest.mark.query
+def test_measure_with_model_format_with_non_additive_dimension_nested(connection):
+    field = connection.project.get_field("mrr.mrr_change_per_billed_account")
+
+    query = field.sql_query(query_type="SNOWFLAKE", model_format=True)
+
+    correct = "((mrr.mrr_end_of_month()) - (mrr.mrr_beginning_of_month())) / (COUNT(mrr.parent_account_id))"
+    assert query == correct
+
+
+@pytest.mark.query
 def test_measure_with_model_format_with_implicit_table_reference(connection):
     field = connection.project.get_field("other_db_traffic.other_traffic_campaign")
 
