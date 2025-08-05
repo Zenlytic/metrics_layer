@@ -1284,7 +1284,8 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
     project = connection.project
     view = _get_view_by_name(project, "order_lines")
     view[name] = value
-    response = project.validate_with_replaced_objects(replaced_objects=[view])
+    # Don't validate topics here to avoid inherited join error message clutter
+    response = project.validate_with_replaced_objects(replaced_objects=[view], validate_topics=False)
 
     print(response)
     assert [e["message"] for e in response] == errors
