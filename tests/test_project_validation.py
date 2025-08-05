@@ -768,6 +768,8 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
             "sessions.session",
             ["Default date sessions.session in view order_lines is not joinable to the view order_lines"],
         ),
+        # This should be allowed because it's accessible through a topic
+        ("default_date", "monthly_aggregates.record", []),
         (
             "default_date",
             "fake",

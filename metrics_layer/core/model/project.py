@@ -584,6 +584,15 @@ class Project:
     def get_joinable_views(self, view_name: str) -> List[str]:
         return self.join_graph.get_joinable_view_names(view_name)
 
+    def get_joinable_views_including_topics(self, view_name: str) -> List[str]:
+        joinable_no_topics = self.join_graph.get_joinable_view_names(view_name)
+        joinable_from_topics = []
+        for topic in self.topics():
+            topic_view_names = [v.name for v in topic._views()]
+            if view_name in topic_view_names:
+                joinable_from_topics.extend(topic_view_names)
+        return list(set(joinable_no_topics + joinable_from_topics))
+
     def sets(self, view_name: Union[str, None] = None):
         if view_name:
             try:
