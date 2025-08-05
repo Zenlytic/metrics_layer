@@ -258,14 +258,14 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
     def needs_join(self):
         return len(self.design.joins()) > 0
 
-    def get_query(self, semicolon: bool = True):
+    def get_query(self, semicolon: bool = True, view_overrides: dict = {}):
         if self.funnel_filters:
             funnel_filter = self.funnel_filters[0]
             base_query = funnel_filter.query_class.get_query(cte_only=True)
         else:
             base_query = self._base_query()
 
-        view_overrides = {}
+        view_overrides = {**view_overrides}
         if self.window_function_ctes:
             for cte in self.window_function_ctes:
                 cte_query = self._window_function_cte(cte)
@@ -318,7 +318,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                 group_by_dimensions = list(
                     sorted(set(group_by_dimensions), key=lambda x: group_by_dimensions.index(x))
                 )
-                cte_query = self._non_additive_cte(definition, group_by_dimensions)
+                cte_query = self._non_additive_cte(definition, group_by_dimensions, view_overrides)
 
                 base_query = base_query.with_(Table(cte_query), definition["cte_alias"])
                 # When there are no group by dimensions, we need to join on a dummy join for the case filter
@@ -525,7 +525,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
         cte_query = generator.get_query()
         return cte_query
 
-    def _non_additive_cte(self, definition: dict, group_by_dimensions: list):
+    def _non_additive_cte(self, definition: dict, group_by_dimensions: list, view_overrides: dict = {}):
         field_lookup = {}
 
         for n in group_by_dimensions:
@@ -569,7 +569,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
             "return_pypika_query": True,
         }
         generator = MetricsLayerQuery(config, design=design)
-        cte_query = generator.get_query()
+        cte_query = generator.get_query(view_overrides=view_overrides)
         project.remove_field(temp_field_name, view_name=non_additive_dimension.view.name, refresh_cache=False)
         return cte_query
 

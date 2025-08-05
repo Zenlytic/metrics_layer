@@ -1,6 +1,8 @@
 import pytest
 
 from metrics_layer.core.model import Definitions
+from metrics_layer.core.sql.query_design import MetricsLayerDesign
+from metrics_layer.core.sql.query_generator import MetricsLayerQuery
 
 
 @pytest.mark.query
@@ -16,6 +18,56 @@ def test_non_additive_model_format_sql(connection):
         query_type="SNOWFLAKE", model_format=True
     )
     correct = "COUNT(mrr.parent_account_id)"
+    assert query == correct
+
+
+@pytest.mark.query
+def test_non_additive_model_pass_in_view_overrides(connection):
+    field_object = connection.project.get_field(f"mrr_change_per_billed_account")
+    field_lookup = {field_object.id(): field_object}
+
+    # Add any referenced fields to the lookup
+    if field_object.sql:
+        for ref_field in field_object.referenced_fields(field_object.sql):
+            field_lookup[ref_field.id()] = ref_field
+
+    # Create design for the query
+    design = MetricsLayerDesign(
+        no_group_by=False,
+        query_type="SNOWFLAKE",
+        field_lookup=field_lookup,
+        model=field_object.view.model,
+        project=field_object.view.project,
+    )
+
+    # Create query definition
+    query_definition = {
+        "metrics": [field_object.id()],
+        "dimensions": [],
+        "where": [],
+        "having": [],
+        "return_pypika_query": False,
+        "use_table_alias": True,
+    }
+
+    # Generate the complete query
+    query_generator = MetricsLayerQuery(query_definition, design=design)
+    query = query_generator.get_query(
+        semicolon=False, view_overrides={field_object.view.name: field_object.view.name}
+    )
+    correct = (
+        "WITH cte_mrr_end_of_month_record_raw AS (SELECT MAX(mrr.record_date) as "
+        "mrr_max_record_raw FROM mrr mrr ORDER BY mrr_max_record_raw DESC NULLS "
+        "LAST) ,cte_mrr_beginning_of_month_record_raw AS (SELECT MIN(mrr.record_date)"
+        " as mrr_min_record_raw FROM mrr mrr ORDER BY mrr_min_record_raw DESC NULLS "
+        "LAST) SELECT ((SUM(case when mrr.record_date=cte_mrr_end_of_month_record_raw"
+        ".mrr_max_record_raw then mrr.mrr else 0 end)) - (SUM(case when mrr.record_date"
+        "=cte_mrr_beginning_of_month_record_raw.mrr_min_record_raw then mrr.mrr else 0 "
+        "end))) / (COUNT(mrr.parent_account_id)) as mrr_mrr_change_per_billed_account "
+        "FROM mrr mrr LEFT JOIN cte_mrr_end_of_month_record_raw ON 1=1 LEFT JOIN "
+        "cte_mrr_beginning_of_month_record_raw ON 1=1 ORDER BY "
+        "mrr_mrr_change_per_billed_account DESC NULLS LAST"
+    )
     assert query == correct
 
 
