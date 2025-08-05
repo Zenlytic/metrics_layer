@@ -2618,6 +2618,17 @@ def test_validation_with_replaced_field_properties(connection, field_name, prope
         ),
         (
             "views",
+            {"sessions": {}},
+            [
+                (
+                    "The view sessions in topic Order lines Topic cannot be joined automatically "
+                    "to the base view order_lines. Please add an explicit join configuration or "
+                    "ensure the views share common identifiers that allow them to be joined."
+                )
+            ],
+        ),
+        (
+            "views",
             {"orders": {"join": "invalid"}},
             ["The join property for view orders in topic Order lines Topic must be a dictionary"],
         ),

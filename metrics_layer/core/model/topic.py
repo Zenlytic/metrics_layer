@@ -467,6 +467,23 @@ class Topic(MetricsLayerBase):
                                     ),
                                 )
                             )
+                elif isinstance(self.base_view, str):
+                    try:
+                        # Check if the view can be joined to the base view automatically
+                        self.project.join_graph.get_join(self.base_view, view_name)
+                    except KeyError:
+                        errors.append(
+                            self._error(
+                                view_name,
+                                (
+                                    f"The view {view_name} in topic {self.label} cannot be joined "
+                                    f"automatically to the base view {self.base_view}. Please add an "
+                                    "explicit join configuration or ensure the views share common "
+                                    "identifiers that allow them to be joined."
+                                ),
+                            )
+                        )
+
                 if "override_access_filters" in view_config and not isinstance(
                     view_config["override_access_filters"], bool
                 ):
