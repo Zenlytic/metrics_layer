@@ -201,7 +201,7 @@ def test_mapping_multiple_metric_different_canon_date_joinable_mapped_date_dim_a
 @pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.druid])
 def test_mapping_mapped_metric_joined_dim(connection, query_type):
     query = connection.get_sql_query(
-        metrics=["number_of_orders", "average_customer_ltv"],
+        metrics=["number_of_orders", "customers.average_customer_ltv"],
         dimensions=["channel"],
         where=[
             {

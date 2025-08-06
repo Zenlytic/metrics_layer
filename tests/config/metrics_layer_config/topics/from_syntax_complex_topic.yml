@@ -1,0 +1,34 @@
+type: topic
+label: From Syntax Complex Test Topic
+base_view: order_lines
+model_name: test_model
+description: Test topic using complex view-level from syntax with multiple aliases
+
+views:
+  # Join customers once via customer_id
+  customers:
+    from: customers
+    label: Customer Info
+    field_prefix: 'Customer'
+    include_metrics: false
+    join:
+      join_type: left_outer
+      relationship: many_to_one
+      sql_on: ${order_lines.customer_id} = ${customers.customer_id}
+
+  # Join customers again with different alias (for testing multiple joins)
+  customer_accounts:
+    from: customers
+    label: Account Holder
+    field_prefix: 'Account'
+    join:
+      join_type: left_outer
+      relationship: many_to_one
+      sql_on: ${order_lines.customer_id} = ${customer_accounts.last_product_purchased}
+
+  # Regular view join
+  orders:
+    join:
+      join_type: left_outer
+      relationship: many_to_one
+      sql_on: ${order_lines.order_id} = ${orders.order_id}
