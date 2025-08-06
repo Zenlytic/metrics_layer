@@ -30,7 +30,7 @@ discount_detail_view_path = os.path.join(
 country_detail_view_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/views/test_country_detail.yml"
 )
-session_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_sessions.yml")
+session_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/Sub Folder/test_sessions.yml")
 clicked_on_page_view_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/views/test_clicked_on_page.yml"
 )
