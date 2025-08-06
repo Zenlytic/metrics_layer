@@ -369,8 +369,8 @@ class View(MetricsLayerBase, SQLReplacement):
                 )
             )
 
-        # This value is pulled from the MAX_VIEW_DESCRIPTION_LENGTH constant in Zenlytic
-        view_description_max_chars = 1024
+        # This value is pulled from the VIEW_DESCRIPTION_MAX_CHARS constant in Zenlytic
+        view_description_max_chars = 2048
         if "description" in self._definition and isinstance(self.description, str):
             if len(self.description) > view_description_max_chars:
                 errors.append(
