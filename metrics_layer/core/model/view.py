@@ -489,7 +489,9 @@ class View(MetricsLayerBase, SQLReplacement):
                     )
                 # If the default date is not joinable to the view (or in the view itself),
                 # then we need to add an error
-                if field.view.name not in self.project.get_joinable_views(self.name) + [self.name]:
+                if field.view.name not in self.project.get_joinable_views_including_topics(self.name) + [
+                    self.name
+                ]:
                     errors.append(
                         self._error(
                             self._definition["default_date"],

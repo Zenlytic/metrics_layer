@@ -768,6 +768,8 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
             "sessions.session",
             ["Default date sessions.session in view order_lines is not joinable to the view order_lines"],
         ),
+        # This should be allowed because it's accessible through a topic
+        ("default_date", "monthly_aggregates.record", []),
         (
             "default_date",
             "fake",
@@ -1284,7 +1286,8 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
     project = connection.project
     view = _get_view_by_name(project, "order_lines")
     view[name] = value
-    response = project.validate_with_replaced_objects(replaced_objects=[view])
+    # Don't validate topics here to avoid inherited join error message clutter
+    response = project.validate_with_replaced_objects(replaced_objects=[view], validate_topics=False)
 
     print(response)
     assert [e["message"] for e in response] == errors
@@ -2615,6 +2618,17 @@ def test_validation_with_replaced_field_properties(connection, field_name, prope
             "views",
             {"orders": 1},
             ["The view configuration for orders in topic Order lines Topic must be a dictionary"],
+        ),
+        (
+            "views",
+            {"sessions": {}},
+            [
+                (
+                    "The view sessions in topic Order lines Topic cannot be joined automatically "
+                    "to the base view order_lines. Please add an explicit join configuration or "
+                    "ensure the views share common identifiers that allow them to be joined."
+                )
+            ],
         ),
         (
             "views",

@@ -272,15 +272,20 @@ class Project:
             self._topics = current_topics
             self.refresh_cache()
 
-    def validate_with_replaced_objects(self, replaced_objects: list, views_must_be_in_topics: bool = False):
+    def validate_with_replaced_objects(
+        self,
+        replaced_objects: list,
+        views_must_be_in_topics: bool = False,
+        validate_topics: bool = True,
+    ):
         with self.replace_objects(replaced_objects):
-            return self.validate(views_must_be_in_topics)
+            return self.validate(views_must_be_in_topics, validate_topics)
 
     def _error(self, error: str, extra: dict = {}):
         # For project level errors we cannot attribute a line or column
         return {**extra, "message": error, "line": None, "column": None}
 
-    def validate(self, views_must_be_in_topics: bool = False):
+    def validate(self, views_must_be_in_topics: bool = False, validate_topics: bool = True):
         all_errors = [] + self._conversion_errors
 
         model_names = [model.name for model in self.models()]
@@ -297,21 +302,22 @@ class Project:
                 # If we have an error building the model, we cannot continue
                 return [self._error(str(e))]
 
-        topic_names = []
-        for topic in self.topics():
-            topic_names.append(topic.label)
-            try:
-                all_errors.extend(topic.collect_errors())
-            except QueryError as e:
-                # If we have an error building the topic, we cannot continue
-                return [self._error(str(e))]
+        if validate_topics:
+            topic_names = []
+            for topic in self.topics():
+                topic_names.append(topic.label)
+                try:
+                    all_errors.extend(topic.collect_errors())
+                except QueryError as e:
+                    # If we have an error building the topic, we cannot continue
+                    return [self._error(str(e))]
 
-        # Check for duplicate topic names
-        duplicate_topics = [name for name, count in Counter(topic_names).items() if count > 1]
-        for topic_name in duplicate_topics:
-            all_errors.append(
-                self._error(f"Duplicate topic label: {topic_name}. Topic labels must be unique.")
-            )
+            # Check for duplicate topic names
+            duplicate_topics = [name for name, count in Counter(topic_names).items() if count > 1]
+            for topic_name in duplicate_topics:
+                all_errors.append(
+                    self._error(f"Duplicate topic label: {topic_name}. Topic labels must be unique.")
+                )
 
         if views_must_be_in_topics:
             view_names = [v.name for v in self.views()]
@@ -577,6 +583,15 @@ class Project:
 
     def get_joinable_views(self, view_name: str) -> List[str]:
         return self.join_graph.get_joinable_view_names(view_name)
+
+    def get_joinable_views_including_topics(self, view_name: str) -> List[str]:
+        joinable_no_topics = self.join_graph.get_joinable_view_names(view_name)
+        joinable_from_topics = []
+        for topic in self.topics():
+            topic_view_names = [v.name for v in topic._views()]
+            if view_name in topic_view_names:
+                joinable_from_topics.extend(topic_view_names)
+        return list(set(joinable_no_topics + joinable_from_topics))
 
     def sets(self, view_name: Union[str, None] = None):
         if view_name:

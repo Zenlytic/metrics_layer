@@ -2,6 +2,37 @@ import pytest
 
 
 @pytest.mark.project
+def test_list_views(connection):
+    views = connection.list_views(names_only=True)
+    assert len(views) == 22
+
+    assert set(views) == {
+        "aa_acquired_accounts",
+        "accounts",
+        "child_account",
+        "clicked_on_page",
+        "country_detail",
+        "created_workspace",
+        "customers",
+        "discount_detail",
+        "discounts",
+        "events",
+        "login_events",
+        "monthly_aggregates",
+        "mrr",
+        "order_lines",
+        "orders",
+        "other_db_traffic",
+        "parent_account",
+        "query_in_workspace",
+        "sessions",
+        "submitted_form",
+        "traffic",
+        "z_customer_accounts",
+    }
+
+
+@pytest.mark.project
 def test_list_metrics(connection):
     metrics = connection.list_metrics()
     assert len(metrics) == 71
