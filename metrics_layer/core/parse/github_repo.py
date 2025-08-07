@@ -1,10 +1,10 @@
 import os
+import pathlib
 import shutil
 from glob import glob
-import pathlib
-import yaml
 
 import git
+import yaml
 
 from metrics_layer.core import utils
 
@@ -60,6 +60,8 @@ class BaseRepo:
             for file_ref in pathlib.Path(folder).glob(f"**/{pattern}"):
                 files.append(str(file_ref))
             return files
+        if folder and folder[-1] != "/":
+            folder = folder + "/"
         return glob(f"{folder}**/{pattern}", recursive=True)
 
 
