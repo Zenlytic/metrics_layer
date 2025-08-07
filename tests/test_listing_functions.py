@@ -4,7 +4,7 @@ import pytest
 @pytest.mark.project
 def test_list_views(connection):
     views = connection.list_views(names_only=True)
-    assert len(views) == 22
+    assert len(views) == 23
 
     assert set(views) == {
         "aa_acquired_accounts",
@@ -14,6 +14,7 @@ def test_list_views(connection):
         "country_detail",
         "created_workspace",
         "customers",
+        "customer_accounts",
         "discount_detail",
         "discounts",
         "events",
