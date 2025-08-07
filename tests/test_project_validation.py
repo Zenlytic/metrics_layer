@@ -3,6 +3,7 @@ import json
 import pytest
 
 from metrics_layer.core.exceptions import QueryError
+from metrics_layer.core.model.topic import Topic
 
 
 def _get_view_by_name(project, view_name):
@@ -2758,6 +2759,43 @@ def test_validation_with_replaced_field_properties(connection, field_name, prope
                 " not a valid property."
             ],
         ),
+        # Test from syntax validation
+        (
+            "views",
+            {"customers": {"from": None}},
+            [
+                "The from property for view customers in topic Order lines Topic must be"
+                " a string referencing an existing view name"
+            ],
+        ),
+        (
+            "views",
+            {"customers": {"from": 123}},
+            [
+                "The from property for view customers in topic Order lines Topic must be"
+                " a string referencing an existing view name"
+            ],
+        ),
+        (
+            "views",
+            {"customers": {"from": "nonexistent_view"}},
+            [
+                (
+                    "The from property for view customers references view 'nonexistent_view' which does not"
+                    " exist in topic Order lines Topic"
+                )
+            ],
+        ),
+        (
+            "views",
+            {"customers": {"from": "customers"}},
+            [],
+        ),
+        (
+            "views",
+            {"customers": {"from": "customers", "label": "Customer Info", "field_prefix": "Customer"}},
+            [],
+        ),
         ("extra", [], ["Topic Order lines Topic has an invalid extra []. The extra must be a dictionary."]),
         ("extra", {"random": "key"}, []),
         (
@@ -2809,7 +2847,17 @@ def test_validation_with_replaced_field_properties(connection, field_name, prope
 )
 def test_validation_with_replaced_topic_properties(connection, name, value, errors):
     project = connection.project
-    topic = json.loads(json.dumps(project._topics[0]))
+    # Find the Order lines Topic specifically instead of using index 0
+    order_lines_topic = None
+    for topic_dict in project._topics:
+        if topic_dict.get("label") == "Order lines Topic":
+            order_lines_topic = topic_dict
+            break
+
+    if order_lines_topic is None:
+        raise ValueError("Could not find 'Order lines Topic' in project topics")
+
+    topic = json.loads(json.dumps(order_lines_topic))
     topic[name] = value
     response = project.validate_with_replaced_objects(replaced_objects=[topic])
 

@@ -46,7 +46,7 @@ def test_query_subquery_filter(connection):
 
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
-        dimensions=["region"],
+        dimensions=["customers.region"],
         where=where_logic,
         having=[{"field": "total_item_revenue", "expression": "less_than", "value": 300_000}],
         query_type="BIGQUERY",
@@ -79,7 +79,7 @@ def test_query_subquery_filter(connection):
 def test_query_subquery_filter_with_or_syntax(connection):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
-        dimensions=["region"],
+        dimensions=["customers.region"],
         where=[
             {
                 "conditional_filter_logic": {
@@ -178,7 +178,9 @@ def test_query_subquery_filter_with_is_not_in_query(connection):
                                 "query": {
                                     "metrics": [],
                                     "dimensions": ["customers.customer_id"],
-                                    "where": [{"field": "gender", "expression": "equal_to", "value": "F"}],
+                                    "where": [
+                                        {"field": "customers.gender", "expression": "equal_to", "value": "F"}
+                                    ],
                                 },
                                 "field": "customers.customer_id",
                             },
@@ -196,7 +198,11 @@ def test_query_subquery_filter_with_is_not_in_query(connection):
                                             "metrics": [],
                                             "dimensions": ["customers.customer_id"],
                                             "where": [
-                                                {"field": "gender", "expression": "equal_to", "value": "M"}
+                                                {
+                                                    "field": "customers.gender",
+                                                    "expression": "equal_to",
+                                                    "value": "M",
+                                                }
                                             ],
                                         },
                                         "field": "customers.customer_id",
@@ -497,7 +503,7 @@ def test_query_subquery_filter_field_not_in_query(connection):
 def test_query_subquery_filter_nested_simple_case(connection):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
-        dimensions=["region"],
+        dimensions=["customers.region"],
         where=[
             {
                 "conditional_filter_logic": {
@@ -565,7 +571,7 @@ def test_query_subquery_filter_nested_simple_case(connection):
 def test_query_subquery_filter_nested(connection):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
-        dimensions=["region"],
+        dimensions=["customers.region"],
         where=[
             {
                 "field": "orders.order_id",

@@ -297,7 +297,7 @@ def test_ensure_join_fields_are_respected_three_or_more(connection):
     with pytest.raises(QueryError) as exc_info:
         connection.get_sql_query(
             metrics=["number_of_sessions"],
-            dimensions=["total_item_revenue", "new_vs_repeat", "gender"],
+            dimensions=["total_item_revenue", "new_vs_repeat", "customers.gender"],
         )
 
     assert exc_info.value
@@ -504,7 +504,7 @@ def test_query_single_join_with_custom_join_type(connection):
 def test_query_multiple_join(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
-        dimensions=["region", "new_vs_repeat"],
+        dimensions=["customers.region", "new_vs_repeat"],
     )
 
     correct = (
@@ -522,7 +522,7 @@ def test_query_multiple_join(connection):
 def test_query_quad_join(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
-        dimensions=["region", "new_vs_repeat", "discount_code"],
+        dimensions=["customers.region", "new_vs_repeat", "discount_code"],
     )
 
     correct = (
@@ -546,7 +546,7 @@ def test_query_quad_join(connection):
 @pytest.mark.query
 def test_query_multiple_join_with_duration(connection):
     query = connection.get_sql_query(
-        metrics=["total_sessions"],
+        metrics=["customers.total_sessions"],
         dimensions=["months_between_orders"],
     )
 
@@ -570,8 +570,8 @@ def test_query_multiple_join_with_duration(connection):
 def test_query_multiple_join_where_dict(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
-        dimensions=["region", "new_vs_repeat"],
-        where=[{"field": "region", "expression": "not_equal_to", "value": "West"}],
+        dimensions=["customers.region", "new_vs_repeat"],
+        where=[{"field": "customers.region", "expression": "not_equal_to", "value": "West"}],
     )
 
     correct = (
@@ -589,7 +589,7 @@ def test_query_multiple_join_where_dict(connection):
 def test_query_multiple_join_where_literal(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
-        dimensions=["region", "new_vs_repeat"],
+        dimensions=["customers.region", "new_vs_repeat"],
         where="${customers.first_order_week} > '2021-07-12'",
     )
 
@@ -609,7 +609,7 @@ def test_query_multiple_join_where_literal(connection):
 def test_query_multiple_join_having_dict(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
-        dimensions=["region", "new_vs_repeat"],
+        dimensions=["customers.region", "new_vs_repeat"],
         having=[{"field": "total_item_revenue", "expression": "greater_than", "value": -12}],
     )
 
@@ -629,7 +629,7 @@ def test_query_multiple_join_having_dict(connection):
 def test_query_multiple_join_having_literal(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
-        dimensions=["region", "new_vs_repeat"],
+        dimensions=["customers.region", "new_vs_repeat"],
         having="${total_item_revenue} > -12",
     )
 
@@ -649,7 +649,7 @@ def test_query_multiple_join_having_literal(connection):
 def test_query_multiple_join_order_by_literal(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
-        dimensions=["region", "new_vs_repeat"],
+        dimensions=["customers.region", "new_vs_repeat"],
         order_by="total_item_revenue",
     )
 
@@ -668,8 +668,8 @@ def test_query_multiple_join_order_by_literal(connection):
 def test_query_multiple_join_all(connection):
     query = connection.get_sql_query(
         metrics=["total_item_revenue"],
-        dimensions=["region", "new_vs_repeat"],
-        where=[{"field": "region", "expression": "not_equal_to", "value": "West"}],
+        dimensions=["customers.region", "new_vs_repeat"],
+        where=[{"field": "customers.region", "expression": "not_equal_to", "value": "West"}],
         having=[{"field": "total_item_revenue", "expression": "greater_than", "value": -12}],
         order_by=[{"field": "total_item_revenue", "sort": "asc"}],
     )
@@ -710,7 +710,7 @@ def test_query_single_join_count_and_filter(connection):
 def test_query_implicit_add_three_views(connection):
     connection.project.set_user({"owned_region": "Europe"})
     query = connection.get_sql_query(
-        metrics=["number_of_customers"],
+        metrics=["customers.number_of_customers"],
         dimensions=["discount_code", "rainfall"],
     )
 
@@ -774,7 +774,7 @@ def test_query_bool_and_date_filter(connection, bool_value):
         metrics=["total_item_revenue"],
         dimensions=["channel"],
         where=[
-            {"field": "is_churned", "expression": "equal_to", "value": bool_value},
+            {"field": "customers.is_churned", "expression": "equal_to", "value": bool_value},
             {"field": "order_lines.order_date", "expression": "greater_than", "value": "2022-04-03"},
         ],
     )
@@ -797,7 +797,7 @@ def test_query_bool_and_date_filter(connection, bool_value):
 def test_query_sub_group_by_filter_measure_in_where(connection):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
-        dimensions=["region"],
+        dimensions=["customers.region"],
         where=[
             {
                 "field": "total_item_revenue",
@@ -827,7 +827,7 @@ def test_query_sub_group_by_filter_measure_in_where(connection):
 def test_query_sub_group_by_filter_dim_group(connection):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
-        dimensions=["region"],
+        dimensions=["customers.region"],
         where=[
             {
                 "field": "order_lines.order_date",
@@ -857,7 +857,7 @@ def test_query_sub_group_by_filter_measure_in_having(connection):
     with pytest.raises(QueryError) as e:
         connection.get_sql_query(
             metrics=["number_of_orders"],
-            dimensions=["region"],
+            dimensions=["customers.region"],
             having=[
                 {
                     "field": "total_item_revenue",
@@ -875,7 +875,7 @@ def test_query_sub_group_by_filter_measure_in_having(connection):
 def test_query_sub_group_by_filter_dimension(connection):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
-        dimensions=["region"],
+        dimensions=["customers.region"],
         where=[
             {
                 "field": "channel",
@@ -904,7 +904,7 @@ def test_query_sub_group_by_filter_dimension(connection):
 def test_query_sub_group_by_filter_dimension_mapping_in_field(connection):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
-        dimensions=["region"],
+        dimensions=["customers.region"],
         where=[
             {
                 "field": "source",
@@ -933,7 +933,7 @@ def test_query_sub_group_by_filter_dimension_mapping_in_field(connection):
 def test_query_sub_group_by_filter_dimension_mapping_in_group_by(connection):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
-        dimensions=["region"],
+        dimensions=["customers.region"],
         where=[
             {
                 "field": "channel",
@@ -961,7 +961,7 @@ def test_query_sub_group_by_filter_dimension_mapping_in_group_by(connection):
 def test_query_sub_group_by_filter_dimension_group(connection):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
-        dimensions=["region"],
+        dimensions=["customers.region"],
         where=[
             {
                 "field": "orders.order_date",
@@ -990,7 +990,7 @@ def test_query_sub_group_by_filter_dimension_group(connection):
 def test_query_sub_group_by_filter_consolidated(connection):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
-        dimensions=["region"],
+        dimensions=["customers.region"],
         where=[
             {
                 "field": "orders.order_date",
@@ -1044,7 +1044,7 @@ def test_query_sub_group_by_filter_consolidated(connection):
 def test_query_sub_group_by_filter_consolidated_no_join(connection):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
-        dimensions=["region"],
+        dimensions=["customers.region"],
         where=[
             {
                 "field": "number_of_sessions",
@@ -1088,7 +1088,7 @@ def test_query_sub_group_by_filter_consolidated_no_join(connection):
 def test_query_sub_group_by_filter_not_consolidated(connection):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
-        dimensions=["region"],
+        dimensions=["customers.region"],
         where=[
             {
                 "field": "channel",
@@ -1131,7 +1131,7 @@ def test_query_sub_group_by_filter_not_consolidated(connection):
 def test_query_sub_group_by_filter_with_or_syntax(connection):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
-        dimensions=["region"],
+        dimensions=["customers.region"],
         where=[
             {
                 "conditional_filter_logic": {
@@ -1172,7 +1172,7 @@ def test_query_sum_when_should_be_number(connection):
     with pytest.raises(QueryError) as exc_info:
         connection.get_sql_query(
             metrics=["should_be_number"],
-            dimensions=["region"],
+            dimensions=["customers.region"],
         )
 
     error_message = (
@@ -1203,7 +1203,9 @@ def test_join_graph_working_as_expected(connection):
 
 @pytest.mark.query
 def test_join_graph_many_to_many_use_bridge_table(connection):
-    query = connection.get_sql_query(metrics=["number_of_customers"], dimensions=["accounts.account_name"])
+    query = connection.get_sql_query(
+        metrics=["customers.number_of_customers"], dimensions=["accounts.account_name"]
+    )
 
     correct = (
         "SELECT accounts.name as accounts_account_name,NULLIF(COUNT(DISTINCT CASE WHEN "
@@ -1219,7 +1221,7 @@ def test_join_graph_many_to_many_use_bridge_table(connection):
 @pytest.mark.query
 def test_join_graph_many_to_many_skip_bridge_table(connection):
     query = connection.get_sql_query(
-        metrics=["number_of_customers", "number_of_orders"],
+        metrics=["customers.number_of_customers", "number_of_orders"],
         dimensions=["accounts.account_name"],
     )
 
@@ -1267,7 +1269,7 @@ def test_join_graph_raise_unjoinable_error(connection):
 def test_median_aggregate_function(connection, query_type):
     if query_type in [Definitions.snowflake, Definitions.redshift, Definitions.duck_db]:
         query = connection.get_sql_query(
-            metrics=["median_customer_ltv"], dimensions=[], query_type=query_type
+            metrics=["customers.median_customer_ltv"], dimensions=[], query_type=query_type
         )
         correct = (
             "SELECT MEDIAN(customers.customer_ltv) as customers_median_customer_ltv "
@@ -1276,7 +1278,7 @@ def test_median_aggregate_function(connection, query_type):
         assert query == correct
     elif query_type == Definitions.bigquery:
         query = connection.get_sql_query(
-            metrics=["median_customer_ltv"], dimensions=[], query_type=query_type
+            metrics=["customers.median_customer_ltv"], dimensions=[], query_type=query_type
         )
         correct = (
             "SELECT APPROX_QUANTILES(customers.customer_ltv, 100)[OFFSET(50)] as"
@@ -1285,7 +1287,9 @@ def test_median_aggregate_function(connection, query_type):
         assert query == correct
     else:
         with pytest.raises(QueryError) as exc_info:
-            connection.get_sql_query(metrics=["median_customer_ltv"], dimensions=[], query_type=query_type)
+            connection.get_sql_query(
+                metrics=["customers.median_customer_ltv"], dimensions=[], query_type=query_type
+            )
 
         error_message = (
             f"Median is not supported in {query_type}. Please choose another "
@@ -1466,7 +1470,7 @@ def test_null_filter_handling_metric_filter(connection):
 
 @pytest.mark.query
 def test_join_graph_production_with_sql_reference(connection):
-    sessions_field = connection.project.get_field("unique_user_iphone_sessions")
+    sessions_field = connection.project.get_field("customers.unique_user_iphone_sessions")
     sessions_no_merged_results = [jg for jg in sessions_field.join_graphs() if "merged_result" not in jg]
 
     revenue_field = connection.project.get_field("total_item_revenue")

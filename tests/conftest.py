@@ -67,6 +67,9 @@ order_lines_only_topic_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/topics/order_lines_only_topic.yml"
 )
 orders_chained_topic_path = os.path.join(BASE_PATH, "config/metrics_layer_config/topics/chained_topic.yml")
+from_syntax_complex_topic_path = os.path.join(
+    BASE_PATH, "config/metrics_layer_config/topics/from_syntax_complex_topic.yml"
+)
 model_paths = [model_path, new_model_path]
 topic_paths = [
     order_lines_topic_path,
@@ -75,6 +78,7 @@ topic_paths = [
     order_lines_only_topic_path,
     other_model_topic_path,
     orders_chained_topic_path,
+    from_syntax_complex_topic_path,
 ]
 view_paths = [
     order_lines_view_path,

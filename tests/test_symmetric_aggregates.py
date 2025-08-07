@@ -162,7 +162,7 @@ def test_query_average_with_sql(connection, query_type: str):
 @pytest.mark.query
 def test_query_number_with_sql(connection, query_type):
     query = connection.get_sql_query(
-        metrics=["total_sessions_divide"], dimensions=["channel"], query_type=query_type
+        metrics=["customers.total_sessions_divide"], dimensions=["channel"], query_type=query_type
     )
 
     if query_type in {Definitions.snowflake}:

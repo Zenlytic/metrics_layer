@@ -51,7 +51,7 @@ def test_orders_funnel_query(connection, query_type):
     query = connection.get_sql_query(
         metrics=["number_of_orders"],
         funnel=funnel,
-        where=[{"field": "region", "expression": "equal_to", "value": "West"}],
+        where=[{"field": "customers.region", "expression": "equal_to", "value": "West"}],
         query_type=query_type,
     )
 
@@ -146,20 +146,21 @@ def test_orders_funnel_query_dimensions(connection):
         "view_name": "orders",
         "steps": [
             [{"field": "channel", "expression": "equal_to", "value": "Paid"}],
-            [{"field": "region", "expression": "not_equal_to", "value": "West"}],
+            [{"field": "customers.region", "expression": "not_equal_to", "value": "West"}],
             [{"field": "channel", "expression": "equal_to", "value": "Organic"}],
         ],
         "within": {"value": 2, "unit": "weeks"},
     }
     query = connection.get_sql_query(
-        metrics=["number_of_orders"], dimensions=["orders.order_month", "region"], funnel=funnel
+        metrics=["number_of_orders"], dimensions=["orders.order_month", "customers.region"], funnel=funnel
     )
 
     correct = (
         "WITH base AS (SELECT order_lines.sales_channel as order_lines_channel,customers.customer_id "
-        "as customers_customer_id,orders.id as orders_order_id,DATE_TRUNC('MONTH', orders.order_date) "
-        "as orders_order_month,orders.order_date as orders_order_raw,customers.region as "
-        "customers_region,orders.id as orders_number_of_orders FROM analytics.order_line_items "
+        "as customers_customer_id,customers.region as "
+        "customers_region,orders.id as orders_order_id,DATE_TRUNC('MONTH', orders.order_date) "
+        "as orders_order_month,orders.order_date as orders_order_raw"
+        ",orders.id as orders_number_of_orders FROM analytics.order_line_items "
         "order_lines LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
         "LEFT JOIN analytics.customers customers ON order_lines.customer_id=customers.customer_id) "
         ",step_1 AS (SELECT *,orders_order_raw as step_1_time FROM base WHERE base.order_lines_channel='Paid'"
@@ -193,7 +194,7 @@ def test_orders_funnel_query_complex_conditions(connection):
         "steps": [
             [
                 {"field": "channel", "expression": "equal_to", "value": "Paid"},
-                {"field": "region", "expression": "not_equal_to", "value": "West"},
+                {"field": "customers.region", "expression": "not_equal_to", "value": "West"},
             ],
             [
                 {"field": "channel", "expression": "equal_to", "value": "Organic"},
@@ -203,7 +204,7 @@ def test_orders_funnel_query_complex_conditions(connection):
         "within": {"value": 2, "unit": "weeks"},
     }
     query = connection.get_sql_query(
-        metrics=["number_of_customers"],
+        metrics=["customers.number_of_customers"],
         funnel=funnel,
         having=[{"field": "total_item_revenue", "expression": "greater_than", "value": 320}],
     )
@@ -218,9 +219,10 @@ def test_orders_funnel_query_complex_conditions(connection):
     )
     correct = (
         "WITH base AS (SELECT order_lines.sales_channel as order_lines_channel,customers.customer_id "
-        "as customers_customer_id,orders.new_vs_repeat as orders_new_vs_repeat,order_lines.order_line_id "
-        "as order_lines_order_line_id,orders.order_date as orders_order_raw,customers.region as "
-        "customers_region,customers.customer_id as customers_number_of_customers,order_lines.revenue "
+        "as customers_customer_id,customers.region as "
+        "customers_region,orders.new_vs_repeat as orders_new_vs_repeat,order_lines.order_line_id "
+        "as order_lines_order_line_id,orders.order_date as orders_order_raw"
+        ",customers.customer_id as customers_number_of_customers,order_lines.revenue "
         "as order_lines_total_item_revenue FROM analytics.order_line_items order_lines LEFT JOIN "
         "analytics.orders orders ON order_lines.order_unique_id=orders.id LEFT JOIN analytics.customers "
         "customers ON order_lines.customer_id=customers.customer_id) ,step_1 AS (SELECT *,orders_order_raw "
@@ -259,7 +261,7 @@ def test_orders_basic_query_with_funnel_filter(connection):
         "to": 2,
     }
     query = connection.get_sql_query(
-        metrics=["number_of_orders"], dimensions=["region"], where=[converted_funnel]
+        metrics=["number_of_orders"], dimensions=["customers.region"], where=[converted_funnel]
     )
 
     correct = (

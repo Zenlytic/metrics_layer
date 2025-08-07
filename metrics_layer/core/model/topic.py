@@ -65,7 +65,17 @@ class Topic(MetricsLayerBase):
         topic_view_names = [self.base_view]
         if self.views and isinstance(self.views, dict):
             topic_view_names += list(self.views.keys())
-        return [v for v in self.project.views(model_name=self.model_name) if v.name in topic_view_names]
+
+        # Get all views - project now handles both regular views and from syntax
+        topic_views = []
+        for view_name in topic_view_names:
+            try:
+                view = self.project.get_view(view_name)
+                topic_views.append(view)
+            except AccessDeniedOrDoesNotExistException:
+                pass
+
+        return topic_views
 
     def _error(self, element, error, extra: dict = {}):
         line, column = self.line_col(element)
@@ -483,6 +493,32 @@ class Topic(MetricsLayerBase):
                                 ),
                             )
                         )
+                # Validate 'from' property at view level
+                if "from" in view_config:
+                    from_view_name = view_config["from"]
+                    if not isinstance(from_view_name, str):
+                        errors.append(
+                            self._error(
+                                from_view_name,
+                                (
+                                    f"The from property for view {view_name} in topic {self.label} must be"
+                                    " a string referencing an existing view name"
+                                ),
+                            )
+                        )
+                    else:
+                        try:
+                            self.project.get_view(from_view_name)
+                        except AccessDeniedOrDoesNotExistException:
+                            errors.append(
+                                self._error(
+                                    from_view_name,
+                                    (
+                                        f"The from property for view {view_name} references view"
+                                        f" '{from_view_name}' which does not exist in topic {self.label}"
+                                    ),
+                                )
+                            )
 
                 if "override_access_filters" in view_config and not isinstance(
                     view_config["override_access_filters"], bool
@@ -499,7 +535,14 @@ class Topic(MetricsLayerBase):
                 errors.extend(
                     self.invalid_property_error(
                         view_config,
-                        {"join", "override_access_filters"},
+                        {
+                            "join",
+                            "override_access_filters",
+                            "from",
+                            "label",
+                            "field_prefix",
+                            "include_metrics",
+                        },
                         "topic",
                         self.label,
                         error_func=self._error,

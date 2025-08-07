@@ -35,7 +35,7 @@ class Project:
         conversion_errors: list = [],
     ):
         self._models = models
-        self._views = self._handle_join_as_duplication(views)
+        self._views = self._handle_join_as_duplication(views, topics)
         self._dashboards = dashboards
         self._topics = topics
         self.looker_env = looker_env
@@ -166,9 +166,12 @@ class Project:
             self._join_graph = graph
         return self._join_graph
 
-    def _handle_join_as_duplication(self, views: list):
+    def _handle_join_as_duplication(self, views: list, topics: list = []):
         join_as_to_create = {}
+        from_views_to_create = {}
         copied_views = json.loads(json.dumps(views))
+
+        # Handle join_as syntax in views
         for v in copied_views:
             for identifier in v.get("identifiers", []):
                 if "join_as" in identifier and identifier["type"] == "primary":
@@ -210,7 +213,72 @@ class Project:
                                 "Please rename your join_as statement on one of your views."
                             )
 
+        # Handle 'from' syntax in topics
+        if topics:
+            for topic_dict in topics:
+                if "views" in topic_dict and isinstance(topic_dict["views"], dict):
+                    for alias_view_name, view_config in topic_dict["views"].items():
+                        if isinstance(view_config, dict) and "from" in view_config:
+                            from_view_name = view_config["from"]
+
+                            # Only create virtual view if alias is different from the original view name
+                            if alias_view_name != from_view_name:
+                                # Find the original view
+                                original_view = None
+                                for v in copied_views:
+                                    if v["name"] == from_view_name:
+                                        original_view = v
+                                        break
+
+                                if original_view and alias_view_name not in from_views_to_create:
+                                    # Create virtual view definition similar to join_as
+                                    virtual_view_definition = json.loads(json.dumps(original_view))
+                                    virtual_view_definition["name"] = alias_view_name
+
+                                    # Handle configuration options
+                                    if "label" in view_config:
+                                        virtual_view_definition["label"] = view_config["label"]
+
+                                    # Handle field prefix
+                                    if "field_prefix" in view_config:
+                                        virtual_view_definition["field_prefix"] = view_config["field_prefix"]
+                                    elif "label" in view_config:
+                                        virtual_view_definition["field_prefix"] = view_config["label"]
+                                    else:
+                                        virtual_view_definition["field_prefix"] = alias_view_name.replace(
+                                            "_", " "
+                                        ).title()
+
+                                    # Handle include_metrics (default True)
+                                    include_metrics = view_config.get("include_metrics", True)
+                                    if not include_metrics:
+                                        virtual_view_definition["fields"] = [
+                                            f
+                                            for f in virtual_view_definition.get("fields", [])
+                                            if f.get("field_type") != "measure"
+                                        ]
+
+                                    virtual_view_definition["fields"] = [
+                                        (
+                                            f
+                                            if "tags" not in f
+                                            else {
+                                                **f,
+                                                "tags": [
+                                                    t + " " + virtual_view_definition["field_prefix"]
+                                                    for t in f["tags"]
+                                                ],
+                                            }
+                                        )
+                                        for f in virtual_view_definition.get("fields", [])
+                                    ]
+                                    from_views_to_create[alias_view_name] = virtual_view_definition
+
+        # Add all created views to the list
         for view_name, view in join_as_to_create.items():
+            copied_views.append({**view, "name": view_name})
+
+        for view_name, view in from_views_to_create.items():
             copied_views.append({**view, "name": view_name})
 
         return copied_views

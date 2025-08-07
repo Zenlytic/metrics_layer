@@ -60,7 +60,7 @@ def test_query_single_join_mql(connection):
 @pytest.mark.query
 def test_query_multiple_join_mql(connection):
     query = connection.get_sql_query(
-        sql="SELECT * FROM MQL(total_item_revenue BY region, new_vs_repeat) as rev_group",
+        sql="SELECT * FROM MQL(total_item_revenue BY customers.region, new_vs_repeat) as rev_group",
     )
 
     correct = (
@@ -80,7 +80,7 @@ def test_query_multiple_join_mql(connection):
 def test_query_multiple_join_all_mql(connection):
     query = connection.get_sql_query(
         sql=(  # noqa
-            "SELECT * FROM MQL(total_item_revenue BY region, new_vs_repeat WHERE ${customers.region} !="
+            "SELECT * FROM MQL(total_item_revenue BY customers.region, new_vs_repeat WHERE ${customers.region} !="
             " 'West' AND ${orders.new_vs_repeat} <> 'New' HAVING ${total_item_revenue} > -12 AND"
             " ${total_item_revenue} < 122 ORDER BY total_item_revenue ASC NULLS LAST, new_vs_repeat) as"
             " rev_group"

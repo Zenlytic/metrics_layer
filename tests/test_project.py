@@ -171,6 +171,7 @@ def test_get_joinable_views(connection):
     assert orders_join_views == [
         "accounts",
         "country_detail",
+        "customer_accounts",
         "customers",
         "discount_detail",
         "discounts",
@@ -179,7 +180,7 @@ def test_get_joinable_views(connection):
 
     sessions_join_views = connection.project.get_joinable_views("sessions")
 
-    assert sessions_join_views == ["customers"]
+    assert sessions_join_views == ["customer_accounts", "customers"]
 
 
 @pytest.mark.project

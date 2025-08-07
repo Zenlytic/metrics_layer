@@ -130,7 +130,7 @@ def test_cumulative_query_metric_dimension_no_time(connection):
     query = connection.get_sql_query(
         metrics=["total_lifetime_revenue"],
         dimensions=["new_vs_repeat"],
-        where={"field": "region", "expression": "equal_to", "value": "West"},
+        where={"field": "customers.region", "expression": "equal_to", "value": "West"},
         having={"field": "total_item_revenue", "expression": "greater_than", "value": 2000},
     )
 
@@ -169,7 +169,7 @@ def test_cumulative_metric_and_non_cumulative(connection):
     query = connection.get_sql_query(
         metrics=["ltr"],
         dimensions=["new_vs_repeat"],
-        where={"field": "region", "expression": "equal_to", "value": "West"},
+        where={"field": "customers.region", "expression": "equal_to", "value": "West"},
     )
 
     correct = (

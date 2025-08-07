@@ -120,8 +120,9 @@ def test_query_topic_with_no_override_access_filter(fresh_project, connections):
     correct = (
         "SELECT orders.new_vs_repeat as orders_new_vs_repeat,SUM(order_lines.revenue) as"
         " order_lines_total_item_revenue FROM analytics.order_line_items order_lines LEFT JOIN"
-        " analytics.orders orders ON order_lines.order_unique_id=orders.id WHERE order_lines.order_unique_id"
-        " IN ('1234567890','1344311') and orders.id IN ('1234567890','1344311') GROUP BY orders.new_vs_repeat"
+        " analytics.orders orders ON order_lines.order_unique_id=orders.id WHERE"
+        " order_lines.order_unique_id IN ('1234567890','1344311') and orders.id IN"
+        " ('1234567890','1344311') GROUP BY orders.new_vs_repeat"
         " ORDER BY order_lines_total_item_revenue DESC NULLS LAST;"
     )
     assert query == correct
@@ -650,7 +651,8 @@ def test_topic_default_date_join_in_topic_dim_no_presence_in_measures(connection
         " monthly_aggregates_record__cte_subquery_1.monthly_aggregates_record_month)) as"
         " order_lines_order_month FROM discounts_order__cte_subquery_0 FULL OUTER JOIN"
         " monthly_aggregates_record__cte_subquery_1 ON"
-        " discounts_order__cte_subquery_0.monthly_aggregates_division=monthly_aggregates_record__cte_subquery_1.monthly_aggregates_division"
+        " discounts_order__cte_subquery_0.monthly_aggregates_division="
+        "monthly_aggregates_record__cte_subquery_1.monthly_aggregates_division"
         " and discounts_order__cte_subquery_0.discounts_order_month=monthly_aggregates_record__cte_subquery_1.monthly_aggregates_record_month"
         " FULL OUTER JOIN order_lines_order__cte_subquery_2 ON"
         " discounts_order__cte_subquery_0.monthly_aggregates_division=order_lines_order__cte_subquery_2.monthly_aggregates_division"
@@ -777,3 +779,79 @@ def test_always_filter_literal_greater_than_filter(fresh_project, connections):
         "order_lines.order_id NOT IN ('1234567890','45234553')"
     )
     assert result == correct
+
+
+@pytest.mark.query
+def test_topic_from_syntax_complex(connection):
+    """Test complex view-level from syntax with multiple aliases"""
+    topic = connection.project.get_topic("From Syntax Complex Test Topic")
+    assert topic.base_view == "order_lines"
+    assert topic.label == "From Syntax Complex Test Topic"
+
+    # Check that both aliases are configured properly
+    assert topic.views is not None
+    assert "customers" in topic.views
+    assert "customer_accounts" in topic.views
+
+    # Check customers configuration
+    customers_config = topic.views["customers"]
+    assert customers_config["from"] == "customers"
+    assert customers_config["label"] == "Customer Info"
+    assert customers_config["field_prefix"] == "Customer"
+    assert customers_config.get("include_metrics", True) is False
+
+    # Check customer_accounts configuration
+    accounts_config = topic.views["customer_accounts"]
+    assert accounts_config["from"] == "customers"
+    assert accounts_config["label"] == "Account Holder"
+    assert accounts_config["field_prefix"] == "Account"
+    assert accounts_config.get("include_metrics", True) is True
+
+    # Check that virtual views are created
+    topic_views = topic._views()
+    view_names = [v.name for v in topic_views]
+    assert "customers" in view_names
+    assert "customer_accounts" in view_names
+    assert "order_lines" in view_names
+    assert "orders" in view_names
+
+
+@pytest.mark.query
+def test_topic_from_syntax_query_generation(connection):
+    """Test that queries work correctly with view-level from syntax"""
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["customers.region"],
+        topic="From Syntax Complex Test Topic",
+    )
+
+    # Should include a join to the customers table
+    correct = (
+        "SELECT customers.region as customers_region,SUM(order_lines.revenue) as"
+        " order_lines_total_item_revenue FROM analytics.order_line_items order_lines LEFT JOIN"
+        " analytics.customers customers ON order_lines.customer_id = customers.customer_id GROUP BY"
+        " customers.region ORDER BY order_lines_total_item_revenue DESC NULLS LAST;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_topic_from_syntax_query_generation_reference_both_joins(connection):
+    """Test that queries work correctly with view-level from syntax"""
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["customers.gender", "customer_accounts.gender"],
+        topic="From Syntax Complex Test Topic",
+    )
+
+    # Should include a join to the customers table
+    correct = (
+        "SELECT customers.gender as customers_gender,customer_accounts.gender as"
+        " customer_accounts_gender,SUM(order_lines.revenue) as"
+        " order_lines_total_item_revenue FROM analytics.order_line_items order_lines LEFT JOIN"
+        " analytics.customers customer_accounts "
+        "ON order_lines.customer_id = customer_accounts.last_product_purchased"
+        " LEFT JOIN analytics.customers customers ON order_lines.customer_id = customers.customer_id GROUP BY"
+        " customers.gender,customer_accounts.gender ORDER BY order_lines_total_item_revenue DESC NULLS LAST;"
+    )
+    assert query == correct
