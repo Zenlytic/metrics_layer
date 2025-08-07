@@ -1934,7 +1934,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             )
 
         # This value is pulled from the DESCRIPTION_MAX_CHARS constant in Zenlytic
-        description_max_chars = 512
+        description_max_chars = 1024
         if "description" in self._definition and isinstance(self.description, str):
             if len(self.description) > description_max_chars:
                 errors.append(

@@ -1273,11 +1273,25 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
                 "Sixth, this is a really long description aimed at testing the warning on the length of the"
                 " description, so I will keep writing more content to make sure I get to the maximum length"
                 " of the description and therefore test the total length max of the description."
+                "Seventh, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Eighth, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Ninth, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Tenth, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Eleventh, this is a really long description aimed at testing the warning on the length of "
+                " description, so I will keep writing more content to make sure I get to the maximum length"
             ),
             [
-                "Warning: View order_lines has a description that is too long (1550 characters)."
-                " Descriptions must be 1024 characters or less. It will be truncated to the "
-                "first 1024 characters."
+                "Warning: View order_lines has a description that is too long (2769 characters)."
+                " Descriptions must be 2048 characters or less. It will be truncated to the "
+                "first 2048 characters."
             ],
         ),
     ],
@@ -2430,11 +2444,17 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 "Third, this is a really long description aimed at testing the warning on the length of the"
                 " description, so I will keep writing more content to make sure I get to the maximum length"
                 " of the description and therefore test the total length max of the description."
+                "Fourth, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Fifth, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
             ),
             [
-                "Warning: Field parent_channel in view order_lines has a description that is too long (772"
-                " characters). Descriptions must be 512 characters or less. It will be truncated to the first"
-                " 512 characters."
+                "Warning: Field parent_channel in view order_lines has a description that is too long (1291"
+                " characters). Descriptions must be 1024 characters or less. It will be truncated to the "
+                "first 1024 characters."
             ],
         ),
         (
@@ -2755,10 +2775,27 @@ def test_validation_with_replaced_field_properties(connection, field_name, prope
                 "Fourth, this is a really long description aimed at testing the warning on the length of the"
                 " description, so I will keep writing more content to make sure I get to the maximum length"
                 " of the description and therefore test the total length max of the description."
+                "Fifth, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Sixth, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Seventh, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Eighth, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Ninth, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
+                " of the description and therefore test the total length max of the description."
+                "Tenth, this is a really long description aimed at testing the warning on the length of the"
+                " description, so I will keep writing more content to make sure I get to the maximum length"
             ),
             [
                 (
-                    "Warning: The description property, must be 1024 characters or less in the topic Order"
+                    "Warning: The description property, must be 2048 characters or less in the topic Order"
                     " lines Topic"
                 ),
             ],
