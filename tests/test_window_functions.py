@@ -24,6 +24,27 @@ def test_query_window_function_as_dimension(connection):
 
 
 @pytest.mark.query
+def test_query_window_function_as_filter_in_where(connection):
+    query = connection.get_sql_query(
+        metrics=["total_item_revenue"],
+        dimensions=["sub_channel"],
+        where=[{"field": "order_sequence", "expression": "equal_to", "value": "1"}],
+    )
+
+    correct = (
+        "WITH order_lines_window_functions AS (SELECT dense_rank() over (partition by "
+        "order_lines.customer_id order by DATE_TRUNC('DAY', order_lines.order_date) asc) "
+        "as order_lines_order_sequence,order_lines.* FROM analytics.order_line_items "
+        "order_lines) SELECT orders.sub_channel as orders_sub_channel,SUM(order_lines.revenue) "
+        "as order_lines_total_item_revenue FROM order_lines_window_functions order_lines "
+        "LEFT JOIN analytics.orders orders ON order_lines.order_unique_id=orders.id "
+        "WHERE order_lines_order_sequence='1' GROUP BY orders.sub_channel "
+        "ORDER BY order_lines_total_item_revenue DESC NULLS LAST;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_query_two_windows_in_same_view(connection):
     query = connection.get_sql_query(
         metrics=[],
