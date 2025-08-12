@@ -1,6 +1,9 @@
-class ParseError(Exception):
+from metrics_layer.core.exceptions import MetricsLayerException
+
+
+class ParseError(MetricsLayerException):
     pass
 
 
-class ArgumentError(Exception):
+class ArgumentError(MetricsLayerException):
     pass

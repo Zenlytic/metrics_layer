@@ -1,6 +1,9 @@
 import pytest
 
-from metrics_layer.core.exceptions import AccessDeniedOrDoesNotExistException
+from metrics_layer.core.exceptions import (
+    AccessDeniedOrDoesNotExistException,
+    MetricsLayerException,
+)
 
 
 def test_access_grants_exist(connection):
@@ -44,7 +47,7 @@ def test_access_grants_model_visible(connection):
     with pytest.raises(AccessDeniedOrDoesNotExistException) as exc_info:
         connection.get_field("order_lines.customer_id")
 
-    assert exc_info.value
+    assert isinstance(exc_info.value, MetricsLayerException)
     assert exc_info.value.object_name == "order_lines"
     assert exc_info.value.object_type == "view"
 
