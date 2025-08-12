@@ -1,3 +1,6 @@
+from metrics_layer.core.exceptions import MetricsLayerException
+
+
 class Definitions:
     snowflake = "SNOWFLAKE"
     bigquery = "BIGQUERY"
@@ -67,4 +70,4 @@ def sql_flavor_to_sqlglot_format(zenlytic_sql_flavor: str) -> str:
     elif sql_flavor == Definitions.mysql:
         return Definitions.mysql.lower()
     else:
-        raise ValueError(f"Unknown SQL flavor: {zenlytic_sql_flavor}")
+        raise MetricsLayerException(f"Unknown SQL flavor: {zenlytic_sql_flavor}")

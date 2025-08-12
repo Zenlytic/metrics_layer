@@ -2,6 +2,8 @@ import os
 
 import ruamel.yaml
 
+from metrics_layer.core.exceptions import MetricsLayerException
+
 from .github_repo import BaseRepo
 
 
@@ -61,7 +63,7 @@ class ProjectReaderBase:
         if key in self.zenlytic_project:
             return [self._abs_path(p) for p in self.zenlytic_project[key]]
         elif raise_errors:
-            raise KeyError(
+            raise MetricsLayerException(
                 f"Missing required key '{key}' in zenlytic_project.yml \n"
                 "Learn more about setting these keys here: https://docs.zenlytic.com"
             )
