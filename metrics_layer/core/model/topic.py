@@ -5,6 +5,7 @@ import networkx as nx
 from metrics_layer.core.exceptions import (
     AccessDeniedOrDoesNotExistException,
     JoinError,
+    MetricsLayerException,
     QueryError,
 )
 
@@ -644,7 +645,9 @@ class Topic(MetricsLayerBase):
             join = self.project.join_graph.get_join(self.base_view, view_name)
             return join
         except KeyError:
-            raise ValueError(f"Join not found between {self.base_view} and {view_name}")
+            raise MetricsLayerException(
+                f"Join not found between {self.base_view} and {view_name} in the topic {self.label}"
+            )
 
     def join_graphs(self):
         join_graphs = []
