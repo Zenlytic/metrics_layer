@@ -3,11 +3,12 @@ import os
 from copy import deepcopy
 from typing import Any
 
+from metrics_layer.core.exceptions import MetricsLayerException
 from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.sql.query_errors import ArgumentError
 
 
-class MetricsLayerConnectionError(Exception):
+class MetricsLayerConnectionError(MetricsLayerException):
     pass
 
 

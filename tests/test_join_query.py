@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytest
 
-from metrics_layer.core.exceptions import JoinError, QueryError
+from metrics_layer.core.exceptions import JoinError, MetricsLayerException, QueryError
 from metrics_layer.core.model import Definitions
 from metrics_layer.core.sql.query_errors import ParseError
 
@@ -1248,6 +1248,7 @@ def test_join_graph_raise_unjoinable_error(connection):
         "identifiers on your views and make sure they are joinable."
     )
     assert isinstance(exc_info.value, JoinError)
+    assert isinstance(exc_info.value, MetricsLayerException)
     assert str(exc_info.value) == error_message
 
 
@@ -1296,6 +1297,7 @@ def test_median_aggregate_function(connection, query_type):
             "aggregate function for the customers.median_customer_ltv measure."
         )
         assert isinstance(exc_info.value, QueryError)
+        assert isinstance(exc_info.value, MetricsLayerException)
         assert str(exc_info.value) == error_message
 
 

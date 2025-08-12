@@ -1,5 +1,6 @@
 import os
 
+from metrics_layer.core.exceptions import MetricsLayerException
 from metrics_layer.core.model.project import Project
 from metrics_layer.core.parse.connections import BaseConnection, connection_class_lookup
 
@@ -10,7 +11,7 @@ from .project_reader_metricflow import MetricflowProjectReader
 from .project_reader_metrics_layer import MetricsLayerProjectReader
 
 
-class ConfigError(Exception):
+class ConfigError(MetricsLayerException):
     pass
 
 

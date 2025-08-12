@@ -1,5 +1,6 @@
 import os
 
+from metrics_layer.core.exceptions import MetricsLayerException
 from metrics_layer.core.model import Project
 from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.integrations.metricflow.metricflow_to_zenlytic import (
@@ -10,7 +11,7 @@ from metrics_layer.integrations.metricflow.metricflow_to_zenlytic import (
 from .project_reader_base import ProjectReaderBase
 
 
-class MetricflowParsingException(Exception):
+class MetricflowParsingException(MetricsLayerException):
     pass
 
 

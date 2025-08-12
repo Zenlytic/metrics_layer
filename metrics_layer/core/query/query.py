@@ -1,14 +1,14 @@
 import sqlparse
 
 from metrics_layer.core.convert import MQLConverter
-from metrics_layer.core.exceptions import QueryError
+from metrics_layer.core.exceptions import MetricsLayerException, QueryError
 from metrics_layer.core.parse import ProjectLoader
 from metrics_layer.core.sql import SQLQueryResolver
 from metrics_layer.core.sql.arbitrary_merge_resolve import ArbitraryMergedQueryResolver
 from metrics_layer.core.sql.query_errors import ParseError
 
 
-class DBConnectionError(Exception):
+class DBConnectionError(MetricsLayerException):
     pass
 
 

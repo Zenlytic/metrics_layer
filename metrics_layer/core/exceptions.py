@@ -1,4 +1,8 @@
-class AccessDeniedOrDoesNotExistException(Exception):
+class MetricsLayerException(Exception):
+    pass
+
+
+class AccessDeniedOrDoesNotExistException(MetricsLayerException):
     def __init__(self, message: str, object_name: str, object_type: str):
         self.message = message
         self.object_name = object_name
@@ -8,7 +12,7 @@ class AccessDeniedOrDoesNotExistException(Exception):
         return self.message
 
 
-class QueryError(Exception):
+class QueryError(MetricsLayerException):
     def __init__(self, message: str, location: str = None):
         self.message = message
         self.location = location
