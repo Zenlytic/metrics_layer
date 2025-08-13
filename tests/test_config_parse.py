@@ -3,6 +3,7 @@ import os
 import pytest
 
 from metrics_layer.core.parse import (
+    ConfigError,
     MetricflowProjectReader,
     MetricsLayerProjectReader,
     ProjectLoader,
@@ -102,7 +103,7 @@ def test_bad_repo_type(monkeypatch):
     monkeypatch.setattr(ProjectLoader, "_get_repo", lambda *args: repo_mock(repo_type="dne"))
 
     reader = ProjectLoader(location=None)
-    with pytest.raises(TypeError) as exc_info:
+    with pytest.raises(ConfigError) as exc_info:
         reader.load()
 
     assert exc_info.value
@@ -115,7 +116,7 @@ def test_config_load_dbt(monkeypatch):
     monkeypatch.setattr(ProjectLoader, "_get_repo", lambda *args: mock)
 
     reader = ProjectLoader(location=None)
-    with pytest.raises(TypeError) as exc_info:
+    with pytest.raises(ConfigError) as exc_info:
         reader.load()
 
     assert exc_info.value

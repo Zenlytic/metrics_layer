@@ -462,7 +462,9 @@ class BigQueryConnection(BaseConnection):
                 with open(path, "r") as f:
                     return json.load(f)
         else:
-            raise TypeError(f"BigQuery credentials json had wrong type: {type(creds)} for value {creds}")
+            raise MetricsLayerException(
+                f"BigQuery credentials json had wrong type: {type(creds)} for value {creds}"
+            )
 
 
 connection_class_lookup = {

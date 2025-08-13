@@ -196,7 +196,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
                         group_by_cte_lookup[hash(f)] = cte_alias
                         group_by_results.append(f)
                         cte_counter += 1
-                    elif f.field.window:
+                    elif f.field.window and f.field.field_type == "measure":
                         measure_window_function_filters.append(f)
 
             for filter_dict in filter_object:

@@ -50,7 +50,9 @@ class ProjectLoader:
         elif repo_type == "metrics_layer":
             reader = MetricsLayerProjectReader(self.repo)
         else:
-            raise TypeError(f"Unknown repo type: {repo_type}, valid types are 'metrics_layer', 'metricflow'")
+            raise ConfigError(
+                f"Unknown repo type: {repo_type}, valid types are 'metrics_layer', 'metricflow'"
+            )
 
         models, views, dashboards, topics, errors = reader.load()
         commit_hash = (

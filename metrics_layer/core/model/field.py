@@ -11,6 +11,7 @@ from sqlglot import expressions as exp
 
 from metrics_layer.core.exceptions import (
     AccessDeniedOrDoesNotExistException,
+    MetricsLayerException,
     QueryError,
 )
 
@@ -1039,7 +1040,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                     to_replace = f"({to_replace})"
                 replaced = replaced.replace(proper_to_replace, to_replace)
         else:
-            raise NotImplementedError(f"Invalid case for non-aggregating measure sql: {sql}")
+            raise MetricsLayerException(f"Invalid case for non-aggregating measure sql: {sql}")
         return replaced
 
     def required_views(self):
