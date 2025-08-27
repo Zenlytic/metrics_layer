@@ -91,22 +91,22 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
 
         self.group_by_filter_cte_lookup = {**group_by_where_cte_lookup}
 
-        dimension_window_functions = []
+        cte_window_functions = []
         if not self.render_window_functions:
             # Look at measures and dimensions in the select, where, and having clauses to determine
             # if there are any window functions in the query
             for field in self.design.field_lookup.values():
-                if field.field_type != "measure" and field.window:
-                    dimension_window_functions.append(field)
+                if field.window:
+                    cte_window_functions.append(field)
 
                 referenced_windows = field.referenced_window_functions(field.sql)
                 for window in referenced_windows:
-                    if window not in dimension_window_functions and window.field_type != "measure":
-                        dimension_window_functions.append(window)
+                    if window not in cte_window_functions:
+                        cte_window_functions.append(window)
 
         self.window_function_ctes = []
-        if len(dimension_window_functions) > 0:
-            for window in dimension_window_functions:
+        if len(cte_window_functions) > 0:
+            for window in cte_window_functions:
                 view_name = window.view.name
                 if not any(cte["view_name"] == view_name for cte in self.window_function_ctes):
                     self.window_function_ctes.append(
