@@ -60,7 +60,11 @@ class SQLQueryResolver(SingleSQLQueryResolver):
 
     @property
     def is_merged_result(self):
-        has_explicit_merge = any(self.project.get_field(m).is_merged_result for m in self.metrics)
+        field_level_checks = []
+        for m in self.metrics:
+            field_requires_merge = self.project.get_field(m).is_merged_result and self.topic is None
+            field_level_checks.append(field_requires_merge)
+        has_explicit_merge = any(field_level_checks)
         has_specified_merge = self.kwargs.get("merged_result", False)
         return has_explicit_merge or has_specified_merge or self.mapping_forces_merged_result
 

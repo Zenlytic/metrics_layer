@@ -24,3 +24,8 @@ fields:
     field_type: measure
     type: count
     sql: ${TABLE}.n_new_employees
+
+  - name: count_new_employees_per_revenue
+    field_type: measure
+    type: number
+    sql: ${count_new_employees} / ${order_lines.total_item_revenue}
