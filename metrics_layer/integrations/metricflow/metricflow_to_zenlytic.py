@@ -88,7 +88,10 @@ def load_mf_project(models_folder: str):
             referenced_metrics.append(get_name_or_string_literal(type_params["denominator"]))
         elif metric["type"] == MetricflowMetricTypes.derived:
             for ref_metric in type_params["metrics"]:
-                referenced_metrics.append(ref_metric["name"])
+                if isinstance(ref_metric, dict):
+                    referenced_metrics.append(ref_metric["name"])
+                else:
+                    referenced_metrics.append(ref_metric)
 
         # First try to find a semantic model that has a measure matching any referenced metric/measure
         assigned = False
@@ -385,12 +388,16 @@ def convert_mf_metric_to_zenlytic_measure(
 
         # Sort metrics by length in descending order to avoid substring replacement issues
         # This ensures longer names are replaced first (e.g., total_gross_revenue_from_advertising before total_gross_revenue)
-        for metric in sorted(referenced_metrics, key=lambda x: len(x.get("name", "")), reverse=True):
-            if "alias" in metric and "filter" not in metric:
+        for metric in sorted(
+            referenced_metrics,
+            key=lambda x: len(x.get("name", "") if isinstance(x, dict) else x),
+            reverse=True,
+        ):
+            if isinstance(metric, dict) and "alias" in metric and "filter" not in metric:
                 # Use word boundaries to ensure we only replace whole words/identifiers
                 pattern = r"\b" + re.escape(metric["alias"]) + r"\b"
                 expr = re.sub(pattern, "${" + metric["name"] + "}", expr)
-            elif "alias" in metric and "filter" in metric:
+            elif isinstance(metric, dict) and "alias" in metric and "filter" in metric:
                 associated_measure = _get_measure(metric["name"], measures, metric_name=mf_metric["name"])
                 measure_dict, added_measures = apply_filter_to_metric(
                     associated_measure,
@@ -401,10 +408,17 @@ def convert_mf_metric_to_zenlytic_measure(
                 additional_measures.extend(added_measures)
                 pattern = r"\b" + re.escape(metric["alias"]) + r"\b"
                 expr = re.sub(pattern, "${" + measure_dict["name"] + "}", expr)
-            else:
+            elif isinstance(metric, dict):
                 # If there is no alias and no filters we just need to add reference syntax
                 pattern = r"\b" + re.escape(metric["name"]) + r"\b"
                 expr = re.sub(pattern, "${" + metric["name"] + "}", expr)
+            elif isinstance(metric, str):
+                pattern = r"\b" + re.escape(metric) + r"\b"
+                expr = re.sub(pattern, "${" + metric + "}", expr)
+            else:
+                raise ZenlyticUnsupportedError(
+                    f"metric conversion failed for {mf_metric}: Invalid metric type {type(metric)}"
+                )
         metric_dict["sql"] = expr
 
     else:
