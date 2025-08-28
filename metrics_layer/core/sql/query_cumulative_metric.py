@@ -337,11 +337,10 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         date_name = field.view.default_date
         dimension_group = self.default_date_dimension_group()
         date_field_name = f"{date_name}_{dimension_group}"
-        date_key = f"{field.view.name}.{date_field_name}"
-        if date_key in self._default_date_memo:
-            return self._default_date_memo[date_key]
+        if date_field_name in self._default_date_memo:
+            return self._default_date_memo[date_field_name]
         try:
-            self._default_date_memo[date_key] = self.design.get_field(date_key)
+            self._default_date_memo[date_field_name] = self.design.get_field(date_field_name)
         except Exception:
             raise AccessDeniedOrDoesNotExistException(
                 (
@@ -351,7 +350,7 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
                 object_type="field",
                 object_name=date_field_name,
             )
-        return self._default_date_memo[date_key]
+        return self._default_date_memo[date_field_name]
 
     def _derive_join(self, cumulative_metric, base_table: Table):
         cte_alias = cumulative_metric.cte_prefix()

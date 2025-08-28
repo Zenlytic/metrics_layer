@@ -62,8 +62,12 @@ class SQLQueryResolver(SingleSQLQueryResolver):
     def is_merged_result(self):
         field_level_checks = []
         for m in self.metrics:
-            field_requires_merge = self.project.get_field(m).is_merged_result and self.topic is None
-            field_level_checks.append(field_requires_merge)
+            referenced_field = self.project.get_field(m)
+            field_is_explicit_merge = referenced_field.is_merged_result
+            field_allows_explicit_merge = (
+                self.topic is None or referenced_field.canon_date != referenced_field.view.default_date
+            )
+            field_level_checks.append(field_is_explicit_merge and field_allows_explicit_merge)
         has_explicit_merge = any(field_level_checks)
         has_specified_merge = self.kwargs.get("merged_result", False)
         return has_explicit_merge or has_specified_merge or self.mapping_forces_merged_result

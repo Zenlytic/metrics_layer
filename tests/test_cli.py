@@ -683,7 +683,7 @@ def test_cli_validate_default_date_is_dim_group(connection, fresh_project, mocke
     assert result.exit_code == 0
     assert result.output == (
         "Found 1 error in the project:\n\n"
-        "\nDefault date discount_code is not of field_type: dimension_group and type: time in view discounts\n\n"  # noqa
+        "\nDefault date discounts.discount_code is not of field_type: dimension_group and type: time in view discounts\n\n"  # noqa
     )
 
 
