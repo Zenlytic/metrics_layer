@@ -202,10 +202,6 @@ def test_query_window_function_as_measure(connection):
         "_total_item_revenue,RATIO_TO_REPORT((SUM(order_lines.revenue))) OVER () as order_lines"
         "_pct_of_total_item_revenue FROM order_lines_window_functions order_lines GROUP BY "
         "order_lines.product_name ORDER BY order_lines_total_item_revenue DESC NULLS LAST;"
-        # "SELECT order_lines.product_name as order_lines_product_name,SUM(order_lines.revenue) as"
-        # " order_lines_total_item_revenue,RATIO_TO_REPORT((SUM(order_lines.revenue))) OVER () as"
-        # " order_lines_pct_of_total_item_revenue FROM analytics.order_line_items order_lines GROUP BY"
-        # " order_lines.product_name ORDER BY order_lines_total_item_revenue DESC NULLS LAST;"
     )
     assert query == correct
 
