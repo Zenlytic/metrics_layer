@@ -225,6 +225,8 @@ class View(MetricsLayerBase, SQLReplacement):
     @property
     def default_date(self):
         if "default_date" in self._definition:
+            if "." not in str(self._definition["default_date"]):
+                return f'{self.name}.{self._definition["default_date"]}'
             return str(self._definition["default_date"])
         return None
 

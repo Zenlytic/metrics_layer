@@ -762,7 +762,7 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
         (
             "default_date",
             1,
-            ["The default_date property, 1 must be a string in the view order_lines"],
+            ["The default_date property, order_lines.1 must be a string in the view order_lines"],
         ),
         (
             "default_date",
@@ -774,7 +774,7 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
         (
             "default_date",
             "fake",
-            ["Default date fake in view order_lines does not exist."],
+            ["Default date order_lines.fake in view order_lines does not exist."],
         ),
         ("row_label", None, ["The row_label property, None must be a string in the view order_lines"]),
         ("row_label", "Hello", []),
@@ -1452,7 +1452,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                     "Canon date order_lines.order is not of field_type: dimension_group and type: "
                     "time in field avg_rainfall_adj in view country_detail"
                 ),
-                "Default date order is not of field_type: dimension_group and type: time in view order_lines",
+                "Default date order_lines.order is not of field_type: dimension_group and type: time in view order_lines",
                 (
                     "Field order in view order_lines has an invalid type yesno. Valid types for "
                     "dimension groups are: ['time', 'duration']"
@@ -1710,7 +1710,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                     "Canon date order_lines.order is not of field_type: dimension_group and type: "
                     "time in field avg_rainfall_adj in view country_detail"
                 ),
-                "Default date order is not of field_type: dimension_group and type: time in view order_lines",
+                "Default date order_lines.order is not of field_type: dimension_group and type: time in view order_lines",
                 (
                     "Field order in view order_lines has an invalid type number. Valid types for dimension"
                     " groups are: ['time', 'duration']"

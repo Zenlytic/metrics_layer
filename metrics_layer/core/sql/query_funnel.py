@@ -164,7 +164,7 @@ class FunnelQuery(MetricsLayerQueryBase):
     def get_event_date(self):
         if "view_name" in self.funnel:
             view = self.design.get_view(self.funnel["view_name"])
-            return self.design.get_field(f"{view.name}.{view.default_date}_raw")
+            return self.design.get_field(f"{view.default_date}_raw")
 
         dates = []
         for metric_name in self.metrics:

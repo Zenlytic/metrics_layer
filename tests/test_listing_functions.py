@@ -36,7 +36,7 @@ def test_list_views(connection):
 @pytest.mark.project
 def test_list_metrics(connection):
     metrics = connection.list_metrics()
-    assert len(metrics) == 78
+    assert len(metrics) == 79
 
     metrics = connection.list_metrics(view_name="order_lines", names_only=True)
     assert len(metrics) == 13

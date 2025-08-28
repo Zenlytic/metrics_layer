@@ -600,11 +600,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             render_window_functions = True
             wrapping_func = self.ensure_column_reference_exists
         else:
-
-            def default_wrapping_func(x, query_type: str):
-                return x
-
-            wrapping_func = default_wrapping_func
+            wrapping_func = self.default_wrapping_func
 
         if self.type == "cumulative" and alias_only:
             return f"{self.cte_prefix()}.{self.measure.alias(with_view=True)}"
@@ -623,6 +619,28 @@ class Field(MetricsLayerBase, SQLReplacement):
             ),
             query_type=query_type,
         )
+
+    def default_wrapping_func(self, sql, query_type: str):
+        if not isinstance(sql, str):
+            return sql
+
+        if self.field_type == ZenlyticFieldType.measure and self.window:
+            try:
+                sqlglot_sql_flavor = sql_flavor_to_sqlglot_format(query_type)
+                parsed_sql = sqlglot.parse_one(sql, read=sqlglot_sql_flavor)
+            except Exception:
+                # If we can't parse the SQL, return it as-is
+                return sql
+
+            # Check if any aggregation contains a window function
+            for agg in list(parsed_sql.find_all(exp.AggFunc)):
+                window_functions = list(agg.find_all(exp.Window))
+                if len(window_functions) > 0:
+                    raise QueryError(
+                        f"Window function SQL is invalid for field {self.name}. Please remove "
+                        "the aggregation from the outside of the window function."
+                    )
+        return sql
 
     def _field_uses_non_standard_model_format_sql(self):
         if self.field_type == ZenlyticFieldType.measure and self.non_additive_dimension:
@@ -2916,7 +2934,7 @@ class Field(MetricsLayerBase, SQLReplacement):
 
         if strings_only:
             valid_references = [f for f in referenced_fields if not isinstance(f, str)]
-            return list(set(f"{f.view.name}.{f.name}" for f in valid_references))
+            return list(set(f.id() for f in valid_references))
         return referenced_fields
 
     @functools.lru_cache(maxsize=None)

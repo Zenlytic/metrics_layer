@@ -727,6 +727,39 @@ def test_topic_default_date_join_in_topic_dim_no_presence_in_measures_2(connecti
 
 
 @pytest.mark.query
+def test_topic_default_date_in_topic_join_only_dim_base_view(connection):
+    query = connection.get_sql_query(
+        metrics=["monthly_aggregates.count_new_employees_per_revenue"],
+        dimensions=["order_lines.customer_id"],
+        where=[
+            {"field": "date", "expression": "greater_than", "value": "2024-10-01"},
+            {"field": "date", "expression": "less_than", "value": "2024-10-31"},
+        ],
+        topic="Order lines unfiltered",
+    )
+
+    correct = (
+        "SELECT order_lines.customer_id as order_lines_customer_id,(NULLIF(COUNT("
+        "DISTINCT CASE WHEN  (monthly_aggregates.n_new_employees)  IS NOT NULL THEN"
+        "  monthly_aggregates.record_date  ELSE NULL END), 0)) / (COALESCE(CAST("
+        "(SUM(DISTINCT (CAST(FLOOR(COALESCE(order_lines.revenue, 0) * (1000000 * "
+        "1.0)) AS DECIMAL(38,0))) + (TO_NUMBER(MD5(order_lines.order_line_id), "
+        "'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0)) - SUM("
+        "DISTINCT (TO_NUMBER(MD5(order_lines.order_line_id), 'XXXXXXXXXXXXXXXXX"
+        "XXXXXXXXXXXXXXX') % 1.0e27)::NUMERIC(38, 0))) AS DOUBLE PRECISION) / "
+        "CAST((1000000*1.0) AS DOUBLE PRECISION), 0)) as monthly_aggregates_"
+        "count_new_employees_per_revenue FROM analytics.order_line_items order_lines"
+        " LEFT JOIN analytics.monthly_rollup monthly_aggregates ON DATE_TRUNC('"
+        "MONTH', monthly_aggregates.record_date) = order_lines.order_unique_id "
+        "WHERE DATE_TRUNC('DAY', monthly_aggregates.record_date)>'2024-10-01' "
+        "AND DATE_TRUNC('DAY', monthly_aggregates.record_date)<'2024-10-31' "
+        "GROUP BY order_lines.customer_id ORDER BY monthly_aggregates_count_new"
+        "_employees_per_revenue DESC NULLS LAST;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
 def test_always_filter_literal_no_filter(connection):
     """Test always_filter_literal with topic that has no always_filter."""
     topic = connection.project.get_topic("Order lines unfiltered")
