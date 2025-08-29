@@ -308,6 +308,16 @@ def test_measure_conversion(mf_measure):
             },
         },
         {
+            "name": "pct_rev_from_ads",
+            "description": "Percentage of revenue from advertising.",
+            "type": "derived",
+            "label": "Percentage of Revenue from Advertising",
+            "type_params": {
+                "expr": "ad_total_revenue / total_revenue",
+                "metrics": ["ad_total_revenue", "total_revenue"],
+            },
+        },
+        {
             "name": "food_order_gross_profit",
             "label": "Food Order Gross Profit",
             "description": "The gross profit for each food order.",
