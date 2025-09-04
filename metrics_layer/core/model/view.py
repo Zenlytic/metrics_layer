@@ -334,7 +334,15 @@ class View(MetricsLayerBase, SQLReplacement):
 
     def _error(self, element, error, extra: dict = {}):
         line, column = self.line_col(element)
-        return {**extra, "view_name": self.name, "message": error, "line": line, "column": column}
+        return {
+            **extra,
+            "view_name": self.name,
+            "message": error,
+            "line": line,
+            "column": column,
+            "reference_type": "view",
+            "reference_id": self.name,
+        }
 
     def collect_errors(self):
         try:

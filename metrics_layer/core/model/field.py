@@ -1836,6 +1836,8 @@ class Field(MetricsLayerBase, SQLReplacement):
             "message": error,
             "line": line,
             "column": column,
+            "reference_type": "field",
+            "reference_id": self.id(capitalize_alias=True),
         }
 
     def collect_errors(self):

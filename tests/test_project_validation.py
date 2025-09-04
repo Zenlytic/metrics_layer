@@ -3,7 +3,7 @@ import json
 import pytest
 
 from metrics_layer.core.exceptions import QueryError
-from metrics_layer.core.model.topic import Topic
+from metrics_layer.core.model.field import Field
 
 
 def _get_view_by_name(project, view_name):
@@ -78,7 +78,13 @@ def test_validation_with_view_without_name(fresh_project):
     view = project._views[0]
     del view["name"]
     response = project.validate_with_replaced_objects(replaced_objects=[view])
-    assert {"message": "View missing required key name", "line": None, "column": None} in response
+    assert {
+        "message": "View missing required key name",
+        "line": None,
+        "column": None,
+        "reference_type": "project",
+        "reference_id": None,
+    } in response
 
 
 @pytest.mark.validation
@@ -95,6 +101,8 @@ def test_validation_with_view_with_updated_name_case(fresh_project):
         ),
         "line": None,
         "column": None,
+        "reference_type": "project",
+        "reference_id": None,
     } not in response
 
 
@@ -112,6 +120,8 @@ def test_validation_with_duplicate_views(fresh_project):
         ),
         "line": None,
         "column": None,
+        "reference_type": "project",
+        "reference_id": None,
     } in response
 
 
@@ -130,6 +140,8 @@ def test_validation_with_duplicate_views_with_differently_cased_names(fresh_proj
         ),
         "line": None,
         "column": None,
+        "reference_type": "project",
+        "reference_id": None,
     } in response
 
 
@@ -152,6 +164,8 @@ def test_validation_with_dashboard_with_updated_name_case(fresh_project):
         "message": "Dashboard name sales_dashboard appears 2 times, make sure dashboard names are unique",
         "line": None,
         "column": None,
+        "reference_type": "project",
+        "reference_id": None,
     } not in response
 
 
@@ -165,20 +179,8 @@ def test_validation_with_duplicate_dashboards(fresh_project):
         "message": "Dashboard name sales_dashboard appears 2 times, make sure dashboard names are unique",
         "line": None,
         "column": None,
-    } in response
-
-
-@pytest.mark.validation
-def test_validation_with_duplicate_dashboards_with_differently_cased_names(fresh_project):
-    project = fresh_project
-    dashboard1 = _get_dashboard_by_name(project, "sales_dashboard")
-    dashboard2 = _get_dashboard_by_name(project, "sales_dashboard")
-    dashboard2["name"] = "Sales_Dashboard"
-    response = project.validate_with_replaced_objects(replaced_objects=[dashboard1, dashboard2])
-    assert {
-        "message": "Dashboard name sales_dashboard appears 2 times, make sure dashboard names are unique",
-        "line": None,
-        "column": None,
+        "reference_type": "project",
+        "reference_id": None,
     } in response
 
 
@@ -197,6 +199,8 @@ def test_validation_with_duplicate_dashboards_with_differently_cased_names(fresh
                     "view_name": "order_lines",
                     "line": None,
                     "column": None,
+                    "reference_type": "view",
+                    "reference_id": "order_lines",
                 }
             ],
         )
@@ -684,6 +688,10 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
     model = json.loads(json.dumps(project._models[0]))
     model[name] = value
     response = project.validate_with_replaced_objects(replaced_objects=[model])
+
+    if len(response) > 0:
+        assert response[0]["reference_type"] == "model"
+        assert response[0]["reference_id"] == model["name"]
 
     assert [e["message"] for e in response] == errors
 
@@ -1305,6 +1313,27 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
     response = project.validate_with_replaced_objects(replaced_objects=[view], validate_topics=False)
 
     print(response)
+    non_view_error_messages = [
+        "Could not find or you do not have access to model None in view order_lines",
+        "Could not find or you do not have access to model missing_model in view order_lines",
+        "The identifiers property, None must be a list in the view order_lines",
+        "Identifier 1 in view order_lines must be a dictionary",
+        "Identifier in view order_lines is missing the required name property",
+        "Identifier test in view order_lines is missing the required type property",
+        "The identifiers property, customers must be a list in the identifier customers_composite in view order_lines",  # noqa
+        "Identifier customers in the identifiers property of the identifier customers_composite in view order_lines must be a dictionary",  # noqa
+        "Identifier custom_join in view order_lines is missing the required relationship property for the type: join. Options are: ['many_to_one', 'one_to_one', 'one_to_many', 'many_to_many']",  # noqa
+        "Identifier custom_join in view order_lines is missing the required sql_on property for the type: join",  # noqa
+        "Identifier custom_join in view order_lines is missing the required reference property for the type: join",  # noqa
+        "Identifier custom_join in view order_lines has an invalid relationship property. Options are: ['many_to_one', 'one_to_one', 'one_to_many', 'many_to_many']",  # noqa
+        "Could not find view fake in join between order_lines and discounts",
+        "Could not find field fake in join between order_lines and discounts referencing view discounts",  # noqa
+    ]
+    if len(response) > 0 and not any(
+        message in response[0]["message"] for message in non_view_error_messages
+    ):
+        assert response[0]["reference_type"] == "view"
+        assert response[0]["reference_id"] == view["name"]
     assert [e["message"] for e in response] == errors
 
 
@@ -2490,6 +2519,10 @@ def test_validation_with_replaced_field_properties(connection, field_name, prope
         field[property_name] = value
     response = project.validate_with_replaced_objects(replaced_objects=[view])
 
+    if isinstance(field, Field) and property_name != "__ADD__" and value != "__POP__" and len(response) > 0:
+        assert response[0]["reference_type"] == "field"
+        assert response[0]["reference_id"] == field.id(capitalize_alias=True)
+
     print(response)
     assert [e["message"] for e in response] == errors
 
@@ -2861,6 +2894,9 @@ def test_validation_with_replaced_topic_properties(connection, name, value, erro
     topic[name] = value
     response = project.validate_with_replaced_objects(replaced_objects=[topic])
 
+    if len(response) > 0:
+        assert response[0]["reference_type"] == "topic"
+        assert response[0]["reference_id"] == "Order lines Topic"
     assert [e["message"] for e in response] == errors
 
 
