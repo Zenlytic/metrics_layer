@@ -351,7 +351,14 @@ class Project:
 
     def _error(self, error: str, extra: dict = {}):
         # For project level errors we cannot attribute a line or column
-        return {**extra, "message": error, "line": None, "column": None}
+        return {
+            **extra,
+            "message": error,
+            "line": None,
+            "column": None,
+            "reference_type": "project",
+            "reference_id": None,
+        }
 
     def validate(self, views_must_be_in_topics: bool = False, validate_topics: bool = True):
         all_errors = [] + self._conversion_errors
@@ -388,13 +395,10 @@ class Project:
                 )
 
         if views_must_be_in_topics:
-            view_names = [v.name for v in self.views()]
             views_in_topics = set([v.name for topic in self.topics() for v in topic._views()])
-            for view_name in view_names:
-                if view_name not in views_in_topics:
-                    all_errors.append(
-                        self._error(f"View {view_name} is not in a topic", {"view_name": view_name})
-                    )
+            for view in self.views():
+                if view.name not in views_in_topics:
+                    all_errors.append(view._error(None, f"View {view.name} is not in a topic"))
 
         try:
             all_errors.extend(self.join_graph.collect_errors())
@@ -418,33 +422,33 @@ class Project:
                 for user_attribute_name in self._required_access_filter_user_attributes:
                     if not view.access_filters:
                         all_errors.append(
-                            self._error(
+                            view._error(
+                                None,
                                 (
                                     f"View {view.name} does not have any access filters, but an access filter"
                                     f" with user attribute {user_attribute_name} is required."
                                 ),
-                                {"view_name": view.name},
                             )
                         )
                     elif all(af["user_attribute"] != user_attribute_name for af in view.access_filters):
                         all_errors.append(
-                            self._error(
+                            view._error(
+                                None,
                                 (
                                     f"View {view.name} does not have an access filter with the required user"
                                     f" attribute {user_attribute_name}"
                                 ),
-                                {"view_name": view.name},
                             )
                         )
 
             try:
                 view.sql_table_name
             except QueryError as e:
-                all_errors.append(self._error(str(e) + f" in the view {view.name}", {"view_name": view.name}))
+                all_errors.append(view._error(None, str(e) + f" in the view {view.name}"))
             try:
                 referenced_fields = view.referenced_fields()
             except (AccessDeniedOrDoesNotExistException, QueryError) as e:
-                all_errors.append(self._error(str(e) + f" in the view {view.name}", {"view_name": view.name}))
+                all_errors.append(view._error(None, str(e) + f" in the view {view.name}"))
 
             view_errors = view.collect_errors()
 
@@ -459,12 +463,12 @@ class Project:
                         field_reference = field[-1]
                         prepend = ""
                     all_errors.append(
-                        self._error(
+                        view._error(
+                            None,
                             (
                                 f"{prepend}Could not locate reference {field_reference} in field"
                                 f" {field_name} in view {view.name}"
                             ),
-                            {"view_name": view.name, "field_name": field_name},
                         )
                     )
             all_errors.extend(view_errors)

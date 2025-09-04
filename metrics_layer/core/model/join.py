@@ -85,7 +85,14 @@ class Join(MetricsLayerBase, SQLReplacement):
 
     def _error(self, element, error, extra: dict = {}):
         line, column = self.line_col(element)
-        return {**extra, "message": error, "line": line, "column": column}
+        return {
+            **extra,
+            "message": error,
+            "line": line,
+            "column": column,
+            "reference_type": "project",
+            "reference_id": None,
+        }
 
     def collect_errors(self):
         errors = []

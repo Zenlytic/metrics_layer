@@ -10,8 +10,8 @@ from metrics_layer.core.exceptions import (
 )
 
 from .base import MetricsLayerBase
-from .week_start_day_types import WeekStartDayTypes
 from .view import View
+from .week_start_day_types import WeekStartDayTypes
 
 if TYPE_CHECKING:
     from metrics_layer.core.model.project import Project
@@ -179,7 +179,15 @@ class Model(MetricsLayerBase):
 
     def _error(self, element, error, extra: dict = {}):
         line, column = self.line_col(element)
-        return {**extra, "model_name": self.name, "message": error, "line": line, "column": column}
+        return {
+            **extra,
+            "model_name": self.name,
+            "message": error,
+            "line": line,
+            "column": column,
+            "reference_type": "model",
+            "reference_id": self.name,
+        }
 
     def collect_errors(self):
         errors = []

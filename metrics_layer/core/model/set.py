@@ -25,7 +25,14 @@ class Set(MetricsLayerBase):
 
     def _error(self, element, error, extra: dict = {}):
         line, column = self.line_col(element)
-        error = {**extra, "message": error, "line": line, "column": column}
+        error = {
+            **extra,
+            "message": error,
+            "line": line,
+            "column": column,
+            "reference_type": "view",
+            "reference_id": self.view_name,
+        }
         if self.view_name:
             error["view_name"] = self.view_name
         return error

@@ -80,7 +80,15 @@ class Topic(MetricsLayerBase):
 
     def _error(self, element, error, extra: dict = {}):
         line, column = self.line_col(element)
-        return {**extra, "model_name": self.model_name, "message": error, "line": line, "column": column}
+        return {
+            **extra,
+            "model_name": self.model_name,
+            "message": error,
+            "line": line,
+            "column": column,
+            "reference_type": "topic",
+            "reference_id": self.label,
+        }
 
     def always_filter_literal(self):
         to_add = {"week_start_day": self.model.week_start_day, "timezone": self.project.timezone}
