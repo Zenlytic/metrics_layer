@@ -138,7 +138,15 @@ class Dashboard(MetricsLayerBase):
 
     def _error(self, element, error, extra: dict = {}):
         line, column = self.line_col(element)
-        return {**extra, "dashboard_name": self.name, "message": error, "line": line, "column": column}
+        return {
+            **extra,
+            "dashboard_name": self.name,
+            "message": error,
+            "line": line,
+            "column": column,
+            "reference_type": "dashboard",
+            "reference_id": self.name,
+        }
 
     def collect_errors(self):
         errors = []
