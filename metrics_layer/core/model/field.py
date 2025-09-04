@@ -14,6 +14,7 @@ from metrics_layer.core.exceptions import (
     MetricsLayerException,
     QueryError,
 )
+from metrics_layer.core.utils import compute_combined_sql_md5
 
 from .base import MetricsLayerBase, SQLReplacement
 from .definitions import Definitions, sql_flavor_to_sqlglot_format
@@ -481,6 +482,14 @@ class Field(MetricsLayerBase, SQLReplacement):
 
             return len(referenced_canon_dates) > 1
         return False
+
+    def combined_sql_md5(self) -> str:
+        return compute_combined_sql_md5(
+            sql=self.sql,
+            type=self.type,
+            filters=self.filters,
+            non_additive_dimension=self.non_additive_dimension,
+        )
 
     def sql_hash(self):
         # The query type doesn't matter for generating the hash
