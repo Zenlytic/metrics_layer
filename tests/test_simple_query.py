@@ -170,6 +170,13 @@ simple_view = {
             "name": "discount_99th_percentile",
         },
         {
+            "field_type": "measure",
+            "type": "sum",
+            "sql": "${discount_amt}",
+            "name": "single_discount_sum",
+            "filters": [{"field": "discount_amt", "value": "1"}],
+        },
+        {
             "field_type": "dimension",
             "type": "yesno",
             "sql": "CASE WHEN ${channel} != 'fraud' THEN TRUE ELSE FALSE END",
@@ -225,6 +232,20 @@ def test_simple_query(connections):
     correct = (
         "SELECT simple.sales_channel as simple_channel,SUM(simple.revenue) as simple_total_revenue FROM "
         "analytics.orders simple GROUP BY simple.sales_channel ORDER BY simple_total_revenue DESC NULLS LAST;"
+    )
+    assert query == correct
+
+
+@pytest.mark.query
+def test_simple_query_equal_to_filter(connections):
+    project = Project(models=[simple_model], views=[simple_view])
+    conn = MetricsLayerConnection(project=project, connections=connections)
+    query = conn.get_sql_query(metrics=["single_discount_sum"], dimensions=["channel"])
+
+    correct = (
+        "SELECT simple.sales_channel as simple_channel,SUM(case when simple.discount_amt=1 "
+        "then simple.discount_amt end) as simple_single_discount_sum FROM analytics.orders simple "
+        "GROUP BY simple.sales_channel ORDER BY simple_single_discount_sum DESC NULLS LAST;"
     )
     assert query == correct
 
