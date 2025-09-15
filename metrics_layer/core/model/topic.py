@@ -23,6 +23,7 @@ class Topic(MetricsLayerBase):
     valid_properties = [
         "version",
         "type",
+        "name",
         "label",
         "model_name",
         "base_view",
@@ -52,7 +53,11 @@ class Topic(MetricsLayerBase):
                 raise QueryError(f"Topic missing required key {k}{name_str}")
 
     def id(self):
-        return self.label
+        return self.name
+
+    @property
+    def name(self):
+        return self._definition.get("name", self.label)
 
     @property
     def model(self):
@@ -119,6 +124,20 @@ class Topic(MetricsLayerBase):
 
     def collect_errors(self):
         errors = []
+
+        if "name" in self._definition and not isinstance(self.name, str):
+            errors.append(
+                self._error(
+                    self.name, f"The name property, {self.name} must be a string in the topic {self.label}"
+                )
+            )
+        elif "name" in self._definition and not self.valid_name(self.name):
+            errors.append(
+                self._error(
+                    self.name,
+                    f"The name property, {self.name} is invalid. Please reference the naming conventions",
+                )
+            )
 
         if "label" in self._definition and not isinstance(self.label, str):
             errors.append(
