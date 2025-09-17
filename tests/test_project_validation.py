@@ -2557,11 +2557,7 @@ def test_validation_with_replaced_field_properties(connection, field_name, prope
     [
         ("name", "my_topic", []),
         ("name", 1, ["The name property, 1 must be a string in the topic Order lines Topic"]),
-        (
-            "name",
-            "My Topic!",
-            ["The name property, My Topic! is invalid. Please reference the naming conventions"],
-        ),
+        ("name", "My Topic!", []),
         ("label", "My Topic!", []),
         (
             "description",

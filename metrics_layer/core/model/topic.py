@@ -131,13 +131,6 @@ class Topic(MetricsLayerBase):
                     self.name, f"The name property, {self.name} must be a string in the topic {self.label}"
                 )
             )
-        elif "name" in self._definition and not self.valid_name(self.name):
-            errors.append(
-                self._error(
-                    self.name,
-                    f"The name property, {self.name} is invalid. Please reference the naming conventions",
-                )
-            )
 
         if "label" in self._definition and not isinstance(self.label, str):
             errors.append(

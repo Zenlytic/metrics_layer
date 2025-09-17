@@ -599,7 +599,7 @@ class SQLQueryResolver(SingleSQLQueryResolver):
             for f in self.topic.always_filter:
                 if "." not in f["field"]:
                     raise QueryError(
-                        f"Always filter field {f['field']} in the topic {self.topic.label} must be a fully"
+                        f"Always filter field {f['field']} in the topic {self.topic.name} must be a fully"
                         " qualified field name in the format view_name.field_name"
                     )
                 always_where.extend(Filter({**f, **to_add}).filter_dict(json_safe=True))

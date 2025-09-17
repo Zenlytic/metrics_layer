@@ -322,8 +322,10 @@ class Project:
         current_dashboards = json.loads(json.dumps(self._dashboards))
 
         # Replace topic files
-        replaced_topic_names = set([t.get("label") for t in replaced_topics])
-        unchanged_topics = [t for t in self._topics if t.get("label") not in replaced_topic_names]
+        replaced_topic_names = set([t.get("name", t.get("label")) for t in replaced_topics])
+        unchanged_topics = [
+            t for t in self._topics if t.get("name", t.get("label")) not in replaced_topic_names
+        ]
         current_topics = json.loads(json.dumps(self._topics))
 
         try:
