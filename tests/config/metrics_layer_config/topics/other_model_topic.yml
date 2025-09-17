@@ -1,4 +1,5 @@
 type: topic
+name: other_model_topic
 label: Other DB Traffic
 base_view: other_db_traffic
 model_name: new_model

@@ -549,6 +549,25 @@ class Filter(MetricsLayerBase):
             and field_datatype == "number"
         ):
             value = [pd.to_numeric(v) for v in value]
+        elif (
+            expression_type
+            in {
+                MetricsLayerFilterExpressionType.EqualTo,
+                MetricsLayerFilterExpressionType.GreaterThan,
+                MetricsLayerFilterExpressionType.GreaterOrEqualThan,
+                MetricsLayerFilterExpressionType.LessThan,
+                MetricsLayerFilterExpressionType.LessOrEqualThan,
+                MetricsLayerFilterExpressionType.NotEqualTo,
+            }
+            and field_datatype == "number"
+        ):
+            try:
+                value = pd.to_numeric(value)
+            except Exception:
+                # If we cannot convert to a number, we will just use the value as is
+                # This is valid for the situation where the value is another column
+                pass
+
         criterion_strategies = {
             MetricsLayerFilterExpressionType.LessThan: lambda f: f < value,
             MetricsLayerFilterExpressionType.LessOrEqualThan: lambda f: f <= value,

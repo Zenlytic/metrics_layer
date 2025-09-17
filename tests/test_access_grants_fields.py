@@ -26,7 +26,7 @@ def test_access_grants_model_visible(connection):
     connection.project.set_user({"region": "south"})
 
     connection.project.get_model("new_model")
-    connection.project.get_topic("Other DB Traffic")
+    connection.project.get_topic("other_model_topic")
     connection.project.get_view("other_db_traffic")
     connection.project.get_field("other_db_traffic.other_traffic_source")
 

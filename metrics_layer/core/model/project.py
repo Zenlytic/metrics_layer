@@ -322,8 +322,10 @@ class Project:
         current_dashboards = json.loads(json.dumps(self._dashboards))
 
         # Replace topic files
-        replaced_topic_names = set([t.get("label") for t in replaced_topics])
-        unchanged_topics = [t for t in self._topics if t.get("label") not in replaced_topic_names]
+        replaced_topic_names = set([t.get("name", t.get("label")) for t in replaced_topics])
+        unchanged_topics = [
+            t for t in self._topics if t.get("name", t.get("label")) not in replaced_topic_names
+        ]
         current_topics = json.loads(json.dumps(self._topics))
 
         try:
@@ -380,7 +382,7 @@ class Project:
         if validate_topics:
             topic_names = []
             for topic in self.topics():
-                topic_names.append(topic.label)
+                topic_names.append(topic.name)
                 try:
                     all_errors.extend(topic.collect_errors())
                 except QueryError as e:
@@ -391,7 +393,7 @@ class Project:
             duplicate_topics = [name for name, count in Counter(topic_names).items() if count > 1]
             for topic_name in duplicate_topics:
                 all_errors.append(
-                    self._error(f"Duplicate topic label: {topic_name}. Topic labels must be unique.")
+                    self._error(f"Duplicate topic name: {topic_name}. Topic names must be unique.")
                 )
 
         if views_must_be_in_topics:
@@ -556,13 +558,13 @@ class Project:
                 topics.append(topic)
         return topics
 
-    def get_topic(self, topic_label: str) -> Topic:
+    def get_topic(self, topic_name: str) -> Topic:
         try:
-            return next((t for t in self.topics() if t.label == topic_label))
+            return next((t for t in self.topics() if t.name == topic_name))
         except StopIteration:
             raise AccessDeniedOrDoesNotExistException(
-                f"Could not find or you do not have access to topic {topic_label}",
-                object_name=topic_label,
+                f"Could not find or you do not have access to topic {topic_name}",
+                object_name=topic_name,
                 object_type="topic",
             )
 

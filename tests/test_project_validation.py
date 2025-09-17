@@ -68,7 +68,7 @@ def test_validation_with_duplicate_topic_labels(fresh_project):
     project._topics[1]["label"] = "Order lines Topic"
     response = project.validate_with_replaced_objects(replaced_objects=project._topics)
     assert [e["message"] for e in response] == [
-        "Duplicate topic label: Order lines Topic. Topic labels must be unique.",
+        "Duplicate topic name: Order lines Topic. Topic names must be unique.",
     ]
 
 
@@ -1320,12 +1320,30 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
         "Identifier 1 in view order_lines must be a dictionary",
         "Identifier in view order_lines is missing the required name property",
         "Identifier test in view order_lines is missing the required type property",
-        "The identifiers property, customers must be a list in the identifier customers_composite in view order_lines",  # noqa
-        "Identifier customers in the identifiers property of the identifier customers_composite in view order_lines must be a dictionary",  # noqa
-        "Identifier custom_join in view order_lines is missing the required relationship property for the type: join. Options are: ['many_to_one', 'one_to_one', 'one_to_many', 'many_to_many']",  # noqa
-        "Identifier custom_join in view order_lines is missing the required sql_on property for the type: join",  # noqa
-        "Identifier custom_join in view order_lines is missing the required reference property for the type: join",  # noqa
-        "Identifier custom_join in view order_lines has an invalid relationship property. Options are: ['many_to_one', 'one_to_one', 'one_to_many', 'many_to_many']",  # noqa
+        (  # noqa
+            "The identifiers property, customers must be a list in the identifier customers_composite in view"
+            " order_lines"
+        ),
+        (  # noqa
+            "Identifier customers in the identifiers property of the identifier customers_composite in view"
+            " order_lines must be a dictionary"
+        ),
+        (  # noqa
+            "Identifier custom_join in view order_lines is missing the required relationship property for the"
+            " type: join. Options are: ['many_to_one', 'one_to_one', 'one_to_many', 'many_to_many']"
+        ),
+        (  # noqa
+            "Identifier custom_join in view order_lines is missing the required sql_on property for the type:"
+            " join"
+        ),
+        (  # noqa
+            "Identifier custom_join in view order_lines is missing the required reference property for the"
+            " type: join"
+        ),
+        (  # noqa
+            "Identifier custom_join in view order_lines has an invalid relationship property. Options are:"
+            " ['many_to_one', 'one_to_one', 'one_to_many', 'many_to_many']"
+        ),
         "Could not find view fake in join between order_lines and discounts",
         "Could not find field fake in join between order_lines and discounts referencing view discounts",  # noqa
     ]
@@ -1481,7 +1499,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                     "Canon date order_lines.order is not of field_type: dimension_group and type: "
                     "time in field avg_rainfall_adj in view country_detail"
                 ),
-                "Default date order_lines.order is not of field_type: dimension_group and type: time in view order_lines",
+                (
+                    "Default date order_lines.order is not of field_type: dimension_group and type: time in"
+                    " view order_lines"
+                ),
                 (
                     "Field order in view order_lines has an invalid type yesno. Valid types for "
                     "dimension groups are: ['time', 'duration']"
@@ -1739,7 +1760,10 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                     "Canon date order_lines.order is not of field_type: dimension_group and type: "
                     "time in field avg_rainfall_adj in view country_detail"
                 ),
-                "Default date order_lines.order is not of field_type: dimension_group and type: time in view order_lines",
+                (
+                    "Default date order_lines.order is not of field_type: dimension_group and type: time in"
+                    " view order_lines"
+                ),
                 (
                     "Field order in view order_lines has an invalid type number. Valid types for dimension"
                     " groups are: ['time', 'duration']"
@@ -2531,6 +2555,9 @@ def test_validation_with_replaced_field_properties(connection, field_name, prope
 @pytest.mark.parametrize(
     "name,value,errors",
     [
+        ("name", "my_topic", []),
+        ("name", 1, ["The name property, 1 must be a string in the topic Order lines Topic"]),
+        ("name", "My Topic!", []),
         ("label", "My Topic!", []),
         (
             "description",
@@ -2677,11 +2704,9 @@ def test_validation_with_replaced_field_properties(connection, field_name, prope
             "views",
             {"sessions": {}},
             [
-                (
-                    "The view sessions in topic Order lines Topic cannot be joined automatically "
-                    "to the base view order_lines. Please add an explicit join configuration or "
-                    "ensure the views share common identifiers that allow them to be joined."
-                )
+                "The view sessions in topic Order lines Topic cannot be joined automatically "
+                "to the base view order_lines. Please add an explicit join configuration or "
+                "ensure the views share common identifiers that allow them to be joined."
             ],
         ),
         (
@@ -2813,10 +2838,8 @@ def test_validation_with_replaced_field_properties(connection, field_name, prope
             "views",
             {"customers": {"from": "nonexistent_view"}},
             [
-                (
-                    "The from property for view customers references view 'nonexistent_view' which does not"
-                    " exist in topic Order lines Topic"
-                )
+                "The from property for view customers references view 'nonexistent_view' which does not"
+                " exist in topic Order lines Topic"
             ],
         ),
         (
