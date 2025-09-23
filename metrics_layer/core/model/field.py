@@ -1646,10 +1646,11 @@ class Field(MetricsLayerBase, SQLReplacement):
                     f" {self.datatype.upper()})"
                 ),
                 "week_index": lambda s, qt: (
-                    f"EXTRACT(WEEK FROM {self._apply_week_start_day_offset_only(s,qt)})"
+                    f"EXTRACT(ISOWEEK FROM {self._apply_week_start_day_offset_only(s,qt)})"
                 ),
                 "week_of_month": lambda s, qt: (
-                    f"EXTRACT(WEEK FROM {s}) - EXTRACT(WEEK FROM DATE_TRUNC(CAST({s} AS DATE), MONTH)) + 1"
+                    f"EXTRACT(ISOWEEK FROM {s}) - EXTRACT(ISOWEEK FROM DATE_TRUNC(CAST({s} AS DATE),"
+                    " MONTH)) + 1"
                 ),
                 "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM {s})",
                 "fiscal_month_of_year_index": lambda s, qt: (
@@ -1765,8 +1766,8 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"DATE_TRUNC('WEEK', CAST({sql} AS TIMESTAMP) + INTERVAL '{offset}' DAY) - INTERVAL '{offset}' DAY"  # noqa
         elif query_type == Definitions.bigquery:
             if offset is None:
-                return f"DATE_TRUNC({casted}, WEEK)"
-            return f"DATE_TRUNC({casted} + {offset}, WEEK) - {offset}"
+                return f"DATE_TRUNC({casted}, ISOWEEK)"
+            return f"DATE_TRUNC({casted} + {offset}, ISOWEEK) - {offset}"
         elif query_type in {Definitions.sql_server, Definitions.azure_synapse}:
             if offset is None:
                 return f"DATEADD(WEEK, DATEDIFF(WEEK, 0, {casted}), 0)"
@@ -1794,7 +1795,8 @@ class Field(MetricsLayerBase, SQLReplacement):
             raise QueryError(f"Unable to find a valid method for running week with query type {query_type}")
 
     def _apply_week_start_day_offset_only(self, sql: str, query_type: str):
-        # Monday is the default date for warehouses
+        # Monday is the default date for warehouses EXCEPT for BigQuery
+        # So in BigQuery, we use ISOWEEK instead of WEEK, since ISOWEEK is monday based
         week_start_day = self.view.week_start_day
         offset_lookup = {
             "sunday": 1,

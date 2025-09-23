@@ -2577,8 +2577,57 @@ def test_validation_with_replaced_field_properties(connection, field_name, prope
             ["The hidden property, yes must be a boolean in the topic Order lines Topic"],
         ),
         ("hidden", True, []),
-        ("base_view", None, ["The base_view property, None must be a string in the topic Order lines Topic"]),
-        ("base_view", 1, ["The base_view property, 1 must be a string in the topic Order lines Topic"]),
+        (
+            "base_view",
+            None,
+            [
+                "The base_view property, None must be a string in the topic Order lines Topic",
+                (
+                    "The view orders in topic Order lines Topic cannot be joined automatically to "
+                    "the base view none. Please add an explicit join configuration or ensure the "
+                    "views share common identifiers that allow them to be joined."
+                ),
+                (
+                    "The view customers in topic Order lines Topic cannot be joined automatically "
+                    "to the base view none. Please add an explicit join configuration or ensure "
+                    "the views share common identifiers that allow them to be joined."
+                ),
+            ],
+        ),
+        (
+            "base_view",
+            1,
+            [
+                "The base_view property, 1 must be a string in the topic Order lines Topic",
+                (
+                    "The view orders in topic Order lines Topic cannot be joined automatically to "
+                    "the base view 1. Please add an explicit join configuration or ensure the "
+                    "views share common identifiers that allow them to be joined."
+                ),
+                (
+                    "The view customers in topic Order lines Topic cannot be joined automatically "
+                    "to the base view 1. Please add an explicit join configuration or ensure "
+                    "the views share common identifiers that allow them to be joined."
+                ),
+            ],
+        ),
+        (
+            "base_view",
+            "fake_view",
+            [
+                "The base_view property, fake_view in the topic Order lines Topic is not a valid view",
+                (
+                    "The view orders in topic Order lines Topic cannot be joined automatically "
+                    "to the base view fake_view. Please add an explicit join configuration or ensure "
+                    "the views share common identifiers that allow them to be joined."
+                ),
+                (
+                    "The view customers in topic Order lines Topic cannot be joined automatically "
+                    "to the base view fake_view. Please add an explicit join configuration or ensure "
+                    "the views share common identifiers that allow them to be joined."
+                ),
+            ],
+        ),
         ("base_view", "order_lines", []),
         (
             "required_access_grants",
