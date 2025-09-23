@@ -3,6 +3,7 @@ import copy
 import pytest
 
 from metrics_layer.core import MetricsLayerConnection
+from metrics_layer.core.model.definitions import Definitions
 from metrics_layer.core.model.project import Project
 from metrics_layer.core.sql.query_errors import ArgumentError
 
@@ -15,6 +16,8 @@ simple_model = {
 }
 simple_model2 = copy.deepcopy(simple_model)
 simple_model2["name"] = "core2"
+simple_model_monday = copy.deepcopy(simple_model)
+simple_model_monday["week_start_day"] = "monday"
 
 simple_view = {
     "type": "view",
@@ -115,6 +118,29 @@ def test_simple_query(connections, test_models_and_views):
         "SELECT simple.order_id as simple_order_id,simple.sales_channel as simple_channel,simple.revenue "
     )
     correct += "as simple_total_revenue FROM analytics.orders simple;"
+    assert query == correct
+
+
+@pytest.mark.query
+@pytest.mark.parametrize("query_type", [Definitions.snowflake, Definitions.bigquery])
+def test_simple_query_monday_week_start_date(connections, query_type):
+    project = Project(models=[simple_model_monday], views=[simple_view])
+    conn = MetricsLayerConnection(project=project, connections=connections)
+    query = conn.get_sql_query(metrics=["total_revenue"], dimensions=["order_week"], query_type=query_type)
+
+    if query_type == Definitions.bigquery:
+        correct = (
+            "SELECT CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), ISOWEEK) AS TIMESTAMP) as"
+            " simple_order_week,SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple"
+            " GROUP BY simple_order_week;"
+        )
+    else:
+        correct = (
+            "SELECT DATE_TRUNC('WEEK', CAST(simple.order_date AS DATE)) as"
+            " simple_order_week,SUM(simple.revenue) as simple_total_revenue FROM analytics.orders simple"
+            " GROUP BY DATE_TRUNC('WEEK', CAST(simple.order_date AS DATE)) ORDER BY simple_total_revenue DESC"
+            " NULLS LAST;"
+        )
     assert query == correct
 
 
