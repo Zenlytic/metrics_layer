@@ -67,6 +67,10 @@ class Topic(MetricsLayerBase):
     def hidden(self):
         return bool(self._definition.get("hidden", False))
 
+    @property
+    def base_view(self):
+        return str(self._definition.get("base_view")).lower()
+
     def _views(self):
         topic_view_names = [self.base_view]
         if self.views and isinstance(self.views, dict):
