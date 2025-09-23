@@ -144,12 +144,12 @@ class Topic(MetricsLayerBase):
             )
 
         if "base_view" in self._definition:
-            if not isinstance(self.base_view, str):
+            if not isinstance(self._definition["base_view"], str):
                 errors.append(
                     self._error(
-                        self.base_view,
+                        self._definition["base_view"],
                         (
-                            f"The base_view property, {self.base_view} must be a string"
+                            f"The base_view property, {self._definition['base_view']} must be a string"
                             f" in the topic {self.label}"
                         ),
                     )
