@@ -4,6 +4,7 @@ from pypika import AliasedQuery, Criterion, Order
 from pypika.terms import LiteralValue
 
 from metrics_layer.core.model.definitions import Definitions
+from metrics_layer.core.model.field import Field
 from metrics_layer.core.model.filter import LiteralValueCriterion
 from metrics_layer.core.sql.query_base import MetricsLayerQueryBase
 from metrics_layer.core.sql.query_dialect import (
@@ -129,25 +130,31 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
             for field in field_set:
                 alias = field.alias(with_view=True)
                 if alias not in dimension_sql:
-                    dimension_sql[alias] = f"{join_hash}.{alias}"
+                    dimension_sql[alias] = self._apply_timestamp_casting(f"{join_hash}.{alias}", field)
                 else:
                     if_null_func = if_null_lookup[self.query_type]
-                    dimension_sql[alias] = f"{if_null_func}({dimension_sql[alias]}, {join_hash}.{alias})"
+                    casted_sql = self._apply_timestamp_casting(f"{join_hash}.{alias}", field)
+                    dimension_sql[alias] = f"{if_null_func}({dimension_sql[alias]}, {casted_sql})"
 
                 if field.id() in mapping_lookup:
                     present_fields = [
-                        f for f in mapping_lookup[field.id()] if f["field"] in all_dimension_ids
+                        self._apply_timestamp_casting(
+                            f["cte"] + "." + f["field"].replace(".", "_"), self.project.get_field(f["field"])
+                        )
+                        for f in mapping_lookup[field.id()]
+                        if f["field"] in all_dimension_ids
                     ]
                     if_null_func = if_null_lookup[self.query_type]
                     # If the field is not present in the mapping lookup, but we are using a topic
                     # We can safely assume the field is present in all sub queries
                     if present_fields == [] and self.is_using_topic:
                         present_fields = [
-                            {"field": field.id(), "cte": join_hash}
+                            self._apply_timestamp_casting(f"{join_hash}.{field.alias(with_view=True)}", field)
                             for join_hash in sorted(self.query_dimensions.keys())
                         ]
                     nested_sql = self.nested_if_null(present_fields, if_null_func)
-                    dimension_sql[alias] = f"{if_null_func}({join_hash}.{alias}, {nested_sql})"
+                    casted_sql = self._apply_timestamp_casting(f"{join_hash}.{alias}", field)
+                    dimension_sql[alias] = f"{if_null_func}({casted_sql}, {nested_sql})"
 
         for alias, sql in dimension_sql.items():
             select.append(self.sql(sql, alias=alias))
@@ -161,9 +168,14 @@ class MetricsLayerMergedResultsQuery(MetricsLayerQueryBase):
 
         return select
 
+    def _apply_timestamp_casting(self, sql: str, field: Field):
+        if self.query_type == Definitions.bigquery and field.datatype != "timestamp":
+            return f"CAST({sql} AS TIMESTAMP)"
+        return sql
+
     @staticmethod
     def nested_if_null(aliases, if_null_func):
-        first_alias = aliases[0]["cte"] + "." + aliases[0]["field"].replace(".", "_")
+        first_alias = aliases[0]
         if len(aliases) == 1:
             return first_alias
         else:

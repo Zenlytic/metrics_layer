@@ -31,6 +31,11 @@ def test_merged_result_query_additional_metric(connection, query_type):
     )
     cte_1, cte_2 = "order_lines_order__cte_subquery_0", "sessions_session__cte_subquery_1"
     if query_type == Definitions.bigquery:
+        orders_reference = f"CAST({cte_1}.order_lines_order_month AS TIMESTAMP)"
+    else:
+        orders_reference = f"{cte_1}.order_lines_order_month"
+
+    if query_type == Definitions.bigquery:
         order_date = "CAST(DATE_TRUNC(CAST(order_lines.order_date AS DATE), MONTH) AS DATE)"
         session_date = "CAST(DATE_TRUNC(CAST(sessions.session_date AS DATE), MONTH) AS TIMESTAMP)"
 
@@ -83,8 +88,8 @@ def test_merged_result_query_additional_metric(connection, query_type):
         f"{session_by}) "
         f"SELECT {cte_1}.order_lines_total_item_revenue as order_lines_total_item_revenue,"
         f"{cte_2}.sessions_number_of_sessions as sessions_number_of_sessions,"
-        f"{ifnull}({cte_1}.order_lines_order_month, {cte_2}.sessions_session_month) as order_lines_order_month,"  # noqa
-        f"{ifnull}({cte_2}.sessions_session_month, {cte_1}.order_lines_order_month) as sessions_session_month,"  # noqa
+        f"{ifnull}({orders_reference}, {cte_2}.sessions_session_month) as order_lines_order_month,"  # noqa
+        f"{ifnull}({cte_2}.sessions_session_month, {orders_reference}) as sessions_session_month,"  # noqa
         f"order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
         f"FROM {cte_1} FULL OUTER JOIN {cte_2} "
         f"ON {on_statement}{';' if query_type != Definitions.trino else ''}"
