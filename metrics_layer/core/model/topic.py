@@ -91,6 +91,19 @@ class Topic(MetricsLayerBase):
 
         return topic_views
 
+    def from_view_references(self):
+        if self.views and isinstance(self.views, dict):
+            from_view_names = set([v["from"] for k, v in self.views.items() if "from" in v])
+            from_views = []
+            for view_name in from_view_names:
+                try:
+                    view = self.project.get_view(view_name)
+                    from_views.append(view)
+                except AccessDeniedOrDoesNotExistException:
+                    pass
+            return from_views
+        return []
+
     def _error(self, element, error, extra: dict = {}):
         line, column = self.line_col(element)
         return {

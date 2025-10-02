@@ -2996,7 +2996,6 @@ def test_validation_with_replaced_topic_properties(connection, name, value, erro
                 "View submitted_form is not in a topic",
                 "View aa_acquired_accounts is not in a topic",
                 "View z_customer_accounts is not in a topic",
-                "View created_workspace is not in a topic",
                 "View query_in_workspace is not in a topic",
             ],
         ),

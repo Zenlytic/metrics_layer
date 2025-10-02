@@ -403,7 +403,9 @@ class Project:
                 )
 
         if views_must_be_in_topics:
-            views_in_topics = set([v.name for topic in self.topics() for v in topic._views()])
+            views_in_topics = set(
+                [v.name for topic in self.topics() for v in topic._views() + topic.from_view_references()]
+            )
             for view in self.views():
                 if view.name not in views_in_topics:
                     all_errors.append(view._error(None, f"View {view.name} is not in a topic"))
