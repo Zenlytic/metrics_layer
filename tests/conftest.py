@@ -20,6 +20,9 @@ sales_dashboard_v2_path = os.path.join(
 monthly_aggregates_view_path = os.path.join(
     BASE_PATH, "config/metrics_layer_config/views/monthly_aggregates.yml"
 )
+quarterly_aggregates_view_path = os.path.join(
+    BASE_PATH, "config/metrics_layer_config/views/quarterly_aggregates.yml"
+)
 order_lines_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_order_lines.yml")
 orders_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_orders.yml")
 customers_view_path = os.path.join(BASE_PATH, "config/metrics_layer_config/views/test_customers.yml")
@@ -101,6 +104,7 @@ view_paths = [
     query_in_workspace_view_path,
     mrr_view_path,
     monthly_aggregates_view_path,
+    quarterly_aggregates_view_path,
 ]
 dashboard_paths = [sales_dashboard_path, sales_dashboard_v2_path]
 

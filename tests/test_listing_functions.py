@@ -4,7 +4,7 @@ import pytest
 @pytest.mark.project
 def test_list_views(connection):
     views = connection.list_views(names_only=True)
-    assert len(views) == 23
+    assert len(views) == 26
 
     assert set(views) == {
         "aa_acquired_accounts",
@@ -12,6 +12,7 @@ def test_list_views(connection):
         "child_account",
         "clicked_on_page",
         "country_detail",
+        "create_events",
         "created_workspace",
         "customers",
         "customer_accounts",
@@ -25,6 +26,8 @@ def test_list_views(connection):
         "orders",
         "other_db_traffic",
         "parent_account",
+        "quarterly",
+        "quarterly_aggregates",
         "query_in_workspace",
         "sessions",
         "submitted_form",
@@ -36,7 +39,7 @@ def test_list_views(connection):
 @pytest.mark.project
 def test_list_metrics(connection):
     metrics = connection.list_metrics()
-    assert len(metrics) == 79
+    assert len(metrics) == 82
 
     metrics = connection.list_metrics(view_name="order_lines", names_only=True)
     assert len(metrics) == 13
@@ -60,10 +63,10 @@ def test_list_metrics(connection):
 @pytest.mark.project
 def test_list_dimensions(connection):
     dimensions = connection.list_dimensions(show_hidden=True)
-    assert len(dimensions) == 122
+    assert len(dimensions) == 130
 
     dimensions = connection.list_dimensions()
-    assert len(dimensions) == 86
+    assert len(dimensions) == 93
 
     dimensions = connection.list_dimensions(view_name="order_lines", names_only=True, show_hidden=True)
     dimensions_present = {

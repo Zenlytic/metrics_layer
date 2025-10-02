@@ -93,7 +93,9 @@ class Topic(MetricsLayerBase):
 
     def from_view_references(self):
         if self.views and isinstance(self.views, dict):
-            from_view_names = set([v["from"] for k, v in self.views.items() if "from" in v])
+            from_view_names = set(
+                [v["from"] for k, v in self.views.items() if isinstance(v, dict) and "from" in v]
+            )
             from_views = []
             for view_name in from_view_names:
                 try:

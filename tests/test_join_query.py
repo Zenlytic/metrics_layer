@@ -1303,7 +1303,7 @@ def test_median_aggregate_function(connection, query_type):
 @pytest.mark.query
 def test_always_filter_with_and_without_join(connection):
     query = connection.get_sql_query(
-        metrics=["number_of_workspace_creations"],
+        metrics=["created_workspace.number_of_workspace_creations"],
         dimensions=["date"],
     )
 

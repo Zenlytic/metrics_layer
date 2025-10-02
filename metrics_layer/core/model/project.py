@@ -670,7 +670,7 @@ class Project:
         joinable_no_topics = self.join_graph.get_joinable_view_names(view_name)
         joinable_from_topics = []
         for topic in self.topics():
-            topic_view_names = [v.name for v in topic._views()]
+            topic_view_names = [v.name for v in topic._views() + topic.from_view_references()]
             if view_name in topic_view_names:
                 joinable_from_topics.extend(topic_view_names)
         return list(set(joinable_no_topics + joinable_from_topics))
