@@ -381,7 +381,13 @@ class Project:
 
         if validate_topics:
             topic_names = []
-            for topic in self.topics():
+            try:
+                topics = self.topics()
+            except AccessDeniedOrDoesNotExistException as e:
+                # If we have an error building the topics, we cannot continue
+                return [self._error(str(e))]
+
+            for topic in topics:
                 topic_names.append(topic.name)
                 try:
                     all_errors.extend(topic.collect_errors())

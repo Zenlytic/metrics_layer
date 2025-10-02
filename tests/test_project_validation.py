@@ -2560,6 +2560,11 @@ def test_validation_with_replaced_field_properties(connection, field_name, prope
         ("name", "My Topic!", []),
         ("label", "My Topic!", []),
         (
+            "model_name",
+            None,
+            ["Could not find or you do not have access to model None in topic Order lines Topic"],
+        ),
+        (
             "description",
             None,
             ["The description property, None must be a string in the topic Order lines Topic"],
@@ -2966,7 +2971,10 @@ def test_validation_with_replaced_topic_properties(connection, name, value, erro
     topic[name] = value
     response = project.validate_with_replaced_objects(replaced_objects=[topic])
 
-    if len(response) > 0:
+    if len(response) > 0 and "model_name" == name:
+        assert response[0]["reference_type"] == "project"
+        assert response[0]["reference_id"] == None
+    elif len(response) > 0:
         assert response[0]["reference_type"] == "topic"
         assert response[0]["reference_id"] == "Order lines Topic"
     assert [e["message"] for e in response] == errors

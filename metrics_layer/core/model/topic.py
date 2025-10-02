@@ -61,7 +61,11 @@ class Topic(MetricsLayerBase):
 
     @property
     def model(self):
-        return self.project.get_model(self.model_name)
+        try:
+            return self.project.get_model(self.model_name)
+        except AccessDeniedOrDoesNotExistException as e:
+            e.message = str(e) + f" in topic {self.name}"
+            raise e
 
     @property
     def hidden(self):
