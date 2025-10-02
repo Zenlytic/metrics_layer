@@ -1,0 +1,25 @@
+version: 1
+type: view
+name: quarterly_aggregates
+
+sql_table_name: analytics.quarterly_rollup
+default_date: monthly_aggregates.record
+model_name: test_model
+
+fields:
+  - name: qtr
+    field_type: 'dimension'
+    type: number
+    sql: '${TABLE}.qtr'
+    primary_key: true
+
+  - name: division
+    field_type: 'dimension'
+    type: string
+    sql: '${TABLE}.division'
+    searchable: true
+
+  - name: count_new_employees
+    field_type: measure
+    type: count
+    sql: ${TABLE}.n_new_employees

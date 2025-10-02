@@ -36,6 +36,13 @@ views:
       relationship: many_to_one
       sql_on: ${monthly_aggregates.record_month} = ${order_lines.order_id}
 
+  quarterly:
+    from: quarterly_aggregates
+    join:
+      join_type: left_outer
+      relationship: many_to_one
+      sql_on: ${quarterly.qtr} = ${order_lines.order_id}
+
   accounts:
     join:
       join_type: left_outer

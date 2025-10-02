@@ -26,6 +26,15 @@ views:
       relationship: many_to_one
       sql_on: ${order_lines.customer_id} = ${customer_accounts.last_product_purchased}
 
+  # Join created workspace to test for inclusion of in topic error in from
+  create_events:
+    from: created_workspace
+    label: Created Workspace
+    join:
+      join_type: left_outer
+      relationship: many_to_one
+      sql_on: ${order_lines.customer_id} = ${create_events.customer_id}
+
   # Regular view join
   orders:
     join:

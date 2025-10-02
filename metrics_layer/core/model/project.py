@@ -381,7 +381,13 @@ class Project:
 
         if validate_topics:
             topic_names = []
-            for topic in self.topics():
+            try:
+                topics = self.topics()
+            except AccessDeniedOrDoesNotExistException as e:
+                # If we have an error building the topics, we cannot continue
+                return [self._error(str(e))]
+
+            for topic in topics:
                 topic_names.append(topic.name)
                 try:
                     all_errors.extend(topic.collect_errors())
@@ -397,7 +403,9 @@ class Project:
                 )
 
         if views_must_be_in_topics:
-            views_in_topics = set([v.name for topic in self.topics() for v in topic._views()])
+            views_in_topics = set(
+                [v.name for topic in self.topics() for v in topic._views() + topic.from_view_references()]
+            )
             for view in self.views():
                 if view.name not in views_in_topics:
                     all_errors.append(view._error(None, f"View {view.name} is not in a topic"))
@@ -662,7 +670,7 @@ class Project:
         joinable_no_topics = self.join_graph.get_joinable_view_names(view_name)
         joinable_from_topics = []
         for topic in self.topics():
-            topic_view_names = [v.name for v in topic._views()]
+            topic_view_names = [v.name for v in topic._views() + topic.from_view_references()]
             if view_name in topic_view_names:
                 joinable_from_topics.extend(topic_view_names)
         return list(set(joinable_no_topics + joinable_from_topics))

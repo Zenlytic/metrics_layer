@@ -61,7 +61,11 @@ class Topic(MetricsLayerBase):
 
     @property
     def model(self):
-        return self.project.get_model(self.model_name)
+        try:
+            return self.project.get_model(self.model_name)
+        except AccessDeniedOrDoesNotExistException as e:
+            e.message = str(e) + f" in topic {self.name}"
+            raise e
 
     @property
     def hidden(self):
@@ -86,6 +90,21 @@ class Topic(MetricsLayerBase):
                 pass
 
         return topic_views
+
+    def from_view_references(self):
+        if self.views and isinstance(self.views, dict):
+            from_view_names = set(
+                [v["from"] for k, v in self.views.items() if isinstance(v, dict) and "from" in v]
+            )
+            from_views = []
+            for view_name in from_view_names:
+                try:
+                    view = self.project.get_view(view_name)
+                    from_views.append(view)
+                except AccessDeniedOrDoesNotExistException:
+                    pass
+            return from_views
+        return []
 
     def _error(self, element, error, extra: dict = {}):
         line, column = self.line_col(element)
