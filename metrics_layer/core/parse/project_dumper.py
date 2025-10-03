@@ -102,8 +102,10 @@ class ProjectDumper(ProjectReaderBase):
         processed_fields = [self._sort_field(f) for f in sorted_fields]
         result_seq = CommentedSeq(processed_fields)
 
+        # Only add newlines before newly created fields (original CommentedMaps already have proper spacing)
         for i in range(1, len(processed_fields)):
-            result_seq.yaml_set_comment_before_after_key(i, before="\n")
+            if not isinstance(sorted_fields[i], CommentedMap):
+                result_seq.yaml_set_comment_before_after_key(i, before="\n")
 
         return result_seq
 
