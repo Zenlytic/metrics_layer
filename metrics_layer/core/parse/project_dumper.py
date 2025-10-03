@@ -77,7 +77,6 @@ class ProjectDumper(ProjectReaderBase):
             "fields",
         ]
 
-        # If it's already a CommentedMap, reorder it in place to preserve comments
         if isinstance(view, CommentedMap):
             if "fields" in view:
                 view["fields"] = self._sort_fields(view["fields"])
@@ -155,7 +154,6 @@ class ProjectDumper(ProjectReaderBase):
             "access_grants",
         ]
 
-        # If it's already a CommentedMap, reorder it in place to preserve comments
         if isinstance(model, CommentedMap):
             return self._reorder_commented_map(model, model_key_order)
         else:
