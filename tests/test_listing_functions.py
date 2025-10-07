@@ -2,11 +2,29 @@ import pytest
 
 
 @pytest.mark.project
+def test_list_models(connection):
+    models = connection.project.models(show_hidden=True)
+    assert len(models) == 2
+
+    visible_models = connection.project.models(show_hidden=False)
+    assert len(visible_models) == 1
+
+    assert set(m.name for m in models) == {
+        "test_model",
+        "new_model",
+    }
+
+
+@pytest.mark.project
 def test_list_views(connection):
-    views = connection.list_views(names_only=True)
+    views = connection.project.views(show_hidden=True)
     assert len(views) == 26
 
-    assert set(views) == {
+    visible_views = connection.project.views(show_hidden=False)
+    assert len(visible_views) == 24
+
+    assert "other_db_traffic" not in [v.name for v in visible_views]
+    assert set(v.name for v in views) == {
         "aa_acquired_accounts",
         "accounts",
         "child_account",
@@ -65,8 +83,8 @@ def test_list_dimensions(connection):
     dimensions = connection.list_dimensions(show_hidden=True)
     assert len(dimensions) == 130
 
-    dimensions = connection.list_dimensions()
-    assert len(dimensions) == 93
+    dimensions = connection.list_dimensions(show_hidden=False)
+    assert len(dimensions) == 89
 
     dimensions = connection.list_dimensions(view_name="order_lines", names_only=True, show_hidden=True)
     dimensions_present = {

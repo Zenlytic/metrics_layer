@@ -532,11 +532,12 @@ class Project:
                 object_type="dashboard",
             )
 
-    def models(self) -> list:
+    def models(self, show_hidden: bool = True) -> list:
         models = []
         for m in self._models:
             model = Model(m, project=self)
-            if self.can_access_model(model):
+            model_is_visible = show_hidden or model.hidden is False
+            if self.can_access_model(model) and model_is_visible:
                 models.append(model)
         return models
 
@@ -724,7 +725,7 @@ class Project:
     ):
         return [
             f
-            for v in self.views(model_name=model_name)
+            for v in self.views(model_name=model_name, show_hidden=show_hidden)
             for f in v.fields(show_hidden, expand_dimension_groups)
         ]
 
