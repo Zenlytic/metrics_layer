@@ -559,6 +559,7 @@ class MetricsLayerQuery(MetricsLayerQueryBase):
             field_lookup=field_lookup,
             model=self.design.model,
             project=project,
+            topic=self.design.topic,
         )
 
         config = {

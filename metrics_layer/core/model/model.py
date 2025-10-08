@@ -102,6 +102,7 @@ class Model(MetricsLayerBase):
         "type",
         "name",
         "label",
+        "hidden",
         "connection",
         "week_start_day",
         "timezone",
@@ -136,6 +137,10 @@ class Model(MetricsLayerBase):
         if "fiscal_month_offset" in self._definition:
             return self._definition["fiscal_month_offset"]
         return 0
+
+    @property
+    def hidden(self) -> bool:
+        return bool(self._definition.get("hidden", False))
 
     @property
     def access_grants(self):

@@ -69,7 +69,11 @@ class Topic(MetricsLayerBase):
 
     @property
     def hidden(self):
-        return bool(self._definition.get("hidden", False))
+        try:
+            model_is_hidden = self.model.hidden
+        except Exception:
+            model_is_hidden = False
+        return bool(self._definition.get("hidden", False)) or model_is_hidden
 
     @property
     def base_view(self):

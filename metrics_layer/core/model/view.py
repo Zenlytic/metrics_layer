@@ -160,7 +160,11 @@ class View(MetricsLayerBase, SQLReplacement):
 
     @property
     def hidden(self):
-        return self._definition.get("hidden", False)
+        try:
+            model_is_hidden = self.model.hidden
+        except Exception:
+            model_is_hidden = False
+        return bool(self._definition.get("hidden", False)) or model_is_hidden
 
     @property
     def identifiers(self):
@@ -394,13 +398,13 @@ class View(MetricsLayerBase, SQLReplacement):
                         ),
                     )
                 )
-        if "hidden" in self._definition and not isinstance(self.hidden, bool):
+        if "hidden" in self._definition and not isinstance(self._definition.get("hidden", False), bool):
             errors.append(
                 self._error(
                     self._definition["hidden"],
                     (
                         f"View {self.name} has an invalid hidden value of"
-                        f" {self.hidden}. hidden must be a boolean (true or false)."
+                        f" {self._definition.get('hidden', False)}. hidden must be a boolean (true or false)."
                     ),
                 )
             )
