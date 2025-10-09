@@ -10,6 +10,7 @@ from metrics_layer.core.exceptions import (
 )
 
 from .base import MetricsLayerBase
+from .relationship import Relationship
 from .view import View
 from .week_start_day_types import WeekStartDayTypes
 
@@ -111,6 +112,7 @@ class Model(MetricsLayerBase):
         "access_grants",
         "mappings",
         "required_access_grants",
+        "relationships",
     ]
     internal_properties = ["_file_path"]
 
@@ -152,6 +154,22 @@ class Model(MetricsLayerBase):
             elif not all([isinstance(grant, dict) for grant in self._definition["access_grants"]]):
                 raise QueryError(f"All access_grants in the access_grants property must be dictionaries")
             return self._definition["access_grants"]
+        return []
+
+    @property
+    def relationships(self):
+        if "relationships" in self._definition:
+            if not isinstance(self._definition["relationships"], list):
+                raise QueryError(
+                    f"The relationships property, {self._definition['relationships']} must be a list in "
+                    f"the model {self.name}"
+                )
+            elif not all([isinstance(rel, dict) for rel in self._definition["relationships"]]):
+                raise QueryError(
+                    f"All relationships in the relationships property must be dictionaries in the model "
+                    f"{self.name}"
+                )
+            return self._definition["relationships"]
         return []
 
     @property
@@ -285,6 +303,21 @@ class Model(MetricsLayerBase):
                 error_func=self._error,
             )
         )
+
+        # Validate relationships
+        try:
+            if self.relationships:
+                for relationship in self.relationships:
+                    try:
+                        rel = Relationship(relationship, model=self)
+                        errors.extend(rel.collect_errors())
+                    except QueryError as e:
+                        errors.append(self._error(relationship, str(e) + f" in the model {self.name}"))
+        except QueryError as e:
+            errors.append(
+                self._error(self._definition.get("relationships"), str(e) + f" in the model {self.name}")
+            )
+
         valid_mappings_properties = ["fields", "group_label", "description", "link", "label"]
         try:
             mappings = self.mappings
@@ -403,6 +436,41 @@ class Model(MetricsLayerBase):
         to_print = ["name", "type", "label", "connection"]
         attributes = self.to_dict()
         return {key: attributes.get(key) for key in to_print if attributes.get(key) is not None}
+
+    def get_relationships(self, view_name: str | None = None):
+        """
+        Get all relationships for this model, optionally filtered by view name.
+
+        Parameters
+        ----------
+        view_name : str | None
+            If provided, only return relationships where the view is referenced
+            in either from_table or join_table. If None, return all relationships.
+
+        Returns
+        -------
+        list[dict]
+            A list of relationship definitions, each containing:
+            - from_table: str
+            - join_table: str
+            - join_type: str (optional)
+            - relationship: str
+            - sql_on: str
+        """
+        if not self.relationships:
+            return []
+
+        if view_name is None:
+            # Return all relationships
+            return self.relationships
+
+        # Filter relationships by view_name
+        filtered_relationships = []
+        for rel in self.relationships:
+            if rel.get("from_table") == view_name or rel.get("join_table") == view_name:
+                filtered_relationships.append(rel)
+
+        return filtered_relationships
 
     def get_mappings(self, dimensions_only: bool = False):
         if self.mappings is None:
