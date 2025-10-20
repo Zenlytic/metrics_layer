@@ -33,6 +33,22 @@ mappings:
 required_access_grants:
   - test_access_grant_region_model
 
+relationships:
+  - from_table: orders
+    join_table: customers
+    join_type: left_outer
+    relationship: many_to_one
+    sql_on: ${orders.customer_id}=${customers.customer_id}
+  - from_table: order_lines
+    join_table: orders
+    join_type: left_outer
+    relationship: many_to_one
+    sql_on: ${order_lines.order_id}=${orders.order_id} and ${orders.anon_id} is not null
+  - from_table: order_lines
+    join_table: discounts
+    relationship: one_to_many
+    sql_on: ${order_lines.order_id}=${discounts.order_id}
+
 access_grants:
   - name: test_access_grant_region_model
     user_attribute: region
