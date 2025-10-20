@@ -1,6 +1,6 @@
 import json
 from collections import Counter
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Union
 
 import pendulum
 
@@ -437,13 +437,13 @@ class Model(MetricsLayerBase):
         attributes = self.to_dict()
         return {key: attributes.get(key) for key in to_print if attributes.get(key) is not None}
 
-    def get_relationships(self, view_name: Any[str, None] = None):
+    def get_relationships(self, view_name: Union[str, None] = None):
         """
         Get all relationships for this model, optionally filtered by view name.
 
         Parameters
         ----------
-        view_name : Any[str, None]
+        view_name : Union[str, None]
             If provided, only return relationships where the view is referenced
             in either from_table or join_table. If None, return all relationships.
 
