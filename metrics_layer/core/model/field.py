@@ -2932,6 +2932,20 @@ class Field(MetricsLayerBase, SQLReplacement):
                     errors.append(error_func(sql, error_text))
         return errors
 
+    @staticmethod
+    def static_sql_validation(sql: str, query_type: str):
+        sqlglot_sql_flavor = sql_flavor_to_sqlglot_format(query_type)
+        try:
+            # The assumption here is that the passed sql may or may not contain references
+            # if it does contain references, they are valid, so this function checks only
+            # for SQL parse-ability, not reference logic (which is checked by collect_sql_errors)
+            replaced_sql = sql.replace("${", "").replace("}", "")
+            sqlglot.parse_one(replaced_sql, read=sqlglot_sql_flavor)
+        except Exception as e:
+            return [str(e)]
+
+        return []
+
     def get_referenced_sql_query(self, strings_only=True):
         if self.sql and ("{%" in self.sql or self.sql == ""):
             return None

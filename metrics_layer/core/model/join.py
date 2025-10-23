@@ -42,7 +42,7 @@ class Join(MetricsLayerBase, SQLReplacement):
         super().__init__(definition)
 
     def replaced_sql_on(self, query_type: str):
-        return self.get_replaced_sql_on(self.sql_on, query_type)
+        return self.get_replaced_sql_on(self.sql_on, query_type, self.project)
 
     @property
     def name(self):
@@ -117,32 +117,38 @@ class Join(MetricsLayerBase, SQLReplacement):
             return errors
 
         if self.sql_on:
-            fields_to_replace = self.fields_to_replace(self.sql_on)
+            errors.extend(self.validate_sql_on_references(self.sql_on, self.name, self.project, self._error))
 
-            for field in fields_to_replace:
-                view_name, column_name = Field.field_name_parts(field)
-                if view_name is None:
-                    errors.append(
-                        self._error(self.sql_on, f"Could not find view for field {field} in {self.name}")
+        return errors
+
+    @staticmethod
+    def validate_sql_on_references(sql_on: str, name: str, project, error_func):
+        # Validate that referenced fields exist
+        fields_to_replace = Join.fields_to_replace(sql_on)
+
+        errors = []
+        for field in fields_to_replace:
+            view_name, column_name = Field.field_name_parts(field)
+            if view_name is None:
+                errors.append(error_func(sql_on, f"Could not find view for field {field} in {name}"))
+                continue
+
+            try:
+                view = project.get_view(view_name)
+            except Exception:
+                err_msg = f"Could not find view {view_name} in {name}"
+                errors.append(error_func(sql_on, err_msg))
+                continue
+
+            try:
+                project.get_field(column_name, view_name=view.name)
+            except Exception:
+                errors.append(
+                    error_func(
+                        sql_on,
+                        f"Could not find field {column_name} in {name} referencing view {view_name}",
                     )
-                    continue
-
-                try:
-                    view = self.project.get_view(view_name)
-                except Exception:
-                    err_msg = f"Could not find view {view_name} in {self.name}"
-                    errors.append(self._error(self.sql_on, err_msg))
-                    continue
-
-                try:
-                    self.project.get_field(column_name, view_name=view.name)
-                except Exception:
-                    errors.append(
-                        self._error(
-                            self.sql_on,
-                            f"Could not find field {column_name} in {self.name} referencing view {view_name}",
-                        )
-                    )
+                )
 
         return errors
 
@@ -181,21 +187,22 @@ class Join(MetricsLayerBase, SQLReplacement):
             joins.append(join_name)
         return list(set(joins))
 
-    def get_replaced_sql_on(self, sql: str, query_type: str):
+    @staticmethod
+    def get_replaced_sql_on(sql: str, query_type: str, project):
         sql_on = copy(sql)
-        fields_to_replace = self.fields_to_replace(sql_on)
+        fields_to_replace = Join.fields_to_replace(sql_on)
         for field in fields_to_replace:
             view_name, column_name = Field.field_name_parts(field)
             if view_name is None:
                 return
 
-            view = self.project.get_view(view_name)
+            view = project.get_view(view_name)
 
             if view is None:
                 return
 
             table_name = view.name
-            field_obj = self.project.get_field(column_name, view_name=table_name)
+            field_obj = project.get_field(column_name, view_name=table_name)
 
             if field_obj and table_name:
                 sql_condition = field_obj.sql_query(query_type)
