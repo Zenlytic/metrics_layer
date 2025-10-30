@@ -1424,7 +1424,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                 "Field missing required key 'name' The field passed was {'field_type': "
                 "'dimension', 'type': 'string', 'searchable': True, 'sql': \"CASE\\n--- parent "
                 "channel\\nWHEN ${channel} ilike '%social%' then 'Social'\\nELSE 'Not "
-                "Social'\\nEND\\n\"} in the view order_lines in the model test_model"
+                "Social'\\nEND\\n\", 'promotable': True} in the view order_lines in the model test_model"
             ],
         ),
         (
@@ -1434,8 +1434,8 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             [
                 "Field 'parent_channel' missing required key 'field_type' The field passed was {'name':"
                 " 'parent_channel', 'type': 'string', 'searchable': True, 'sql': \"CASE\\n--- parent"
-                " channel\\nWHEN ${channel} ilike '%social%' then 'Social'\\nELSE 'Not Social'\\nEND\\n\"} in"
-                " the view order_lines in the model test_model"
+                " channel\\nWHEN ${channel} ilike '%social%' then 'Social'\\nELSE 'Not Social'\\nEND\\n\","
+                " 'promotable': True} in the view order_lines in the model test_model"
             ],
         ),
         (
