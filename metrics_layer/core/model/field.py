@@ -190,7 +190,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         "extra",
         "window",
     )
-    internal_properties = ("is_dynamic_field",)
+    internal_properties = ("is_dynamic_field", "promotable", "parent_sql_query")
 
     def __init__(self, definition: dict, view) -> None:
         self.defaults = {"type": "string", "primary_key": False, "datatype": "timestamp"}
@@ -204,6 +204,9 @@ class Field(MetricsLayerBase, SQLReplacement):
         # Remove the label prefix if it's null
         if "label_prefix" in definition and definition["label_prefix"] is None:
             definition.pop("label_prefix")
+
+        if "promotable" not in definition:
+            definition["promotable"] = True
 
         self.view: View = view
         self.validate(definition)
