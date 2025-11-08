@@ -1,10 +1,13 @@
 from typing import TYPE_CHECKING
 
+import sqlglot
+
 from metrics_layer.core.exceptions import QueryError
 
 from .base import MetricsLayerBase, SQLReplacement
+from .definitions import sql_flavor_to_sqlglot_format
 from .field import Field
-from .join import ZenlyticJoinRelationship, ZenlyticJoinType
+from .join import Join, ZenlyticJoinRelationship, ZenlyticJoinType
 
 if TYPE_CHECKING:
     from metrics_layer.core.model.model import Model
@@ -164,40 +167,9 @@ class Relationship(MetricsLayerBase, SQLReplacement):
                 )
             )
         else:
-            # Validate that referenced fields exist
-            fields_to_replace = self.fields_to_replace(self.sql_on)
-
-            for field in fields_to_replace:
-                view_name, column_name = Field.field_name_parts(field)
-                if view_name is None:
-                    errors.append(
-                        self._error(
-                            self.sql_on,
-                            f"Could not find view for field {field} in {self.name} "
-                            f"in the model {self.model.name}",
-                        )
-                    )
-                    continue
-
-                try:
-                    view = self.model.project.get_view(view_name)
-                except Exception:
-                    err_msg = f"Could not find view {view_name} in {self.name} in the model {self.model.name}"
-                    errors.append(self._error(self.sql_on, err_msg))
-                    continue
-
-                try:
-                    self.model.project.get_field(column_name, view_name=view.name)
-                except Exception:
-                    errors.append(
-                        self._error(
-                            self.sql_on,
-                            (
-                                f"Could not find field {column_name} in {self.name} in the model "
-                                f"{self.model.name} referencing view {view_name}"
-                            ),
-                        )
-                    )
+            errors.extend(
+                Join.validate_sql_on_references(self.sql_on, self.name, self.model.project, self._error)
+            )
 
         # Check for invalid properties
         errors.extend(
@@ -209,5 +181,21 @@ class Relationship(MetricsLayerBase, SQLReplacement):
                 error_func=self._error,
             )
         )
+
+        return errors
+
+    @staticmethod
+    def static_sql_validation(sql_on: str, query_type: str, model):
+        errors = []
+        errors.extend(
+            Join.validate_sql_on_references(sql_on, f"relationship {sql_on}", model.project, lambda s, x: x)
+        )
+
+        sqlglot_sql_flavor = sql_flavor_to_sqlglot_format(query_type)
+        replaced_sql = Join.get_replaced_sql_on(sql_on, query_type, model.project)
+        try:
+            sqlglot.parse_one(replaced_sql, read=sqlglot_sql_flavor)
+        except Exception as e:
+            errors.append(str(e))
 
         return errors
