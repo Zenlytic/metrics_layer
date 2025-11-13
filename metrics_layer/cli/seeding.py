@@ -202,7 +202,7 @@ class SeedMetricsLayer:
             "timestamp(p) with time zone": "timestamp",
         }
 
-    def seed(self, auto_tag_searchable_fields: bool = False):
+    def seed(self, auto_tag_searchable_fields: bool = False, tag_default_date: bool = True):
         from metrics_layer.core.parse import ProjectDumper, ProjectLoader
 
         if self.connection.type not in Definitions.supported_warehouses:
@@ -256,6 +256,7 @@ class SeedMetricsLayer:
                 schema_name,
                 table_comment,
                 auto_tag_searchable_fields=auto_tag_searchable_fields,
+                tag_default_date=tag_default_date,
             )
             if self.table:
                 progress = ""
@@ -315,6 +316,7 @@ class SeedMetricsLayer:
         schema_name: str,
         table_comment: str = None,
         auto_tag_searchable_fields: bool = True,
+        tag_default_date: bool = True,
     ):
         view_name = self.clean_name(table_name)
         fields = self.make_fields(
@@ -347,13 +349,16 @@ class SeedMetricsLayer:
             "name": view_name,
             "model_name": model_name,
             "sql_table_name": sql_table_name,
-            "default_date": next((f["name"] for f in fields if f["field_type"] == "dimension_group"), None),
             "fields": fields,
         }
+        if tag_default_date:
+            view["default_date"] = next(
+                (f["name"] for f in fields if f["field_type"] == "dimension_group"), None
+            )
+            if view["default_date"] is None:
+                view.pop("default_date")
         if table_comment:
             view["description"] = table_comment
-        if view["default_date"] is None:
-            view.pop("default_date")
         return view
 
     def make_fields(self, column_data, schema_name: str, table_name: str, auto_tag_searchable_fields: bool):
