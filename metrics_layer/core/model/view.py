@@ -348,7 +348,7 @@ class View(MetricsLayerBase, SQLReplacement):
             "reference_id": self.name,
         }
 
-    def collect_errors(self):
+    def collect_errors(self, metrics_must_have_dates: bool = True):
         try:
             fields = self.fields(show_hidden=True)
         except QueryError as e:
@@ -760,7 +760,7 @@ class View(MetricsLayerBase, SQLReplacement):
         for field in fields:
             if field.primary_key and field.field_type != ZenlyticFieldType.measure:
                 primary_keys.add(field.name)
-            errors.extend(field.collect_errors())
+            errors.extend(field.collect_errors(metrics_must_have_dates=metrics_must_have_dates))
 
         if len(primary_keys) > 1:
             errors.append(

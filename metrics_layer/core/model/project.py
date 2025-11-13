@@ -363,6 +363,7 @@ class Project:
         }
 
     def validate(self, views_must_be_in_topics: bool = False, validate_topics: bool = True):
+        metrics_must_have_dates = views_must_be_in_topics
         all_errors = [] + self._conversion_errors
 
         model_names = [model.name for model in self.models()]
@@ -460,7 +461,7 @@ class Project:
             except (AccessDeniedOrDoesNotExistException, QueryError) as e:
                 all_errors.append(view._error(None, str(e) + f" in the view {view.name}"))
 
-            view_errors = view.collect_errors()
+            view_errors = view.collect_errors(metrics_must_have_dates=metrics_must_have_dates)
 
             for field in referenced_fields:
                 if isinstance(field, tuple):

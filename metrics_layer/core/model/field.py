@@ -1854,7 +1854,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             "reference_id": self.id(capitalize_alias=True),
         }
 
-    def collect_errors(self):
+    def collect_errors(self, metrics_must_have_dates: bool = True):
         warning_prefix = "Warning:"
         errors = []
         if not self.valid_name(self.name):
@@ -2570,8 +2570,8 @@ class Field(MetricsLayerBase, SQLReplacement):
                         " the default_date property on the view the measure is in. Merged results are"
                         " not possible without associated dates."
                     )
-
-                else:
+                    errors.append(self._error(self._definition["name"], error_text))
+                elif metrics_must_have_dates:
                     error_text = (
                         f"{warning_prefix} Field {self.name} in view {self.view.name} is a metric (measure),"
                         " but does not have a date associated with it. Associate a date with the metric"
@@ -2579,7 +2579,7 @@ class Field(MetricsLayerBase, SQLReplacement):
                         " default_date property on the view the measure is in. Time periods and merged"
                         " results will not be possible to use until you define the date association"
                     )
-                errors.append(self._error(self._definition["name"], error_text))
+                    errors.append(self._error(self._definition["name"], error_text))
             if "sql" not in self._definition and self.type != ZenlyticType.cumulative:
                 errors.append(
                     self._error(
