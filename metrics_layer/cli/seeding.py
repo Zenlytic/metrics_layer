@@ -71,10 +71,15 @@ class SeedMetricsLayer:
             "TIMETZ": "timestamp",
             "TIMESTAMP": "timestamp",
             "TIMESTAMPTZ": "timestamp",
+            "TIMESTAMP_NTZ": "timestamp",
+            "TIMESTAMP WITHOUT TIME ZONE": "timestamp",
+            "TIMESTAMP WITH TIME ZONE": "timestamp",
             "DATE": "date",
             "CHAR": "string",
             "VARCHAR": "string",
             "BOOLEAN": "yesno",
+            "INTEGER": "number",
+            "NUMERIC": "number",
             "DOUBLE PRECISION": "number",
             "DOUBLE": "number",
             "PRECISION": "number",
@@ -379,7 +384,7 @@ class SeedMetricsLayer:
             if self.connection.type == Definitions.snowflake:
                 metrics_layer_type = self._snowflake_type_lookup.get(row["DATA_TYPE"], "string")
             elif self.connection.type == Definitions.redshift:
-                metrics_layer_type = self._redshift_type_lookup.get(row["DATA_TYPE"], "string")
+                metrics_layer_type = self._redshift_type_lookup.get(row["DATA_TYPE"].upper(), "string")
             elif self.connection.type in {Definitions.postgres, Definitions.duck_db}:
                 metrics_layer_type = self._postgres_type_lookup.get(row["DATA_TYPE"], "string")
             elif self.connection.type == Definitions.bigquery:
