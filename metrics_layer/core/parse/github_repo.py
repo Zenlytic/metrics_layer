@@ -2,6 +2,7 @@ import os
 import pathlib
 import shutil
 from glob import glob
+from typing import Union
 
 import git
 import yaml
@@ -118,15 +119,24 @@ class GithubRepo(BaseRepo):
     def __delete_branch(self, branch_name: str):
         self.git_repo.remote().push(refspec=f":{branch_name}")
 
-    def add_commit_and_push(self, message: str, branch_name: str, private_key: str = None):
+    def add_commit_and_push(
+        self, message: str, branch_name: str, private_key: str = None, author: Union[str, None] = None
+    ):
         self._ssh_wrapped(
-            self.__add_commit_and_push, message=message, branch_name=branch_name, private_key=private_key
+            self.__add_commit_and_push,
+            message=message,
+            branch_name=branch_name,
+            private_key=private_key,
+            author=author,
         )
 
-    def __add_commit_and_push(self, message: str, branch_name: str):
+    def __add_commit_and_push(self, message: str, branch_name: str, author: Union[str, None] = None):
         self.git_repo.git.checkout(branch_name)
         self.git_repo.git.add(A=True)
-        self.git_repo.git.commit(m=message)
+        if author:
+            self.git_repo.git.commit(m=message, author=author)
+        else:
+            self.git_repo.git.commit(m=message)
         self.git_repo.git.push("origin", branch_name)
 
     def pull(self, pulling_from: str, pulling_to: str, private_key: str = None):
@@ -140,7 +150,12 @@ class GithubRepo(BaseRepo):
         self.git_repo.git.push("origin", pulling_to)
 
     def squash_and_merge(
-        self, merging_from: str, merging_to: str, message: str = None, private_key: str = None
+        self,
+        merging_from: str,
+        merging_to: str,
+        message: str = None,
+        private_key: str = None,
+        author: Union[str, None] = None,
     ):
         self._ssh_wrapped(
             self.__squash_and_merge,
@@ -148,13 +163,19 @@ class GithubRepo(BaseRepo):
             merging_to=merging_to,
             message=message,
             private_key=private_key,
+            author=author,
         )
 
-    def __squash_and_merge(self, merging_from: str, merging_to: str, message: str = None):
+    def __squash_and_merge(
+        self, merging_from: str, merging_to: str, message: str = None, author: Union[str, None] = None
+    ):
         msg = message if message else f"Squash and merge {merging_from} into {merging_to}"
         self.git_repo.git.checkout(merging_to)
         self.git_repo.git.merge(f"origin/{merging_from}", squash=True)
-        self.git_repo.git.commit(m=msg)
+        if author:
+            self.git_repo.git.commit(m=msg, author=author)
+        else:
+            self.git_repo.git.commit(m=msg)
         self.git_repo.git.push("origin", merging_to)
 
     def _ssh_wrapped(self, func, **kwargs):
