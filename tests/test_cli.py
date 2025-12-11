@@ -130,9 +130,9 @@ def test_cli_seed_metrics_layer(
             if query_type in {Definitions.snowflake, Definitions.databricks}:
                 assert data["description"] == "orders table, bro"
             if query_type in {Definitions.snowflake, Definitions.redshift}:
-                assert data["sql_table_name"] == "ANALYTICS.ORDERS"
+                assert data["sql_table_name"] == '"ANALYTICS"."ORDERS"'
             if query_type in {Definitions.druid}:
-                assert data["sql_table_name"] == "druid.orders"
+                assert data["sql_table_name"] == '"druid"."orders"'
             elif query_type == Definitions.bigquery:
                 assert data["sql_table_name"] == "`analytics.analytics.orders`"
             elif (
@@ -141,25 +141,27 @@ def test_cli_seed_metrics_layer(
                     Definitions.postgres,
                     Definitions.azure_synapse,
                     Definitions.sql_server,
-                    Definitions.databricks,
                     Definitions.trino,
                     Definitions.mysql,
                 }
                 and database_override is None
             ):
-                assert data["sql_table_name"] == "analytics.orders"
+                assert data["sql_table_name"] == '"analytics"."orders"'
+            elif query_type == Definitions.databricks and not database_override:
+                assert data["sql_table_name"] == "`analytics`.`orders`"
             elif (
                 query_type
                 in {
                     Definitions.postgres,
                     Definitions.azure_synapse,
                     Definitions.sql_server,
-                    Definitions.databricks,
                     Definitions.mysql,
                 }
                 and database_override
             ):
-                assert data["sql_table_name"] == "segment_events.analytics.orders"
+                assert data["sql_table_name"] == 'segment_events."analytics"."orders"'
+            elif query_type == Definitions.databricks and database_override:
+                assert data["sql_table_name"] == "segment_events.`analytics`.`orders`"
             assert "row_label" not in data
 
             order_id = next((f for f in data["fields"] if f["name"] == "order_id"))
@@ -293,7 +295,7 @@ def test_cli_seed_metrics_layer(
             assert all(f["field_type"] != "measure" for f in data["fields"])
         elif data["type"] == "view" and data["name"] == "sessions":
             if query_type in {Definitions.snowflake, Definitions.redshift}:
-                assert data["sql_table_name"] == "ANALYTICS.SESSIONS"
+                assert data["sql_table_name"] == '"ANALYTICS"."SESSIONS"'
             elif query_type == Definitions.bigquery:
                 assert data["sql_table_name"] == "`analytics.analytics.sessions`"
             elif (
@@ -302,25 +304,27 @@ def test_cli_seed_metrics_layer(
                     Definitions.postgres,
                     Definitions.sql_server,
                     Definitions.azure_synapse,
-                    Definitions.databricks,
                     Definitions.trino,
                     Definitions.mysql,
                 }
                 and database_override is None
             ):
-                assert data["sql_table_name"] == "analytics.sessions"
+                assert data["sql_table_name"] == '"analytics"."sessions"'
+            elif query_type == Definitions.databricks and not database_override:
+                assert data["sql_table_name"] == "`analytics`.`sessions`"
             elif (
                 query_type
                 in {
                     Definitions.postgres,
                     Definitions.sql_server,
                     Definitions.azure_synapse,
-                    Definitions.databricks,
                     Definitions.mysql,
                 }
                 and database_override
             ):
-                assert data["sql_table_name"] == "segment_events.analytics.sessions"
+                assert data["sql_table_name"] == 'segment_events."analytics"."sessions"'
+            elif query_type == Definitions.databricks and database_override:
+                assert data["sql_table_name"] == "segment_events.`analytics`.`sessions`"
             assert "row_label" not in data
 
             date = next((f for f in data["fields"] if f["name"] == "session_date"))
@@ -545,7 +549,8 @@ def test_cli_validate_broken_canon_date(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert (
-        result.output == "Found 1 error in the project:\n\n"
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nCanon date customers.does_not_exist is unreachable in field total_sessions.\n\n"
     )
 
@@ -802,7 +807,8 @@ def test_cli_validate_model_name_in_view(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert (
-        result.output == "Found 1 error in the project:\n\n"
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nCould not find or you do not have access to model None in view orders\n\n"
     )
 
@@ -845,7 +851,8 @@ def test_cli_dashboard_model_does_not_exist(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert (
-        result.output == "Found 1 error in the project:\n\n"
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nCould not find or you do not have access to model missing_model in dashboard sales_dashboard\n\n"
     )
 
@@ -866,7 +873,8 @@ def test_cli_canon_date_inaccessible(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert (
-        result.output == "Found 1 error in the project:\n\n"
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nCanon date orders.missing_field is unreachable in field total_revenue.\n\n"
     )
 
@@ -951,7 +959,8 @@ def test_cli_duplicate_field_names(connection, fresh_project, mocker):
 
     assert result.exit_code == 0
     assert (
-        result.output == "Found 1 error in the project:\n\n"
+        result.output
+        == "Found 1 error in the project:\n\n"
         "\nDuplicate field names in view customers: number_of_customers\n\n"
     )
 
