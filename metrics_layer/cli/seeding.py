@@ -337,13 +337,16 @@ class SeedMetricsLayer:
             Definitions.sql_server,
             Definitions.azure_synapse,
             Definitions.duck_db,
-            Definitions.databricks,
         }:
-            sql_table_name = f"{schema_name}.{table_name}"
+            sql_table_name = '"' + schema_name + '"."' + table_name + '"'
+            if self._database_is_not_default:
+                sql_table_name = f"{self.database}.{sql_table_name}"
+        elif self.connection.type == Definitions.databricks:
+            sql_table_name = "`" + schema_name + "`.`" + table_name + "`"
             if self._database_is_not_default:
                 sql_table_name = f"{self.database}.{sql_table_name}"
         elif self.connection.type in {Definitions.druid, Definitions.trino, Definitions.mysql}:
-            sql_table_name = f"{schema_name}.{table_name}"
+            sql_table_name = '"' + schema_name + '"."' + table_name + '"'
         elif self.connection.type == Definitions.bigquery:
             sql_table_name = f"`{self.database}.{schema_name}.{table_name}`"
         else:
@@ -625,10 +628,10 @@ class SeedMetricsLayer:
             )
         elif self.database and self.connection.type == Definitions.duck_db:
             query = (
-                "SELECT table_catalog as table_database, table_schema as table_schema, "
-                "table_name as table_name, table_type as table_type "
+                f"SELECT table_catalog as table_database, table_schema as table_schema, "
+                f"table_name as table_name, table_type as table_type "
                 f"FROM INFORMATION_SCHEMA.TABLES "
-                "WHERE table_schema not in ('information_schema')"
+                f"WHERE table_schema not in ('information_schema')"
             )
         elif self.connection.type == Definitions.databricks:
             database_str = f"{self.database}." if self.database else ""
