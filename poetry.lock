@@ -154,8 +154,8 @@ files = [
 jmespath = ">=0.7.1,<2.0.0"
 python-dateutil = ">=2.1,<3.0.0"
 urllib3 = [
-    {version = ">=1.25.4,<2.2.0 || >2.2.0,<3", markers = "python_version >= \"3.10\""},
     {version = ">=1.25.4,<1.27", markers = "python_version < \"3.10\""},
+    {version = ">=1.25.4,<2.2.0 || >2.2.0,<3", markers = "python_version >= \"3.10\""},
 ]
 
 [package.extras]
@@ -579,12 +579,25 @@ files = [
     {file = "filelock-3.18.0-py3-none-any.whl", hash = "sha256:c401f4f8377c4464e6db25fff06205fd89bdd83b65eb0488ed1b160f780e21de"},
     {file = "filelock-3.18.0.tar.gz", hash = "sha256:adbc88eabb99d2fec8c9c1b229b171f18afa655400173ddc653d5d01501fb9f2"},
 ]
-markers = {main = "extra == \"all\" or extra == \"snowflake\""}
+markers = {main = "python_version == \"3.9\" and (extra == \"all\" or extra == \"snowflake\")", dev = "python_version == \"3.9\""}
 
 [package.extras]
 docs = ["furo (>=2024.8.6)", "sphinx (>=8.1.3)", "sphinx-autodoc-typehints (>=3)"]
 testing = ["covdefaults (>=2.3)", "coverage (>=7.6.10)", "diff-cover (>=9.2.1)", "pytest (>=8.3.4)", "pytest-asyncio (>=0.25.2)", "pytest-cov (>=6)", "pytest-mock (>=3.14)", "pytest-timeout (>=2.3.1)", "virtualenv (>=20.28.1)"]
 typing = ["typing-extensions (>=4.12.2) ; python_version < \"3.11\""]
+
+[[package]]
+name = "filelock"
+version = "3.20.3"
+description = "A platform independent file lock."
+optional = false
+python-versions = ">=3.10"
+groups = ["main", "dev"]
+files = [
+    {file = "filelock-3.20.3-py3-none-any.whl", hash = "sha256:4b0dda527ee31078689fc205ec4f1c1bf7d56cf88b6dc9426c4f230e46c2dce1"},
+    {file = "filelock-3.20.3.tar.gz", hash = "sha256:18c57ee915c7ec61cff0ecf7f0f869936c7c30191bb0cf406f1341778d0834e1"},
+]
+markers = {main = "python_version >= \"3.10\" and (extra == \"all\" or extra == \"snowflake\")", dev = "python_version >= \"3.10\""}
 
 [[package]]
 name = "flake8"
@@ -654,12 +667,12 @@ files = [
 google-auth = ">=2.14.1,<3.0.0"
 googleapis-common-protos = ">=1.56.2,<2.0.0"
 grpcio = [
+    {version = ">=1.33.2,<2.0.0", optional = true, markers = "extra == \"grpc\""},
     {version = ">=1.49.1,<2.0.0", optional = true, markers = "python_version >= \"3.11\" and extra == \"grpc\""},
-    {version = ">=1.33.2,<2.0.0", optional = true, markers = "python_version < \"3.11\" and extra == \"grpc\""},
 ]
 grpcio-status = [
-    {version = ">=1.49.1,<2.0.0", optional = true, markers = "python_version >= \"3.11\" and extra == \"grpc\""},
     {version = ">=1.33.2,<2.0.0", optional = true, markers = "extra == \"grpc\""},
+    {version = ">=1.49.1,<2.0.0", optional = true, markers = "python_version >= \"3.11\" and extra == \"grpc\""},
 ]
 proto-plus = ">=1.22.3,<2.0.0"
 protobuf = ">=3.19.5,<3.20.0 || >3.20.0,<3.20.1 || >3.20.1,<4.21.0 || >4.21.0,<4.21.1 || >4.21.1,<4.21.2 || >4.21.2,<4.21.3 || >4.21.3,<4.21.4 || >4.21.4,<4.21.5 || >4.21.5,<7.0.0"
@@ -1455,8 +1468,8 @@ files = [
 
 [package.dependencies]
 numpy = [
-    {version = ">=1.23.2", markers = "python_version >= \"3.11\""},
     {version = ">=1.20.3", markers = "python_version < \"3.10\""},
+    {version = ">=1.23.2", markers = "python_version >= \"3.11\""},
     {version = ">=1.21.0", markers = "python_version >= \"3.10\""},
 ]
 python-dateutil = ">=2.8.1"
@@ -1803,9 +1816,10 @@ test = ["cffi", "hypothesis", "pandas", "pytest", "pytz"]
 name = "pyasn1"
 version = "0.6.2"
 description = "Pure-Python implementation of ASN.1 types and DER/BER/CER codecs (X.208)"
-optional = false
+optional = true
 python-versions = ">=3.8"
 groups = ["main"]
+markers = "extra == \"all\" or extra == \"bigquery\""
 files = [
     {file = "pyasn1-0.6.2-py3-none-any.whl", hash = "sha256:1eb26d860996a18e9b6ed05e7aae0e9fc21619fcee6af91cca9bad4fbea224bf"},
     {file = "pyasn1-0.6.2.tar.gz", hash = "sha256:9b59a2b25ba7e4f8197db7686c09fb33e658b98339fadb826e9512629017833b"},
@@ -2744,7 +2758,7 @@ files = [
 name = "typing-extensions"
 version = "4.14.1"
 description = "Backported and Experimental Type Hints for Python 3.9+"
-optional = true
+optional = false
 python-versions = ">=3.9"
 groups = ["main", "dev"]
 files = [
@@ -2772,7 +2786,7 @@ description = "HTTP library with thread-safe connection pooling, file post, and 
 optional = true
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,>=2.7"
 groups = ["main"]
-markers = "extra == \"all\" or extra == \"redshift\" or extra == \"snowflake\" or extra == \"bigquery\""
+markers = "python_version == \"3.9\" and (extra == \"all\" or extra == \"snowflake\" or extra == \"redshift\" or extra == \"bigquery\") or extra == \"all\" or extra == \"redshift\" or extra == \"snowflake\" or extra == \"bigquery\""
 files = [
     {file = "urllib3-1.26.20-py2.py3-none-any.whl", hash = "sha256:0ed14ccfbf1c30a9072c7ca157e4319b70d65f623e91e7b32fadb2853431016e"},
     {file = "urllib3-1.26.20.tar.gz", hash = "sha256:40c2dc0c681e47eb8f90e7e27bf6ff7df2e677421fd46756da1161c39ca70d32"},
@@ -2785,20 +2799,24 @@ socks = ["PySocks (>=1.5.6,!=1.5.7,<2.0)"]
 
 [[package]]
 name = "virtualenv"
-version = "20.32.0"
+version = "20.36.1"
 description = "Virtual Python Environment builder"
 optional = false
 python-versions = ">=3.8"
 groups = ["dev"]
 files = [
-    {file = "virtualenv-20.32.0-py3-none-any.whl", hash = "sha256:2c310aecb62e5aa1b06103ed7c2977b81e042695de2697d01017ff0f1034af56"},
-    {file = "virtualenv-20.32.0.tar.gz", hash = "sha256:886bf75cadfdc964674e6e33eb74d787dff31ca314ceace03ca5810620f4ecf0"},
+    {file = "virtualenv-20.36.1-py3-none-any.whl", hash = "sha256:575a8d6b124ef88f6f51d56d656132389f961062a9177016a50e4f507bbcc19f"},
+    {file = "virtualenv-20.36.1.tar.gz", hash = "sha256:8befb5c81842c641f8ee658481e42641c68b5eab3521d8e092d18320902466ba"},
 ]
 
 [package.dependencies]
 distlib = ">=0.3.7,<1"
-filelock = ">=3.12.2,<4"
+filelock = [
+    {version = ">=3.16.1,<4", markers = "python_version < \"3.10\""},
+    {version = ">=3.20.1,<4", markers = "python_version >= \"3.10\""},
+]
 platformdirs = ">=3.9.1,<5"
+typing-extensions = {version = ">=4.13.2", markers = "python_version < \"3.11\""}
 
 [package.extras]
 docs = ["furo (>=2023.7.26)", "proselint (>=0.13)", "sphinx (>=7.1.2,!=7.3)", "sphinx-argparse (>=0.4)", "sphinxcontrib-towncrier (>=0.2.1a0)", "towncrier (>=23.6)"]
