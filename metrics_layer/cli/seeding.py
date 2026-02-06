@@ -294,6 +294,110 @@ class SeedMetricsLayer:
             }
             dumper.dump_yaml_file(project_data, zenlytic_project_path)
 
+    def seed_single_view(
+        self,
+        model_name: str,
+        auto_tag_searchable_fields: bool = False,
+        tag_default_date: bool = True,
+    ) -> Union[dict, None]:
+        """Seed a single table and return the view dict in memory.
+
+        Unlike :meth:`seed`, this method does **not** touch the filesystem.
+        It queries the warehouse for column metadata, builds the view
+        dictionary (including fields), and returns it directly.
+
+        Parameters
+        ----------
+        model_name
+            Name of the data model that the view belongs to.
+        auto_tag_searchable_fields
+            When ``True``, run cardinality queries to mark low-cardinality
+            string columns as ``searchable``.
+        tag_default_date
+            When ``True``, automatically set ``default_date`` on the view if a
+            dimension_group field is found.
+
+        Returns
+        -------
+        dict or None
+            The view dictionary ready to be serialised to YAML, or ``None`` if
+            the table has no columns.
+
+        Raises
+        ------
+        ValueError
+            If the instance was created without a specific ``table`` name.
+        """
+        if not self.table:
+            raise ValueError(
+                "seed_single_view() requires a specific table name. "
+                "Set the 'table' parameter when constructing SeedMetricsLayer."
+            )
+
+        if self.connection.type not in Definitions.supported_warehouses:
+            raise NotImplementedError(
+                f"The only data warehouses supported for seeding are "
+                f"{Definitions.supported_warehouses_text}"
+            )
+
+        columns_query = self.columns_query()
+        data = self.run_query(columns_query)
+        data.columns = [c.upper() for c in data.columns]
+
+        if self.connection.type in {Definitions.snowflake, Definitions.databricks}:
+            table_query = self.table_query()
+            table_data = self.run_query(table_query)
+            table_data.columns = [c.upper() for c in table_data.columns]
+        else:
+            table_data = pd.DataFrame()
+
+        # Filter to the chosen schema and table
+        if self.schema:
+            data = data[data["TABLE_SCHEMA"].str.lower() == self.schema.lower()].copy()
+            if not table_data.empty:
+                table_data = table_data[table_data["TABLE_SCHEMA"].str.lower() == self.schema.lower()].copy()
+
+        if self.table:
+            data = data[data["TABLE_NAME"].str.lower() == self.table.lower()].copy()
+            if not table_data.empty:
+                table_data = table_data[table_data["TABLE_NAME"].str.lower() == self.table.lower()].copy()
+
+        if data.empty or "TABLE_NAME" not in data.columns:
+            return None
+
+        tables = data["TABLE_NAME"].unique()
+        if len(tables) == 0:
+            return None
+
+        table_name = tables[0]
+        column_df = data[data["TABLE_NAME"].str.lower() == table_name.lower()].copy()
+
+        if column_df.empty:
+            return None
+
+        if not table_data.empty:
+            matching_rows = table_data[table_data["TABLE_NAME"].str.lower() == table_name.lower()]
+            table_comment = (
+                matching_rows["COMMENT"].values[0]
+                if not matching_rows.empty and "COMMENT" in matching_rows.columns
+                else None
+            )
+        else:
+            table_comment = None
+
+        schema_name = column_df["TABLE_SCHEMA"].values[0]
+
+        view = self.make_view(
+            column_df,
+            model_name,
+            table_name,
+            schema_name,
+            table_comment,
+            auto_tag_searchable_fields=auto_tag_searchable_fields,
+            tag_default_date=tag_default_date,
+        )
+        return view
+
     def get_model_name(self, current_models: list):
         if len(current_models) == 1:
             return current_models[0].name
