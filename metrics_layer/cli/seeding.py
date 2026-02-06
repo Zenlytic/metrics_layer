@@ -342,6 +342,10 @@ class SeedMetricsLayer:
 
         columns_query = self.columns_query()
         data = self.run_query(columns_query)
+
+        if data.empty or "TABLE_NAME" not in [c.upper() for c in data.columns]:
+            return None
+
         data.columns = [c.upper() for c in data.columns]
 
         if self.connection.type in {Definitions.snowflake, Definitions.databricks}:
@@ -355,14 +359,18 @@ class SeedMetricsLayer:
         if self.schema:
             data = data[data["TABLE_SCHEMA"].str.lower() == self.schema.lower()].copy()
             if not table_data.empty:
-                table_data = table_data[table_data["TABLE_SCHEMA"].str.lower() == self.schema.lower()].copy()
+                table_data = table_data[
+                    table_data["TABLE_SCHEMA"].str.lower() == self.schema.lower()
+                ].copy()
 
         if self.table:
             data = data[data["TABLE_NAME"].str.lower() == self.table.lower()].copy()
             if not table_data.empty:
-                table_data = table_data[table_data["TABLE_NAME"].str.lower() == self.table.lower()].copy()
+                table_data = table_data[
+                    table_data["TABLE_NAME"].str.lower() == self.table.lower()
+                ].copy()
 
-        if data.empty or "TABLE_NAME" not in data.columns:
+        if data.empty:
             return None
 
         tables = data["TABLE_NAME"].unique()
