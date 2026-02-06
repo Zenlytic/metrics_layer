@@ -6,10 +6,6 @@ import pytest
 from metrics_layer.cli.seeding import SeedMetricsLayer
 from metrics_layer.core.model.definitions import Definitions
 
-# ---------------------------------------------------------------------------
-#  Helpers
-# ---------------------------------------------------------------------------
-
 
 def _make_seeder(connection, query_type, monkeypatch, run_query_mock, **kwargs):
     """Build a SeedMetricsLayer with mocked query execution."""
