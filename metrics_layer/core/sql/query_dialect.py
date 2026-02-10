@@ -216,6 +216,7 @@ query_lookup = {
     Definitions.sql_server: MSSSQLQuery,
     Definitions.azure_synapse: MSSSQLQuery,  # Azure Synapse is a T-SQL flavor
     Definitions.mysql: MySQLQuery,
+    Definitions.teradata: PostgresQueryWithOrderByNullsOption,  # Teradata uses postgres-like quoting
 }
 
 if_null_lookup = {
@@ -230,4 +231,5 @@ if_null_lookup = {
     Definitions.sql_server: "isnull",
     Definitions.azure_synapse: "isnull",
     Definitions.mysql: "ifnull",
+    Definitions.teradata: "coalesce",
 }

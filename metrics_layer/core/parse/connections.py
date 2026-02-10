@@ -24,6 +24,7 @@ class ConnectionType:
     databricks = Definitions.databricks
     azure_synapse = Definitions.azure_synapse
     trino = Definitions.trino
+    teradata = Definitions.teradata
 
 
 class BaseConnection:
@@ -467,6 +468,65 @@ class BigQueryConnection(BaseConnection):
             )
 
 
+class TeradataConnection(BaseConnection):
+    def __init__(
+        self,
+        name: str,
+        host: str,
+        username: str = None,
+        user: str = None,
+        password: str = None,
+        port: int = 1025,
+        database: str = None,
+        schema: str = None,
+        logmech: str = None,
+        **kwargs,
+    ) -> None:
+        self.type = ConnectionType.teradata
+        self.name = name
+        self.host = host
+        self.port = port
+        if user and username:
+            raise ArgumentError(
+                "Received arguments for both user and username, "
+                "please send only one argument for the Teradata user"
+            )
+        elif username:
+            self.user = username
+        elif user:
+            self.user = user
+        self.password = password
+        self.database = database
+        self.schema = schema
+        self.logmech = logmech
+
+    def to_dict(self):
+        base = {
+            "name": self.name,
+            "host": self.host,
+            "port": self.port,
+            "type": self.type,
+        }
+        if self.user:
+            base["user"] = self.user
+        if self.password:
+            base["password"] = self.password
+        if self.database:
+            base["database"] = self.database
+        if self.schema:
+            base["schema"] = self.schema
+        if self.logmech:
+            base["logmech"] = self.logmech
+        return base
+
+    def printable_attributes(self):
+        attributes = deepcopy(self.to_dict())
+        attributes.pop("password", None)
+        attributes["name"] = self.name
+        sort_order = ["name", "type", "host", "port", "user", "database", "schema", "logmech"]
+        return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
+
+
 connection_class_lookup = {
     ConnectionType.snowflake: SnowflakeConnection,
     ConnectionType.redshift: RedshiftConnection,
@@ -479,4 +539,5 @@ connection_class_lookup = {
     ConnectionType.databricks: DatabricksConnection,
     ConnectionType.trino: TrinoConnection,
     ConnectionType.mysql: MySQLConnection,
+    ConnectionType.teradata: TeradataConnection,
 }

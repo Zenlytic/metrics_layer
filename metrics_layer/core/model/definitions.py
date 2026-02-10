@@ -13,6 +13,7 @@ class Definitions:
     azure_synapse = "AZURE_SYNAPSE"
     trino = "TRINO"
     mysql = "MYSQL"
+    teradata = "TERADATA"
     supported_warehouses = [
         snowflake,
         bigquery,
@@ -25,6 +26,7 @@ class Definitions:
         azure_synapse,
         trino,
         mysql,
+        teradata,
     ]
     symmetric_aggregates_supported_warehouses = [
         snowflake,
@@ -69,5 +71,7 @@ def sql_flavor_to_sqlglot_format(zenlytic_sql_flavor: str) -> str:
         return Definitions.trino.lower()
     elif sql_flavor == Definitions.mysql:
         return Definitions.mysql.lower()
+    elif sql_flavor == Definitions.teradata:
+        return Definitions.teradata.lower()
     else:
         raise MetricsLayerException(f"Unknown SQL flavor: {zenlytic_sql_flavor}")
