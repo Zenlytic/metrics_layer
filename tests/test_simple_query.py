@@ -486,7 +486,8 @@ def test_simple_query_single_dimension(connections):
 
 @pytest.mark.query
 @pytest.mark.parametrize(
-    "query_type", [Definitions.snowflake, Definitions.sql_server, Definitions.azure_synapse]
+    "query_type",
+    [Definitions.snowflake, Definitions.sql_server, Definitions.azure_synapse, Definitions.teradata],
 )
 def test_simple_query_limit(connections, query_type):
     project = Project(models=[simple_model], views=[simple_view])
@@ -501,6 +502,11 @@ def test_simple_query_limit(connections, query_type):
     elif query_type in {Definitions.sql_server, Definitions.azure_synapse}:
         correct = (
             "SELECT TOP (10) simple.sales_channel as simple_channel FROM analytics.orders simple "
+            "GROUP BY simple.sales_channel;"
+        )
+    elif query_type == Definitions.teradata:
+        correct = (
+            "SELECT TOP 10 simple.sales_channel as simple_channel FROM analytics.orders simple "
             "GROUP BY simple.sales_channel;"
         )
     else:
@@ -677,18 +683,14 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
             result_lookup = {"date": "CAST(TRUNC(CAST(simple.previous_order_date AS TIMESTAMP), 'DD') AS TIMESTAMP)"}
         else:
             result_lookup = {
-                "date": (
-                    "CAST(TRUNC(CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'UTC' at"
-                    " time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP), 'DD') AS TIMESTAMP)"
-                ),
+                "date": "CAST(TRUNC(CAST(simple.order_date AS TIMESTAMP), 'DD') AS TIMESTAMP)",
                 "week": (
-                    "TRUNC(CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'UTC' at"
-                    " time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP) + INTERVAL '1' DAY, 'IW') - INTERVAL '1' DAY"
+                    "TRUNC(CAST(simple.order_date AS TIMESTAMP) + INTERVAL '1' DAY, 'IW') - INTERVAL '1' DAY"
                 ),
             }
         where = (
-            "WHERE CAST(TRUNC(CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'UTC' at time zone 'America/New_York' AS TIMESTAMP) "
-            f"AS TIMESTAMP), 'DD') AS TIMESTAMP)>='{start}' AND CAST(TRUNC(CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'UTC' at time zone 'America/New_York' AS TIMESTAMP) AS TIMESTAMP), 'DD') AS TIMESTAMP)<='{end}'"
+            f"WHERE CAST(TRUNC(CAST(simple.order_date AS TIMESTAMP), 'DD') AS TIMESTAMP)>='{start}' "
+            f"AND CAST(TRUNC(CAST(simple.order_date AS TIMESTAMP), 'DD') AS TIMESTAMP)<='{end}'"
         )
         order_by = ""
     elif query_type in {Definitions.postgres, Definitions.trino, Definitions.duck_db}:
@@ -1421,25 +1423,25 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             ),
             "year": "TRUNC(CAST(simple.order_date AS TIMESTAMP), 'YEAR')",
             "fiscal_month": (
-                "TRUNC(CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP), 'MM')"
+                "TRUNC(CAST(ADD_MONTHS(simple.order_date, 1) AS TIMESTAMP), 'MM')"
             ),
             "fiscal_quarter": (
-                "CAST(EXTRACT(YEAR FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
+                "CAST(EXTRACT(YEAR FROM CAST(ADD_MONTHS(simple.order_date, 1) AS TIMESTAMP))"
                 " AS VARCHAR(4)) || '-Q' || CAST(((EXTRACT(MONTH FROM"
-                " CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP)) - 1) / 3 + 1)"
+                " CAST(ADD_MONTHS(simple.order_date, 1) AS TIMESTAMP)) - 1) / 3 + 1)"
                 " AS VARCHAR(1))"
             ),
             "fiscal_year": (
-                "TRUNC(CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP), 'YEAR')"
+                "TRUNC(CAST(ADD_MONTHS(simple.order_date, 1) AS TIMESTAMP), 'YEAR')"
             ),
             "fiscal_month_of_year_index": (
-                "EXTRACT(MONTH FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
+                "EXTRACT(MONTH FROM CAST(ADD_MONTHS(simple.order_date, 1) AS TIMESTAMP))"
             ),
             "fiscal_month_index": (
-                "EXTRACT(MONTH FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
+                "EXTRACT(MONTH FROM CAST(ADD_MONTHS(simple.order_date, 1) AS TIMESTAMP))"
             ),
             "fiscal_quarter_of_year": (
-                "((EXTRACT(MONTH FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP))"
+                "((EXTRACT(MONTH FROM CAST(ADD_MONTHS(simple.order_date, 1) AS TIMESTAMP))"
                 " - 1) / 3 + 1)"
             ),
             "week_index": (

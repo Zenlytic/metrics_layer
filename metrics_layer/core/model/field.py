@@ -1789,11 +1789,11 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"CAST(DATETIME(CAST({sql} AS TIMESTAMP), '{timezone}') AS {self.datatype.upper()})"
         elif query_type == Definitions.redshift:
             return f"CAST(CAST(CONVERT_TIMEZONE('{timezone}', CAST({sql} AS TIMESTAMP)) AS TIMESTAMP) AS {self.datatype.upper()})"  # noqa
-        elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.trino, Definitions.teradata}:
+        elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.trino}:
             return f"CAST(CAST({sql} AS TIMESTAMP) at time zone 'UTC' at time zone '{timezone}' AS {self.datatype.upper()})"  # noqa
         elif query_type == Definitions.mysql:
             return f"CONVERT_TZ({sql}, 'UTC', '{timezone}')"
-        elif query_type in {Definitions.druid, Definitions.sql_server, Definitions.azure_synapse}:
+        elif query_type in {Definitions.druid, Definitions.sql_server, Definitions.azure_synapse, Definitions.teradata}:
             print(
                 f"Warning: {query_type.title()} does not support timezone conversion. "
                 "Timezone will be ignored."
@@ -1814,7 +1814,9 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.azure_synapse,
         }:
             return f"DATEADD(MONTH, {offset_in_months}, {sql})"
-        elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.druid, Definitions.trino, Definitions.teradata}:  # noqa
+        elif query_type == Definitions.teradata:
+            return f"ADD_MONTHS({sql}, {offset_in_months})"
+        elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.druid, Definitions.trino}:
             return f"{sql} + INTERVAL '{offset_in_months}' MONTH"
         elif query_type in {Definitions.bigquery, Definitions.mysql}:
             return f"DATE_ADD(CAST({sql} AS DATE), INTERVAL {offset_in_months} MONTH)"
