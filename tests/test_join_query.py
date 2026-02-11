@@ -1264,6 +1264,7 @@ def test_join_graph_raise_unjoinable_error(connection):
         Definitions.azure_synapse,
         Definitions.duck_db,
         Definitions.mysql,
+        Definitions.teradata,
     ],
 )
 def test_median_aggregate_function(connection, query_type):
@@ -1274,6 +1275,15 @@ def test_median_aggregate_function(connection, query_type):
         correct = (
             "SELECT MEDIAN(customers.customer_ltv) as customers_median_customer_ltv "
             "FROM analytics.customers customers ORDER BY customers_median_customer_ltv DESC NULLS LAST;"
+        )
+        assert query == correct
+    elif query_type == Definitions.teradata:
+        query = connection.get_sql_query(
+            metrics=["customers.median_customer_ltv"], dimensions=[], query_type=query_type
+        )
+        correct = (
+            "SELECT MEDIAN(customers.customer_ltv) as customers_median_customer_ltv "
+            "FROM analytics.customers customers;"
         )
         assert query == correct
     elif query_type == Definitions.bigquery:

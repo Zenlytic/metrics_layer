@@ -204,6 +204,38 @@ class MSSSQLQuery(Query):
         return MSSQLQueryBuilderCorrectLimit(**kwargs)
 
 
+class TeradataQueryBuilderWithTop(PostgreSQLQueryBuilderWithOrderByNullsOption):
+    QUERY_CLS = None  # Set below after TeradataQuery is defined
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._top = None
+
+    @builder
+    def limit(self, limit: int):
+        self._top = limit
+
+    def _select_sql(self, **kwargs):
+        return "SELECT {distinct}{top}{select}".format(
+            top="TOP {top} ".format(top=self._top) if self._top else "",
+            distinct=self._distinct_sql(**kwargs),
+            select=",".join(term.get_sql(with_alias=True, subquery=True, **kwargs) for term in self._selects),
+        )
+
+
+class TeradataQuery(Query):
+    """
+    Defines a query class for use with Teradata. Uses TOP N instead of LIMIT N.
+    """
+
+    @classmethod
+    def _builder(cls, **kwargs) -> TeradataQueryBuilderWithTop:
+        return TeradataQueryBuilderWithTop(**kwargs)
+
+
+TeradataQueryBuilderWithTop.QUERY_CLS = TeradataQuery
+
+
 query_lookup = {
     Definitions.snowflake: SnowflakeQuery,
     Definitions.bigquery: SnowflakeQuery,  # In terms of quoting, these are the same
@@ -216,6 +248,7 @@ query_lookup = {
     Definitions.sql_server: MSSSQLQuery,
     Definitions.azure_synapse: MSSSQLQuery,  # Azure Synapse is a T-SQL flavor
     Definitions.mysql: MySQLQuery,
+    Definitions.teradata: TeradataQuery,
 }
 
 if_null_lookup = {
@@ -230,4 +263,5 @@ if_null_lookup = {
     Definitions.sql_server: "isnull",
     Definitions.azure_synapse: "isnull",
     Definitions.mysql: "ifnull",
+    Definitions.teradata: "coalesce",
 }

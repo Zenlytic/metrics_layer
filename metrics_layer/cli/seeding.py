@@ -206,6 +206,27 @@ class SeedMetricsLayer:
             "timestamp with time zone": "timestamp",
             "timestamp(p) with time zone": "timestamp",
         }
+        self._teradata_type_lookup = {
+            "DA": "date",
+            "AT": "timestamp",
+            "TS": "timestamp",
+            "SZ": "timestamp",
+            "TZ": "timestamp",
+            "CF": "string",
+            "CV": "string",
+            "CO": "string",
+            "I1": "number",
+            "I2": "number",
+            "I": "number",
+            "I8": "number",
+            "D": "number",
+            "N": "number",
+            "F": "number",
+            "BF": "string",
+            "BV": "string",
+            "BO": "string",
+            "BL": "yesno",
+        }
 
     def seed(self, auto_tag_searchable_fields: bool = False, tag_default_date: bool = True):
         from metrics_layer.core.parse import ProjectDumper, ProjectLoader
@@ -449,6 +470,7 @@ class SeedMetricsLayer:
             Definitions.sql_server,
             Definitions.azure_synapse,
             Definitions.duck_db,
+            Definitions.teradata,
         }:
             sql_table_name = '"' + schema_name + '"."' + table_name + '"'
             if self._database_is_not_default:
@@ -517,6 +539,9 @@ class SeedMetricsLayer:
                 metrics_layer_type = self._trino_type_lookup.get(stripped_data_type, "string")
             elif self.connection.type == Definitions.mysql:
                 metrics_layer_type = self._mysql_type_lookup.get(row["DATA_TYPE"], "string")
+            elif self.connection.type == Definitions.teradata:
+                stripped_data_type = row["DATA_TYPE"].strip()
+                metrics_layer_type = self._teradata_type_lookup.get(stripped_data_type, "string")
             else:
                 raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
             # Add quotes for certain db only because we've seen issues with column names with special chars
@@ -529,6 +554,7 @@ class SeedMetricsLayer:
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
+                Definitions.teradata,
             }:
                 column_name = '"' + row["COLUMN_NAME"] + '"'
             elif self.connection.type == Definitions.mysql:
@@ -612,7 +638,7 @@ class SeedMetricsLayer:
             elif self.connection.type in {Definitions.trino}:
                 quote_column_name = f'"{column_name}"' if quote else column_name
                 query = f'APPROX_DISTINCT( {quote_column_name} ) as "{column_name_alias}_cardinality"'  # noqa: E501
-            elif self.connection.type in {Definitions.redshift, Definitions.postgres, Definitions.mysql}:
+            elif self.connection.type in {Definitions.redshift, Definitions.postgres, Definitions.mysql, Definitions.teradata}:  # noqa
                 quote_column_name = f'"{column_name}"' if quote else column_name
                 query = (
                     f'COUNT(DISTINCT {quote_column_name} ) as "{column_name_alias}_cardinality"'  # noqa: E501
@@ -646,6 +672,7 @@ class SeedMetricsLayer:
             Definitions.sql_server,
             Definitions.azure_synapse,
             Definitions.databricks,
+            Definitions.teradata,
         }:
             query += f" FROM {self.database}.{schema_name}.{table_name}"
         elif self.connection.type in {Definitions.druid, Definitions.trino, Definitions.mysql}:
@@ -678,6 +705,19 @@ class SeedMetricsLayer:
                 query += f"INFORMATION_SCHEMA.COLUMNS"
             else:
                 query += f"{self.database}.INFORMATION_SCHEMA.COLUMNS"
+        elif self.connection.type == Definitions.teradata:
+            query = (
+                "SELECT DatabaseName as TABLE_CATALOG, DatabaseName as TABLE_SCHEMA, "
+                "TableName as TABLE_NAME, ColumnName as COLUMN_NAME, ColumnType as DATA_TYPE "
+                "FROM DBC.ColumnsV"
+            )
+            if self.table and self.schema:
+                query += f" WHERE DatabaseName = '{self.schema}' AND TableName = '{self.table}'"
+            elif self.schema:
+                query += f" WHERE DatabaseName = '{self.schema}'"
+            elif self.database:
+                query += f" WHERE DatabaseName = '{self.database}'"
+            return query + ";"
         elif self.connection.type in {Definitions.druid, Definitions.trino, Definitions.mysql}:
             query = (
                 "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE "
@@ -720,6 +760,16 @@ class SeedMetricsLayer:
                 "row_count as table_row_count, comment as comment "
                 f"FROM {self.database}.INFORMATION_SCHEMA.TABLES"
             )
+        elif self.connection.type == Definitions.teradata:
+            query = (
+                "SELECT DatabaseName as table_database, DatabaseName as table_schema, "
+                "TableName as table_name, TableKind as table_type "
+                "FROM DBC.TablesV WHERE TableKind IN ('T', 'V', 'O')"
+            )
+            if self.schema:
+                query += f" AND DatabaseName = '{self.schema}'"
+            elif self.database:
+                query += f" AND DatabaseName = '{self.database}'"
         elif self.connection.type in {Definitions.druid, Definitions.trino, Definitions.mysql}:
             query = (
                 "SELECT TABLE_CATALOG as table_database, TABLE_SCHEMA as table_schema, TABLE_NAME as"

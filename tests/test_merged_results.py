@@ -19,6 +19,7 @@ from metrics_layer.core.model.definitions import Definitions
         Definitions.trino,
         Definitions.databricks,
         Definitions.mysql,
+        Definitions.teradata,
     ],
 )
 def test_merged_result_query_additional_metric(connection, query_type):
@@ -46,6 +47,11 @@ def test_merged_result_query_additional_metric(connection, query_type):
         session_date = "DATE_FORMAT(sessions.session_date, '%Y-%m-01')"
         order_by = ""
         session_by = ""
+    elif query_type == Definitions.teradata:
+        order_date = "TRUNC(CAST(order_lines.order_date AS TIMESTAMP), 'MM')"
+        session_date = "TRUNC(CAST(sessions.session_date AS TIMESTAMP), 'MM')"
+        order_by = ""
+        session_by = ""
     elif query_type in {Definitions.postgres, Definitions.trino, Definitions.databricks, Definitions.duck_db}:
         order_date = "DATE_TRUNC('MONTH', CAST(order_lines.order_date AS TIMESTAMP))"
         session_date = "DATE_TRUNC('MONTH', CAST(sessions.session_date AS TIMESTAMP))"
@@ -68,7 +74,7 @@ def test_merged_result_query_additional_metric(connection, query_type):
 
     if query_type == Definitions.redshift:
         ifnull = "nvl"
-    elif query_type in {Definitions.postgres, Definitions.trino, Definitions.databricks, Definitions.duck_db}:
+    elif query_type in {Definitions.postgres, Definitions.trino, Definitions.databricks, Definitions.duck_db, Definitions.teradata}:
         ifnull = "coalesce"
     else:
         ifnull = "ifnull"

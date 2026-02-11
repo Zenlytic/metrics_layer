@@ -386,6 +386,8 @@ def test_simple_query_field_on_field_filter(connections):
         ("min_revenue", Definitions.duck_db),
         ("max_revenue", Definitions.mysql),
         ("min_revenue", Definitions.mysql),
+        ("max_revenue", Definitions.teradata),
+        ("min_revenue", Definitions.teradata),
     ],
 )
 def test_simple_query_min_max(connections, metric, query_type):
@@ -428,6 +430,7 @@ def test_simple_query_min_max(connections, metric, query_type):
         (Definitions.bigquery),
         (Definitions.duck_db),
         (Definitions.mysql),
+        (Definitions.teradata),
     ],
 )
 def test_simple_query_count_distinct(connections, query_type):
@@ -483,7 +486,8 @@ def test_simple_query_single_dimension(connections):
 
 @pytest.mark.query
 @pytest.mark.parametrize(
-    "query_type", [Definitions.snowflake, Definitions.sql_server, Definitions.azure_synapse]
+    "query_type",
+    [Definitions.snowflake, Definitions.sql_server, Definitions.azure_synapse, Definitions.teradata],
 )
 def test_simple_query_limit(connections, query_type):
     project = Project(models=[simple_model], views=[simple_view])
@@ -498,6 +502,11 @@ def test_simple_query_limit(connections, query_type):
     elif query_type in {Definitions.sql_server, Definitions.azure_synapse}:
         correct = (
             "SELECT TOP (10) simple.sales_channel as simple_channel FROM analytics.orders simple "
+            "GROUP BY simple.sales_channel;"
+        )
+    elif query_type == Definitions.teradata:
+        correct = (
+            "SELECT TOP 10 simple.sales_channel as simple_channel FROM analytics.orders simple "
             "GROUP BY simple.sales_channel;"
         )
     else:
@@ -559,6 +568,9 @@ def test_simple_query_alias_keyword(connections):
         ("order", "week", Definitions.bigquery),
         ("order", "date", Definitions.mysql),
         ("order", "week", Definitions.mysql),
+        ("order", "date", Definitions.teradata),
+        ("order", "week", Definitions.teradata),
+        ("previous_order", "date", Definitions.teradata),
     ],
 )
 @pytest.mark.query
@@ -664,6 +676,21 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         where = (
             f"WHERE DATE(CONVERT_TZ(simple.order_date, 'UTC', 'America/New_York'))>='{start}' AND"
             f" DATE(CONVERT_TZ(simple.order_date, 'UTC', 'America/New_York'))<='{end}'"
+        )
+        order_by = ""
+    elif query_type == Definitions.teradata:
+        if field == "previous_order":
+            result_lookup = {"date": "CAST(TRUNC(CAST(simple.previous_order_date AS TIMESTAMP), 'DD') AS TIMESTAMP)"}
+        else:
+            result_lookup = {
+                "date": "CAST(TRUNC(CAST(simple.order_date AS TIMESTAMP), 'DD') AS TIMESTAMP)",
+                "week": (
+                    "TRUNC(CAST(simple.order_date AS TIMESTAMP) + INTERVAL '1' DAY, 'IW') - INTERVAL '1' DAY"
+                ),
+            }
+        where = (
+            f"WHERE CAST(TRUNC(CAST(simple.order_date AS TIMESTAMP), 'DD') AS TIMESTAMP)>='{start}' "
+            f"AND CAST(TRUNC(CAST(simple.order_date AS TIMESTAMP), 'DD') AS TIMESTAMP)<='{end}'"
         )
         order_by = ""
     elif query_type in {Definitions.postgres, Definitions.trino, Definitions.duck_db}:
@@ -1041,6 +1068,32 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("day_of_week", Definitions.mysql),
         ("day_of_month", Definitions.mysql),
         ("day_of_year", Definitions.mysql),
+        ("raw", Definitions.teradata),
+        ("time", Definitions.teradata),
+        ("second", Definitions.teradata),
+        ("minute", Definitions.teradata),
+        ("hour", Definitions.teradata),
+        ("date", Definitions.teradata),
+        ("week", Definitions.teradata),
+        ("month", Definitions.teradata),
+        ("quarter", Definitions.teradata),
+        ("year", Definitions.teradata),
+        ("fiscal_month", Definitions.teradata),
+        ("fiscal_quarter", Definitions.teradata),
+        ("fiscal_year", Definitions.teradata),
+        ("fiscal_month_of_year_index", Definitions.teradata),
+        ("fiscal_month_index", Definitions.teradata),
+        ("fiscal_quarter_of_year", Definitions.teradata),
+        ("week_index", Definitions.teradata),
+        ("week_of_month", Definitions.teradata),
+        ("month_of_year_index", Definitions.teradata),
+        ("month_of_year", Definitions.teradata),
+        ("month_of_year_full_name", Definitions.teradata),
+        ("quarter_of_year", Definitions.teradata),
+        ("hour_of_day", Definitions.teradata),
+        ("day_of_week", Definitions.teradata),
+        ("day_of_month", Definitions.teradata),
+        ("day_of_year", Definitions.teradata),
     ],
 )
 @pytest.mark.query
@@ -1351,6 +1404,68 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "day_of_year": "EXTRACT(DAYOFYEAR FROM simple.order_date)",
         }
         order_by = ""
+    elif query_type == Definitions.teradata:
+        result_lookup = {
+            "raw": "simple.order_date",
+            "time": "CAST(simple.order_date AS TIMESTAMP)",
+            "second": "CAST(CAST(simple.order_date AS TIMESTAMP(0)) AS TIMESTAMP)",
+            "minute": "TRUNC(CAST(simple.order_date AS TIMESTAMP), 'MI')",
+            "hour": "TRUNC(CAST(simple.order_date AS TIMESTAMP), 'HH')",
+            "date": "CAST(TRUNC(CAST(simple.order_date AS TIMESTAMP), 'DD') AS TIMESTAMP)",
+            "week": (
+                "TRUNC(CAST(simple.order_date AS TIMESTAMP) + INTERVAL '1' DAY, 'IW') - INTERVAL '1' DAY"
+            ),
+            "month": "TRUNC(CAST(simple.order_date AS TIMESTAMP), 'MM')",
+            "quarter": (
+                "CAST(EXTRACT(YEAR FROM CAST(simple.order_date AS TIMESTAMP)) AS VARCHAR(4))"
+                " || '-Q' || CAST(((EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP)) - 1) / 3 + 1)"
+                " AS VARCHAR(1))"
+            ),
+            "year": "TRUNC(CAST(simple.order_date AS TIMESTAMP), 'YEAR')",
+            "fiscal_month": (
+                "TRUNC(CAST(ADD_MONTHS(simple.order_date, 1) AS TIMESTAMP), 'MM')"
+            ),
+            "fiscal_quarter": (
+                "CAST(EXTRACT(YEAR FROM CAST(ADD_MONTHS(simple.order_date, 1) AS TIMESTAMP))"
+                " AS VARCHAR(4)) || '-Q' || CAST(((EXTRACT(MONTH FROM"
+                " CAST(ADD_MONTHS(simple.order_date, 1) AS TIMESTAMP)) - 1) / 3 + 1)"
+                " AS VARCHAR(1))"
+            ),
+            "fiscal_year": (
+                "TRUNC(CAST(ADD_MONTHS(simple.order_date, 1) AS TIMESTAMP), 'YEAR')"
+            ),
+            "fiscal_month_of_year_index": (
+                "EXTRACT(MONTH FROM CAST(ADD_MONTHS(simple.order_date, 1) AS TIMESTAMP))"
+            ),
+            "fiscal_month_index": (
+                "EXTRACT(MONTH FROM CAST(ADD_MONTHS(simple.order_date, 1) AS TIMESTAMP))"
+            ),
+            "fiscal_quarter_of_year": (
+                "((EXTRACT(MONTH FROM CAST(ADD_MONTHS(simple.order_date, 1) AS TIMESTAMP))"
+                " - 1) / 3 + 1)"
+            ),
+            "week_index": (
+                "((CAST(TRUNC(CAST(simple.order_date AS TIMESTAMP) + INTERVAL '1' DAY, 'DD') AS DATE)"
+                " - CAST(TRUNC(CAST(TRUNC(CAST(simple.order_date AS TIMESTAMP) + INTERVAL '1' DAY, 'DD') AS DATE), 'YEAR')"
+                " AS DATE)) / 7) + 1"
+            ),
+            "week_of_month": (
+                "((CAST(simple.order_date AS DATE) - CAST(TRUNC(CAST(simple.order_date AS DATE), 'MM') AS DATE)) / 7) + 1"
+            ),
+            "month_of_year_index": "EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP))",
+            "month_of_year": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Mon')",
+            "month_of_year_full_name": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Month')",
+            "quarter_of_year": "((EXTRACT(MONTH FROM CAST(simple.order_date AS TIMESTAMP)) - 1) / 3 + 1)",
+            "hour_of_day": "EXTRACT(HOUR FROM CAST(simple.order_date AS TIMESTAMP))",
+            "day_of_week": "TO_CHAR(CAST(simple.order_date AS TIMESTAMP), 'Dy')",
+            "day_of_month": "EXTRACT(DAY FROM CAST(simple.order_date AS TIMESTAMP))",
+            "day_of_year": "(CAST(simple.order_date AS DATE) - CAST(TRUNC(CAST(simple.order_date AS DATE), 'YEAR') AS DATE)) + 1",
+        }
+        # Add month_name alias
+        result_lookup["month_name"] = result_lookup["month_of_year"]
+        result_lookup["month_index"] = result_lookup["month_of_year_index"]
+        result_lookup["week_of_year"] = result_lookup["week_index"]
+        order_by = ""
     else:
         raise ValueError(f"Query type {query_type} not supported")
 
@@ -1444,6 +1559,14 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         ("month", Definitions.duck_db),
         ("quarter", Definitions.duck_db),
         ("year", Definitions.duck_db),
+        ("second", Definitions.teradata),
+        ("minute", Definitions.teradata),
+        ("hour", Definitions.teradata),
+        ("day", Definitions.teradata),
+        ("week", Definitions.teradata),
+        ("month", Definitions.teradata),
+        ("quarter", Definitions.teradata),
+        ("year", Definitions.teradata),
         ("second", Definitions.mysql),
         ("minute", Definitions.mysql),
         ("hour", Definitions.mysql),
@@ -1561,6 +1684,43 @@ def test_simple_query_dimension_group_interval(connections, interval: str, query
                 " AGE(simple.order_date, simple.view_date))/3)"
             ),
             "year": "DATE_PART('YEAR', AGE(simple.order_date, simple.view_date))",
+        }
+        order_by = ""
+    elif query_type == Definitions.teradata:
+        result_lookup = {
+            "second": (  # noqa
+                "(CAST(simple.order_date AS DATE) - CAST(simple.view_date AS DATE)) * 86400"
+                " + EXTRACT(HOUR FROM (CAST(simple.order_date AS TIMESTAMP(0)) - CAST(simple.view_date AS TIMESTAMP(0))"
+                " HOUR(4) TO SECOND)) * 3600"
+                " + EXTRACT(MINUTE FROM (CAST(simple.order_date AS TIMESTAMP(0)) - CAST(simple.view_date AS TIMESTAMP(0))"
+                " HOUR(4) TO SECOND)) * 60"
+                " + EXTRACT(SECOND FROM (CAST(simple.order_date AS TIMESTAMP(0)) - CAST(simple.view_date AS TIMESTAMP(0))"
+                " HOUR(4) TO SECOND))"
+            ),
+            "minute": (  # noqa
+                "(CAST(simple.order_date AS DATE) - CAST(simple.view_date AS DATE)) * 1440"
+                " + EXTRACT(HOUR FROM (CAST(simple.order_date AS TIMESTAMP(0)) - CAST(simple.view_date AS TIMESTAMP(0))"
+                " HOUR(4) TO SECOND)) * 60"
+                " + EXTRACT(MINUTE FROM (CAST(simple.order_date AS TIMESTAMP(0)) - CAST(simple.view_date AS TIMESTAMP(0))"
+                " HOUR(4) TO SECOND))"
+            ),
+            "hour": (  # noqa
+                "(CAST(simple.order_date AS DATE) - CAST(simple.view_date AS DATE)) * 24"
+                " + EXTRACT(HOUR FROM (CAST(simple.order_date AS TIMESTAMP(0)) - CAST(simple.view_date AS TIMESTAMP(0))"
+                " HOUR(4) TO SECOND))"
+            ),
+            "day": "(CAST(simple.order_date AS DATE) - CAST(simple.view_date AS DATE))",
+            "week": "(CAST(simple.order_date AS DATE) - CAST(simple.view_date AS DATE)) / 7",
+            "month": (  # noqa
+                "(EXTRACT(YEAR FROM CAST(simple.order_date AS DATE)) - EXTRACT(YEAR FROM CAST(simple.view_date AS DATE))) * 12"
+                " + (EXTRACT(MONTH FROM CAST(simple.order_date AS DATE)) - EXTRACT(MONTH FROM CAST(simple.view_date AS DATE)))"
+            ),
+            "quarter": (  # noqa
+                "((EXTRACT(YEAR FROM CAST(simple.order_date AS DATE)) - EXTRACT(YEAR FROM CAST(simple.view_date AS DATE))) * 12"
+                " + (EXTRACT(MONTH FROM CAST(simple.order_date AS DATE))"
+                " - EXTRACT(MONTH FROM CAST(simple.view_date AS DATE)))) / 3"
+            ),
+            "year": "EXTRACT(YEAR FROM CAST(simple.order_date AS DATE)) - EXTRACT(YEAR FROM CAST(simple.view_date AS DATE))",
         }
         order_by = ""
     else:
@@ -1705,6 +1865,8 @@ def test_simple_query_custom_metric(connections):
         ("order_date", "matches", "last year", Definitions.bigquery),
         ("order_date", "matches", "last year", Definitions.duck_db),
         ("order_date", "matches", "last year", Definitions.trino),
+        ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.teradata),
+        ("order_date", "matches", "last year", Definitions.teradata),
     ],
 )
 @pytest.mark.query
@@ -1724,6 +1886,7 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
         Definitions.druid,
         Definitions.sql_server,
         Definitions.trino,
+        Definitions.teradata,
     }:
         order_by = ""
     else:
@@ -1766,6 +1929,12 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
         and field == "order_date"
     ):
         condition = "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), DAY) AS TIMESTAMP)>'2021-08-04'"
+    elif query_type == Definitions.teradata and isinstance(value, datetime) and expression == "greater_than":
+        condition = f"CAST(TRUNC(CAST({field_id} AS TIMESTAMP), 'DD') AS TIMESTAMP)>'2021-08-04T00:00:00'"
+    elif query_type == Definitions.teradata and expression == "matches" and value == "last year":
+        last_year = pendulum.now("UTC").year - 1
+        condition = f"CAST(TRUNC(CAST({field_id} AS TIMESTAMP), 'DD') AS TIMESTAMP)>='{last_year}-01-01T00:00:00' AND "
+        condition += f"CAST(TRUNC(CAST({field_id} AS TIMESTAMP), 'DD') AS TIMESTAMP)<='{last_year}-12-31T23:59:59'"
     elif query_type == Definitions.bigquery and isinstance(value, datetime) and field == "order_date":
         condition = "CAST(DATE_TRUNC(CAST(simple.order_date AS DATE), DAY) AS TIMESTAMP)>CAST('2021-08-04 00:00:00' AS TIMESTAMP)"  # noqa
     elif query_type == Definitions.trino and isinstance(value, datetime) and field == "order_date":
@@ -1881,6 +2050,7 @@ def test_simple_query_convert_tz_alias_no(connections):
         ("is_valid_order", "boolean_false", None, Definitions.trino),
         ("is_valid_order", "boolean_true", None, Definitions.mysql),
         ("is_valid_order", "boolean_false", None, Definitions.mysql),
+        ("is_valid_order", "is_not_null", None, Definitions.teradata),
     ],
 )
 @pytest.mark.query
@@ -2045,6 +2215,7 @@ def test_simple_query_with_having_literal(connections):
         Definitions.databricks,
         Definitions.azure_synapse,
         Definitions.mysql,
+        Definitions.teradata,
     ],
 )
 def test_simple_query_with_order_by_dict(connections, query_type):
@@ -2075,6 +2246,7 @@ def test_simple_query_with_order_by_dict(connections, query_type):
         Definitions.trino,
         Definitions.databricks,
         Definitions.bigquery,
+        Definitions.teradata,
     }:
         nulls_last = " NULLS LAST"
     else:

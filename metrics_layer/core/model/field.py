@@ -1275,6 +1275,43 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "years": lambda start, end: f"DATE_DIFF(CAST({end} as DATE), CAST({start} as DATE), ISOYEAR)",
             },
         }
+        meta_lookup[Definitions.teradata] = {
+            "seconds": lambda start, end: (
+                f"(CAST({end} AS DATE) - CAST({start} AS DATE)) * 86400"
+                f" + EXTRACT(HOUR FROM (CAST({end} AS TIMESTAMP(0)) - CAST({start} AS TIMESTAMP(0))"
+                f" HOUR(4) TO SECOND)) * 3600"
+                f" + EXTRACT(MINUTE FROM (CAST({end} AS TIMESTAMP(0)) - CAST({start} AS TIMESTAMP(0))"
+                f" HOUR(4) TO SECOND)) * 60"
+                f" + EXTRACT(SECOND FROM (CAST({end} AS TIMESTAMP(0)) - CAST({start} AS TIMESTAMP(0))"
+                f" HOUR(4) TO SECOND))"
+            ),
+            "minutes": lambda start, end: (
+                f"(CAST({end} AS DATE) - CAST({start} AS DATE)) * 1440"
+                f" + EXTRACT(HOUR FROM (CAST({end} AS TIMESTAMP(0)) - CAST({start} AS TIMESTAMP(0))"
+                f" HOUR(4) TO SECOND)) * 60"
+                f" + EXTRACT(MINUTE FROM (CAST({end} AS TIMESTAMP(0)) - CAST({start} AS TIMESTAMP(0))"
+                f" HOUR(4) TO SECOND))"
+            ),
+            "hours": lambda start, end: (
+                f"(CAST({end} AS DATE) - CAST({start} AS DATE)) * 24"
+                f" + EXTRACT(HOUR FROM (CAST({end} AS TIMESTAMP(0)) - CAST({start} AS TIMESTAMP(0))"
+                f" HOUR(4) TO SECOND))"
+            ),
+            "days": lambda start, end: f"(CAST({end} AS DATE) - CAST({start} AS DATE))",
+            "weeks": lambda start, end: f"(CAST({end} AS DATE) - CAST({start} AS DATE)) / 7",
+            "months": lambda start, end: (
+                f"(EXTRACT(YEAR FROM CAST({end} AS DATE)) - EXTRACT(YEAR FROM CAST({start} AS DATE))) * 12"
+                f" + (EXTRACT(MONTH FROM CAST({end} AS DATE)) - EXTRACT(MONTH FROM CAST({start} AS DATE)))"
+            ),
+            "quarters": lambda start, end: (
+                f"((EXTRACT(YEAR FROM CAST({end} AS DATE)) - EXTRACT(YEAR FROM CAST({start} AS DATE))) * 12"
+                f" + (EXTRACT(MONTH FROM CAST({end} AS DATE))"
+                f" - EXTRACT(MONTH FROM CAST({start} AS DATE)))) / 3"
+            ),
+            "years": lambda start, end: (
+                f"EXTRACT(YEAR FROM CAST({end} AS DATE)) - EXTRACT(YEAR FROM CAST({start} AS DATE))"
+            ),
+        }
         # SQL Server and Databricks have identical syntax in this case
         meta_lookup[Definitions.databricks] = meta_lookup[Definitions.sql_server]
         # Snowflake and redshift have identical syntax in this case
@@ -1671,6 +1708,61 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "day_of_year": lambda s, qt: f"EXTRACT(DAYOFYEAR FROM {s})",
             },
         }
+        meta_lookup[Definitions.teradata] = {
+            "raw": lambda s, qt: s,
+            "time": lambda s, qt: f"CAST({s} AS TIMESTAMP)",
+            "second": lambda s, qt: f"CAST(CAST({s} AS TIMESTAMP(0)) AS TIMESTAMP)",
+            "minute": lambda s, qt: f"TRUNC(CAST({s} AS TIMESTAMP), 'MI')",
+            "hour": lambda s, qt: f"TRUNC(CAST({s} AS TIMESTAMP), 'HH')",
+            "date": lambda s, qt: f"CAST(TRUNC(CAST({s} AS TIMESTAMP), 'DD') AS TIMESTAMP)",
+            "week": self._week_dimension_group_time_sql,
+            "month": lambda s, qt: f"TRUNC(CAST({s} AS TIMESTAMP), 'MM')",
+            "quarter": lambda s, qt: (
+                f"CAST(EXTRACT(YEAR FROM CAST({s} AS TIMESTAMP)) AS VARCHAR(4))"
+                f" || '-Q' || CAST(((EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP)) - 1) / 3 + 1)"
+                f" AS VARCHAR(1))"
+            ),
+            "year": lambda s, qt: f"TRUNC(CAST({s} AS TIMESTAMP), 'YEAR')",
+            "fiscal_month": lambda s, qt: (
+                f"TRUNC(CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP), 'MM')"
+            ),
+            "fiscal_quarter": lambda s, qt: (
+                f"CAST(EXTRACT(YEAR FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                f" AS VARCHAR(4)) || '-Q' || CAST(((EXTRACT(MONTH FROM"
+                f" CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP)) - 1) / 3 + 1)"
+                f" AS VARCHAR(1))"
+            ),
+            "fiscal_year": lambda s, qt: (
+                f"TRUNC(CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP), 'YEAR')"
+            ),
+            "week_index": lambda s, qt: (
+                f"((CAST({self._apply_week_start_day_offset_only(s, qt)} AS DATE)"
+                f" - CAST(TRUNC(CAST({self._apply_week_start_day_offset_only(s, qt)} AS DATE), 'YEAR')"
+                f" AS DATE)) / 7) + 1"
+            ),
+            "week_of_month": lambda s, qt: (
+                f"((CAST({s} AS DATE) - CAST(TRUNC(CAST({s} AS DATE), 'MM') AS DATE)) / 7) + 1"
+            ),
+            "month_of_year_index": lambda s, qt: f"EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP))",
+            "fiscal_month_of_year_index": lambda s, qt: (
+                f"EXTRACT(MONTH FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+            ),
+            "month_of_year": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Mon')",
+            "month_of_year_full_name": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Month')",
+            "quarter_of_year": lambda s, qt: (
+                f"((EXTRACT(MONTH FROM CAST({s} AS TIMESTAMP)) - 1) / 3 + 1)"
+            ),
+            "fiscal_quarter_of_year": lambda s, qt: (
+                f"((EXTRACT(MONTH FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
+                f" - 1) / 3 + 1)"
+            ),
+            "hour_of_day": lambda s, qt: f"EXTRACT(HOUR FROM CAST({s} AS TIMESTAMP))",
+            "day_of_week": lambda s, qt: f"TO_CHAR(CAST({s} AS TIMESTAMP), 'Dy')",
+            "day_of_month": lambda s, qt: f"EXTRACT(DAY FROM CAST({s} AS TIMESTAMP))",
+            "day_of_year": lambda s, qt: (
+                f"(CAST({s} AS DATE) - CAST(TRUNC(CAST({s} AS DATE), 'YEAR') AS DATE)) + 1"
+            ),
+        }
         # Snowflake and redshift have identical syntax in this case
         meta_lookup[Definitions.redshift] = meta_lookup[Definitions.snowflake]
         # Snowflake and duck db have identical syntax in this case
@@ -1701,7 +1793,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"CAST(CAST({sql} AS TIMESTAMP) at time zone 'UTC' at time zone '{timezone}' AS {self.datatype.upper()})"  # noqa
         elif query_type == Definitions.mysql:
             return f"CONVERT_TZ({sql}, 'UTC', '{timezone}')"
-        elif query_type in {Definitions.druid, Definitions.sql_server, Definitions.azure_synapse}:
+        elif query_type in {Definitions.druid, Definitions.sql_server, Definitions.azure_synapse, Definitions.teradata}:
             print(
                 f"Warning: {query_type.title()} does not support timezone conversion. "
                 "Timezone will be ignored."
@@ -1722,6 +1814,8 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.azure_synapse,
         }:
             return f"DATEADD(MONTH, {offset_in_months}, {sql})"
+        elif query_type == Definitions.teradata:
+            return f"ADD_MONTHS({sql}, {offset_in_months})"
         elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.druid, Definitions.trino}:
             return f"{sql} + INTERVAL '{offset_in_months}' MONTH"
         elif query_type in {Definitions.bigquery, Definitions.mysql}:
@@ -1793,6 +1887,10 @@ class Field(MetricsLayerBase, SQLReplacement):
                 f"DATE_SUB({casted}, INTERVAL ((DAYOFWEEK({casted}) - {translated_offset[offset]} + 7) % 7)"
                 " DAY)"
             )
+        elif query_type == Definitions.teradata:
+            if offset is None:
+                return f"TRUNC(CAST({sql} AS TIMESTAMP), 'IW')"
+            return f"TRUNC(CAST({sql} AS TIMESTAMP) + INTERVAL '{offset}' DAY, 'IW') - INTERVAL '{offset}' DAY"  # noqa
 
         else:
             raise QueryError(f"Unable to find a valid method for running week with query type {query_type}")
@@ -1838,6 +1936,10 @@ class Field(MetricsLayerBase, SQLReplacement):
             if offset is None:
                 return f"CAST({casted} AS DATETIME)"
             return f"CAST(DATE_ADD({casted}, INTERVAL {offset} DAY) AS DATETIME)"  # noqa
+        elif query_type == Definitions.teradata:
+            if offset is None:
+                return f"TRUNC(CAST({sql} AS TIMESTAMP), 'DD')"
+            return f"TRUNC(CAST({sql} AS TIMESTAMP) + INTERVAL '{offset}' DAY, 'DD')"
         else:
             raise QueryError(f"Unable to find a valid method for running offset with query type {query_type}")
 
