@@ -9,7 +9,7 @@ import yaml
 
 from metrics_layer.core import utils
 
-BASE_PATH = os.path.dirname(__file__)
+BASE_PATH = os.getenv("GIT_REPO_BASE_PATH", os.path.dirname(__file__))
 
 
 class BaseRepo:
