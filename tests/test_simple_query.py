@@ -388,6 +388,8 @@ def test_simple_query_field_on_field_filter(connections):
         ("min_revenue", Definitions.mysql),
         ("max_revenue", Definitions.teradata),
         ("min_revenue", Definitions.teradata),
+        ("max_revenue", Definitions.athena),
+        ("min_revenue", Definitions.athena),
     ],
 )
 def test_simple_query_min_max(connections, metric, query_type):
@@ -431,6 +433,7 @@ def test_simple_query_min_max(connections, metric, query_type):
         (Definitions.duck_db),
         (Definitions.mysql),
         (Definitions.teradata),
+        (Definitions.athena),
     ],
 )
 def test_simple_query_count_distinct(connections, query_type):
@@ -571,6 +574,9 @@ def test_simple_query_alias_keyword(connections):
         ("order", "date", Definitions.teradata),
         ("order", "week", Definitions.teradata),
         ("previous_order", "date", Definitions.teradata),
+        ("order", "date", Definitions.athena),
+        ("order", "week", Definitions.athena),
+        ("previous_order", "date", Definitions.athena),
     ],
 )
 @pytest.mark.query
@@ -693,9 +699,9 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
             f"AND CAST(TRUNC(CAST(simple.order_date AS TIMESTAMP), 'DD') AS TIMESTAMP)<='{end}'"
         )
         order_by = ""
-    elif query_type in {Definitions.postgres, Definitions.trino, Definitions.duck_db}:
+    elif query_type in {Definitions.postgres, Definitions.trino, Definitions.duck_db, Definitions.athena}:
         if field == "previous_order":
-            if query_type in {Definitions.duck_db, Definitions.trino}:
+            if query_type in {Definitions.duck_db, Definitions.trino, Definitions.athena}:
                 result_lookup = {"date": "DATE_TRUNC('DAY', CAST(simple.previous_order_date AS TIMESTAMP))"}
             else:
                 result_lookup = {"date": "DATE_TRUNC('DAY', simple.previous_order_date)"}
@@ -712,7 +718,7 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
                     " '1' DAY"
                 ),
             }
-        if query_type == Definitions.trino:
+        if query_type in {Definitions.trino, Definitions.athena}:
             where = (
                 "WHERE DATE_TRUNC('DAY', CAST(CAST(CAST(simple.order_date AS TIMESTAMP) at time zone 'UTC' at time zone 'America/New_York' AS TIMESTAMP) "  # noqa
                 f"AS TIMESTAMP))>=CAST('{start}' AS TIMESTAMP) AND DATE_TRUNC('DAY', "
@@ -1094,6 +1100,34 @@ def test_simple_query_dimension_group_timezone(connections, field: str, group: s
         ("day_of_week", Definitions.teradata),
         ("day_of_month", Definitions.teradata),
         ("day_of_year", Definitions.teradata),
+        ("time", Definitions.athena),
+        ("second", Definitions.athena),
+        ("minute", Definitions.athena),
+        ("hour", Definitions.athena),
+        ("date", Definitions.athena),
+        ("week", Definitions.athena),
+        ("month", Definitions.athena),
+        ("quarter", Definitions.athena),
+        ("year", Definitions.athena),
+        ("fiscal_month", Definitions.athena),
+        ("fiscal_quarter", Definitions.athena),
+        ("fiscal_year", Definitions.athena),
+        ("fiscal_month_of_year_index", Definitions.athena),
+        ("fiscal_month_index", Definitions.athena),
+        ("fiscal_quarter_of_year", Definitions.athena),
+        ("week_index", Definitions.athena),
+        ("week_of_year", Definitions.athena),
+        ("week_of_month", Definitions.athena),
+        ("month_of_year_index", Definitions.athena),
+        ("month_index", Definitions.athena),
+        ("month_of_year", Definitions.athena),
+        ("month_of_year_full_name", Definitions.athena),
+        ("month_name", Definitions.athena),
+        ("quarter_of_year", Definitions.athena),
+        ("hour_of_day", Definitions.athena),
+        ("day_of_week", Definitions.athena),
+        ("day_of_month", Definitions.athena),
+        ("day_of_year", Definitions.athena),
     ],
 )
 @pytest.mark.query
@@ -1248,6 +1282,7 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         Definitions.databricks,
         Definitions.druid,
         Definitions.duck_db,
+        Definitions.athena,
     }:
         result_lookup = {
             "time": "CAST(simple.order_date AS TIMESTAMP)",
@@ -1297,7 +1332,15 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             "day_of_month": "EXTRACT('DAY' FROM CAST(simple.order_date AS TIMESTAMP))",
             "day_of_year": "EXTRACT('DOY' FROM CAST(simple.order_date AS TIMESTAMP))",
         }
-        if query_type == Definitions.trino:
+        if query_type in {Definitions.trino, Definitions.athena}:
+            result_lookup["quarter"] = (
+                "CONCAT(CAST(EXTRACT(YEAR FROM CAST(simple.order_date AS TIMESTAMP)) AS VARCHAR), '-Q',"
+                " CAST(EXTRACT(QUARTER FROM CAST(simple.order_date AS TIMESTAMP)) AS VARCHAR))"
+            )
+            result_lookup["fiscal_quarter"] = (
+                "CONCAT(CAST(EXTRACT(YEAR FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP)) AS VARCHAR),"
+                " '-Q', CAST(EXTRACT(QUARTER FROM CAST(simple.order_date + INTERVAL '1' MONTH AS TIMESTAMP)) AS VARCHAR))"
+            )
             result_lookup["month_of_year"] = "FORMAT_DATETIME(CAST(simple.order_date AS TIMESTAMP), 'MMM')"
             result_lookup[
                 "month_of_year_full_name"
@@ -1306,6 +1349,11 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
             result_lookup["day_of_week"] = "FORMAT_DATETIME(CAST(simple.order_date AS TIMESTAMP), 'EEE')"
             result_lookup["day_of_month"] = "EXTRACT(DAY FROM CAST(simple.order_date AS TIMESTAMP))"
             result_lookup["day_of_year"] = "EXTRACT(DOY FROM CAST(simple.order_date AS TIMESTAMP))"
+
+        # Add standard aliases
+        result_lookup["month_name"] = result_lookup["month_of_year"]
+        result_lookup["month_index"] = result_lookup["month_of_year_index"]
+        result_lookup["week_of_year"] = result_lookup["week_index"]
 
         if query_type == Definitions.duck_db:
             order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
@@ -1567,6 +1615,14 @@ def test_simple_query_dimension_group(connections, group: str, query_type: str):
         ("month", Definitions.teradata),
         ("quarter", Definitions.teradata),
         ("year", Definitions.teradata),
+        ("second", Definitions.athena),
+        ("minute", Definitions.athena),
+        ("hour", Definitions.athena),
+        ("day", Definitions.athena),
+        ("week", Definitions.athena),
+        ("month", Definitions.athena),
+        ("quarter", Definitions.athena),
+        ("year", Definitions.athena),
         ("second", Definitions.mysql),
         ("minute", Definitions.mysql),
         ("hour", Definitions.mysql),
@@ -1619,7 +1675,7 @@ def test_simple_query_dimension_group_interval(connections, interval: str, query
             "year": "DATEDIFF('YEAR', simple.view_date, simple.order_date)",
         }
         order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
-    elif query_type in {Definitions.trino}:
+    elif query_type in {Definitions.trino, Definitions.athena}:
         result_lookup = {
             "second": "DATE_DIFF('SECOND', simple.view_date, simple.order_date)",
             "minute": "DATE_DIFF('MINUTE', simple.view_date, simple.order_date)",
@@ -1867,6 +1923,8 @@ def test_simple_query_custom_metric(connections):
         ("order_date", "matches", "last year", Definitions.trino),
         ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.teradata),
         ("order_date", "matches", "last year", Definitions.teradata),
+        ("first_order_date", "greater_than", datetime(year=2021, month=8, day=4), Definitions.athena),
+        ("order_date", "matches", "last year", Definitions.athena),
     ],
 )
 @pytest.mark.query
@@ -1887,13 +1945,14 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
         Definitions.sql_server,
         Definitions.trino,
         Definitions.teradata,
+        Definitions.athena,
     }:
         order_by = ""
     else:
         order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
 
     semi = ";"
-    if query_type in {Definitions.druid, Definitions.trino}:
+    if query_type in {Definitions.druid, Definitions.trino, Definitions.athena}:
         semi = ""
     sf_or_rs = query_type in {
         Definitions.snowflake,
@@ -1902,12 +1961,14 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
         Definitions.duck_db,
         Definitions.databricks,
         Definitions.trino,
+        Definitions.athena,
     }
     if query_type not in {
         Definitions.druid,
         Definitions.duck_db,
         Definitions.databricks,
         Definitions.trino,
+        Definitions.athena,
     }:
         field_id = f"simple.{field}"
     else:
@@ -1920,7 +1981,7 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
         query_type == Definitions.sql_server and isinstance(value, datetime) and expression == "greater_than"
     ):
         condition = f"CAST(CAST({field_id} AS DATE) AS DATETIME)>'2021-08-04T00:00:00'"
-    elif sf_or_rs and query_type != Definitions.trino and isinstance(value, datetime):
+    elif sf_or_rs and query_type not in {Definitions.trino, Definitions.athena} and isinstance(value, datetime):
         condition = f"DATE_TRUNC('DAY', {field_id})>'2021-08-04T00:00:00'"
     elif (
         query_type == Definitions.bigquery
@@ -1943,13 +2004,13 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
         query_type == Definitions.bigquery and isinstance(value, datetime) and field == "previous_order_date"
     ):
         condition = "CAST(DATE_TRUNC(CAST(simple.previous_order_date AS DATE), DAY) AS DATETIME)>CAST(CAST('2021-08-04 00:00:00' AS TIMESTAMP) AS DATETIME)"  # noqa
-    elif query_type == Definitions.trino and isinstance(value, datetime) and field == "first_order_date":
+    elif query_type in {Definitions.trino, Definitions.athena} and isinstance(value, datetime) and field == "first_order_date":
         condition = "DATE_TRUNC('DAY', CAST(simple.first_order_date AS TIMESTAMP))>CAST(CAST('2021-08-04 00:00:00' AS TIMESTAMP) AS DATE)"  # noqa
     elif query_type == Definitions.bigquery and isinstance(value, datetime) and field == "first_order_date":
         condition = "CAST(DATE_TRUNC(CAST(simple.first_order_date AS DATE), DAY) AS DATE)>CAST(CAST('2021-08-04 00:00:00' AS TIMESTAMP) AS DATE)"  # noqa
     elif sf_or_rs and expression == "matches" and value == "last year":
         last_year = pendulum.now("UTC").year - 1
-        if query_type == Definitions.trino:
+        if query_type in {Definitions.trino, Definitions.athena}:
             start_of = f"CAST('{last_year}-01-01T00:00:00' AS TIMESTAMP)"
             end_of = f"CAST('{last_year}-12-31T23:59:59' AS TIMESTAMP)"
         else:
@@ -1967,7 +2028,7 @@ def test_simple_query_with_where_dim_group(connections, field, expression, value
         pendulum.week_ends_at(pendulum.SATURDAY)
         start_of = pendulum.now("UTC").subtract(days=7).start_of("week").strftime(date_format)
         end_of = pendulum.now("UTC").subtract(days=7).end_of("week").strftime(date_format)
-        if query_type == Definitions.trino:
+        if query_type in {Definitions.trino, Definitions.athena}:
             start_of = f"CAST('{start_of}' AS TIMESTAMP)"
             end_of = f"CAST('{end_of}' AS TIMESTAMP)"
         else:
@@ -2051,6 +2112,7 @@ def test_simple_query_convert_tz_alias_no(connections):
         ("is_valid_order", "boolean_true", None, Definitions.mysql),
         ("is_valid_order", "boolean_false", None, Definitions.mysql),
         ("is_valid_order", "is_not_null", None, Definitions.teradata),
+        ("is_valid_order", "is_not_null", None, Definitions.athena),
     ],
 )
 @pytest.mark.query
@@ -2068,7 +2130,7 @@ def test_simple_query_with_where_dict(connections, field_name, filter_type, valu
     if query_type == Definitions.snowflake:
         order_by = " ORDER BY simple_total_revenue DESC NULLS LAST"
         semi = ";"
-    elif query_type in {Definitions.druid, Definitions.trino}:
+    elif query_type in {Definitions.druid, Definitions.trino, Definitions.athena}:
         order_by = ""
         semi = ""
     else:
@@ -2216,6 +2278,7 @@ def test_simple_query_with_having_literal(connections):
         Definitions.azure_synapse,
         Definitions.mysql,
         Definitions.teradata,
+        Definitions.athena,
     ],
 )
 def test_simple_query_with_order_by_dict(connections, query_type):
@@ -2237,7 +2300,7 @@ def test_simple_query_with_order_by_dict(connections, query_type):
     else:
         group_by = "simple.sales_channel"
 
-    semi = ";" if query_type not in {Definitions.druid, Definitions.trino} else ""
+    semi = ";" if query_type not in {Definitions.druid, Definitions.trino, Definitions.athena} else ""
     if query_type in {
         Definitions.snowflake,
         Definitions.redshift,
@@ -2247,6 +2310,7 @@ def test_simple_query_with_order_by_dict(connections, query_type):
         Definitions.databricks,
         Definitions.bigquery,
         Definitions.teradata,
+        Definitions.athena,
     }:
         nulls_last = " NULLS LAST"
     else:

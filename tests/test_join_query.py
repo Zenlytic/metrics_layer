@@ -1265,6 +1265,7 @@ def test_join_graph_raise_unjoinable_error(connection):
         Definitions.duck_db,
         Definitions.mysql,
         Definitions.teradata,
+        Definitions.athena,
     ],
 )
 def test_median_aggregate_function(connection, query_type):

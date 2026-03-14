@@ -249,6 +249,7 @@ query_lookup = {
     Definitions.azure_synapse: MSSSQLQuery,  # Azure Synapse is a T-SQL flavor
     Definitions.mysql: MySQLQuery,
     Definitions.teradata: TeradataQuery,
+    Definitions.athena: PostgresQueryWithOrderByNullsOption,  # athena core query logic = postgres (trino)
 }
 
 if_null_lookup = {
@@ -264,4 +265,5 @@ if_null_lookup = {
     Definitions.azure_synapse: "isnull",
     Definitions.mysql: "ifnull",
     Definitions.teradata: "coalesce",
+    Definitions.athena: "coalesce",
 }

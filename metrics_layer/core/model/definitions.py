@@ -14,6 +14,7 @@ class Definitions:
     trino = "TRINO"
     mysql = "MYSQL"
     teradata = "TERADATA"
+    athena = "ATHENA"
     supported_warehouses = [
         snowflake,
         bigquery,
@@ -27,6 +28,7 @@ class Definitions:
         trino,
         mysql,
         teradata,
+        athena,
     ]
     symmetric_aggregates_supported_warehouses = [
         snowflake,
@@ -37,8 +39,8 @@ class Definitions:
         azure_synapse,
         sql_server,
     ]
-    no_semicolon_warehouses = [druid, trino]
-    needs_datetime_cast = [bigquery, trino]
+    no_semicolon_warehouses = [druid, trino, athena]
+    needs_datetime_cast = [bigquery, trino, athena]
     supported_warehouses_text = ", ".join(supported_warehouses)
 
     does_not_exist = "__DOES_NOT_EXIST__"
@@ -73,5 +75,9 @@ def sql_flavor_to_sqlglot_format(zenlytic_sql_flavor: str) -> str:
         return Definitions.mysql.lower()
     elif sql_flavor == Definitions.teradata:
         return Definitions.teradata.lower()
+    elif sql_flavor == Definitions.athena:
+        # This is intentional as Athena uses Trino syntax but sqlglot
+        # does not have a separate Athena dialect
+        return Definitions.trino.lower()
     else:
         raise MetricsLayerException(f"Unknown SQL flavor: {zenlytic_sql_flavor}")
