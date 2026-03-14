@@ -20,6 +20,7 @@ from metrics_layer.core.model.definitions import Definitions
         Definitions.databricks,
         Definitions.mysql,
         Definitions.teradata,
+        Definitions.athena,
     ],
 )
 def test_merged_result_query_additional_metric(connection, query_type):
@@ -52,7 +53,7 @@ def test_merged_result_query_additional_metric(connection, query_type):
         session_date = "TRUNC(CAST(sessions.session_date AS TIMESTAMP), 'MM')"
         order_by = ""
         session_by = ""
-    elif query_type in {Definitions.postgres, Definitions.trino, Definitions.databricks, Definitions.duck_db}:
+    elif query_type in {Definitions.postgres, Definitions.trino, Definitions.databricks, Definitions.duck_db, Definitions.athena}:
         order_date = "DATE_TRUNC('MONTH', CAST(order_lines.order_date AS TIMESTAMP))"
         session_date = "DATE_TRUNC('MONTH', CAST(sessions.session_date AS TIMESTAMP))"
         if query_type == Definitions.duck_db:
@@ -74,7 +75,7 @@ def test_merged_result_query_additional_metric(connection, query_type):
 
     if query_type == Definitions.redshift:
         ifnull = "nvl"
-    elif query_type in {Definitions.postgres, Definitions.trino, Definitions.databricks, Definitions.duck_db, Definitions.teradata}:
+    elif query_type in {Definitions.postgres, Definitions.trino, Definitions.databricks, Definitions.duck_db, Definitions.teradata, Definitions.athena}:
         ifnull = "coalesce"
     else:
         ifnull = "ifnull"
@@ -98,7 +99,7 @@ def test_merged_result_query_additional_metric(connection, query_type):
         f"{ifnull}({cte_2}.sessions_session_month, {orders_reference}) as sessions_session_month,"  # noqa
         f"order_lines_total_item_revenue / nullif(sessions_number_of_sessions, 0) as order_lines_revenue_per_session "  # noqa
         f"FROM {cte_1} FULL OUTER JOIN {cte_2} "
-        f"ON {on_statement}{';' if query_type != Definitions.trino else ''}"
+        f"ON {on_statement}{';' if query_type not in {Definitions.trino, Definitions.athena} else ''}"
     )
     assert query == correct
 

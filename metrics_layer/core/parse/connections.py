@@ -25,6 +25,7 @@ class ConnectionType:
     azure_synapse = Definitions.azure_synapse
     trino = Definitions.trino
     teradata = Definitions.teradata
+    athena = Definitions.athena
 
 
 class BaseConnection:
@@ -527,6 +528,62 @@ class TeradataConnection(BaseConnection):
         return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
 
 
+class AthenaConnection(BaseConnection):
+    def __init__(
+        self,
+        name: str,
+        s3_staging_dir: str,
+        region_name: str,
+        database: str = None,
+        schema: str = None,
+        work_group: str = None,
+        aws_access_key_id: str = None,
+        aws_secret_access_key: str = None,
+        profile_name: str = None,
+        **kwargs,
+    ) -> None:
+        self.type = ConnectionType.athena
+        self.name = name
+        self.s3_staging_dir = s3_staging_dir
+        self.region_name = region_name
+        self.database = database
+        self.schema = schema
+        self.work_group = work_group
+        self.aws_access_key_id = aws_access_key_id
+        self.aws_secret_access_key = aws_secret_access_key
+        self.profile_name = profile_name
+
+    def to_dict(self):
+        base = {
+            "name": self.name,
+            "s3_staging_dir": self.s3_staging_dir,
+            "region_name": self.region_name,
+            "type": self.type,
+        }
+        if self.database:
+            base["database"] = self.database
+        if self.schema:
+            base["schema"] = self.schema
+        if self.work_group:
+            base["work_group"] = self.work_group
+        if self.aws_access_key_id:
+            base["aws_access_key_id"] = self.aws_access_key_id
+        if self.aws_secret_access_key:
+            base["aws_secret_access_key"] = self.aws_secret_access_key
+        if self.profile_name:
+            base["profile_name"] = self.profile_name
+        return base
+
+    def printable_attributes(self):
+        attributes = deepcopy(self.to_dict())
+        attributes.pop("aws_secret_access_key", None)
+        sort_order = [
+            "name", "type", "s3_staging_dir", "region_name",
+            "database", "schema", "work_group", "aws_access_key_id", "profile_name",
+        ]
+        return {key: attributes.get(key) for key in sort_order if attributes.get(key) is not None}
+
+
 connection_class_lookup = {
     ConnectionType.snowflake: SnowflakeConnection,
     ConnectionType.redshift: RedshiftConnection,
@@ -540,4 +597,5 @@ connection_class_lookup = {
     ConnectionType.trino: TrinoConnection,
     ConnectionType.mysql: MySQLConnection,
     ConnectionType.teradata: TeradataConnection,
+    ConnectionType.athena: AthenaConnection,
 }

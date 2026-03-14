@@ -206,6 +206,26 @@ class SeedMetricsLayer:
             "timestamp with time zone": "timestamp",
             "timestamp(p) with time zone": "timestamp",
         }
+        self._athena_type_lookup = {
+            "boolean": "yesno",
+            "tinyint": "number",
+            "smallint": "number",
+            "integer": "number",
+            "int": "number",
+            "bigint": "number",
+            "real": "number",
+            "double": "number",
+            "decimal": "number",
+            "varchar": "string",
+            "char": "string",
+            "varbinary": "string",
+            "json": "string",
+            "date": "date",
+            "timestamp": "timestamp",
+            "timestamp(p)": "timestamp",
+            "timestamp with time zone": "timestamp",
+            "timestamp(p) with time zone": "timestamp",
+        }
         self._teradata_type_lookup = {
             "DA": "date",
             "AT": "timestamp",
@@ -479,7 +499,7 @@ class SeedMetricsLayer:
             sql_table_name = "`" + schema_name + "`.`" + table_name + "`"
             if self._database_is_not_default:
                 sql_table_name = f"{self.database}.{sql_table_name}"
-        elif self.connection.type in {Definitions.druid, Definitions.trino, Definitions.mysql}:
+        elif self.connection.type in {Definitions.druid, Definitions.trino, Definitions.mysql, Definitions.athena}:
             sql_table_name = '"' + schema_name + '"."' + table_name + '"'
         elif self.connection.type == Definitions.bigquery:
             sql_table_name = f"`{self.database}.{schema_name}.{table_name}`"
@@ -539,6 +559,11 @@ class SeedMetricsLayer:
                 metrics_layer_type = self._trino_type_lookup.get(stripped_data_type, "string")
             elif self.connection.type == Definitions.mysql:
                 metrics_layer_type = self._mysql_type_lookup.get(row["DATA_TYPE"], "string")
+            elif self.connection.type == Definitions.athena:
+                stripped_data_type = (
+                    row["DATA_TYPE"].split("(")[0] if "(" in row["DATA_TYPE"] else row["DATA_TYPE"]
+                )
+                metrics_layer_type = self._athena_type_lookup.get(stripped_data_type, "string")
             elif self.connection.type == Definitions.teradata:
                 stripped_data_type = row["DATA_TYPE"].strip()
                 metrics_layer_type = self._teradata_type_lookup.get(stripped_data_type, "string")
@@ -548,6 +573,7 @@ class SeedMetricsLayer:
             if self.connection.type in {
                 Definitions.druid,
                 Definitions.trino,
+                Definitions.athena,
                 Definitions.snowflake,
                 Definitions.duck_db,
                 Definitions.postgres,
@@ -635,7 +661,7 @@ class SeedMetricsLayer:
             if self.connection.type in (Definitions.snowflake, Definitions.duck_db, Definitions.druid):
                 quote_column_name = f'"{column_name}"' if quote else column_name
                 query = f'APPROX_COUNT_DISTINCT( {quote_column_name} ) as "{column_name_alias}_cardinality"'  # noqa: E501
-            elif self.connection.type in {Definitions.trino}:
+            elif self.connection.type in {Definitions.trino, Definitions.athena}:
                 quote_column_name = f'"{column_name}"' if quote else column_name
                 query = f'APPROX_DISTINCT( {quote_column_name} ) as "{column_name_alias}_cardinality"'  # noqa: E501
             elif self.connection.type in {Definitions.redshift, Definitions.postgres, Definitions.mysql, Definitions.teradata}:  # noqa
@@ -675,7 +701,7 @@ class SeedMetricsLayer:
             Definitions.teradata,
         }:
             query += f" FROM {self.database}.{schema_name}.{table_name}"
-        elif self.connection.type in {Definitions.druid, Definitions.trino, Definitions.mysql}:
+        elif self.connection.type in {Definitions.druid, Definitions.trino, Definitions.mysql, Definitions.athena}:
             query += f"FROM {schema_name}.{table_name}"
         elif self.connection.type == Definitions.bigquery:
             query += f" FROM `{self.database}`.`{schema_name}`.`{table_name}`"
@@ -718,7 +744,7 @@ class SeedMetricsLayer:
             elif self.database:
                 query += f" WHERE DatabaseName = '{self.database}'"
             return query + ";"
-        elif self.connection.type in {Definitions.druid, Definitions.trino, Definitions.mysql}:
+        elif self.connection.type in {Definitions.druid, Definitions.trino, Definitions.mysql, Definitions.athena}:
             query = (
                 "SELECT TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE "
                 "FROM INFORMATION_SCHEMA.COLUMNS"
@@ -770,7 +796,7 @@ class SeedMetricsLayer:
                 query += f" AND DatabaseName = '{self.schema}'"
             elif self.database:
                 query += f" AND DatabaseName = '{self.database}'"
-        elif self.connection.type in {Definitions.druid, Definitions.trino, Definitions.mysql}:
+        elif self.connection.type in {Definitions.druid, Definitions.trino, Definitions.mysql, Definitions.athena}:
             query = (
                 "SELECT TABLE_CATALOG as table_database, TABLE_SCHEMA as table_schema, TABLE_NAME as"
                 " table_name, TABLE_TYPE as table_type FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA not"

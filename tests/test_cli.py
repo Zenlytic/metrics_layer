@@ -55,6 +55,7 @@ def test_cli_init(mocker, monkeypatch):
         (Definitions.azure_synapse, None, None, None),
         (Definitions.mysql, None, None, None),
         (Definitions.teradata, None, None, None),
+        (Definitions.athena, None, None, None),
     ],
 )
 def test_cli_seed_metrics_layer(
@@ -75,6 +76,7 @@ def test_cli_seed_metrics_layer(
     seed_databricks_tables_data,
     seed_mysql_tables_data,
     seed_teradata_tables_data,
+    seed_athena_tables_data,
 ):
     mocker.patch("os.mkdir")
     yaml_dump_called = 0
@@ -115,6 +117,8 @@ def test_cli_seed_metrics_layer(
             return seed_mysql_tables_data
         elif query_type == Definitions.teradata:
             return seed_teradata_tables_data
+        elif query_type == Definitions.athena:
+            return seed_athena_tables_data
         raise ValueError("Query error, does not match expected")
 
     def yaml_dump_assert(slf, data, file):
@@ -146,6 +150,7 @@ def test_cli_seed_metrics_layer(
                     Definitions.azure_synapse,
                     Definitions.sql_server,
                     Definitions.trino,
+                    Definitions.athena,
                     Definitions.mysql,
                     Definitions.teradata,
                 }
@@ -188,6 +193,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.trino,
+                Definitions.athena,
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
@@ -212,6 +218,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.trino,
+                Definitions.athena,
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
@@ -232,6 +239,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.sql_server,
                 Definitions.azure_synapse,
                 Definitions.trino,
+                Definitions.athena,
                 Definitions.mysql,
                 Definitions.teradata,
             }:
@@ -255,6 +263,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.trino,
+                Definitions.athena,
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
@@ -273,6 +282,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.trino,
+                Definitions.athena,
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
@@ -291,6 +301,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.trino,
+                Definitions.athena,
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
@@ -316,6 +327,7 @@ def test_cli_seed_metrics_layer(
                     Definitions.sql_server,
                     Definitions.azure_synapse,
                     Definitions.trino,
+                    Definitions.athena,
                     Definitions.mysql,
                     Definitions.teradata,
                 }
@@ -351,6 +363,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.trino,
+                Definitions.athena,
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
@@ -372,6 +385,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.azure_synapse,
                 Definitions.databricks,
                 Definitions.trino,
+                Definitions.athena,
                 Definitions.mysql,
                 Definitions.teradata,
             }:
@@ -395,6 +409,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.trino,
+                Definitions.athena,
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
@@ -413,6 +428,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.trino,
+                Definitions.athena,
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,
@@ -431,6 +447,7 @@ def test_cli_seed_metrics_layer(
                 Definitions.duck_db,
                 Definitions.postgres,
                 Definitions.trino,
+                Definitions.athena,
                 Definitions.redshift,
                 Definitions.sql_server,
                 Definitions.azure_synapse,

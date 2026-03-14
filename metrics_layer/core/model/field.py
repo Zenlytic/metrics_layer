@@ -1007,6 +1007,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.sql_server,
             Definitions.azure_synapse,
             Definitions.trino,
+            Definitions.athena,
             Definitions.mysql,
         }:
             raise QueryError(
@@ -1320,6 +1321,8 @@ class Field(MetricsLayerBase, SQLReplacement):
         meta_lookup[Definitions.duck_db] = meta_lookup[Definitions.snowflake]
         # Azure Synapse and SQL Server have identical syntax
         meta_lookup[Definitions.azure_synapse] = meta_lookup[Definitions.sql_server]
+        # Athena and Trino have identical syntax
+        meta_lookup[Definitions.athena] = meta_lookup[Definitions.trino]
         try:
             return meta_lookup[query_type][dimension_group](sql_start, sql_end)
         except KeyError:
@@ -1471,16 +1474,16 @@ class Field(MetricsLayerBase, SQLReplacement):
                 "week": self._week_dimension_group_time_sql,
                 "month": lambda s, qt: f"DATE_TRUNC('MONTH', CAST({s} AS TIMESTAMP))",
                 "quarter": (
-                    lambda s, qt: f"CONCAT(EXTRACT(YEAR FROM CAST({s} AS TIMESTAMP)), '-Q', EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP)))"
+                    lambda s, qt: f"CONCAT(CAST(EXTRACT(YEAR FROM CAST({s} AS TIMESTAMP)) AS VARCHAR), '-Q', CAST(EXTRACT(QUARTER FROM CAST({s} AS TIMESTAMP)) AS VARCHAR))"
                 ),  # noqa
                 "year": lambda s, qt: f"DATE_TRUNC('YEAR', CAST({s} AS TIMESTAMP))",
                 "fiscal_month": lambda s, qt: (
                     f"DATE_TRUNC('MONTH', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
                 ),
                 "fiscal_quarter": lambda s, qt: (
-                    f"CONCAT(EXTRACT(YEAR FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP)),"
-                    f" '-Q', EXTRACT(QUARTER FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS"
-                    " TIMESTAMP)))"
+                    f"CONCAT(CAST(EXTRACT(YEAR FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP)) AS VARCHAR),"
+                    f" '-Q', CAST(EXTRACT(QUARTER FROM CAST({self._fiscal_offset_to_timestamp(s, qt)} AS"
+                    " TIMESTAMP)) AS VARCHAR))"
                 ),
                 "fiscal_year": lambda s, qt: (
                     f"DATE_TRUNC('YEAR', CAST({self._fiscal_offset_to_timestamp(s, qt)} AS TIMESTAMP))"
@@ -1769,6 +1772,8 @@ class Field(MetricsLayerBase, SQLReplacement):
         meta_lookup[Definitions.duck_db] = meta_lookup[Definitions.postgres]
         # Azure Synapse and SQL Server have identical syntax
         meta_lookup[Definitions.azure_synapse] = meta_lookup[Definitions.sql_server]
+        # Athena and Trino have identical syntax
+        meta_lookup[Definitions.athena] = meta_lookup[Definitions.trino]
         # We alias month_name as the same thing as month_of_year to aid with looker migration
         for _, lookup in meta_lookup.items():
             lookup["month_name"] = lookup["month_of_year"]
@@ -1789,7 +1794,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"CAST(DATETIME(CAST({sql} AS TIMESTAMP), '{timezone}') AS {self.datatype.upper()})"
         elif query_type == Definitions.redshift:
             return f"CAST(CAST(CONVERT_TIMEZONE('{timezone}', CAST({sql} AS TIMESTAMP)) AS TIMESTAMP) AS {self.datatype.upper()})"  # noqa
-        elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.trino}:
+        elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.trino, Definitions.athena}:
             return f"CAST(CAST({sql} AS TIMESTAMP) at time zone 'UTC' at time zone '{timezone}' AS {self.datatype.upper()})"  # noqa
         elif query_type == Definitions.mysql:
             return f"CONVERT_TZ({sql}, 'UTC', '{timezone}')"
@@ -1816,7 +1821,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             return f"DATEADD(MONTH, {offset_in_months}, {sql})"
         elif query_type == Definitions.teradata:
             return f"ADD_MONTHS({sql}, {offset_in_months})"
-        elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.druid, Definitions.trino}:
+        elif query_type in {Definitions.postgres, Definitions.duck_db, Definitions.druid, Definitions.trino, Definitions.athena}:
             return f"{sql} + INTERVAL '{offset_in_months}' MONTH"
         elif query_type in {Definitions.bigquery, Definitions.mysql}:
             return f"DATE_ADD(CAST({sql} AS DATE), INTERVAL {offset_in_months} MONTH)"
@@ -1857,6 +1862,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.duck_db,
             Definitions.databricks,
             Definitions.trino,
+            Definitions.athena,
         }:
             if offset is None:
                 return f"DATE_TRUNC('WEEK', CAST({sql} AS TIMESTAMP))"
@@ -1920,6 +1926,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             Definitions.duck_db,
             Definitions.databricks,
             Definitions.trino,
+            Definitions.athena,
         }:
             if offset is None:
                 return f"DATE_TRUNC('DAY', CAST({sql} AS TIMESTAMP))"
