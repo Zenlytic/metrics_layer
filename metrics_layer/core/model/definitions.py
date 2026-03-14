@@ -76,6 +76,8 @@ def sql_flavor_to_sqlglot_format(zenlytic_sql_flavor: str) -> str:
     elif sql_flavor == Definitions.teradata:
         return Definitions.teradata.lower()
     elif sql_flavor == Definitions.athena:
-        return "trino"
+        # This is intentional as Athena uses Trino syntax but sqlglot
+        # does not have a separate Athena dialect
+        return Definitions.trino.lower()
     else:
         raise MetricsLayerException(f"Unknown SQL flavor: {zenlytic_sql_flavor}")
