@@ -576,7 +576,7 @@ class SeedMetricsLayer:
                 )
                 metrics_layer_type = self._athena_type_lookup.get(stripped_data_type, "string")
             elif self.connection.type == Definitions.teradata:
-                stripped_data_type = row["DATA_TYPE"].strip()
+                stripped_data_type = str(row["DATA_TYPE"]).strip()
                 metrics_layer_type = self._teradata_type_lookup.get(stripped_data_type, "string")
             else:
                 raise NotImplementedError(f"Unknown connection type: {self.connection.type}")
