@@ -257,6 +257,12 @@ class SeedMetricsLayer:
             )
         columns_query = self.columns_query()
         data = self.run_query(columns_query)
+
+        # HELP COLUMN (used for Teradata) returns different column names;
+        # normalise before the standard checks.
+        if self.connection.type == Definitions.teradata and self.table:
+            data = self._normalize_teradata_help_column(data)
+
         data.columns = [c.upper() for c in data.columns]
 
         if self.connection.type in {Definitions.snowflake, Definitions.databricks}:
@@ -383,6 +389,11 @@ class SeedMetricsLayer:
 
         columns_query = self.columns_query()
         data = self.run_query(columns_query)
+
+        # HELP COLUMN (used for Teradata) returns different column names;
+        # normalise before the standard checks.
+        if self.connection.type == Definitions.teradata and self.table:
+            data = self._normalize_teradata_help_column(data)
 
         if data.empty or "TABLE_NAME" not in [c.upper() for c in data.columns]:
             return None
@@ -732,14 +743,17 @@ class SeedMetricsLayer:
             else:
                 query += f"{self.database}.INFORMATION_SCHEMA.COLUMNS"
         elif self.connection.type == Definitions.teradata:
+            # Use HELP COLUMN for single-table queries because teradatasql
+            # returns None for ColumnType from DBC.ColumnsV.
+            if self.table and self.schema:
+                return f"HELP COLUMN {self.schema}.{self.table}.*"
+            # Fall back to DBC.ColumnsV for schema/database-wide queries
             query = (
                 "SELECT DatabaseName as TABLE_CATALOG, DatabaseName as TABLE_SCHEMA, "
                 "TableName as TABLE_NAME, ColumnName as COLUMN_NAME, ColumnType as DATA_TYPE "
                 "FROM DBC.ColumnsV"
             )
-            if self.table and self.schema:
-                query += f" WHERE DatabaseName = '{self.schema}' AND TableName = '{self.table}'"
-            elif self.schema:
+            if self.schema:
                 query += f" WHERE DatabaseName = '{self.schema}'"
             elif self.database:
                 query += f" WHERE DatabaseName = '{self.database}'"
@@ -849,6 +863,26 @@ class SeedMetricsLayer:
         return self.metrics_layer.run_query(
             query, self.connection, run_pre_queries=False, start_warehouse=True
         )
+
+    def _normalize_teradata_help_column(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Reshape a HELP COLUMN result to match the standard columns format.
+
+        HELP COLUMN returns columns like COLUMN_NAME, TYPE, FORMAT, etc.
+        This method renames and adds columns so the DataFrame matches the
+        shape expected by the rest of the seeding code (TABLE_CATALOG,
+        TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, DATA_TYPE).
+        """
+        data.columns = [c.upper() for c in data.columns]
+        if "TYPE" in data.columns and "DATA_TYPE" not in data.columns:
+            data = data.rename(columns={"TYPE": "DATA_TYPE"})
+        data["TABLE_CATALOG"] = self.schema or self.database
+        data["TABLE_SCHEMA"] = self.schema or self.database
+        data["TABLE_NAME"] = self.table
+        # Strip whitespace from CHAR-padded fields
+        for col in ["COLUMN_NAME", "DATA_TYPE", "TABLE_NAME", "TABLE_SCHEMA"]:
+            if col in data.columns and data[col].dtype == object:
+                data[col] = data[col].str.strip()
+        return data
 
     @staticmethod
     def _init_connection(metrics_layer, connection_name: str = None):
