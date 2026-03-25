@@ -76,6 +76,7 @@ def test_cli_seed_metrics_layer(
     seed_databricks_tables_data,
     seed_mysql_tables_data,
     seed_teradata_tables_data,
+    seed_teradata_help_column_data,
     seed_athena_tables_data,
 ):
     mocker.patch("os.mkdir")
@@ -116,6 +117,8 @@ def test_cli_seed_metrics_layer(
         elif query_type == Definitions.mysql:
             return seed_mysql_tables_data
         elif query_type == Definitions.teradata:
+            if "HELP COLUMN" in query:
+                return seed_teradata_help_column_data
             return seed_teradata_tables_data
         elif query_type == Definitions.athena:
             return seed_athena_tables_data

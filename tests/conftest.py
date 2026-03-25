@@ -292,6 +292,28 @@ def seed_teradata_tables_data():
 
 
 @pytest.fixture(scope="function")
+def seed_teradata_help_column_data():
+    """HELP COLUMN returns COLUMN_NAME and TYPE (no TABLE_NAME/TABLE_CATALOG/TABLE_SCHEMA)."""
+    records = [
+        {"COLUMN_NAME": "ORDER_ID", "TYPE": "I "},
+        {"COLUMN_NAME": "ORDER_CREATED_AT", "TYPE": "DA"},
+        {"COLUMN_NAME": "REVENUE", "TYPE": "F "},
+        {"COLUMN_NAME": "ACQUISITION_DATE", "TYPE": "TS"},
+        {"COLUMN_NAME": "ON_SOCIAL_NETWORK", "TYPE": "BL"},
+        {"COLUMN_NAME": "CAMPAIGN", "TYPE": "CV"},
+        {"COLUMN_NAME": "NEW_VS_REPEAT", "TYPE": "CV"},
+        {"COLUMN_NAME": "PRODUCT", "TYPE": "CV"},
+        {"COLUMN_NAME": "DAY_OF_WEEK", "TYPE": "CF"},
+        {"COLUMN_NAME": "TWITTER", "TYPE": "CV"},
+        {"COLUMN_NAME": "EMAILS_FROM_US_IN_THE_LAST_WEEK", "TYPE": "CV"},
+        {"COLUMN_NAME": "LAST_VIEWED_PAGE", "TYPE": "CV"},
+        {"COLUMN_NAME": "CUSTOMER_ID", "TYPE": "CV"},
+        {"COLUMN_NAME": "TOP_CUSTOMERS", "TYPE": "CV"},
+    ]
+    return pd.DataFrame(records)
+
+
+@pytest.fixture(scope="function")
 def seed_postgres_tables_data():
     order_records = [
         {"COLUMN_NAME": "ORDER_ID", "DATA_TYPE": "numeric"},
