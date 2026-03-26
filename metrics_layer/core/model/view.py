@@ -2,6 +2,9 @@ import hashlib
 import re
 from typing import TYPE_CHECKING, Union
 
+import sqlglot
+from sqlglot import expressions as exp
+
 from jinja2 import StrictUndefined, Template
 
 from metrics_layer.core.exceptions import (
@@ -439,6 +442,24 @@ class View(MetricsLayerBase, SQLReplacement):
                     ),
                 ),
             )
+        elif "sql_table_name" in self._definition and isinstance(self._definition["sql_table_name"], str):
+            raw = self._definition["sql_table_name"]
+            if "-- if" not in raw and "ref(" not in raw:
+                try:
+                    parsed = sqlglot.parse_one(raw)
+                    if not isinstance(parsed, (exp.Column, exp.Literal, exp.Dot)):
+                        errors.append(
+                            self._error(
+                                raw,
+                                (
+                                    f"The sql_table_name property in view {self.name} contains a SQL"
+                                    " expression rather than a table name. Use derived_table for SQL"
+                                    " expressions, or provide a simple table reference like 'schema.table'."
+                                ),
+                            )
+                        )
+                except sqlglot.errors.ParseError:
+                    pass
 
         if "derived_table" in self._definition:
             derived_table = self._definition["derived_table"]

@@ -735,6 +735,49 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
             ["The sql_table_name property, 1 must be a string in the view order_lines"],
         ),
         ("sql_table_name", "test", []),
+        ("sql_table_name", "analytics.orders", []),
+        ("sql_table_name", "my_database.my_schema.my_table", []),
+        ("sql_table_name", '"MY_SCHEMA"."MY_TABLE"', []),
+        ("sql_table_name", '"my_database"."my_schema"."my_table"', []),
+        ("sql_table_name", "`my_schema`.`my_table`", []),
+        ("sql_table_name", "REALASSET.V_RI_LOAN_TERMS", []),
+        (
+            "sql_table_name",
+            "(SELECT * FROM my_table)",
+            [
+                (
+                    "The sql_table_name property in view order_lines contains a SQL expression"
+                    " rather than a table name. Use derived_table for SQL expressions, or provide"
+                    " a simple table reference like 'schema.table'."
+                )
+            ],
+        ),
+        (
+            "sql_table_name",
+            "SELECT * FROM my_table",
+            [
+                (
+                    "The sql_table_name property in view order_lines contains a SQL expression"
+                    " rather than a table name. Use derived_table for SQL expressions, or provide"
+                    " a simple table reference like 'schema.table'."
+                )
+            ],
+        ),
+        (
+            "sql_table_name",
+            (
+                "(SELECT * FROM REALASSET.V_RI_LOAN_TERMS QUALIFY ROW_NUMBER() OVER"
+                ' (PARTITION BY "LOAN_MASTER_ENTITY_IDENTIFIER" ORDER BY'
+                ' "LOAN_TERMS_EFFECTIVE_DATE_ME" DESC) = 1)'
+            ),
+            [
+                (
+                    "The sql_table_name property in view order_lines contains a SQL expression"
+                    " rather than a table name. Use derived_table for SQL expressions, or provide"
+                    " a simple table reference like 'schema.table'."
+                )
+            ],
+        ),
         (
             "derived_table",
             "test",
