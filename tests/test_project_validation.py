@@ -1340,10 +1340,32 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
                 "Eleventh, this is a really long description aimed at testing the warning on the length of "
                 " description, so I will keep writing more content to make sure I get to the maximum length"
             ),
+            [],
+        ),
+        (
+            "description",
+            "x" * 10001,
             [
-                "Warning: View order_lines has a description that is too long (2769 characters)."
-                " Descriptions must be 2048 characters or less. It will be truncated to the "
-                "first 2048 characters."
+                "Warning: View order_lines has a description that is too long (10001 characters)."
+                " Descriptions must be 10000 characters or less. It will be truncated to the "
+                "first 10000 characters."
+            ],
+        ),
+        (
+            "zoe_description",
+            None,
+            [
+                "View order_lines has an invalid zoe_description None. zoe_description must be a string."
+            ],
+        ),
+        ("zoe_description", "My View Zoe Description", []),
+        (
+            "zoe_description",
+            "x" * 10001,
+            [
+                "Warning: View order_lines has a zoe_description that is too long (10001 characters)."
+                " Descriptions must be 10000 characters or less. It will be truncated to the "
+                "first 10000 characters."
             ],
         ),
     ],
@@ -2984,11 +3006,22 @@ def test_validation_with_replaced_field_properties(connection, field_name, prope
                 "Tenth, this is a really long description aimed at testing the warning on the length of the"
                 " description, so I will keep writing more content to make sure I get to the maximum length"
             ),
+            [],
+        ),
+        (
+            "description",
+            "x" * 10001,
             [
-                (
-                    "Warning: The description property, must be 2048 characters or less in the topic Order"
-                    " lines Topic"
-                ),
+                "Warning: The description property, must be 10000 characters or less in the topic Order"
+                " lines Topic"
+            ],
+        ),
+        (
+            "zoe_description",
+            "x" * 10001,
+            [
+                "Warning: The zoe_description property, must be 10000 characters or less in the topic Order"
+                " lines Topic"
             ],
         ),
         (
