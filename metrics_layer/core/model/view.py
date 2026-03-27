@@ -32,6 +32,7 @@ class View(MetricsLayerBase, SQLReplacement):
         "model_name",
         "label",
         "description",
+        "zoe_description",
         "hidden",
         "sql_table_name",
         "derived_table",
@@ -387,7 +388,7 @@ class View(MetricsLayerBase, SQLReplacement):
             )
 
         # This value is pulled from the VIEW_DESCRIPTION_MAX_CHARS constant in Zenlytic
-        view_description_max_chars = 2048
+        view_description_max_chars = 10000
         if "description" in self._definition and isinstance(self.description, str):
             if len(self.description) > view_description_max_chars:
                 errors.append(
@@ -396,6 +397,29 @@ class View(MetricsLayerBase, SQLReplacement):
                         (
                             f"Warning: View {self.name} has a description that is too long"
                             f" ({len(self.description)} characters). Descriptions must be"
+                            f" {view_description_max_chars} characters or less. It will be truncated to the"
+                            f" first {view_description_max_chars} characters."
+                        ),
+                    )
+                )
+        if "zoe_description" in self._definition and not isinstance(self.zoe_description, str):
+            errors.append(
+                self._error(
+                    self._definition["zoe_description"],
+                    (
+                        f"View {self.name} has an invalid zoe_description"
+                        f" {self.zoe_description}. zoe_description must be a string."
+                    ),
+                )
+            )
+        if "zoe_description" in self._definition and isinstance(self.zoe_description, str):
+            if len(self.zoe_description) > view_description_max_chars:
+                errors.append(
+                    self._error(
+                        self._definition["zoe_description"],
+                        (
+                            f"Warning: View {self.name} has a zoe_description that is too long"
+                            f" ({len(self.zoe_description)} characters). Descriptions must be"
                             f" {view_description_max_chars} characters or less. It will be truncated to the"
                             f" first {view_description_max_chars} characters."
                         ),
