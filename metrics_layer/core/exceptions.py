@@ -23,3 +23,7 @@ class QueryError(MetricsLayerException):
 
 class JoinError(QueryError):
     pass
+
+
+class ConfigError(MetricsLayerException):
+    pass

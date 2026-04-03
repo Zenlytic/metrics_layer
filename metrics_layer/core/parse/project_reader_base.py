@@ -2,7 +2,7 @@ import os
 
 import ruamel.yaml
 
-from metrics_layer.core.exceptions import MetricsLayerException
+from metrics_layer.core.exceptions import ConfigError, MetricsLayerException
 
 from .github_repo import BaseRepo
 
@@ -58,6 +58,17 @@ class ProjectReaderBase:
 
     def get_folders(self, key: str, default: str = None, raise_errors: bool = True):
         if not self.zenlytic_project:
+            if raise_errors:
+                searched_paths = [
+                    os.path.join(self.repo.folder, "zenlytic_project.yml"),
+                    os.path.join(self.dbt_folder, "zenlytic_project.yml"),
+                ]
+                raise ConfigError(
+                    "Could not find zenlytic_project.yml. Searched in:\n"
+                    + "\n".join(f"  - {p}" for p in searched_paths)
+                    + "\nPlease ensure your repository contains a valid zenlytic_project.yml file. "
+                    "Learn more here: https://docs.zenlytic.com"
+                )
             return []
 
         if key in self.zenlytic_project:
