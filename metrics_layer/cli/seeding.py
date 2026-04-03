@@ -249,6 +249,8 @@ class SeedMetricsLayer:
         }
 
     def seed(self, auto_tag_searchable_fields: bool = False, tag_default_date: bool = True):
+        from metrics_layer.core.exceptions import ConfigError
+        from metrics_layer.core.model.project import Project
         from metrics_layer.core.parse import ProjectDumper, ProjectLoader
 
         if self.connection.type not in Definitions.supported_warehouses:
@@ -285,7 +287,11 @@ class SeedMetricsLayer:
                 table_data = table_data[table_data["TABLE_NAME"].str.lower() == self.table.lower()].copy()
         folder = self._location()
         loader = ProjectLoader(folder)
-        project = loader.load()
+        try:
+            project = loader.load()
+        except ConfigError:
+            # No zenlytic_project.yml yet — seeding will create it
+            project = Project(models=[], views=[])
 
         current_models = project.models()
 

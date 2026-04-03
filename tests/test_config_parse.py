@@ -23,7 +23,9 @@ class repo_mock(BaseRepo):
     def folder(self):
         if self.repo_type == "dbt":
             return os.path.join(BASE_PATH, "config/dbt/")
-        return os.path.join(BASE_PATH, "config/metrics_layer/")
+        if self.repo_type == "metricflow":
+            return os.path.join(BASE_PATH, "config/metricflow/")
+        return os.path.join(BASE_PATH, "config/metrics_layer_config/")
 
     @property
     def warehouse_type(self):
@@ -55,8 +57,34 @@ def mock_dbt_search(pattern):
     return []
 
 
+class repo_mock_no_project_file(BaseRepo):
+    def __init__(self, tmp_path):
+        self.repo_type = None
+        self.dbt_path = None
+        self._folder = str(tmp_path)
+
+    @property
+    def folder(self):
+        return self._folder
+
+    def fetch(self, private_key=None):
+        return
+
+    def search(self, pattern, folders):
+        return []
+
+    def delete(self):
+        return
+
+
+def test_missing_zenlytic_project_file_raises_config_error(tmp_path):
+    reader = MetricsLayerProjectReader(repo=repo_mock_no_project_file(tmp_path))
+    with pytest.raises(ConfigError, match="Could not find zenlytic_project.yml"):
+        reader.load()
+
+
 def test_get_branch_options():
-    loader = MetricsLayerConnection(location=os.path.join(BASE_PATH, "config/metrics_layer/"))
+    loader = MetricsLayerConnection(location=os.path.join(BASE_PATH, "config/metrics_layer_config/"))
     loader.load()
     assert loader.get_branch_options() == []
 

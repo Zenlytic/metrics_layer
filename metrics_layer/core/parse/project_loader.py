@@ -1,6 +1,6 @@
 import os
 
-from metrics_layer.core.exceptions import MetricsLayerException
+from metrics_layer.core.exceptions import ConfigError, MetricsLayerException  # noqa: F401
 from metrics_layer.core.model.project import Project
 from metrics_layer.core.parse.connections import BaseConnection, connection_class_lookup
 
@@ -9,10 +9,6 @@ from .manifest import Manifest
 from .project_reader_base import ProjectReaderBase
 from .project_reader_metricflow import MetricflowProjectReader
 from .project_reader_metrics_layer import MetricsLayerProjectReader
-
-
-class ConfigError(MetricsLayerException):
-    pass
 
 
 class ProjectLoader:
