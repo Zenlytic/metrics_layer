@@ -267,7 +267,7 @@ class SeedMetricsLayer:
 
         data.columns = [c.upper() for c in data.columns]
 
-        if self.connection.type in {Definitions.snowflake, Definitions.databricks}:
+        if self.connection.type in {Definitions.snowflake, Definitions.databricks, Definitions.redshift}:
             table_query = self.table_query()
             table_data = self.run_query(table_query)
             table_data.columns = [c.upper() for c in table_data.columns]
@@ -406,7 +406,7 @@ class SeedMetricsLayer:
 
         data.columns = [c.upper() for c in data.columns]
 
-        if self.connection.type in {Definitions.snowflake, Definitions.databricks}:
+        if self.connection.type in {Definitions.snowflake, Definitions.databricks, Definitions.redshift}:
             table_query = self.table_query()
             table_data = self.run_query(table_query)
             table_data.columns = [c.upper() for c in table_data.columns]
@@ -549,7 +549,7 @@ class SeedMetricsLayer:
 
         fields = []
         searchable_field_candidates = []
-        if self.connection.type in {Definitions.snowflake, Definitions.databricks, Definitions.bigquery}:
+        if self.connection.type in {Definitions.snowflake, Definitions.databricks, Definitions.bigquery, Definitions.redshift}:
             data_to_iterate = column_data[["COLUMN_NAME", "DATA_TYPE", "COMMENT"]]
         else:
             data_to_iterate = column_data[["COLUMN_NAME", "DATA_TYPE"]]
@@ -730,14 +730,17 @@ class SeedMetricsLayer:
             comment_statement = ", comment as comment"
         elif self.connection.type == Definitions.bigquery:
             comment_statement = ", max(description) as comment"
+        elif self.connection.type == Definitions.redshift:
+            comment_statement = ", remarks as comment"
         else:
             comment_statement = ""
         query = (
             f"SELECT table_catalog, table_schema, table_name, column_name, data_type{comment_statement} FROM "
         )
-        if self.database and self.connection.type in {
+        if self.database and self.connection.type == Definitions.redshift:
+            query += "SVV_COLUMNS"
+        elif self.database and self.connection.type in {
             Definitions.snowflake,
-            Definitions.redshift,
             Definitions.postgres,
             Definitions.sql_server,
             Definitions.azure_synapse,
@@ -784,6 +787,12 @@ class SeedMetricsLayer:
         elif not self.table and self.schema:
             query += f" WHERE TABLE_SCHEMA = '{self.schema}'"
 
+        if self.connection.type == Definitions.redshift and self.database:
+            if "WHERE" in query:
+                query += f" AND TABLE_CATALOG = '{self.database}'"
+            else:
+                query += f" WHERE TABLE_CATALOG = '{self.database}'"
+
         if "WHERE" in query and self.connection.type == Definitions.bigquery:
             query += " AND NOT FIELD_PATH LIKE '%.%'"
         elif self.connection.type == Definitions.bigquery:
@@ -822,8 +831,14 @@ class SeedMetricsLayer:
                 " table_name, TABLE_TYPE as table_type FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA not"
                 " in ('sys', 'INFORMATION_SCHEMA', 'information_schema', 'mysql', 'performance_schema')"
             )
+        elif self.database and self.connection.type == Definitions.redshift:
+            query = (
+                "SELECT table_catalog as table_database, table_schema as table_schema, "
+                "table_name as table_name, table_type as table_type, remarks as comment "
+                f"FROM SVV_TABLES WHERE table_catalog = '{self.database}' "
+                "AND table_schema not in ('pg_catalog', 'information_schema')"
+            )
         elif self.database and self.connection.type in {
-            Definitions.redshift,
             Definitions.postgres,
             Definitions.sql_server,
             Definitions.azure_synapse,

@@ -1,6 +1,7 @@
 import pytest
 
 from metrics_layer.cli.seeding import SeedMetricsLayer
+from metrics_layer.core.model.definitions import Definitions
 
 
 @pytest.mark.seeding
@@ -46,3 +47,39 @@ def test_seeding_table_query(connection, db_name, db_conn):
         raise ValueError(f"Unknown connection: {db_conn}")
 
     assert table_query == correct
+
+
+@pytest.mark.seeding
+def test_seeding_table_query_redshift(connection):
+    seeder = SeedMetricsLayer(database="test", metrics_layer=connection, connection="testing_snowflake")
+    old_type = connection._raw_connections[0].type
+    connection._raw_connections[0].type = Definitions.redshift
+    try:
+        table_query = seeder.table_query()
+    finally:
+        connection._raw_connections[0].type = old_type
+
+    correct = (
+        "SELECT table_catalog as table_database, table_schema as table_schema, "
+        "table_name as table_name, table_type as table_type, remarks as comment "
+        "FROM SVV_TABLES WHERE table_catalog = 'test' "
+        "AND table_schema not in ('pg_catalog', 'information_schema');"
+    )
+    assert table_query == correct
+
+
+@pytest.mark.seeding
+def test_seeding_columns_query_redshift(connection):
+    seeder = SeedMetricsLayer(database="test", metrics_layer=connection, connection="testing_snowflake")
+    old_type = connection._raw_connections[0].type
+    connection._raw_connections[0].type = Definitions.redshift
+    try:
+        columns_query = seeder.columns_query()
+    finally:
+        connection._raw_connections[0].type = old_type
+
+    correct = (
+        "SELECT table_catalog, table_schema, table_name, column_name, data_type, remarks as comment "
+        "FROM SVV_COLUMNS WHERE TABLE_CATALOG = 'test';"
+    )
+    assert columns_query == correct
