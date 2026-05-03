@@ -500,14 +500,15 @@ class SeedMetricsLayer:
             table_name=table_name,
             auto_tag_searchable_fields=auto_tag_searchable_fields,
         )
-        if self.connection.type in {
+        if self.connection.type == Definitions.teradata:
+            sql_table_name = '"' + schema_name + '"."' + table_name + '"'
+        elif self.connection.type in {
             Definitions.snowflake,
             Definitions.redshift,
             Definitions.postgres,
             Definitions.sql_server,
             Definitions.azure_synapse,
             Definitions.duck_db,
-            Definitions.teradata,
         }:
             sql_table_name = '"' + schema_name + '"."' + table_name + '"'
             if self._database_is_not_default:
@@ -706,6 +707,8 @@ class SeedMetricsLayer:
 
         if custom_sql_base:
             query += f" FROM {custom_sql_base}"
+        elif self.connection.type == Definitions.teradata:
+            query += f" FROM {schema_name}.{table_name}"
         elif self.connection.type in {
             Definitions.snowflake,
             Definitions.duck_db,
@@ -715,7 +718,6 @@ class SeedMetricsLayer:
             Definitions.sql_server,
             Definitions.azure_synapse,
             Definitions.databricks,
-            Definitions.teradata,
         }:
             query += f" FROM {self.database}.{schema_name}.{table_name}"
         elif self.connection.type in {Definitions.druid, Definitions.trino, Definitions.mysql, Definitions.athena}:
