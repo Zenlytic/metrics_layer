@@ -107,6 +107,26 @@ def test_validation_with_view_with_updated_name_case(fresh_project):
 
 
 @pytest.mark.validation
+def test_validation_with_view_rename_uses_file_path_for_replacement(fresh_project):
+    project = fresh_project
+    file_path = "views/test_order_lines.yml"
+    original_view = next(v for v in project._views if v["name"] == "order_lines")
+    original_view["_file_path"] = file_path
+
+    renamed_view = json.loads(json.dumps(original_view))
+    renamed_view["name"] = "renamed_order_lines"
+
+    response = project.validate_with_replaced_objects(
+        replaced_objects=[renamed_view], validate_topics=False
+    )
+
+    assert (
+        "Could not find view order_lines in relationship between order_lines and orders"
+        in [e["message"] for e in response]
+    )
+
+
+@pytest.mark.validation
 def test_validation_with_duplicate_views(fresh_project):
     project = fresh_project
     view1 = _get_view_by_name(project, "order_lines")
