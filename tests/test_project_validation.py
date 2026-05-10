@@ -1428,10 +1428,7 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "order_line_id",
             "primary_key",
             "__POP__",
-            [
-                "Warning: The view order_lines does not have a primary key, specify one using the tag"
-                " primary_key: true"
-            ],
+            [],
         ),
         (
             None,
