@@ -1,5 +1,6 @@
 import functools
 import json
+import os
 from collections import Counter
 from contextlib import contextmanager
 from typing import List, Union
@@ -283,6 +284,43 @@ class Project:
 
         return copied_views
 
+    @staticmethod
+    def _normalized_file_path(dict_obj: dict):
+        file_path = dict_obj.get("_file_path")
+        if isinstance(file_path, str) and file_path:
+            return os.path.normpath(file_path)
+        return None
+
+    @classmethod
+    def _replacement_file_paths(cls, replaced_objects: list):
+        return {
+            file_path
+            for file_path in [
+                cls._normalized_file_path(obj) for obj in replaced_objects if isinstance(obj, dict)
+            ]
+            if file_path is not None
+        }
+
+    @classmethod
+    def _unchanged_objects(
+        cls, current_objects: list, replaced_objects: list, name_func, all_file_paths: set
+    ):
+        replaced_names_without_file_path = {
+            name_func(obj)
+            for obj in replaced_objects
+            if isinstance(obj, dict) and cls._normalized_file_path(obj) is None
+        }
+
+        unchanged_objects = []
+        for obj in current_objects:
+            file_path = cls._normalized_file_path(obj)
+            if file_path is not None and file_path in all_file_paths:
+                continue
+            if name_func(obj) in replaced_names_without_file_path:
+                continue
+            unchanged_objects.append(obj)
+        return unchanged_objects
+
     @contextmanager
     def replace_objects(self, replaced_objects: list):
         replaced_views, replaced_models, replaced_dashboards, replaced_topics = [], [], [], []
@@ -300,32 +338,33 @@ class Project:
                     # We cannot use the object if it is not a view, model, dashboard or topic
                     pass
 
+        replaced_file_paths = self._replacement_file_paths(replaced_objects)
+
         # Replace model files
-        replaced_model_names = set([m.get("name") for m in replaced_models])
-        unchanged_models = [m for m in self._models if m.get("name") not in replaced_model_names]
+        unchanged_models = self._unchanged_objects(
+            self._models, replaced_models, lambda m: m.get("name"), replaced_file_paths
+        )
         current_models = json.loads(json.dumps(self._models))
 
         # Replace view files
-        replaced_view_names = set([View.normalize_name(v.get("name")) for v in replaced_views])
-        unchanged_views = [
-            v for v in self._views if View.normalize_name(v.get("name")) not in replaced_view_names
-        ]
+        unchanged_views = self._unchanged_objects(
+            self._views, replaced_views, lambda v: View.normalize_name(v.get("name")), replaced_file_paths
+        )
         current_views = json.loads(json.dumps(self._views))
 
         # Replace dashboard files
-        replaced_dashboard_names = set([Dashboard.normalize_name(d.get("name")) for d in replaced_dashboards])
-        unchanged_dashboards = [
-            d
-            for d in self._dashboards
-            if Dashboard.normalize_name(d.get("name")) not in replaced_dashboard_names
-        ]
+        unchanged_dashboards = self._unchanged_objects(
+            self._dashboards,
+            replaced_dashboards,
+            lambda d: Dashboard.normalize_name(d.get("name")),
+            replaced_file_paths,
+        )
         current_dashboards = json.loads(json.dumps(self._dashboards))
 
         # Replace topic files
-        replaced_topic_names = set([t.get("name", t.get("label")) for t in replaced_topics])
-        unchanged_topics = [
-            t for t in self._topics if t.get("name", t.get("label")) not in replaced_topic_names
-        ]
+        unchanged_topics = self._unchanged_objects(
+            self._topics, replaced_topics, lambda t: t.get("name", t.get("label")), replaced_file_paths
+        )
         current_topics = json.loads(json.dumps(self._topics))
 
         try:

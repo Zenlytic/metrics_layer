@@ -637,13 +637,6 @@ class View(MetricsLayerBase, SQLReplacement):
                     )
                 )
 
-        if self.primary_key is None:
-            primary_key_error = (
-                f"Warning: The view {self.name} does not have a primary key, "
-                "specify one using the tag primary_key: true"
-            )
-            errors += [self._error(None, primary_key_error)]
-
         if "access_filters" in self._definition and not isinstance(self.access_filters, list):
             access_filter_error = self._error(
                 self._definition["access_filters"],
