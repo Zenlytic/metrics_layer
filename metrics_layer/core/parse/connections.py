@@ -429,7 +429,13 @@ class BigQueryConnection(BaseConnection):
         creds_to_use = credentials if credentials else keyfile
         self.credentials = self._convert_json_if_needed(creds_to_use, kwargs)
         self.project_id = self.credentials["project_id"]
-        self.database = kwargs.get("data_project_id") or self.project_id
+        data_project_id = kwargs.get("data_project_id")
+        # `data_project_id` may be a comma-separated list of projects. A list is not a valid
+        # single project, so don't store it as `database` (it's never applied to table names);
+        # fall back to the service account's own project instead.
+        if data_project_id and "," in data_project_id:
+            data_project_id = None
+        self.database = data_project_id or self.project_id
 
     def to_dict(self):
         """Dict for use with the BigQuery connector"""

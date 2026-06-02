@@ -120,6 +120,25 @@ def test_config_explicit_metrics_layer_single_with_connections():
     assert result is None
 
 
+def test_bigquery_connection_no_data_project_id_uses_credentials_project():
+    conn = BigQueryConnection(name="bq", credentials='{"project_id": "sa-proj"}')
+    assert conn.database == "sa-proj"
+
+
+def test_bigquery_connection_single_data_project_id():
+    conn = BigQueryConnection(name="bq", credentials='{"project_id": "sa-proj"}', data_project_id="proj-a")
+    assert conn.database == "proj-a"
+
+
+def test_bigquery_connection_multi_data_project_id_falls_back_to_credentials_project():
+    # A comma-separated list is not a valid single project, so `database` must not store the
+    # raw list string; it falls back to the service account's own project.
+    conn = BigQueryConnection(
+        name="bq", credentials='{"project_id": "sa-proj"}', data_project_id="proj-a,proj-b"
+    )
+    assert conn.database == "sa-proj"
+
+
 def test_config_env_metrics_layer(monkeypatch):
     monkeypatch.setenv("METRICS_LAYER_LOCATION", "https://github.com")
     monkeypatch.setenv("METRICS_LAYER_BRANCH", "dev")
