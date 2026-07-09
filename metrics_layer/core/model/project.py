@@ -9,6 +9,7 @@ from metrics_layer.core.exceptions import (
     AccessDeniedOrDoesNotExistException,
     QueryError,
 )
+from metrics_layer.core.utils import clear_instance_memo, instance_memoize
 
 from .dashboard import Dashboard
 from .field import Field
@@ -43,11 +44,14 @@ class Project:
         self.connection_lookup = connection_lookup
         self.manifest = manifest
         self.manifest_exists = manifest and manifest.exists()
+        # Set _user only through set_user(): memoized field lookups depend on it
+        # and are refreshed there, so a direct write would bypass that refresh.
         self._user = None
         self._connection_schema = None
         self._timezone = None
         self._required_access_filter_user_attributes = []
         self._join_graph = None
+        self._instance_memo = {}
         self.commit_hash = commit_hash
         self._conversion_errors = conversion_errors
 
@@ -62,12 +66,23 @@ class Project:
     def id(self):
         return hash(self)
 
+    def __copy__(self):
+        # Shallow-copy as usual, but give the copy its own memo. Callers copy a
+        # Project and then add_field(..., refresh_cache=False) on the copy, so the
+        # copy's field lookups must be computed against its own view state rather
+        # than reuse the source instance's memoized results.
+        new = self.__class__.__new__(self.__class__)
+        new.__dict__.update(self.__dict__)
+        new._instance_memo = {}
+        return new
+
     def refresh_cache(self):
-        # Clear LRU Caches
-        self.fields.cache_clear()
-        self.get_field.cache_clear()
-        self.get_field_by_name.cache_clear()
-        self.get_field_by_tag.cache_clear()
+        # Clear instance-scoped memoized field lookups (fields / get_field /
+        # get_field_by_name / get_field_by_tag). These now live on the instance,
+        # so clearing them here handles the mutate-in-place path
+        # (replace_field / add_field / remove_field) and also drops the cached
+        # Field objects, invalidating their instance-scoped caches transitively.
+        clear_instance_memo(self)
 
         # Clear physical caches
         self._join_graph = None
@@ -84,6 +99,10 @@ class Project:
 
     def set_user(self, user: dict):
         self._user = user
+        # Memoized field lookups (fields / get_field / get_field_by_name /
+        # get_field_by_tag) depend on the current user, so invalidate them when it
+        # changes. _join_graph is intentionally left as-is (it does not vary here).
+        clear_instance_memo(self)
 
     def set_connection_schema(self, schema: str):
         self._connection_schema = schema
@@ -737,7 +756,7 @@ class Project:
             sets = self.sets()
         return next((s for s in sets if s.name == set_name), None)
 
-    @functools.lru_cache(maxsize=None)
+    @instance_memoize
     def fields(
         self,
         view_name: Union[str, None] = None,
@@ -797,7 +816,7 @@ class Project:
         field_options = [f for f in all_fields if any(j in join_graph_options for j in f.join_graphs())]
         return field_options
 
-    @functools.lru_cache(maxsize=None)
+    @instance_memoize
     def get_field(
         self, field_name: str, view_name: Union[str, None] = None, model_name: Union[str, None] = None
     ) -> Field:
@@ -814,7 +833,7 @@ class Project:
                 return {"name": field_name.lower(), **field_data}
         return None
 
-    @functools.lru_cache(maxsize=None)
+    @instance_memoize
     def get_field_by_name(
         self, field_name: str, view_name: Union[str, None] = None, model_name: Union[str, None] = None
     ):
@@ -823,7 +842,7 @@ class Project:
         matching_fields = [f for f in fields if f.name == field_name]
         return self._matching_field_handler(matching_fields, field_name, view_name)
 
-    @functools.lru_cache(maxsize=None)
+    @instance_memoize
     def get_field_by_tag(
         self,
         tag_name: str,

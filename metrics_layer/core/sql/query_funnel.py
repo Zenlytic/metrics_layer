@@ -1,4 +1,3 @@
-import functools
 from copy import deepcopy
 
 from pypika import Criterion, JoinType, Table
@@ -15,6 +14,7 @@ from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_dialect import query_lookup
 from metrics_layer.core.sql.query_filter import MetricsLayerFilter
 from metrics_layer.core.sql.query_generator import MetricsLayerQuery
+from metrics_layer.core.utils import instance_memoize
 
 
 class FunnelQuery(MetricsLayerQueryBase):
@@ -30,6 +30,7 @@ class FunnelQuery(MetricsLayerQueryBase):
         self.step_1_time = "step_1_time"
         self.result_cte_name = "result_cte"
         self.base_cte_name = design.base_cte_name
+        self._instance_memo = {}
         super().__init__(definition)
 
     def __hash__(self):
@@ -91,7 +92,7 @@ class FunnelQuery(MetricsLayerQueryBase):
         base_select, group_by = self._get_base_select()
         return step_select + base_select, group_by
 
-    @functools.lru_cache(maxsize=None)
+    @instance_memoize
     def _get_base_select(self):
         select = []
         group_by = []

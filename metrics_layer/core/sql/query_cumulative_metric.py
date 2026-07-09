@@ -1,4 +1,3 @@
-import functools
 from copy import deepcopy
 
 from pypika import Criterion, JoinType, Table
@@ -11,6 +10,7 @@ from metrics_layer.core.sql.query_design import MetricsLayerDesign
 from metrics_layer.core.sql.query_dialect import query_lookup
 from metrics_layer.core.sql.query_filter import MetricsLayerFilter
 from metrics_layer.core.sql.query_generator import MetricsLayerQuery
+from metrics_layer.core.utils import instance_memoize
 
 SNOWFLAKE_DATE_SPINE = (
     "select dateadd(day, seq4(), '2000-01-01') as date from table(generator(rowcount => 365*40))"
@@ -35,6 +35,7 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
         self.base_cte_name = design.base_cte_name
 
         self._default_date_memo = {}
+        self._instance_memo = {}
         super().__init__(definition)
 
     def __hash__(self):
@@ -284,7 +285,7 @@ class CumulativeMetricsQuery(MetricsLayerQueryBase):
                 date_aliases.append(f"{cumulative_metric.measure.view.name}.{date_name}")
         return f"{field.view.name}.{field.name}" in date_aliases
 
-    @functools.lru_cache(maxsize=None)
+    @instance_memoize
     def default_date_dimension_group(self):
         for dimension_name in self.dimensions:
             dimension = self.design.get_field(dimension_name)

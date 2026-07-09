@@ -116,14 +116,11 @@ def test_validation_with_view_rename_uses_file_path_for_replacement(fresh_projec
     renamed_view = json.loads(json.dumps(original_view))
     renamed_view["name"] = "renamed_order_lines"
 
-    response = project.validate_with_replaced_objects(
-        replaced_objects=[renamed_view], validate_topics=False
-    )
+    response = project.validate_with_replaced_objects(replaced_objects=[renamed_view], validate_topics=False)
 
-    assert (
-        "Could not find view order_lines in relationship between order_lines and orders"
-        in [e["message"] for e in response]
-    )
+    assert "Could not find view order_lines in relationship between order_lines and orders" in [
+        e["message"] for e in response
+    ]
 
 
 @pytest.mark.validation
@@ -635,14 +632,26 @@ def test_validation_view_with_fully_qualified_results(connection, name, value, e
         (
             "mappings",
             [],
-            ["The mappings property, [] must be a dictionary in the model test_model"],
+            [
+                "The mappings property, [] must be a dictionary in the model test_model",
+                (
+                    "The mappings property, [] must be a dictionary. Only one field can have the tag "
+                    '"customer" per joinable graph.'
+                ),
+            ],
         ),
         (
             "mappings",
             {"date": {"fields": []}},
             [
-                "The mapping name date is a reserved name and cannot be used as a mapping name in the model"
-                " test_model"
+                (
+                    "The mapping name date is a reserved name and cannot be used as a mapping name in the "
+                    "model test_model"
+                ),
+                (
+                    "The mapping tag date is a reserved tag and cannot be used as a mapping name. Only one "
+                    'field can have the tag "customer" per joinable graph.'
+                ),
             ],
         ),
         (
@@ -765,22 +774,18 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
             "sql_table_name",
             "(SELECT * FROM my_table)",
             [
-                (
-                    "The sql_table_name property in view order_lines contains a SQL expression"
-                    " rather than a table name. Use derived_table for SQL expressions, or provide"
-                    " a simple table reference like 'schema.table'."
-                )
+                "The sql_table_name property in view order_lines contains a SQL expression"
+                " rather than a table name. Use derived_table for SQL expressions, or provide"
+                " a simple table reference like 'schema.table'."
             ],
         ),
         (
             "sql_table_name",
             "SELECT * FROM my_table",
             [
-                (
-                    "The sql_table_name property in view order_lines contains a SQL expression"
-                    " rather than a table name. Use derived_table for SQL expressions, or provide"
-                    " a simple table reference like 'schema.table'."
-                )
+                "The sql_table_name property in view order_lines contains a SQL expression"
+                " rather than a table name. Use derived_table for SQL expressions, or provide"
+                " a simple table reference like 'schema.table'."
             ],
         ),
         (
@@ -791,11 +796,9 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
                 ' "LOAN_TERMS_EFFECTIVE_DATE_ME" DESC) = 1)'
             ),
             [
-                (
-                    "The sql_table_name property in view order_lines contains a SQL expression"
-                    " rather than a table name. Use derived_table for SQL expressions, or provide"
-                    " a simple table reference like 'schema.table'."
-                )
+                "The sql_table_name property in view order_lines contains a SQL expression"
+                " rather than a table name. Use derived_table for SQL expressions, or provide"
+                " a simple table reference like 'schema.table'."
             ],
         ),
         (
@@ -1374,9 +1377,7 @@ def test_validation_with_replaced_model_properties(connection, name, value, erro
         (
             "zoe_description",
             None,
-            [
-                "View order_lines has an invalid zoe_description None. zoe_description must be a string."
-            ],
+            ["View order_lines has an invalid zoe_description None. zoe_description must be a string."],
         ),
         ("zoe_description", "My View Zoe Description", []),
         (
@@ -1562,33 +1563,37 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "yesno",
             [
                 (
-                    "Could not find field order_date in join between order_lines and "
-                    "country_detail referencing view order_lines"
+                    "Could not find field order_date in join between order_lines and country_detail "
+                    "referencing view order_lines"
                 ),
                 (
-                    "Could not find field order_date in join between country_detail and "
-                    "order_lines referencing view order_lines"
+                    "Could not find field order_date in join between country_detail and order_lines "
+                    "referencing view order_lines"
                 ),
                 (
-                    "Canon date order_lines.order is not of field_type: dimension_group and type: "
-                    "time in field total_on_hand_items in view orders"
+                    "Canon date order_lines.order is not of field_type: dimension_group and type: time in "
+                    "field total_on_hand_items in view orders"
                 ),
                 (
-                    "Canon date order_lines.order is not of field_type: dimension_group and type: "
-                    "time in field avg_rainfall in view country_detail"
+                    "Canon date order_lines.order is not of field_type: dimension_group and type: time in "
+                    "field avg_rainfall in view country_detail"
                 ),
                 (
-                    "Canon date order_lines.order is not of field_type: dimension_group and type: "
-                    "time in field avg_rainfall_adj in view country_detail"
+                    "Canon date order_lines.order is not of field_type: dimension_group and type: time in "
+                    "field avg_rainfall_adj in view country_detail"
+                ),
+                "Could not locate reference order_date in field order_sequence in view order_lines",
+                "Could not locate reference order_date in field ending_on_hand_qty in view order_lines",
+                (
+                    "Default date order_lines.order is not of field_type: dimension_group and type: time in "
+                    "view order_lines"
                 ),
                 (
-                    "Default date order_lines.order is not of field_type: dimension_group and type: time in"
-                    " view order_lines"
+                    "Field order in view order_lines has an invalid type yesno. Valid types for dimension "
+                    "groups are: ['time', 'duration']"
                 ),
-                (
-                    "Field order in view order_lines has an invalid type yesno. Valid types for "
-                    "dimension groups are: ['time', 'duration']"
-                ),
+                "Field order_sequence in view order_lines contains invalid field reference order_date.",
+                "Field ending_on_hand_qty in view order_lines contains invalid field reference order_date.",
             ],
         ),
         (
@@ -1823,33 +1828,37 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "number",
             [
                 (
-                    "Could not find field order_date in join between order_lines and "
-                    "country_detail referencing view order_lines"
+                    "Could not find field order_date in join between order_lines and country_detail "
+                    "referencing view order_lines"
                 ),
                 (
-                    "Could not find field order_date in join between country_detail and "
-                    "order_lines referencing view order_lines"
+                    "Could not find field order_date in join between country_detail and order_lines "
+                    "referencing view order_lines"
                 ),
                 (
-                    "Canon date order_lines.order is not of field_type: dimension_group and type: "
-                    "time in field total_on_hand_items in view orders"
+                    "Canon date order_lines.order is not of field_type: dimension_group and type: time in "
+                    "field total_on_hand_items in view orders"
                 ),
                 (
-                    "Canon date order_lines.order is not of field_type: dimension_group and type: "
-                    "time in field avg_rainfall in view country_detail"
+                    "Canon date order_lines.order is not of field_type: dimension_group and type: time in "
+                    "field avg_rainfall in view country_detail"
                 ),
                 (
-                    "Canon date order_lines.order is not of field_type: dimension_group and type: "
-                    "time in field avg_rainfall_adj in view country_detail"
+                    "Canon date order_lines.order is not of field_type: dimension_group and type: time in "
+                    "field avg_rainfall_adj in view country_detail"
+                ),
+                "Could not locate reference order_date in field order_sequence in view order_lines",
+                "Could not locate reference order_date in field ending_on_hand_qty in view order_lines",
+                (
+                    "Default date order_lines.order is not of field_type: dimension_group and type: time in "
+                    "view order_lines"
                 ),
                 (
-                    "Default date order_lines.order is not of field_type: dimension_group and type: time in"
-                    " view order_lines"
+                    "Field order in view order_lines has an invalid type number. Valid types for dimension "
+                    "groups are: ['time', 'duration']"
                 ),
-                (
-                    "Field order in view order_lines has an invalid type number. Valid types for dimension"
-                    " groups are: ['time', 'duration']"
-                ),
+                "Field order_sequence in view order_lines contains invalid field reference order_date.",
+                "Field ending_on_hand_qty in view order_lines contains invalid field reference order_date.",
             ],
         ),
         (
@@ -1869,13 +1878,15 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             ["timestamp"],
             [
                 (
-                    "Could not find field order_date in join between order_lines and "
-                    "country_detail referencing view order_lines"
+                    "Could not find field order_date in join between order_lines and country_detail "
+                    "referencing view order_lines"
                 ),
                 (
-                    "Could not find field order_date in join between country_detail and "
-                    "order_lines referencing view order_lines"
+                    "Could not find field order_date in join between country_detail and order_lines "
+                    "referencing view order_lines"
                 ),
+                "Could not locate reference order_date in field order_sequence in view order_lines",
+                "Could not locate reference order_date in field ending_on_hand_qty in view order_lines",
                 (
                     "Field order in view order_lines is of type time and has timeframe value of 'timestamp'"
                     " which is not a valid timeframes (valid timeframes are ['raw', 'time', 'second',"
@@ -1886,6 +1897,8 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
                     " 'quarter_of_year', 'fiscal_quarter_of_year', 'hour_of_day', 'day_of_week',"
                     " 'day_of_month', 'day_of_year'])"
                 ),
+                "Field order_sequence in view order_lines contains invalid field reference order_date.",
+                "Field ending_on_hand_qty in view order_lines contains invalid field reference order_date.",
             ],
         ),
         (
@@ -2563,8 +2576,14 @@ def test_validation_with_replaced_view_properties(connection, name, value, error
             "sql",
             "${sessions.number_of_sess} * ${total_item_revenue} / nullif(${total_item_revenue}, 0)",
             [
-                "Field revenue_per_session in view order_lines contains invalid field "
-                "reference sessions.number_of_sess."
+                (
+                    "Field net_per_session in view order_lines contains invalid field reference "
+                    "sessions.number_of_sess."
+                ),
+                (
+                    "Field revenue_per_session in view order_lines contains invalid field reference "
+                    "sessions.number_of_sess."
+                ),
             ],
         ),
         (
