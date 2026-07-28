@@ -1,4 +1,3 @@
-import functools
 import hashlib
 import json
 import re
@@ -14,7 +13,7 @@ from metrics_layer.core.exceptions import (
     MetricsLayerException,
     QueryError,
 )
-from metrics_layer.core.utils import compute_combined_sql_md5
+from metrics_layer.core.utils import compute_combined_sql_md5, instance_memoize
 
 from .base import MetricsLayerBase, SQLReplacement
 from .definitions import Definitions, sql_flavor_to_sqlglot_format
@@ -209,6 +208,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             definition["promotable"] = True
 
         self.view: View = view
+        self._instance_memo = {}
         self.validate(definition)
         super().__init__(definition)
 
@@ -3076,7 +3076,7 @@ class Field(MetricsLayerBase, SQLReplacement):
             return list(set(f.id() for f in valid_references))
         return referenced_fields
 
-    @functools.lru_cache(maxsize=None)
+    @instance_memoize
     def referenced_fields(self, sql):
         reference_fields = []
         if sql is None:
@@ -3350,7 +3350,7 @@ class Field(MetricsLayerBase, SQLReplacement):
         digit_first_char = name[0] in {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
         return name_is_keyword or digit_first_char
 
-    @functools.lru_cache(maxsize=None)
+    @instance_memoize
     def join_graphs(self):
         if self.view.model is None:
             raise QueryError(

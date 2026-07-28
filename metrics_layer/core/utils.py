@@ -1,3 +1,4 @@
+import functools
 import hashlib
 import json
 import random
@@ -77,3 +78,61 @@ def _normalize_non_additive_dimension(non_additive_dimension: Any) -> dict:
         return non_additive_dimension
 
     return {}
+
+
+_MEMO_KWD_MARK = object()
+
+
+def instance_memoize(method):
+    """
+    Per-instance, unbounded memoization for a method whose result depends only
+    on ``self``'s content and the call's arguments.
+
+    The cache lives on the instance (``self._instance_memo``) rather than on a
+    class-level function object, so its lifetime is scoped to the instance: it
+    is released together with the instance and is never shared between instances.
+
+    Cleared with ``clear_instance_memo(instance)`` or by releasing the instance.
+    Keying follows ``functools.lru_cache`` semantics: positional args and
+    (sorted) keyword args form the key, and ``f(1)`` and ``f(x=1)`` are distinct.
+    """
+    method_name = method.__name__
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        memo = getattr(self, "_instance_memo", None)
+        if memo is None:
+            memo = {}
+            self._instance_memo = memo
+        cache = memo.get(method_name)
+        if cache is None:
+            cache = {}
+            memo[method_name] = cache
+        if kwargs:
+            key = args + (_MEMO_KWD_MARK,) + tuple(sorted(kwargs.items()))
+        else:
+            key = args
+        if key in cache:
+            return cache[key]
+        result = method(self, *args, **kwargs)
+        cache[key] = result
+        return result
+
+    return wrapper
+
+
+def clear_instance_memo(instance, *method_names):
+    """
+    Clear an instance's memoized method results.
+
+    With no ``method_names``, clears everything memoized on the instance. With
+    names, clears only those methods' caches. Tolerant of a missing memo.
+    """
+    memo = getattr(instance, "_instance_memo", None)
+    if not memo:
+        return
+    if not method_names:
+        memo.clear()
+        return
+    for name in method_names:
+        memo.pop(name, None)
