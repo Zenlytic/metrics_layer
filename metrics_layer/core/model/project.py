@@ -76,6 +76,15 @@ class Project:
         new._instance_memo = {}
         return new
 
+    def __getstate__(self):
+        # Exclude the memo from pickling: it is derived state rebuilt on demand,
+        # and the cached Field/View objects cannot be unpickled anyway —
+        # MetricsLayerBase.__getattr__ recurses on the not-yet-restored
+        # _definition attribute during pickle.loads.
+        state = self.__dict__.copy()
+        state["_instance_memo"] = {}
+        return state
+
     def refresh_cache(self):
         # Clear instance-scoped memoized field lookups (fields / get_field /
         # get_field_by_name / get_field_by_tag). These now live on the instance,

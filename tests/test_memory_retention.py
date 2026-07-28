@@ -1,5 +1,6 @@
 import copy
 import gc
+import pickle
 
 from metrics_layer.core import MetricsLayerConnection
 from metrics_layer.core.model.project import Project
@@ -97,6 +98,18 @@ def test_cumulative_query_objects_released(
         conn.get_sql_query(metrics=["total_lifetime_revenue"])
         del conn
     assert _count_live("CumulativeMetricsQuery") == baseline
+
+
+def test_pickle_round_trip_with_populated_memo(fresh_project):
+    # Cached Field objects must not be serialized: MetricsLayerBase.__getattr__
+    # makes them un-unpicklable (infinite recursion on the missing _definition),
+    # and the memo is derived state that each instance rebuilds on demand.
+    fresh_project.get_field("orders.number_of_orders")
+    assert fresh_project._instance_memo
+
+    restored = pickle.loads(pickle.dumps(fresh_project))
+    assert restored._instance_memo == {}
+    assert restored.get_field("orders.number_of_orders") is not None
 
 
 def test_shallow_copied_project_has_independent_field_cache(
