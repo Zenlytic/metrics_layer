@@ -707,7 +707,12 @@ class Project:
     def _views_for_a_model(self, model_name: str, show_hidden: bool = True):
         return [v for v in self._all_views(show_hidden=show_hidden) if v.model_name == model_name]
 
+    @instance_memoize
     def _all_views(self, show_hidden: bool = True):
+        # Memoized because constructing View objects and evaluating access for
+        # every raw view dict is the dominant cost of view lookups on large
+        # projects. The result depends on the current user (can_access_view),
+        # so set_user / refresh_cache clear this via clear_instance_memo.
         views = []
         for v in self._views:
             view = View(v, project=self)
@@ -716,21 +721,32 @@ class Project:
                 views.append(view)
         return views
 
+    @instance_memoize
+    def _views_by_name(self, show_hidden: bool = True) -> dict:
+        lookup = {}
+        for view in self._all_views(show_hidden=show_hidden):
+            lookup.setdefault(view.name, view)
+        return lookup
+
     def views(self, model_name: Union[str, None] = None, show_hidden: bool = True) -> list:
         if model_name:
             return self._views_for_a_model(model_name, show_hidden)
         else:
-            return self._all_views(show_hidden)
+            return self._all_views(show_hidden=show_hidden)
 
     def get_view(self, view_name: str, model_name: Union[str, None] = None) -> View:
-        try:
-            return next((v for v in self.views(model_name=model_name) if v.name == view_name))
-        except StopIteration:
+        if model_name is None:
+            view = self._views_by_name(show_hidden=True).get(view_name)
+        else:
+            # Model-scoped lookups are rare; keep the original scan semantics.
+            view = next((v for v in self.views(model_name=model_name) if v.name == view_name), None)
+        if view is None:
             raise AccessDeniedOrDoesNotExistException(
                 f"Could not find or you do not have access to view {view_name}",
                 object_name=view_name,
                 object_type="view",
             )
+        return view
 
     def get_joinable_views(self, view_name: str) -> List[str]:
         return self.join_graph.get_joinable_view_names(view_name)

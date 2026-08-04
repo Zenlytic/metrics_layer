@@ -54,7 +54,11 @@ class View(MetricsLayerBase, SQLReplacement):
     def __init__(self, definition: dict, project) -> None:
         if "sets" not in definition:
             definition["sets"] = []
-        self.__all_fields = None
+        # Keyed by expand_dimension_groups: the expanded and unexpanded field
+        # lists differ, and View instances are shared via Project's memoized
+        # view lookups, so a single cached list would leak one caller's
+        # expansion mode into another's.
+        self.__all_fields = {}
         if "name" in definition:
             definition["name"] = self.normalize_name(definition["name"])
 
@@ -1175,9 +1179,19 @@ class View(MetricsLayerBase, SQLReplacement):
         show_hidden: bool = True,
         expand_dimension_groups: bool = False,
     ) -> list:
-        if not self.__all_fields:
-            self.__all_fields = self._all_fields(expand_dimension_groups=expand_dimension_groups)
-        all_fields = self.__all_fields
+        if expand_dimension_groups:
+            if True not in self.__all_fields:
+                self.__all_fields[True] = self._all_fields(expand_dimension_groups=True)
+            all_fields = self.__all_fields[True]
+        else:
+            # Unexpanded dimension-group Fields are stateful: Field.equal binds
+            # a timeframe onto the instance when matched (e.g. "order_date"
+            # sets dimension_group = "date"). View instances are shared via
+            # Project's memoized view lookups, so caching these here would leak
+            # one caller's binding into another caller's lookups. Expanded
+            # fields are already bound at construction, so they are safe to
+            # cache above.
+            all_fields = self._all_fields(expand_dimension_groups=False)
         if show_hidden:
             return all_fields
         return [field for field in all_fields if not field.hidden]
