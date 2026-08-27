@@ -94,7 +94,7 @@ class View(MetricsLayerBase, SQLReplacement):
             project=self.project,
         )
         access_filter_literal, access_filter_fields = self.design.get_access_filter(specific_view=self)
-        always_filter_literal = self._always_filter_literal()
+        always_filter_literal = self._always_filter_literal(query_type)
         if access_filter_fields:
             for field in access_filter_fields:
                 if field.view.name != self.name:
@@ -125,7 +125,7 @@ class View(MetricsLayerBase, SQLReplacement):
         else:
             return f"{base_clause} as {self.name}"
 
-    def _always_filter_literal(self):
+    def _always_filter_literal(self, query_type: str):
         to_add = {"week_start_day": self.model.week_start_day, "timezone": self.project.timezone}
         parsed_filters = []
         if self.always_filter:
@@ -140,16 +140,19 @@ class View(MetricsLayerBase, SQLReplacement):
                         )
                 if "." not in f["field"]:
                     f["field"] = f"{self.name}.{f['field']}"
+                # Render the field's SQL (not its name) so always_filter works for derived
+                # fields like CASE expressions, matching how access filters are applied.
+                field = self.project.get_field(f["field"])
+                field_sql = field.sql_query(query_type)
                 filter_dicts = Filter({**f, **to_add}).filter_dict(json_safe=False)
                 for filter_dict in filter_dicts:
-                    field_datatype = self.project.get_field(f["field"]).type
                     parsed_filters.append(
                         str(
                             Filter.sql_query(
-                                f["field"],
+                                field_sql,
                                 filter_dict["expression"],
                                 filter_dict["value"],
-                                field_datatype,
+                                field.type,
                             )
                         )
                     )

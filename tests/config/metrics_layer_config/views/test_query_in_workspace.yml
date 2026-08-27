@@ -20,6 +20,8 @@ always_filter:
     value: 1, Google, os:iOS
   - field: session_id
     value: -1, -44, -087
+  - field: is_valid_session
+    value: Yes
 
 fields:
   - name: session_id
@@ -40,6 +42,12 @@ fields:
     type: string
     sql: ${TABLE}.context_os
     searchable: true
+
+  - name: is_valid_session
+    field_type: dimension
+    type: yesno
+    hidden: yes
+    sql: CASE WHEN ${TABLE}.context_os IS NOT NULL THEN TRUE ELSE FALSE END
 
   - name: created
     field_type: 'dimension_group'
