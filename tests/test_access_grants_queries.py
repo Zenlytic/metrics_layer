@@ -111,8 +111,9 @@ def test_access_filters_on_view_with_always_filter_and_access_filters(connection
     correct = (
         "(select * from analytics.query_in_workspace as query_in_workspace WHERE"
         " query_in_workspace.context_os='iOS' and NOT query_in_workspace.context_os IS NULL and"
-        " query_in_workspace.context_os IN ('1','Google','os:iOS') and query_in_workspace.session_id NOT IN"
-        " (1,44,87)) as query_in_workspace"
+        " query_in_workspace.context_os IN ('1','Google','os:iOS') and query_in_workspace.id NOT IN"
+        " (1,44,87) and (CASE WHEN"
+        " query_in_workspace.context_os IS NOT NULL THEN TRUE ELSE FALSE END)=true) as query_in_workspace"
     )
     assert result == correct
 
@@ -123,7 +124,8 @@ def test_access_filters_on_view_with_always_filter_and_access_filters(connection
         "(select * from analytics.query_in_workspace as query_in_workspace WHERE"
         " query_in_workspace.context_os='Android' and query_in_workspace.customer_id IN ('1123','4434') and"
         " NOT query_in_workspace.context_os IS NULL and query_in_workspace.context_os IN"
-        " ('1','Google','os:iOS') and query_in_workspace.session_id NOT IN (1,44,87)) as query_in_workspace"
+        " ('1','Google','os:iOS') and query_in_workspace.id NOT IN (1,44,87) and (CASE WHEN"
+        " query_in_workspace.context_os IS NOT NULL THEN TRUE ELSE FALSE END)=true) as query_in_workspace"
     )
     assert result == correct
 
@@ -133,7 +135,8 @@ def test_access_filters_on_view_with_always_filter_and_access_filters(connection
     correct = (
         "(select * from analytics.query_in_workspace as query_in_workspace WHERE NOT"
         " query_in_workspace.context_os IS NULL and query_in_workspace.context_os IN ('1','Google','os:iOS')"
-        " and query_in_workspace.session_id NOT IN (1,44,87)) as query_in_workspace"
+        " and query_in_workspace.id NOT IN (1,44,87) and (CASE WHEN"
+        " query_in_workspace.context_os IS NOT NULL THEN TRUE ELSE FALSE END)=true) as query_in_workspace"
     )
     assert result == correct
 
