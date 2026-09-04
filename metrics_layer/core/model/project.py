@@ -523,12 +523,17 @@ class Project:
                 view.sql_table_name
             except QueryError as e:
                 all_errors.append(view._error(None, str(e) + f" in the view {view.name}"))
+            referenced_fields = []
             try:
                 referenced_fields = view.referenced_fields()
             except (AccessDeniedOrDoesNotExistException, QueryError) as e:
                 all_errors.append(view._error(None, str(e) + f" in the view {view.name}"))
 
-            view_errors = view.collect_errors(metrics_must_have_dates=metrics_must_have_dates)
+            view_errors = []
+            try:
+                view_errors = view.collect_errors(metrics_must_have_dates=metrics_must_have_dates)
+            except (AccessDeniedOrDoesNotExistException, QueryError) as e:
+                all_errors.append(view._error(None, str(e) + f" in the view {view.name}"))
 
             for field in referenced_fields:
                 if isinstance(field, tuple):
