@@ -3120,3 +3120,101 @@ def test_validation_with_views_present_in_topics(connection, name, value, errors
     response = project.validate_with_replaced_objects(replaced_objects=[topic], views_must_be_in_topics=True)
 
     assert [e["message"] for e in response] == errors
+
+
+def _views_with_broken_view_first(project, broken_view):
+    """Return every view in the project with ``broken_view`` first.
+
+    ``save_context`` validates the whole data model, so every view is a replaced
+    object and the first file's view is the first view validated.
+    """
+    others = [v for v in json.loads(json.dumps(project._views)) if v["name"] != broken_view["name"]]
+    return [broken_view] + others
+
+
+@pytest.mark.validation
+def test_validation_reports_ambiguous_reference_in_first_view(fresh_project):
+    """An ambiguous ${} reference in the *first* validated view must be reported as a
+    validation error, not crash the validator with an UnboundLocalError."""
+    project = fresh_project
+    view = _get_view_by_name(project, "order_lines")
+    view["fields"].append(
+        {
+            "name": "rpt_date",
+            "field_type": "dimension_group",
+            "type": "time",
+            "timeframes": ["raw", "date", "month"],
+            "sql": "${TABLE}.rpt_date",
+        }
+    )
+    # A duplicate of the dimension group's `month` timeframe sub-field, which makes
+    # every ${rpt_date_month} reference ambiguous.
+    view["fields"].append(
+        {
+            "name": "rpt_date_month",
+            "field_type": "dimension",
+            "type": "string",
+            "searchable": False,
+            "sql": "${TABLE}.rpt_date_month",
+        }
+    )
+    # `case` short circuits this field's own sql validation, so the ambiguous
+    # reference only surfaces through View.referenced_fields.
+    view["fields"].append(
+        {
+            "name": "rpt_flag",
+            "field_type": "dimension",
+            "type": "string",
+            "searchable": False,
+            "sql": "${rpt_date_month}",
+            "case": {"whens": []},
+        }
+    )
+
+    response = project.validate_with_replaced_objects(_views_with_broken_view_first(project, view))
+
+    assert any(
+        "Multiple fields found for the name rpt_date_month, in view order_lines" in e["message"]
+        for e in response
+    ), [e["message"] for e in response]
+
+
+@pytest.mark.validation
+def test_validation_reports_ambiguous_reference_raised_by_collect_errors(fresh_project):
+    """A QueryError raised while a field collects its own errors must be reported as a
+    validation error rather than escaping validate()."""
+    project = fresh_project
+    view = _get_view_by_name(project, "order_lines")
+    view["fields"].append(
+        {
+            "name": "rpt_date",
+            "field_type": "dimension_group",
+            "type": "time",
+            "timeframes": ["raw", "date", "month"],
+            "sql": "${TABLE}.rpt_date",
+        }
+    )
+    view["fields"].append(
+        {
+            "name": "rpt_date_month",
+            "field_type": "dimension",
+            "type": "string",
+            "searchable": False,
+            "sql": "${TABLE}.rpt_date_month",
+        }
+    )
+    view["fields"].append(
+        {
+            "name": "rpt_measure",
+            "field_type": "measure",
+            "type": "count_distinct",
+            "sql": "${rpt_date_month}",
+        }
+    )
+
+    response = project.validate_with_replaced_objects(_views_with_broken_view_first(project, view))
+
+    assert any(
+        "Multiple fields found for the name rpt_date_month, in view order_lines" in e["message"]
+        for e in response
+    ), [e["message"] for e in response]
