@@ -1,8 +1,12 @@
 import os
 import pathlib
 import shutil
+import signal
+import subprocess
+import time
 from glob import glob
-from typing import Union
+from typing import Optional, Union
+from urllib.parse import urlsplit
 
 import git
 import yaml
@@ -10,6 +14,15 @@ import yaml
 from metrics_layer.core import utils
 
 BASE_PATH = os.getenv("GIT_REPO_BASE_PATH", os.path.dirname(__file__))
+REDACTED_URL = "<repository url>"
+
+
+class GitCloneTimeout(git.GitCommandError):
+    """Raised when a bounded clone does not finish within its time budget."""
+
+    def __init__(self, command, timeout_seconds: float, stderr: str = None):
+        self.timeout_seconds = timeout_seconds
+        super().__init__(command, f"clone timed out after {timeout_seconds} seconds", stderr)
 
 
 class BaseRepo:
@@ -93,8 +106,12 @@ class GithubRepo(BaseRepo):
         self.branch = branch
         self.branch_options = []
 
-    def fetch(self, private_key: str = None):
-        self.git_repo, branch_options, self._file_path = self.fetch_github_repo(private_key)
+    def fetch(
+        self, private_key: str = None, *, single_branch: bool = False, timeout_seconds: Optional[float] = None
+    ):
+        self.git_repo, branch_options, self._file_path = self.fetch_github_repo(
+            private_key, single_branch=single_branch, timeout_seconds=timeout_seconds
+        )
         self.dbt_path = self.get_dbt_path()
         self.branch_options = branch_options
 
@@ -191,45 +208,171 @@ class GithubRepo(BaseRepo):
         else:
             func(**kwargs)
 
-    def fetch_github_repo(self, private_key: str):
+    def fetch_github_repo(
+        self, private_key: str, *, single_branch: bool = False, timeout_seconds: Optional[float] = None
+    ):
         if self.is_ssh:
             if private_key is None:
                 raise ValueError("Private key is required for SSH mode of connection to Github.")
             repo, branch_options, file_path = GithubRepo._fetch_github_repo_ssh(
-                self.repo_url, self.repo_destination, self.branch, private_key
+                self.repo_url,
+                self.repo_destination,
+                self.branch,
+                private_key,
+                single_branch=single_branch,
+                timeout_seconds=timeout_seconds,
             )
         else:
             repo, branch_options = GithubRepo._fetch_github_repo_https(
-                self.repo_url, self.repo_destination, self.branch
+                self.repo_url,
+                self.repo_destination,
+                self.branch,
+                single_branch=single_branch,
+                timeout_seconds=timeout_seconds,
             )
             file_path = None
         return repo, branch_options, file_path
 
     @staticmethod
-    def _fetch_github_repo_https(repo_url: str, repo_destination: str, branch: str):
+    def _fetch_github_repo_https(
+        repo_url: str,
+        repo_destination: str,
+        branch: str,
+        *,
+        single_branch: bool = False,
+        timeout_seconds: Optional[float] = None,
+    ):
         if os.path.exists(repo_destination) and os.path.isdir(repo_destination):
             shutil.rmtree(repo_destination)
+        if single_branch or timeout_seconds is not None:
+            repo, branch_options = GithubRepo._bounded_clone(
+                repo_url, repo_destination, branch, {}, single_branch, timeout_seconds
+            )
+            return repo, branch_options
         repo = git.Repo.clone_from(repo_url, to_path=repo_destination, branch=branch)
         branch_options = GithubRepo._fetch_branch_options(repo, branch)
         return repo, branch_options
 
     @staticmethod
-    def _fetch_github_repo_ssh(repo_url: str, repo_destination: str, branch: str, private_key: str):
+    def _fetch_github_repo_ssh(
+        repo_url: str,
+        repo_destination: str,
+        branch: str,
+        private_key: str,
+        *,
+        single_branch: bool = False,
+        timeout_seconds: Optional[float] = None,
+    ):
         file_path = GithubRepo._write_private_key(private_key)
         git_env = GithubRepo._private_key_git_ssh_env(file_path)
 
         try:
-            repo = git.Repo.clone_from(url=repo_url, to_path=repo_destination, branch=branch, env=git_env)
-            branch_options = GithubRepo._fetch_branch_options(repo, branch)
+            if single_branch or timeout_seconds is not None:
+                repo, branch_options = GithubRepo._bounded_clone(
+                    repo_url, repo_destination, branch, git_env, single_branch, timeout_seconds
+                )
+            else:
+                repo = git.Repo.clone_from(url=repo_url, to_path=repo_destination, branch=branch, env=git_env)
+                branch_options = GithubRepo._fetch_branch_options(repo, branch)
             os.remove(file_path)
         except Exception as e:
             try:
                 os.remove(file_path)
-            except Exception as e:
-                print(f"Exception removing private key file: {e}")
+            except Exception as remove_error:
+                print(f"Exception removing private key file: {remove_error}")
             raise e
 
         return repo, branch_options, file_path
+
+    @staticmethod
+    def _bounded_clone(
+        repo_url: str,
+        repo_destination: str,
+        branch: str,
+        env: dict,
+        single_branch: bool,
+        timeout_seconds: Optional[float],
+    ):
+        """Clone (optionally single branch) and list branches within one shared time budget."""
+        deadline = None if timeout_seconds is None else time.monotonic() + timeout_seconds
+        args = ["clone"] + (["--single-branch"] if single_branch else [])
+        args += ["--branch", branch, "--", repo_url, repo_destination]
+        try:
+            GithubRepo._run_git(args, env, timeout_seconds, deadline, repo_url, cwd=None)
+        except GitCloneTimeout:
+            shutil.rmtree(repo_destination, ignore_errors=True)
+            raise
+        repo = git.Repo(repo_destination)
+
+        try:
+            raw = GithubRepo._run_git(
+                ["ls-remote"], env, timeout_seconds, deadline, repo_url, cwd=repo_destination
+            )
+            branch_options = GithubRepo._parse_ls_remote(raw)
+        except Exception as e:
+            print(f"Exception getting branch options: {e}")
+            branch_options = [branch]
+        return repo, branch_options
+
+    @staticmethod
+    def _run_git(args: list, env: dict, timeout_seconds, deadline, repo_url: str, cwd: Optional[str]):
+        """Run git in its own process group so a timeout kills git and its transport children."""
+        remaining = None if deadline is None else deadline - time.monotonic()
+        # Never prompt for credentials: a bad token must fail fast, not hang on a terminal.
+        full_env = {**os.environ, "GIT_TERMINAL_PROMPT": "0", **env}
+        shown_command = ["git"] + [REDACTED_URL if a == repo_url else a for a in args]
+        if remaining is not None and remaining <= 0:
+            raise GitCloneTimeout(shown_command, timeout_seconds)
+        process = subprocess.Popen(
+            ["git"] + args,
+            cwd=cwd,
+            env=full_env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
+        )
+        try:
+            stdout, stderr = process.communicate(timeout=remaining)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            try:
+                _, stderr = process.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                stderr = None
+            raise GitCloneTimeout(shown_command, timeout_seconds, GithubRepo._scrub(stderr, repo_url))
+        except BaseException:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.wait()
+            raise
+        if process.returncode != 0:
+            raise git.GitCommandError(
+                shown_command, process.returncode, GithubRepo._scrub(stderr, repo_url), stdout
+            )
+        return stdout
+
+    @staticmethod
+    def _scrub(text: Optional[str], repo_url: str):
+        """Remove the repository URL, and any credentials in it, from git output."""
+        if not text:
+            return text
+        text = text.replace(repo_url, REDACTED_URL)
+        parts = urlsplit(repo_url)
+        if parts.scheme in ("http", "https"):
+            # the token can be the user or the password part; drop "user:token@" wherever git echoed it.
+            # Replace only the token itself, never a bare username: "u" would mangle ordinary words.
+            userinfo = parts.netloc.rpartition("@")[0]
+            if userinfo:
+                text = text.replace(f"{userinfo}@", "")
+            if parts.password:
+                text = text.replace(parts.password, "<redacted>")
+        return text
 
     @staticmethod
     def _private_key_git_ssh_env(file_path: str):
