@@ -99,7 +99,9 @@ class GithubRepo(BaseRepo):
 
         With ``by_ref`` the repository is not cloned: ``branch`` is fetched as a ref and checked out
         detached, so it can be a branch, a tag or a full commit sha (``git clone --branch`` takes no
-        sha). ``depth`` still limits how much history comes with it."""
+        sha). ``depth`` still limits how much history comes with it. Use it for read-only access: the
+        checkout has no local branch, and a repository fetched over SSH does not keep the deploy key's
+        environment, so ``pull`` and ``push`` are not supported on it."""
         self.git_repo, branch_options, self._file_path = self.fetch_github_repo(
             private_key, depth=depth, by_ref=by_ref
         )
@@ -220,8 +222,9 @@ class GithubRepo(BaseRepo):
 
     @staticmethod
     def _fetch_ref(repo_url: str, repo_destination: str, ref: str, depth: int = None, env: dict = None):
-        # A colon makes git read the ref as a ``src:dst`` refspec, and no branch, tag or sha has one.
-        if ":" in ref:
+        # An empty ref would fetch the remote's HEAD, and a colon makes git read the ref as a
+        # ``src:dst`` refspec. No branch, tag or sha is either.
+        if not ref or ":" in ref:
             raise git.GitCommandError(["git", "fetch"], 128, stderr=f"invalid ref name '{ref}'")
         os.makedirs(repo_destination, exist_ok=True)
         try:

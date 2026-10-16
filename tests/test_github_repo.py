@@ -201,6 +201,15 @@ def test_fetch_by_ref_does_not_read_a_ref_with_a_colon_as_a_refspec(origin_url):
     assert not os.path.exists(repo.repo_destination)
 
 
+@pytest.mark.parametrize("ref", ["", None])
+def test_fetch_by_ref_rejects_an_empty_ref_instead_of_fetching_the_remote_head(origin_url, ref):
+    repo = GithubRepo(origin_url, ref)
+    with pytest.raises(GitCommandError) as raised:
+        repo.fetch(depth=1, by_ref=True)
+    assert "invalid ref name" in str(raised.value).lower()
+    assert not os.path.exists(repo.repo_destination)
+
+
 @pytest.mark.parametrize("ref", ["no-such-branch", "-bad"])
 def test_a_failed_fetch_by_ref_leaves_no_directory_behind(origin_url, ref):
     repo = GithubRepo(origin_url, ref)
