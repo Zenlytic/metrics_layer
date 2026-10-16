@@ -93,10 +93,16 @@ class GithubRepo(BaseRepo):
         self.branch = branch
         self.branch_options = []
 
-    def fetch(self, private_key: str = None, depth: int = None):
+    def fetch(self, private_key: str = None, depth: int = None, by_ref: bool = False):
         """Clone the repo. With ``depth`` only that many commits of ``branch`` are fetched (a shallow
-        clone, which also leaves out every other branch); without it the whole history is cloned."""
-        self.git_repo, branch_options, self._file_path = self.fetch_github_repo(private_key, depth=depth)
+        clone, which also leaves out every other branch); without it the whole history is cloned.
+
+        With ``by_ref`` the repository is not cloned: ``branch`` is fetched as a ref and checked out
+        detached, so it can be a branch, a tag or a full commit sha (``git clone --branch`` takes no
+        sha). ``depth`` still limits how much history comes with it."""
+        self.git_repo, branch_options, self._file_path = self.fetch_github_repo(
+            private_key, depth=depth, by_ref=by_ref
+        )
         self.dbt_path = self.get_dbt_path()
         self.branch_options = branch_options
 
@@ -193,16 +199,16 @@ class GithubRepo(BaseRepo):
         else:
             func(**kwargs)
 
-    def fetch_github_repo(self, private_key: str, depth: int = None):
+    def fetch_github_repo(self, private_key: str, depth: int = None, by_ref: bool = False):
         if self.is_ssh:
             if private_key is None:
                 raise ValueError("Private key is required for SSH mode of connection to Github.")
             repo, branch_options, file_path = GithubRepo._fetch_github_repo_ssh(
-                self.repo_url, self.repo_destination, self.branch, private_key, depth=depth
+                self.repo_url, self.repo_destination, self.branch, private_key, depth=depth, by_ref=by_ref
             )
         else:
             repo, branch_options = GithubRepo._fetch_github_repo_https(
-                self.repo_url, self.repo_destination, self.branch, depth=depth
+                self.repo_url, self.repo_destination, self.branch, depth=depth, by_ref=by_ref
             )
             file_path = None
         return repo, branch_options, file_path
@@ -213,9 +219,24 @@ class GithubRepo(BaseRepo):
         return {"depth": depth} if depth else {}
 
     @staticmethod
-    def _fetch_github_repo_https(repo_url: str, repo_destination: str, branch: str, depth: int = None):
+    def _fetch_ref(repo_url: str, repo_destination: str, ref: str, depth: int = None, env: dict = None):
+        os.makedirs(repo_destination, exist_ok=True)
+        repo = git.Repo.init(repo_destination)
+        with repo.git.custom_environment(**(env or {})):
+            repo.create_remote("origin", repo_url)
+            repo.git.fetch(*(["--depth", str(depth)] if depth else []), "origin", ref)
+            repo.git.checkout("--detach", "FETCH_HEAD")
+            branch_options = GithubRepo._fetch_branch_options(repo, ref)
+        return repo, branch_options
+
+    @staticmethod
+    def _fetch_github_repo_https(
+        repo_url: str, repo_destination: str, branch: str, depth: int = None, by_ref: bool = False
+    ):
         if os.path.exists(repo_destination) and os.path.isdir(repo_destination):
             shutil.rmtree(repo_destination)
+        if by_ref:
+            return GithubRepo._fetch_ref(repo_url, repo_destination, branch, depth)
         repo = git.Repo.clone_from(
             repo_url, to_path=repo_destination, branch=branch, **GithubRepo._clone_options(depth)
         )
@@ -224,20 +245,32 @@ class GithubRepo(BaseRepo):
 
     @staticmethod
     def _fetch_github_repo_ssh(
-        repo_url: str, repo_destination: str, branch: str, private_key: str, depth: int = None
+        repo_url: str,
+        repo_destination: str,
+        branch: str,
+        private_key: str,
+        depth: int = None,
+        by_ref: bool = False,
     ):
         file_path = GithubRepo._write_private_key(private_key)
         git_env = GithubRepo._private_key_git_ssh_env(file_path)
 
         try:
-            repo = git.Repo.clone_from(
-                url=repo_url,
-                to_path=repo_destination,
-                branch=branch,
-                env=git_env,
-                **GithubRepo._clone_options(depth),
-            )
-            branch_options = GithubRepo._fetch_branch_options(repo, branch)
+            if by_ref:
+                if os.path.exists(repo_destination) and os.path.isdir(repo_destination):
+                    shutil.rmtree(repo_destination)
+                repo, branch_options = GithubRepo._fetch_ref(
+                    repo_url, repo_destination, branch, depth, env=git_env
+                )
+            else:
+                repo = git.Repo.clone_from(
+                    url=repo_url,
+                    to_path=repo_destination,
+                    branch=branch,
+                    env=git_env,
+                    **GithubRepo._clone_options(depth),
+                )
+                branch_options = GithubRepo._fetch_branch_options(repo, branch)
             os.remove(file_path)
         except Exception as e:
             try:
