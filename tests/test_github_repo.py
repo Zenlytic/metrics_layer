@@ -183,3 +183,27 @@ def test_fetch_by_ref_of_an_abbreviated_sha_fails_as_a_missing_ref(origin_url):
     with pytest.raises(GitCommandError) as raised:
         repo.fetch(depth=1, by_ref=True)
     assert "couldn't find remote ref" in str(raised.value).lower()
+
+
+def test_fetch_by_ref_does_not_read_a_ref_that_starts_with_a_dash_as_an_option(origin_url, tmp_path):
+    marker = tmp_path / "ran"
+    repo = GithubRepo(origin_url, f"--upload-pack=touch {marker}; git-upload-pack")
+    with pytest.raises(GitCommandError):
+        repo.fetch(depth=1, by_ref=True)
+    assert not marker.exists()
+
+
+def test_fetch_by_ref_does_not_read_a_ref_with_a_colon_as_a_refspec(origin_url):
+    repo = GithubRepo(origin_url, "main:refs/heads/injected")
+    with pytest.raises(GitCommandError) as raised:
+        repo.fetch(depth=1, by_ref=True)
+    assert "invalid ref name" in str(raised.value).lower()
+    assert not os.path.exists(repo.repo_destination)
+
+
+@pytest.mark.parametrize("ref", ["no-such-branch", "-bad"])
+def test_a_failed_fetch_by_ref_leaves_no_directory_behind(origin_url, ref):
+    repo = GithubRepo(origin_url, ref)
+    with pytest.raises(GitCommandError):
+        repo.fetch(depth=1, by_ref=True)
+    assert not os.path.exists(repo.repo_destination)

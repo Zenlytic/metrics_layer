@@ -220,13 +220,22 @@ class GithubRepo(BaseRepo):
 
     @staticmethod
     def _fetch_ref(repo_url: str, repo_destination: str, ref: str, depth: int = None, env: dict = None):
+        # A colon makes git read the ref as a ``src:dst`` refspec, and no branch, tag or sha has one.
+        if ":" in ref:
+            raise git.GitCommandError(["git", "fetch"], 128, stderr=f"invalid ref name '{ref}'")
         os.makedirs(repo_destination, exist_ok=True)
-        repo = git.Repo.init(repo_destination)
-        with repo.git.custom_environment(**(env or {})):
-            repo.create_remote("origin", repo_url)
-            repo.git.fetch(*(["--depth", str(depth)] if depth else []), "origin", ref)
-            repo.git.checkout("--detach", "FETCH_HEAD")
-            branch_options = GithubRepo._fetch_branch_options(repo, ref)
+        try:
+            repo = git.Repo.init(repo_destination)
+            with repo.git.custom_environment(**(env or {})):
+                repo.create_remote("origin", repo_url)
+                # ``--`` keeps a ref that starts with a dash from being read as an option.
+                repo.git.fetch(*(["--depth", str(depth)] if depth else []), "origin", "--", ref)
+                repo.git.checkout("--detach", "FETCH_HEAD")
+                branch_options = GithubRepo._fetch_branch_options(repo, ref)
+        except Exception:
+            # A failed clone leaves nothing behind, so a failed fetch should not either.
+            shutil.rmtree(repo_destination, ignore_errors=True)
+            raise
         return repo, branch_options
 
     @staticmethod
