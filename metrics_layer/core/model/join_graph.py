@@ -32,7 +32,7 @@ class JoinGraph(SQLReplacement):
             ZenlyticJoinRelationship.one_to_many,
             ZenlyticJoinRelationship.many_to_many,
         ]
-        self._merged_result_graph = None
+        self._merged_result_graphs = {}
         self._graph = None
         self._field_memo = {}
         self._weak_graph_memo = {}
@@ -193,9 +193,10 @@ class JoinGraph(SQLReplacement):
         return graph
 
     def merged_results_graph(self, model):
-        if self._merged_result_graph is None:
-            self._merged_result_graph = self._build_merged_results_graph(model)
-        return self._merged_result_graph
+        # One graph per model: each is built from that model's fields and mappings only
+        if model.name not in self._merged_result_graphs:
+            self._merged_result_graphs[model.name] = self._build_merged_results_graph(model)
+        return self._merged_result_graphs[model.name]
 
     def _build_merged_results_graph(self, model):
         with_dates = [
