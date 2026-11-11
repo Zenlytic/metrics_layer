@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Union
 import sqlglot
 from sqlglot import expressions as exp
 
-from jinja2 import StrictUndefined, Template
+from jinja2 import StrictUndefined, Template, TemplateSyntaxError, UndefinedError
 from liquid import Environment as LiquidEnvironment
 from liquid.undefined import StrictUndefined as LiquidStrictUndefined
 
@@ -321,10 +321,16 @@ class View(MetricsLayerBase, SQLReplacement):
         try:
             template = Template(sql, undefined=StrictUndefined)
             return template.render(**replaceable_attributes)
-        except Exception:
+        except (TemplateSyntaxError, UndefinedError):
+            # Syntax Jinja does not know (Looker's `contains` or `| sql_quote`) or a Looker-style name
+            # (`_user_attributes`): try Looker-style liquid below. Strict undefined keeps missing
+            # attributes failing closed there too.
             pass
+        except Exception:
+            # Any other Jinja error (e.g. a TypeError at render time) must not reach liquid, which
+            # could quietly pick a different branch. Return the original SQL
+            return sql
 
-        # Jinja failed (e.g. Looker's `contains` or `| sql_quote`), so try Looker-style liquid
         try:
             liquid_attributes = dict(replaceable_attributes)
             if "user_attributes" in liquid_attributes:

@@ -147,6 +147,7 @@ def test_missing_attribute_returns_raw_template():
 
 @pytest.mark.query
 def test_looker_parameter_template_returns_raw():
+    # Validation still flags these fields as Looker parameters: see tests/test_cli.py::test_cli_looker_parameter
     template = "{% if time_._parameter_value == 'seconds' %}\n ${TABLE}.time_second{% endif %}"
     assert _render(template, {"gsam": "x"}) == template
 
@@ -162,6 +163,21 @@ def test_template_valid_in_both_engines_uses_jinja_result():
 def test_plain_sql_with_trailing_newline_is_unchanged():
     sql = "SELECT * FROM analytics.orders\n"
     assert _render(sql, {"gsam": "x"}) == sql
+
+
+@pytest.mark.query
+def test_jinja_runtime_type_error_returns_raw_not_liquid_branch():
+    template = "{% if user_attributes['g'] > 3 %}a{% else %}b{% endif %}"
+    assert _render(template, {"g": None}) == template
+    assert _render(template, {"g": 5}) == "a"
+
+
+@pytest.mark.query
+def test_looker_style_name_in_valid_jinja_reaches_liquid():
+    template = "{% if _user_attributes['gsam'] == '8USA' %}a{% else %}b{% endif %}"
+    assert _render(template, {"gsam": "8USA"}) == "a"
+    assert _render(template, {"gsam": "2CAN"}) == "b"
+    assert _render(template, {}) == template
 
 
 @pytest.mark.query
@@ -213,6 +229,41 @@ def test_looker_template_in_field_sql_and_filter_value(connection):
             field.view,
             sql_replacement_func=field.sql_replacement_func,
         )
-        assert "'a'" in sql
+        assert "'b'" not in sql
+        assert "{%" not in sql
+        assert sql == "case when ${country}='a' then ${rain} end"
+    finally:
+        connection.project.set_user({})
+
+
+@pytest.mark.query
+def test_query_attributes_alias_in_field_path(connection):
+    field = connection.project.get_field("country_detail.rainfall_at_date")
+    template = "{% if _query_attributes['dimension_group'] == 'date' %}a{% else %}b{% endif %}"
+    assert field.sql_replacement_func(template) == "a"
+
+
+@pytest.mark.query
+def test_derived_table_trailing_newline_hash_inputs(connection, monkeypatch):
+    view = connection.project.get_view("country_detail")
+    connection.project.set_user({"g": "x"})
+    try:
+        # No template: untouched, trailing newline kept (sql_hash unchanged)
+        monkeypatch.setitem(view._definition["derived_table"], "sql", "SELECT 1\n")
+        assert view.derived_table_sql == "SELECT 1\n"
+        # Jinja block template: rendered by Jinja, which drops one trailing newline
+        monkeypatch.setitem(
+            view._definition["derived_table"],
+            "sql",
+            "SELECT {% if user_attributes['g'] == 'x' %}a{% endif %}\n",
+        )
+        assert view.derived_table_sql == "SELECT a"
+        # Looker Liquid block template: rendered by Liquid, which keeps the trailing newline
+        monkeypatch.setitem(
+            view._definition["derived_table"],
+            "sql",
+            "SELECT {% if _user_attributes['g'] contains 'x' %}a{% endif %}\n",
+        )
+        assert view.derived_table_sql == "SELECT a\n"
     finally:
         connection.project.set_user({})
