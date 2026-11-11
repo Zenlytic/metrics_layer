@@ -34,7 +34,7 @@ PyYAML = "^6.0"
 sqlglot = {version = "^27.2.0", extras = ["rs"]}
 
 [tool.poetry.dev-dependencies]
-pytest = "^6.2.5"
+pytest = "^8.4.2"
 black = "^24.3.0"
 flake8 = "^3.9.2"
 pre-commit = "^2.15.0"
