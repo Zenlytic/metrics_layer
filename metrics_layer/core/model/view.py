@@ -6,6 +6,8 @@ import sqlglot
 from sqlglot import expressions as exp
 
 from jinja2 import StrictUndefined, Template
+from liquid import Environment as LiquidEnvironment
+from liquid.undefined import StrictUndefined as LiquidStrictUndefined
 
 from metrics_layer.core.exceptions import (
     AccessDeniedOrDoesNotExistException,
@@ -22,6 +24,16 @@ from .set import Set
 if TYPE_CHECKING:
     from metrics_layer.core.model.model import Model
     from metrics_layer.core.model.project import Project
+
+
+def _liquid_sql_quote(value) -> str:
+    # Looker's sql_quote filter: wrap in single quotes and double any embedded single quote
+    return "'" + str(value).replace("'", "''") + "'"
+
+
+# Built once. Strict undefined means a missing attribute raises instead of rendering the else branch
+_LIQUID_ENVIRONMENT = LiquidEnvironment(undefined=LiquidStrictUndefined)
+_LIQUID_ENVIRONMENT.add_filter("sql_quote", _liquid_sql_quote)
 
 
 class View(MetricsLayerBase, SQLReplacement):
@@ -302,15 +314,26 @@ class View(MetricsLayerBase, SQLReplacement):
 
     @staticmethod
     def jinja_replacements(sql: str, replaceable_attributes: dict) -> str:
-        # Replace jinja with the replaceable attrs here
-        if not sql or "{{" not in str(sql):
+        # Replace jinja (or, as a fallback, Looker-style liquid) with the replaceable attrs here
+        if not sql or ("{{" not in str(sql) and "{%" not in str(sql)):
             return sql
 
         try:
             template = Template(sql, undefined=StrictUndefined)
             return template.render(**replaceable_attributes)
         except Exception:
-            # If jinja templating fails, return the original SQL
+            pass
+
+        # Jinja failed (e.g. Looker's `contains` or `| sql_quote`), so try Looker-style liquid
+        try:
+            liquid_attributes = dict(replaceable_attributes)
+            if "user_attributes" in liquid_attributes:
+                liquid_attributes["_user_attributes"] = liquid_attributes["user_attributes"]
+            if "query_attributes" in liquid_attributes:
+                liquid_attributes["_query_attributes"] = liquid_attributes["query_attributes"]
+            return _LIQUID_ENVIRONMENT.from_string(str(sql)).render(**liquid_attributes)
+        except Exception:
+            # If templating fails, return the original SQL
             return sql
 
     def get_identifier(self, identifier_name: str):
