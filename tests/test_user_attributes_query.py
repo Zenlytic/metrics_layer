@@ -96,3 +96,123 @@ def test_query_query_attribute_dimension_group(connection):
     )
     connection.project.set_user({})
     assert query == correct
+
+
+JINJA_BLOCK = "{% if 'USA' in user_attributes['gsam'] %}a{% else %}b{% endif %}"
+LOOKER_BLOCK = "{% if _user_attributes['gsam'] contains '8USA' %}a{% else %}b{% endif %}"
+
+
+def _render(sql, attributes):
+    from metrics_layer.core.model.view import View
+
+    return View.jinja_replacements(sql, {"user_attributes": attributes})
+
+
+@pytest.mark.query
+def test_jinja_expression_renders_unchanged():
+    assert _render("{{ user_attributes['region'] }}.analytics", {"region": "east"}) == "east.analytics"
+    assert _render("{{ user_attributes['region'] }}", {}) == "{{ user_attributes['region'] }}"
+
+
+@pytest.mark.query
+def test_jinja_block_only_template_renders():
+    assert "{{" not in JINJA_BLOCK
+    assert _render(JINJA_BLOCK, {"gsam": "8USA,2CAN"}) == "a"
+    assert _render(JINJA_BLOCK, {"gsam": "2CAN"}) == "b"
+
+
+@pytest.mark.query
+def test_looker_liquid_block_template_renders():
+    assert _render(LOOKER_BLOCK, {"gsam": "8USA,2CAN"}) == "a"
+    assert _render(LOOKER_BLOCK, {"gsam": "2CAN"}) == "b"
+
+
+@pytest.mark.query
+def test_looker_liquid_sql_quote_filter():
+    template = "{{ _user_attributes['region'] | sql_quote }}"
+    assert _render(template, {"region": "east"}) == "'east'"
+    assert _render(template, {"region": "o'neil"}) == "'o''neil'"
+
+
+@pytest.mark.query
+def test_missing_attribute_returns_raw_template():
+    # Fail closed: the raw template is returned, never the else branch
+    assert _render(JINJA_BLOCK, {}) == JINJA_BLOCK
+    assert _render(LOOKER_BLOCK, {}) == LOOKER_BLOCK
+    truthy = "{% if _user_attributes['missing'] %}a{% else %}b{% endif %}"
+    assert _render(truthy, {"gsam": "x"}) == truthy
+    contains = "{% if _user_attributes['missing'] contains 'x' %}a{% else %}b{% endif %}"
+    assert _render(contains, {"gsam": "x"}) == contains
+
+
+@pytest.mark.query
+def test_looker_parameter_template_returns_raw():
+    template = "{% if time_._parameter_value == 'seconds' %}\n ${TABLE}.time_second{% endif %}"
+    assert _render(template, {"gsam": "x"}) == template
+
+
+@pytest.mark.query
+def test_template_valid_in_both_engines_uses_jinja_result():
+    # Valid Jinja and Liquid: Jinja runs first and renders it
+    template = "{% if 'USA' in user_attributes['gsam'] %}{{ user_attributes['gsam'] }}{% endif %}"
+    assert _render(template, {"gsam": "8USA"}) == "8USA"
+
+
+@pytest.mark.query
+def test_plain_sql_with_trailing_newline_is_unchanged():
+    sql = "SELECT * FROM analytics.orders\n"
+    assert _render(sql, {"gsam": "x"}) == sql
+
+
+@pytest.mark.query
+def test_looker_template_in_view_sql_table_name(connection, monkeypatch):
+    view = connection.project.get_view("other_db_traffic")
+    monkeypatch.setitem(
+        view._definition,
+        "sql_table_name",
+        "{% if _user_attributes['gsam'] contains '8USA' %}prd.tbl{% else %}prd.tbl_nogsam_v{% endif %}",
+    )
+    connection.project.set_user({"gsam": "8USA"})
+    try:
+        assert view.sql_table_name == "prd.tbl"
+        connection.project.set_user({"gsam": "other"})
+        assert view.sql_table_name == "prd.tbl_nogsam_v"
+    finally:
+        connection.project.set_user({})
+
+
+@pytest.mark.query
+def test_looker_template_in_view_derived_table(connection, monkeypatch):
+    view = connection.project.get_view("country_detail")
+    template = "SELECT * FROM {% if _user_attributes['gsam'] contains '8USA' %}a{% else %}b{% endif %}"
+    monkeypatch.setitem(view._definition["derived_table"], "sql", template)
+    connection.project.set_user({"gsam": "8USA"})
+    try:
+        assert view.derived_table_sql == "SELECT * FROM a"
+        connection.project.set_user({"gsam": "other"})
+        assert view.derived_table_sql == "SELECT * FROM b"
+    finally:
+        connection.project.set_user({})
+
+
+@pytest.mark.query
+def test_looker_template_in_field_sql_and_filter_value(connection):
+    from metrics_layer.core.model.filter import Filter
+
+    field = connection.project.get_field("order_lines.product_name")
+    connection.project.set_user({"gsam": "8USA"})
+    try:
+        assert field.sql_replacement_func(LOOKER_BLOCK) == "a"
+        value = field.sql_replacement_func(
+            "{% if _user_attributes['gsam'] contains '8USA' %}Italy{% else %}France{% endif %}"
+        )
+        assert value == "Italy"
+        sql = Filter.translate_looker_filters_to_sql(
+            "${rain}",
+            [{"field": "country", "value": LOOKER_BLOCK}],
+            field.view,
+            sql_replacement_func=field.sql_replacement_func,
+        )
+        assert "'a'" in sql
+    finally:
+        connection.project.set_user({})
